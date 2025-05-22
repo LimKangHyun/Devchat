@@ -11,7 +11,6 @@ const MessageInput = ({
   setLanguage,
   sendMessage,
   handleUnifiedSend,
-  imageFile,
   setImageFile,
   imagePreviewUrl,
   setImagePreviewUrl,
@@ -49,24 +48,14 @@ const MessageInput = ({
     
     return (
         <>
-          <div style={{
-              marginBottom: '12px',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <div style={{
-                display: 'flex',
-                backgroundColor: '#f1f5f9',
-                borderRadius: '6px',
-                padding: '2px',
-                marginRight: '12px'
-              }}>
+          <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center'}}>
+              <div style={{ display: 'flex', backgroundColor: '#f1f5f9', borderRadius: '6px', padding: '2px', marginRight: '12px' }}>
                 <span
                   onClick={() => {
                     const nextMode = inputMode === 'IMAGE' ? 'TEXT' : 'IMAGE';
                     setInputMode(nextMode);
 
-                    // 모드가 IMAGE로 바뀌었으면 파일 선택창 자동 오픈
+                    // 모드가 IMAGE로 바뀌면 파일 선택창 자동 오픈
                     if (nextMode === 'IMAGE' && fileInputRef.current) {
                       fileInputRef.current.click();
                     }
@@ -195,7 +184,7 @@ const MessageInput = ({
                   <textarea
                     disabled={inputMode === 'IMAGE'}
                     value={content}
-                    onChange={handleInputChange}
+                    onChange={(e) => setContent(e.target.value)}
                     onCompositionStart={() => (isComposingRef.current = true)}
                     onCompositionEnd={() => (isComposingRef.current = false)}
                     onKeyDown={(e) => {
@@ -233,9 +222,7 @@ const MessageInput = ({
 
                         // 파일 URL 생성
                         const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setImagePreviewUrl(reader.result);
-                        };
+                        reader.onloadend = () => setImagePreviewUrl(reader.result);
                         reader.readAsDataURL(file);
                       }
                     }}
@@ -243,12 +230,8 @@ const MessageInput = ({
                   />
 
                   <button
-                    // onClick={() => sendMessage()}
                     onClick={handleUnifiedSend}
-                    style={{
-                      ...buttonStyle,
-                      height: '80px'
-                    }}
+                    style={{ ...buttonStyle, height: '80px' }}
                   >
                     전송
                   </button>

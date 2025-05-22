@@ -9,6 +9,7 @@ import Header from '../components/header';
 import SearchSidebar from '../components/SearchSideBar';
 import { FaCopy, FaTrashAlt } from 'react-icons/fa';
 import axiosInstance from '../components/api/axiosInstance';
+import MessageInput from '../components/chatroom/MessageInput';
 
 const ChatRoom = () => {
 
@@ -210,14 +211,14 @@ const ChatRoom = () => {
     );
   };
 
-  const handleInputChange = (e) => {
-    const val = e.target.value;
-    setContent(val);
-    if (val.startsWith("```")) {
-      setInputMode("CODE");
-      setContent('');
-    }
-  };
+  // const handleInputChange = (e) => {
+  //   const val = e.target.value;
+  //   setContent(val);
+  //   if (val.startsWith("```")) {
+  //     setInputMode("CODE");
+  //     setContent('');
+  //   }
+  // };
 
   const stompClientRef = useRef(null);
   const subscriptionRef = useRef(null);
@@ -495,73 +496,44 @@ const ChatRoom = () => {
     }
   };
 
-  // 시간을 HH:MM 형식으로 변환하는 함수 (수정됨)
-  const formatTime = (dateString) => {
-    try {
-      const date = new Date(dateString);
-
-      // 유효한 날짜인지 확인
-      if (isNaN(date.getTime()) || date.getFullYear() === 1970) {
-        return new Date().toLocaleTimeString('ko-KR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true  // 오전/오후 표시 활성화
-        });
-      }
-
-      return date.toLocaleTimeString('ko-KR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true  // 오전/오후 표시 활성화
-      });
-    } catch (error) {
-      console.error('시간 형식 변환 오류:', error);
-      return new Date().toLocaleTimeString('ko-KR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true  // 오전/오후 표시 활성화
-      });
-    }
-  };
-
   const [imageFile, setImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
 
   // 전송 버튼 클릭 시 호출되는 공통 핸들러 함수 (이미지 업로드 고려)
-const handleUnifiedSend = async () => {
-  if (inputMode === 'IMAGE') {
-    if (!imageFile) {
-      alert("이미지를 선택하세요.");
-      return;
+  const handleUnifiedSend = async () => {
+    if (inputMode === 'IMAGE') {
+      if (!imageFile) {
+        alert("이미지를 선택하세요.");
+        return;
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+
+        const response = await axiosInstance.post('/send-image', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+
+        const imageId = response.data;
+        sendMessage({
+          type: 'IMAGE',
+          content: '',
+          imageFileId: imageId
+        });
+
+        setImageFile(null);
+        setImagePreviewUrl(null);
+      } catch (err) {
+        console.error("이미지 전송 실패: ", err);
+      }
+    } else {
+      sendMessage();
     }
-
-    try {
-      const formData = new FormData();
-      formData.append('image', imageFile);
-
-      const response = await axiosInstance.post('/send-image', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      const imageId = response.data;
-      sendMessage({
-        type: 'IMAGE',
-        content: '',
-        imageFileId: imageId
-      });
-
-      setImageFile(null);
-      setImagePreviewUrl(null);
-    } catch (err) {
-      console.error("이미지 전송 실패: ", err);
-    }
-  } else {
-    sendMessage();
-  }
-};
+  };
 
   // 버튼 스타일 공통화
   const buttonStyle = {
@@ -1138,212 +1110,19 @@ const handleUnifiedSend = async () => {
             display: 'flex',
             flexDirection: 'column'
           }}>
-            <div style={{
-              marginBottom: '12px',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <div style={{
-                display: 'flex',
-                backgroundColor: '#f1f5f9',
-                borderRadius: '6px',
-                padding: '2px',
-                marginRight: '12px'
-              }}>
-                <span
-                  onClick={() => {
-                    const nextMode = inputMode === 'IMAGE' ? 'TEXT' : 'IMAGE';
-                    setInputMode(nextMode);
-
-                    // 모드가 IMAGE로 바뀌었으면 파일 선택창 자동 오픈
-                    if (nextMode === 'IMAGE' && fileInputRef.current) {
-                      fileInputRef.current.click();
-                    }
-                  }}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: '500',
-                    fontSize: '13px',
-                    backgroundColor: inputMode === 'IMAGE' ? '#ffffff' : 'transparent',
-                    color: inputMode === 'IMAGE' ? '#4a6cf7' : '#64748b',
-                    boxShadow: inputMode === 'IMAGE' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  사진
-                </span>
-                <span
-                  onClick={() => {
-                    const nextMode = inputMode === 'CODE' ? 'TEXT' : 'CODE';
-                    setInputMode(nextMode);
-                  }}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: '500',
-                    fontSize: '13px',
-                    backgroundColor: inputMode === 'CODE' ? '#ffffff' : 'transparent',
-                    color: inputMode === 'CODE' ? '#4a6cf7' : '#64748b',
-                    boxShadow: inputMode === 'CODE' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  코드
-                </span>
-              </div>
-
-              {/* 언어 선택 옵션을 코드 버튼 바로 옆으로 이동 */}
-              {inputMode === 'CODE' && (
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    backgroundColor: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '4px',
-                    padding: '6px 10px',
-                    fontSize: '13px',
-                    color: '#475569',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="javascript">JavaScript</option>
-                  <option value="java">Java</option>
-                  <option value="python">Python</option>
-                  <option value="html">HTML</option>
-                  <option value="css">CSS</option>
-                </select>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-
-                {/* 썸네일 미리보기 이미지 */}
-                {inputMode === 'IMAGE' && imagePreviewUrl && (
-                  <div style={{
-                    position: 'relative',
-                    marginBottom: '10px',
-                    padding: '8px',
-                    backgroundColor: '#f8fafc',
-                    border: '2px solid #e2e8f0',
-                    borderRadius: '8px',
-                    maxWidth: '10%',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-                    display: 'inline-block'
-                  }}>
-                    <img
-                      src={imagePreviewUrl}
-                      alt="미리보기"
-                      style={{
-                        maxWidth: '100%',
-                        objectFit: 'contain',
-                        borderRadius: '6px',
-                        display: 'block'
-                      }}
-                    />
-
-                    <button
-                      onClick={() => {
-                        setImageFile(null);
-                        setImagePreviewUrl(null);
-                        setInputMode('TEXT');
-
-                        if (fileInputRef.current) {
-                          fileInputRef.current.value = null;
-                        }
-                      }}
-                      title="삭제"
-                      style={{
-                        position: 'absolute',
-                        top: '2px',
-                        right: '2px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '50%',
-                        width: '28px',
-                        height: '28px',
-                        color: '#e53e3e',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
-                      }}
-                    >
-                      <FaTrashAlt color="#e53e3e" size={16} />
-                    </button>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
-                  <textarea
-                    disabled={inputMode === 'IMAGE'}
-                    value={content}
-                    onChange={handleInputChange}
-                    onCompositionStart={() => (isComposingRef.current = true)}
-                    onCompositionEnd={() => (isComposingRef.current = false)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current) {
-                        e.preventDefault();
-                        sendMessage(e.target.value);
-                      }
-                    }}
-                    placeholder={inputMode === 'CODE' ? '코드를 입력하세요.' : inputMode === 'IMAGE' ? '이미지를 업로드 해주세요.' : '메시지를 입력하세요.'}
-                    style={{
-                      flex: 1,
-                      height: '80px',
-                      resize: 'none',
-                      padding: '12px 16px',
-                      fontSize: '14px',
-                      backgroundColor: inputMode === 'IMAGE' ? '#f1f5f9' : inputMode === 'CODE' ? '#f8fafc' : 'white',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      lineHeight: '1.5',
-                      color: '#4a5568',
-                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
-                      transition: 'border-color 0.2s',
-                      cursor: inputMode === 'IMAGE' ? 'not-allowed' : 'text'
-                    }}
-                  />
-
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    // accept="image/*"
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) {
-                        const file = e.target.files[0];
-                        setImageFile(file);
-
-                        // 파일 URL 생성
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setImagePreviewUrl(reader.result);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    style={{ display: 'none' }} // 숨김
-                  />
-
-                  <button
-                    // onClick={() => sendMessage()}
-                    onClick={handleUnifiedSend}
-                    style={{
-                      ...buttonStyle,
-                      height: '80px'
-                    }}
-                  >
-                    전송
-                  </button>
-                </div>
-              </div>
-            </div>
+            <MessageInput
+              inputMode={inputMode}
+              setInputMode={setInputMode}
+              content={content}
+              setContent={setContent}
+              language={language}
+              setLanguage={setLanguage}
+              sendMessage={sendMessage}
+              handleUnifiedSend={handleUnifiedSend}
+              setImageFile={setImageFile}
+              imagePreviewUrl={imagePreviewUrl}
+              setImagePreviewUrl={setImagePreviewUrl}
+            />
           </div>
 
           {/* 우클릭 컨텍스트 메뉴 */}
