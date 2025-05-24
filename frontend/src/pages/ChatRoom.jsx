@@ -1,16 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
-import { useParams, useNavigate, useLocation } from 'react-router-dom'; //
-import Highlight from 'react-highlight';
-import 'highlight.js/styles/github.css';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../components/SideBar';
 import Header from '../components/header';
 import SearchSidebar from '../components/SearchSideBar';
 import { FaCopy, FaTrashAlt } from 'react-icons/fa';
 import axiosInstance from '../components/api/axiosInstance';
 import MessageInput from '../components/chatroom/MessageInput';
-
+import MessageList from '../components/chatroom/MessageList';
 const ChatRoom = () => {
 
   const { roomId, inviteCode } = useParams();
@@ -185,31 +183,6 @@ const ChatRoom = () => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   };
-
-  const HighlightedCode = ({ content, language }) => {
-    return (
-      <Highlight className={language}>{content}</Highlight>
-    );
-  };
-
-  // const renderWithLink = (text) => {
-  //   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  //   return text.split(urlRegex).map((part, i) =>
-  //     urlRegex.test(part) ? (
-  //       <a
-  //         key={i}
-  //         href={part}
-  //         target="_blank"
-  //         rel="noopener noreferrer"
-  //         style={{ color: '#0366d6', textDecoration: 'underline' }}
-  //       >
-  //         {part}
-  //       </a>
-  //     ) : (
-  //       part
-  //     )
-  //   );
-  // };
 
   const stompClientRef = useRef(null);
   const subscriptionRef = useRef(null);
@@ -574,61 +547,6 @@ const ChatRoom = () => {
     setContextMenuId(null); // 메뉴 닫기
   };
 
-  // 메시지 데이터 처리 및 날짜 구분선 추가
-  const renderMessagesWithDateSeparators = () => {
-    if (!messages.length) return null;
-
-    const result = [];
-    let currentDate = null;
-
-    // 메시지를 순회하며 날짜별로 구분
-    messages.forEach((msg, index) => {
-      const messageDate = formatDate(msg.sendAt);
-
-      // 날짜가 바뀌었다면 구분선 추가
-      if (messageDate !== currentDate) {
-        currentDate = messageDate;
-        result.push(
-          <div key={`date-${index}`} style={{
-            display: 'flex',
-            alignItems: 'center',
-            margin: '24px 0',
-            color: '#64748b',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}>
-            <div style={{
-              flex: '1',
-              height: '1px',
-              backgroundColor: '#e2e8f0'
-            }}></div>
-            <div style={{
-              margin: '0 16px',
-              padding: '4px 12px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '12px',
-              border: '1px solid #e2e8f0'
-            }}>
-              {messageDate}
-            </div>
-            <div style={{
-              flex: '1',
-              height: '1px',
-              backgroundColor: '#e2e8f0'
-            }}></div>
-          </div>
-        );
-      }
-
-      // 메시지 추가
-      result.push(
-     
-      );
-    });
-
-    return result;
-  };
-
   return (
     <div
       onContextMenu={handleContextMenu}
@@ -778,8 +696,18 @@ const ChatRoom = () => {
             minHeight: 0
           }}>
 
-            {renderMessagesWithDateSeparators()}
-
+          <MessageList
+            messages={messages}
+            currentUser={currentUser}
+            contextMenuId={contextMenuId}
+            setContextMenuId={setContextMenuId}
+            setEditMessageId={setEditMessageId}
+            setEditContent={setEditContent}
+            handleDeleteMessage={handleDeleteMessage}
+            editMessageId={editMessageId}
+            editContent={editContent}
+            handleEditMessage={handleEditMessage}
+          />
             <div ref={messagesEndRef} />
           </div>
 
