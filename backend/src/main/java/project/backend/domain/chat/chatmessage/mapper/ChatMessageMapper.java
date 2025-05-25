@@ -113,6 +113,10 @@ public class ChatMessageMapper {
 			.messageId(message.getId())
 			.content(message.getContent())
 			.senderName(message.getSender().getParticipant().getNickname())
+			.profileImageUrl(
+				Optional.ofNullable(message.getSender().getParticipant().getProfileImage())
+					.map(ImageFile::getStoreFileName)
+					.orElse("default_image.jpg"))
 			.sendAt(message.getSendAt())
 			.type(message.getType())
 			.build();

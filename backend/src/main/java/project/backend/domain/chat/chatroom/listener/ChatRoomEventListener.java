@@ -6,6 +6,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
@@ -31,8 +33,7 @@ public class ChatRoomEventListener {
 	private final ChatMessageMapper chatMessageMapper;
 
 	@Async
-	@Transactional
-	@EventListener
+	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void handleMemberJoin(JoinChatRoomEvent joinEvent) {
 		ChatRoom chatRoom = chatRoomService.getRoomById(joinEvent.roomId());
 		ChatParticipant participant = getParticipantByRoomAndMember(joinEvent.roomId(),

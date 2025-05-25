@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../components/SideBar';
 import Header from '../components/header';
 import SearchSidebar from '../components/SearchSideBar';
-import { FaCopy, FaTrashAlt } from 'react-icons/fa';
+import { FaCopy, FaTrashAlt, FaUserPlus, FaClock } from 'react-icons/fa';
 import axiosInstance from '../components/api/axiosInstance';
 import MessageInput from '../components/chatroom/MessageInput';
 import MessageList from '../components/chatroom/MessageList';
@@ -297,6 +297,28 @@ const ChatRoom = () => {
 
     setContent('');
     setInputMode('TEXT');
+  };
+
+  // 검색 결과 이동
+  const scrollToMessage = (messageId) => {
+    const messageElement = document.getElementById(`message-${messageId}`);
+    if (messageElement) {
+      messageElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+      
+      // 깔끔한 하이라이트
+      messageElement.style.backgroundColor = '#e8f4fd';
+      messageElement.style.borderRadius = '6px';
+      messageElement.style.transition = 'all 0.3s ease';
+      
+      // 2초 후 제거
+      setTimeout(() => {
+        messageElement.style.backgroundColor = '';
+        messageElement.style.borderRadius = '';
+      }, 2000);
+    }
   };
 
   const handleSearch = async (keyword, page = 0) => {
@@ -729,6 +751,7 @@ const ChatRoom = () => {
             totalElements={totalElements}
             onClose={() => setShowSearchSidebar(false)}
             onPageChange={(page) => handleSearch(searchKeyword, page)}
+            onMessageClick={scrollToMessage}
           />
         )}
       </div>

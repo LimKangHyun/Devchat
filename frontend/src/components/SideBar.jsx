@@ -8,6 +8,8 @@ import {
   FaComments,
   FaPlus
 } from 'react-icons/fa';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
 import CreateRoomModal from './modals/CreateRoomModal';
 import JoinRoomModal from './modals/JoinRoomModal';
@@ -19,6 +21,7 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const { roomId } = useParams();
   const sidebarRef = useRef(null);
+  const stompClientRef = useRef(null);
   
   const [chatRooms, setChatRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,10 +44,75 @@ const Sidebar = () => {
   // 현재 사용자 정보 
   const [currentUser, setCurrentUser] = useState(null);
 
+  // 읽지 않은 메시지 상태 (roomId: boolean)
+  const [unreadMessages, setUnreadMessages] = useState({});
 
   useEffect(() => {
     fetchChatRooms(currentPage);
+    fetchCurrentUser();
   }, [currentPage]);
+
+  // WebSocket 연결 설정
+  useEffect(() => {
+    if (chatRooms.length === 0) return;
+
+    const client = new Client({
+      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      reconnectDelay: 1000,
+      heartbeatIncoming: 15000,
+      heartbeatOutgoing: 10000,
+      debug: (str) => console.log(`[SIDEBAR STOMP] ${str}`),
+      onConnect: () => {
+        console.log('✅ Sidebar connected to WebSocket');
+        
+        // 모든 채팅방에 대해 구독
+        chatRooms.forEach(room => {
+          const subscription = client.subscribe(`/topic/chat/${room.uniqueId}`, (message) => {
+            try {
+              const received = JSON.parse(message.body);
+              
+              // 현재 있는 채팅방이 아닌 경우에만 알림 표시
+              if (Number(roomId) !== Number(room.uniqueId)) {
+                setUnreadMessages(prev => ({
+                  ...prev,
+                  [room.uniqueId]: true
+                }));
+                console.log(`📨 New message in room ${room.uniqueId}`);
+              }
+            } catch (e) {
+              console.error("📛 Failed to parse sidebar message", e);
+            }
+          });
+        });
+      },
+      onWebSocketClose: () => {
+        console.log('❌ Sidebar WebSocket disconnected');
+      },
+      onStompError: (frame) => {
+        console.error("💥 Sidebar STOMP error:", frame.headers['message']);
+      }
+    });
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate();
+      }
+    };
+  }, [chatRooms, roomId]);
+
+  // 현재 채팅방이 변경될 때 해당 방의 읽지 않은 메시지 상태 제거
+  useEffect(() => {
+    if (roomId) {
+      setUnreadMessages(prev => {
+        const updated = { ...prev };
+        delete updated[roomId];
+        return updated;
+      });
+    }
+  }, [roomId]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -76,8 +144,14 @@ const Sidebar = () => {
     }
   };
 
-  const navigateToRoom = (id,inviteCode) => {
+  const navigateToRoom = (id, inviteCode) => {
     if (id) {
+      // 해당 방의 읽지 않은 메시지 상태 제거
+      setUnreadMessages(prev => {
+        const updated = { ...prev };
+        delete updated[id];
+        return updated;
+      });
       navigate(`/chat/${id}/${inviteCode}`);
     }
   };
@@ -336,6 +410,8 @@ const Sidebar = () => {
               const isCurrentRoom = roomId && Number(roomId) === Number(roomUniqueId);
               const isSelectedForModal = selectedRoom && Number(selectedRoom.uniqueId) === Number(roomUniqueId) && showMembersModal;
               const roomInviteCode = room.inviteCode;
+              const hasUnreadMessage = unreadMessages[roomUniqueId] && !isCurrentRoom;
+              
               return (
                 <div key={`room-${roomUniqueId}`} style={{ padding: '5px 10px' }}>
                   <div
@@ -348,7 +424,8 @@ const Sidebar = () => {
                       borderRadius: '8px',
                       cursor: 'pointer',
                       transition: 'background 0.2s ease',
-                      border: isCurrentRoom ? '1px solid rgba(255,255,255,0.3)' : '1px solid transparent'
+                      border: isCurrentRoom ? '1px solid rgba(255,255,255,0.3)' : '1px solid transparent',
+                      position: 'relative'
                     }}
                     onMouseEnter={(e) => {
                       if (!isCurrentRoom) {
@@ -380,15 +457,31 @@ const Sidebar = () => {
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginRight: '10px',
-                        flexShrink: 0
+                        flexShrink: 0,
+                        position: 'relative'
                       }}>
                         <FaRegCommentDots size={14} />
+                        {/* 읽지 않은 메시지 알림 점 */}
+                        {hasUnreadMessage && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '-3px',
+                            right: '-3px',
+                            width: '12px',
+                            height: '12px',
+                            backgroundColor: '#ff4757',
+                            borderRadius: '50%',
+                            border: '2px solid #2588F1',
+                            animation: 'pulse 2s infinite'
+                          }} />
+                        )}
                       </div>
                       <span style={{ 
-                        fontWeight: isCurrentRoom ? 'bold' : 'normal',
+                        fontWeight: isCurrentRoom ? 'bold' : (hasUnreadMessage ? '600' : 'normal'),
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
-                        textOverflow: 'ellipsis'
+                        textOverflow: 'ellipsis',
+                        color: hasUnreadMessage ? '#fff' : 'inherit'
                       }}>
                         {room.name || room.roomName || `Room ${roomUniqueId}`}
                       </span>
@@ -568,6 +661,21 @@ const Sidebar = () => {
       {showToast && (
         <Toast message={toastMessage} />
       )}
+
+      {/* CSS 애니메이션 추가 */}
+      <style jsx>{`
+        @keyframes pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7);
+          }
+          70% {
+            box-shadow: 0 0 0 8px rgba(255, 71, 87, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(255, 71, 87, 0);
+          }
+        }
+      `}</style>
     </>
   );
 };

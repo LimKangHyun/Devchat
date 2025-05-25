@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import 'highlight.js/styles/github.css';
 
 const SearchSidebar = ({ 
@@ -10,8 +10,11 @@ const SearchSidebar = ({
   totalPages,
   totalElements,
   onClose,
-  onPageChange
+  onPageChange,
+  onMessageClick
 }) => {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+  
   // 페이지당 10개씩 표시
   const itemsPerPage = 10;
   
@@ -20,14 +23,15 @@ const SearchSidebar = ({
   
   return (
     <div className="search-sidebar" style={{ 
-      width: '350px', // 더 넓게 수정
+      width: '350px',
       marginLeft: '20px',
       backgroundColor: '#fff',
       borderRadius: '8px',
       boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)',
       display: 'flex',
       flexDirection: 'column',
-      height: '100%' // 전체 높이 사용
+      height: '100%',
+      position: 'relative'
     }}>
       <div style={{ 
         display: 'flex', 
@@ -85,22 +89,55 @@ const SearchSidebar = ({
       ) : (
         <>
           {searchResults.map((msg, index) => (
-            <div key={index} style={{ 
-              marginBottom: '15px', 
-              padding: '15px', // 패딩 증가
-              backgroundColor: '#f8f8f8', 
-              borderRadius: '5px',
-              border: '1px solid #eee'
-            }}>
-              <div style={{ display: 'flex' }}>
+            <div 
+              key={index} 
+              onClick={() => onMessageClick && onMessageClick(msg.messageId)}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              style={{ 
+                marginBottom: '15px', 
+                padding: '15px',
+                backgroundColor: hoveredIndex === index ? '#e8f4fd' : '#f8f8f8', 
+                borderRadius: '5px',
+                border: hoveredIndex === index ? '1px solid #1976d2' : '1px solid #eee',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                transform: hoveredIndex === index ? 'translateX(2px)' : 'translateX(0)',
+                position: 'relative'
+              }}
+            >
+              {/* 호버 시 나타나는 툴팁 */}
+              {hoveredIndex === index && (
                 <div style={{
-                  width: '40px', // 크기 증가
-                  height: '40px', // 크기 증가
-                  borderRadius: '50%',
-                  backgroundColor: '#7ec8e3',
-                  marginRight: '12px',
-                  flexShrink: 0
-                }} />
+                  position: 'absolute',
+                  top: '50px',
+                  right: '8px',
+                  backgroundColor: '#1976d2',
+                  color: 'white',
+                  padding: '4px 8px',
+                  borderRadius: '12px',
+                  fontSize: '11px',
+                  fontWeight: '500',
+                  zIndex: 10,
+                  animation: 'fadeIn 0.2s ease'
+                }}>
+                  이동하기 ➜
+                </div>
+              )}
+              
+              <div style={{ display: 'flex' }}>
+                <img
+                  src={`http://localhost:8080/images/profile/${msg.profileImageUrl}`}
+                  alt="profile"
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    marginRight: '12px',
+                    flexShrink: 0
+                  }}
+                />
                 <div style={{ width: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                     <strong style={{ fontSize: '16px', color: '#333' }}>{msg.senderName}</strong>
@@ -118,8 +155,8 @@ const SearchSidebar = ({
                     fontSize: '14px', 
                     marginTop: '8px', 
                     color: '#333',
-                    maxHeight: '200px', // 최대 높이 제한
-                    overflowY: 'auto' // 내용이 많으면 스크롤
+                    maxHeight: '200px',
+                    overflowY: 'auto'
                   }}>
                     {msg.type === 'CODE' || (msg.content && msg.content.startsWith('```')) ? (
                       <div style={{ 
@@ -193,6 +230,14 @@ const SearchSidebar = ({
           </button>
         </div>
       )}
+      
+      {/* CSS 애니메이션을 위한 스타일 */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.8); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
     </div>
   );
 };

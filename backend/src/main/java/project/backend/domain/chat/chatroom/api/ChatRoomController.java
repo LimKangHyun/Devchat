@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
+import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomNameResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
@@ -87,7 +88,7 @@ public class ChatRoomController {
 	}
 
 	@GetMapping("/{roomId}/participants")
-	public List<ParticipantResponse> getParticipants(
+	public List<ChatParticipantResponse> getParticipants(
 		@PathVariable Long roomId,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 

@@ -38,7 +38,7 @@ public class ChatRoomMapper {
 			.nickname(p.getParticipant().getNickname())
 			.profileImageUrl(
 				Optional.ofNullable(p.getParticipant().getProfileImage())
-					.map(ImageFile::getUploadFileName)
+					.map(ImageFile::getStoreFileName)
 					.orElse("default_image.jpg"))
 			.isOwner(p.getParticipant().getId().equals(p.getChatRoom().getOwner().getId()))
 			.build();
