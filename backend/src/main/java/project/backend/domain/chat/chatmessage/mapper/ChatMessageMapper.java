@@ -70,7 +70,7 @@ public class ChatMessageMapper {
 			.sender(participant)
 			.content(joinEvent.nickname() + "님이 입장했습니다.")
 			.type(MessageType.EVENT)
-			.sendAt(joinEvent.joinedAt())
+			.sendAt(joinEvent.joinAt())
 			.build();
 	}
 

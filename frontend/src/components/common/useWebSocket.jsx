@@ -35,10 +35,9 @@ const useWebSocket = ({
                 try {
                     const received = JSON.parse(message.body);
                     // received.sendAt ||= new Date().toISOString();
-                    
-                    // isEdited와 isDeleted 속성을 편집 및 삭제 상태로 변환
-                    // if (received.isEdited !== undefined) received.edited = received.isEdited;
-                    // if (received.isDeleted !== undefined) received.deleted = received.isDeleted;
+                    // sendAt → 없으면 joinAt → 없으면 현재 시간
+                    received.sendAt = received.sendAt || received.joinAt || new Date().toISOString();
+
                     onMessageReceived(received)
                 } catch (e) {
                 console.error("📛 Failed to parse incoming message", e);

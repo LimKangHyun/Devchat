@@ -21,7 +21,7 @@ public class EventMessageResponse {
 
 	private String content;
 
-	private LocalDateTime joinedAt;
+	private LocalDateTime sendAt;
 
 }
 

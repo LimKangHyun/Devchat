@@ -96,7 +96,7 @@ public class ChatRoomMapper {
 			.roomId(joinEvent.roomId())
 			.sender(joinEvent.nickname())
 			.content(joinEvent.nickname() + "님이 입장했습니다.")
-			.joinedAt(joinEvent.joinedAt())
+			.sendAt(joinEvent.joinAt())
 			.build();
 	}
 }

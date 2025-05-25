@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { 
-  FaRegCommentDots,
-  FaInfoCircle,
-  FaAngleLeft, 
-  FaAngleRight,
-  FaComments,
-  FaPlus
-} from 'react-icons/fa';
+import { FaRegCommentDots, FaInfoCircle, FaAngleLeft, FaAngleRight, FaComments, FaPlus } from 'react-icons/fa';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 

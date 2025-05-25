@@ -116,7 +116,6 @@ const ChatRoom = () => {
           throw new Error('채팅방 입장 실패');
         }
 
-
         // join 성공 → DB에 참가자 저장됨
         setJoined(true);
       } catch (err) {
@@ -182,11 +181,14 @@ const ChatRoom = () => {
     roomId,
     onMessageReceived: (received)=> {
       //메세지 상태 업데이트
-      setMessages(prev =>
-        prev.some(m => m.messageId === received.messageId)
+      setMessages(prev => {
+        const updated=prev.some(m => m.messageId === received.messageId)
         ? prev.map(m => m.messageId === received.messageId ? received : m)
-        : [...prev, received]
-      );
+        : [...prev, received];
+
+        // sendAt 기준으로 정렬 (문자열 ISO이므로 비교 가능)
+        return [...updated].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
+      });
     }
   });
 
@@ -205,10 +207,6 @@ const ChatRoom = () => {
         if (!msg.sendAt || new Date(msg.sendAt).getFullYear() === 1970) {
           msg = { ...msg, sendAt: new Date().toISOString() };
         }
-
-        // isEdited와 isDeleted 속성이 undefined이면 기본값 설정
-        if (msg.edited === undefined) msg.edited = !!msg.isEdited;
-        if (msg.deleted === undefined) msg.deleted = !!msg.isDeleted;
 
         return msg;
       });

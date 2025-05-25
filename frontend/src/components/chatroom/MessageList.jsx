@@ -1,10 +1,24 @@
 import React from 'react';
 import Highlight from 'react-highlight';
+import { FaCopy, FaTrashAlt, FaUserPlus, FaClock } from 'react-icons/fa';
 
+ // 날짜를 YYYY-MM-DD 형식으로 변환하는 함수 (수정됨)
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleDateString('ko-KR', {
-      year: 'numeric', month: '2-digit', day: '2-digit'
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+  });
+};
+
+// 시간을 HH:MM 형식으로 변환하는 함수 (수정됨)
+const formatTime = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleTimeString('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true  // 오전/오후 표시 활성화
   });
 };
 
@@ -36,8 +50,24 @@ const HighlightedCode = ({ content, language }) => {
 //프로필 이미지, 날짜, 수정 삭제 메뉴
 const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEditMessageId, setEditContent, handleEditMessage, handleDeleteMessage, editMessageId, editContent }) => {
 
+  //이벤트 타입은 메세지만 렌더링
+  if(msg.type === 'EVENT'){
+    return(
+      <MessageContent
+        msg={msg}
+        editMessageId={editMessageId}
+        editContent={editContent}
+        setEditContent={setEditContent}
+        handleEditMessage={handleEditMessage}
+        setEditMessageId={setEditMessageId}
+      />
+    )
+  }
+
   return (
-    <div style={{ marginBottom: '18px', display: 'flex', alignItems: 'flex-start' }}>
+    <div
+      id= {`message-${msg.messageId}`} // 추가
+      style={{ marginBottom: '18px', display: 'flex', alignItems: 'flex-start' }}>
       {/* 프로필 이미지 */}
       <div style={{
         width: '38px',
@@ -327,6 +357,54 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
     )
   }
 
+  if (msg.type === 'EVENT') {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        margin: '12px 0', // 상하 마진 줄임
+        padding: '0 16px'
+      }}>
+        <div style={{
+          backgroundColor: '#f0f9ff',
+          borderRadius: '16px',
+          padding: '8px 16px', // 패딩 줄임
+          display: 'flex',
+          alignItems: 'center', // 가로 정렬로 변경
+          gap: '8px',
+          color: '#0369a1',
+          fontSize: '13px',
+          fontWeight: '500',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+          border: '1px solid #e0f2fe',
+          maxWidth: '80%'
+        }}>
+          {/* 유저 아이콘 */}
+          <FaUserPlus size={12} style={{ flexShrink: 0 }} />
+          
+          {/* 메인 메시지 */}
+          <span>{msg.content}</span>
+          
+          {/* 입장 시간 표시 (구분선과 함께) */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '12px',
+            color: '#60a5fa',
+            borderLeft: '1px solid #bfdbfe',
+            paddingLeft: '8px',
+            marginLeft: '4px'
+          }}>
+            <FaClock size={10} />
+            {formatTime(msg.sendAt||msg.joinAt)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       fontSize: '14px',
@@ -357,7 +435,7 @@ const MessageList = ({ messages, currentUser, contextMenuId, setContextMenuId, s
 
   // 메시지를 순회하며 날짜별로 구분
   messages.forEach((msg, index) => {
-    const messageDate = formatDate(msg.sendAt);
+    const messageDate = formatDate(msg.sendAt||msg.joinAt);
 
     // 날짜가 바뀌었다면 구분선 추가
     if (messageDate !== currentDate) {

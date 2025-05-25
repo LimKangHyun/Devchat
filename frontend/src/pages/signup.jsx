@@ -79,7 +79,7 @@ function App() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="비밀번호를 입력해주세요"
               required
-              minLength="12"
+              minLength="4" //수정
             />
           </div>
 
