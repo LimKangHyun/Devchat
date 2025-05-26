@@ -402,7 +402,8 @@ const ChatRoom = () => {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '12px'
+              gap: '12px',
+              position: 'relative'
             }}>
               <span style={{
                 fontWeight: '600',
@@ -432,6 +433,53 @@ const ChatRoom = () => {
                 <FaCopy size={14} />
                 초대 코드 복사
               </button>
+
+              <button
+                onClick={() => setMenuOpen(prev => !prev)}
+                style={{
+                  fontSize: '25px',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#94a3b8',    
+              }}
+              >
+                ⋮
+              </button>
+
+              {/* 드롭다운 메뉴 */}
+              {menuOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '0',
+                  left: '100%',
+                  marginLeft: '8px',  
+                  backgroundColor: 'white',  
+                  border: '1px solid #ccc',
+                  borderRadius: '6px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  zIndex: 1000,
+                  minWidth: '100px' 
+                }}>
+                  <button
+                    onClick={() => setShowLeaveConfirm(true)}
+                    style={{
+                      padding: '10px 16px',
+                      background: 'none',
+                      border: 'none',
+                      width: '100%',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: '#e53e3e',
+                      whiteSpace: 'nowrap',
+                      display: 'flex'
+                    }}
+                  >
+                    채팅방 나가기
+                  </button>
+                </div>
+              )}
             </div>
 
             <div>
@@ -450,51 +498,6 @@ const ChatRoom = () => {
                 }}
               />
             </div>
-          </div>
-
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', padding: '0 24px', marginRight: '20px',marginTop: '15px' }}>
-            <button
-              onClick={() => setMenuOpen(prev => !prev)}
-              style={{
-                fontSize: '25px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: '#4a5568'
-              }}
-            >
-               ⋮
-            </button>
-
-            {/* 드롭다운 메뉴 */}
-            {menuOpen && (
-              <div style={{
-                position: 'absolute',
-                top: '32px',
-                right: '0',
-                backgroundColor: 'white',
-                border: '1px solid #ccc',
-                borderRadius: '6px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                zIndex: 1000
-              }}>
-                <button
-                  onClick={() => setShowLeaveConfirm(true)}
-                  style={{
-                    padding: '10px 16px',
-                    background: 'none',
-                    border: 'none',
-                    width: '100%',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    color: '#e53e3e'
-                  }}
-                >
-                  채팅방 나가기
-                </button>
-              </div>
-            )}
           </div>
 
           {/* 메시지 목록 */}
