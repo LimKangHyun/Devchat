@@ -109,7 +109,7 @@ const Sidebar = () => {
 
   const fetchCurrentUser = async () => {
     try {
-      const res = await axiosInstance.get('/users/current');
+      const res = await axiosInstance.get('/user/details');
       setCurrentUser(res.data);
     } catch (err) {
       console.error('사용자 정보 로딩 오류:', err);

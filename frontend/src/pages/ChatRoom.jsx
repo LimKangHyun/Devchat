@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../components/SideBar';
 import Header from '../components/header';
 import SearchSidebar from '../components/SearchSideBar';
-import { FaCopy, FaTrashAlt, FaUserPlus, FaClock } from 'react-icons/fa';
+import { FaCopy } from 'react-icons/fa';
 import axiosInstance from '../components/api/axiosInstance';
 import MessageInput from '../components/chatroom/MessageInput';
 import MessageList from '../components/chatroom/MessageList';
@@ -23,46 +23,125 @@ const ChatRoom = () => {
   const [editContent, setEditContent] = useState(""); // 수정 중인 내용
 
   const messagesEndRef = useRef(null);
-  const isComposingRef = useRef(false);
-
-  const [contextMenuVisible, setContextMenuVisible] = useState(false);
-  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
-
   const [showNotification, setShowModal] = useState(false);
-  const [showUrlCopiedModal, setShowUrlCopiedModal] = useState(false);
-  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
 
   const navigate = useNavigate();           // ← 네비게이트 훅
   const location = useLocation();           // ← 현재 URL 가져오기
-  const joinedOnceRef = useRef(false);
 
-  // 참가 완료 여부
-  const [setJoined] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-
-
-  //임창인
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showLeaveSuccess, setShowLeaveSuccess] = useState(false);
 
   const [roomName, setRoomName] = useState("로딩 중...");
 
-  // 방 정보를 가져오는 함수 - fetchCurrentUser 함수 위나 아래에 추가
+  // 1. 방 이름 불러오기
   const fetchRoomInfo = async () => {
     try {
       const res = await axiosInstance.get(`/chat-rooms/check?inviteCode=${inviteCode}`, {
       });
 
       const roomData = res.data;
-      setRoomName(roomData.roomName || `채팅방 #${roomId}`);
+      setRoomName(roomData.roomName);
     } catch (error) {
       console.error('방 정보 요청 실패:', error);
       setRoomName(`채팅방 #${roomId}`); // 오류 시 기본값으로 표시
     }
   };
 
+  // 2. 메시지 목록 불러오기
+  const fetchMessages = async () => {
+    try {
+      const res = await axiosInstance.get(`/${roomId}/messages`);
+      const data = res.data;
 
-  //임창인(채팅방 나가기)
+      // 날짜 유효성 검사
+      const validatedData = data.map(msg => {
+        const sendAt = new Date(msg.sendAt);
+        const isInvalidDate = isNaN(sendAt.getTime()); // getTime이 NaN이면 잘못된 날짜
+
+        if (!msg.sendAt || isInvalidDate) {
+          return { ...msg, sendAt: new Date().toISOString() };
+        }
+
+        return msg;
+      });
+
+      //sendAt 기준으로 메시지 정렬
+      const sortedData = validatedData.sort(
+          (a, b) => new Date(a.sendAt).getTime() - new Date(b.sendAt).getTime()
+      );
+
+      setMessages(sortedData);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  // 3. 로그인 유저 정보 가져오기
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await fetch('http://localhost:8080/user/details', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        throw new Error('로그인 정보를 가져오지 못했습니다.');
+      }
+
+      const user = await res.json(); // { id, email, nickname, profileImg }
+      setCurrentUser(user);
+    } catch (error) {
+      console.error('사용자 정보 요청 실패:', error);
+    }
+  };
+
+  //웹소켓 연결 (현재 채팅방 구독)
+  const stompClientRef = useWebSocket({
+    roomId,
+    onMessageReceived: (received)=> {
+      //메세지 상태 업데이트
+      setMessages(prev => {
+        const updated=prev.some(m => m.messageId === received.messageId)
+        ? prev.map(m => m.messageId === received.messageId ? received : m)
+        : [...prev, received];
+
+        // sendAt 기준으로 정렬
+        return [...updated].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
+      });
+    }
+  });
+
+  //roomId가 변할 때 초기 데이터 불러오기
+  useEffect(() => {
+    if (!roomId) {
+      console.error("No roomId available");
+      navigate("/");
+      return;
+    }
+
+    setMessages([]); // 이전 채팅방 메세지 제거
+
+    fetchCurrentUser();
+    fetchRoomInfo(); // 방 정보 가져오기 함수 호출 추가
+    fetchMessages();
+
+  },[roomId]);
+
+  //초대 코드 복사
+  const copyInviteCode = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteCode); // 백엔드 없이 바로 복사
+      setShowModal(true);
+      setTimeout(() => setShowModal(false), 2000);
+    } catch (err) {
+      console.error(err);
+      alert('초대 코드 복사 중 오류가 발생했습니다.');
+    }
+  };
+
+  //채팅방 나가기
   const handleLeaveRoom = async () => {
     try {
       const res = await axiosInstance.delete(`/chat-rooms/${roomId}/leave`);
@@ -83,89 +162,12 @@ const ChatRoom = () => {
         '나가기 실패';                 // 기본 메시지
 
       alert(errorMsg);
-      console.error('채팅방 나가기 실패:', err);
     } finally {
       setMenuOpen(false);
     }
   };
 
-  useEffect(() => {
-    if (joinedOnceRef.current) return;   // 이미 한 번 호출됐다면 스킵
-    joinedOnceRef.current = true;
-
-    const checkAndJoin = async () => {
-      try {
-        const res = await fetch('http://localhost:8080/chat-rooms/join', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',                    // ← 세션(cookie) 포함
-          body: JSON.stringify({ inviteCode })
-        });
-
-        if (res.status === 401) {
-          const data = await res.json();
-          console.log("[DEBUG] 401 응답 data:", data);
-          const redirectPath = `/chat/${data.details.roomId}/${data.details.inviteCode}`;
-          navigate(`/login?redirect=${encodeURIComponent(redirectPath)}`);
-          return;
-        }
-
-        if (!res.ok) {
-          const text = await res.text(); // 응답 본문도 확인
-          console.error("[DEBUG] 실패 상태:", res.status, text);
-          throw new Error('채팅방 입장 실패');
-        }
-
-        // join 성공 → DB에 참가자 저장됨
-        setJoined(true);
-      } catch (err) {
-        console.error(err);
-
-      }
-    };
-    checkAndJoin();
-  }, [inviteCode, location.pathname, navigate, setJoined]);
-
-  const handleContextMenu = (e) => {
-    e.preventDefault();
-    setContextMenuVisible(true);
-    setContextMenuPosition({ x: e.pageX, y: e.pageY });
-  };
-
-  useEffect(() => {
-    const handleClick = () => setContextMenuVisible(false);
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
-  }, []);
-
-  //임창인(초대 코드만 복사 join chat room으로 입장해야함)
-  const copyInviteCode = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteCode); // 백엔드 없이 바로 복사
-      setShowModal(true);
-      setTimeout(() => setShowModal(false), 2000);
-    } catch (err) {
-      console.error(err);
-      alert('초대 코드 복사 중 오류가 발생했습니다.');
-    }
-  };
-
-  //공유용 전체 url 복사
-  const copyInviteUrl = async () => {  // 변경: 전체 URL 복사
-    try {
-      const fullUrl = `${window.location.origin}/chat/${roomId}/${inviteCode}`;
-      await navigator.clipboard.writeText(fullUrl);
-      setModalPosition(contextMenuPosition);
-      setShowUrlCopiedModal(true);
-      setTimeout(() => setShowUrlCopiedModal(false), 2000);
-    } catch (err) {
-      console.error(err);
-      alert('초대 URL 복사 중 오류가 발생했습니다.');
-    }
-    setContextMenuVisible(false);  // 메뉴 닫기
-  };
-
-
+  //메세지 검색
   const [showSearchSidebar, setShowSearchSidebar] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -175,129 +177,54 @@ const ChatRoom = () => {
   const [totalElements, setTotalElements] = useState(0);
   const [errorMessage, setErrorMessage] = useState(null);
 
-
-  //웹소켓 연결
-  const stompClientRef = useWebSocket({
-    roomId,
-    onMessageReceived: (received)=> {
-      //메세지 상태 업데이트
-      setMessages(prev => {
-        const updated=prev.some(m => m.messageId === received.messageId)
-        ? prev.map(m => m.messageId === received.messageId ? received : m)
-        : [...prev, received];
-
-        // sendAt 기준으로 정렬 (문자열 ISO이므로 비교 가능)
-        return [...updated].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
-      });
-    }
-  });
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-  };
-
-  // 메시지 초기화
-  const fetchMessages = async () => {
-    try {
-      const res = await axiosInstance.get(`/${roomId}/messages`);
-      const data = res.data;
-
-      const validatedData = data.map(msg => {
-        // 날짜 유효성 검사
-        if (!msg.sendAt || new Date(msg.sendAt).getFullYear() === 1970) {
-          msg = { ...msg, sendAt: new Date().toISOString() };
-        }
-
-        return msg;
-      });
-
-      const sortedData = validatedData.sort(
-          (a, b) => new Date(a.sendAt).getTime() - new Date(b.sendAt).getTime()
-      );
-
-      setMessages(sortedData);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-    }
-  };
-
-  // 로그인 유저 정보 가져오기
-  const fetchCurrentUser = async () => {
-    try {
-      const res = await fetch('http://localhost:8080/user/details', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        throw new Error('로그인 정보를 가져오지 못했습니다.');
-      }
-
-      const user = await res.json(); // { id, email, nickname, profileImg }
-      setCurrentUser(user);
-    } catch (error) {
-      console.error('사용자 정보 요청 실패:', error);
-    }
-  };
-
-  useEffect(() => {
+  const handleSearch = async (keyword, page = 0) => {
+    // Check if roomId is defined before proceeding
     if (!roomId) {
-      console.error("No roomId available");
-      navigate("/");
+      setErrorMessage('채팅방 ID가 유효하지 않습니다.');
       return;
     }
+    setIsSearching(true);
+    setShowSearchSidebar(true);
+    setSearchKeyword(keyword);
+    setErrorMessage(null); // 이전 에러 메시지 초기화
 
-    setMessages([]); // 이전 채팅방 메세지 제거
+    try {
+      const response = await axiosInstance.get(`/chat/search/${roomId}`, {
+        params: {
+          keyword,
+          page,
+          size: 10
+        }
+      });
 
-    fetchCurrentUser();
-    fetchRoomInfo(); // 방 정보 가져오기 함수 호출 추가
-    fetchMessages();
+      const data = response.data;
+      const validatedResults = (data.content || []).map(msg => {
+      const sendAt = new Date(msg.sendAt);
+      const isInvalid = !msg.sendAt || isNaN(sendAt.getTime()); // NaN = Invalid Date
 
-  },[roomId]);
+      return isInvalid
+        ? { ...msg, sendAt: new Date().toISOString() }
+        : msg;
+    });
+
+      setSearchResults(validatedResults);
+      setCurrentPage(data.pageable?.pageNumber || 0);
+      setTotalPages(data.totalPages || 0);
+      setTotalElements(data.totalElements || 0);
+    } catch (err) {
+      console.error('Search error:', err);
+      setErrorMessage(err.response?.data?.message || '검색 중 오류가 발생했습니다.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   // 메시지가 업데이트될 때마다 아래로 스크롤
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [messages]);
 
-  // 통합 메시지 전송 함수 (텍스트/코드/이미지 모두 처리)
-  const sendMessage = (overrideMessage = null) => {
-    const client = stompClientRef.current;
-    // 연결이 끊긴 경우 재연결 시도
-    if (!client.connected) {
-      client.activate();
-      alert('⚠️ 서버와 연결이 끊어졌습니다. 재연결을 시도합니다.');
-      return;
-    }
-
-    // 기본 메시지 구조
-    let baseMessage = {
-      content: content,
-      type: inputMode,
-      sendAt: new Date().toISOString(),
-      ...(inputMode === 'CODE' && { language })
-    };
-
-    // overrideMessage가 있으면 병합 (예: 이미지 메시지 전송 시)
-    const message = overrideMessage ? { ...baseMessage, ...overrideMessage } : baseMessage;
-
-    // 메시지 비어있는 경우 전송 방지
-    const trimmed = String(message.content).trim();
-    if (message.type !== 'IMAGE' && trimmed === '') {
-      return;
-    }
-
-    client.publish({
-      destination: `/chat/send-message/${roomId}`,
-      body: JSON.stringify(message)
-    });
-
-    setContent('');
-    setInputMode('TEXT');
-  };
-
-  // 검색 결과 이동
+  // 검색 결과로 스크롤 이동
   const scrollToMessage = (messageId) => {
     const messageElement = document.getElementById(`message-${messageId}`);
     if (messageElement) {
@@ -319,49 +246,8 @@ const ChatRoom = () => {
     }
   };
 
-  const handleSearch = async (keyword, page = 0) => {
-    // Check if roomId is defined before proceeding
-    if (!roomId) {
-      setErrorMessage('채팅방 ID가 유효하지 않습니다.');
-      return;
-    }
-    setIsSearching(true);
-    setShowSearchSidebar(true);
-    setSearchKeyword(keyword);
-    setErrorMessage(null); // 이전 에러 메시지 초기화
-
-  try {
-    const response = await axiosInstance.get(`/chat/search/${roomId}`, {
-      params: {
-        keyword,
-        page,
-        size: 10
-      }
-    });
-
-    const data = response.data;
-    const validatedResults = (data.content || []).map(msg => {
-      if (!msg.sendAt || new Date(msg.sendAt).getFullYear() === 1970) {
-        return { ...msg, sendAt: new Date().toISOString() };
-      }
-      return msg;
-    });
-
-      setSearchResults(validatedResults);
-      setCurrentPage(data.pageable?.pageNumber || 0);
-      setTotalPages(data.totalPages || 0);
-      setTotalElements(data.totalElements || 0);
-    } catch (err) {
-      console.error('Search error:', err);
-      setErrorMessage(err.response?.data?.message || '검색 중 오류가 발생했습니다.');
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   const [imageFile, setImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
-  // const fileInputRef = useRef(null);
 
   // 전송 버튼 클릭 시 호출되는 공통 핸들러 함수 (이미지 업로드 고려)
   const handleUnifiedSend = async () => {
@@ -398,6 +284,44 @@ const ChatRoom = () => {
     }
   };
 
+  // 메시지 전송 (텍스트/코드/이미지 모두 처리)
+  const sendMessage = (overrideMessage = null) => {
+    const client = stompClientRef.current;
+    // 연결이 끊긴 경우 재연결 시도
+    if (!client.connected) {
+      client.activate();
+      alert('⚠️ 서버와 연결이 끊어졌습니다. 재연결을 시도합니다.');
+      return;
+    }
+
+    // 기본 메시지 구조
+    let baseMessage = {
+      content: content,
+      type: inputMode,
+      sendAt: new Date().toISOString(),
+      ...(inputMode === 'CODE' && { language })
+    };
+
+    // overrideMessage가 있으면 병합 (예: 이미지 메시지 함께 전송)
+    const message = overrideMessage ? { ...baseMessage, ...overrideMessage } : baseMessage;
+
+    // 메시지 비어있는 경우 전송 방지
+    const trimmed = String(message.content).trim();
+    if (message.type !== 'IMAGE' && trimmed === '') {
+      return;
+    }
+
+    client.publish({
+      destination: `/chat/send-message/${roomId}`,
+      body: JSON.stringify(message)
+    });
+
+    setContent('');
+    setInputMode('TEXT');
+  };
+
+
+  //메세지 수정 요청
   const handleEditMessage = (messageId) => {
     const client = stompClientRef.current;
     if (!client || !client.connected) {
@@ -420,6 +344,7 @@ const ChatRoom = () => {
     setEditContent('');
   };
 
+  //메세지 삭제 요청
   const handleDeleteMessage = (messageId) => {
     const client = stompClientRef.current;
     if (!client || !client.connected) {
@@ -437,7 +362,6 @@ const ChatRoom = () => {
 
   return (
     <div
-      onContextMenu={handleContextMenu}
       style={{
         backgroundColor: '#f5f7fa',
         height: '100vh',
@@ -446,7 +370,6 @@ const ChatRoom = () => {
         boxSizing: 'border-box',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
       }}>
-
 
       {/* Top Bar */}
       <Header></Header>
@@ -472,7 +395,7 @@ const ChatRoom = () => {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '16px 24px',
+            padding: '6px 20px',
             borderBottom: '1px solid #eaedf0',
             backgroundColor: '#fff'
           }}>
@@ -533,7 +456,7 @@ const ChatRoom = () => {
             <button
               onClick={() => setMenuOpen(prev => !prev)}
               style={{
-                fontSize: '30px',
+                fontSize: '25px',
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
@@ -621,38 +544,6 @@ const ChatRoom = () => {
             />
           </div>
 
-          {/* 우클릭 컨텍스트 메뉴 */}
-          {contextMenuVisible && (
-            <div
-              style={{
-                position: 'absolute',
-                top: contextMenuPosition.y,
-                left: contextMenuPosition.x,
-                backgroundColor: '#fff',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                zIndex: 1000
-              }}
-            >
-              <button
-                onClick={copyInviteUrl}
-                style={{
-                  display: 'block',
-                  padding: '8px 12px',
-                  background: 'none',
-                  border: 'none',
-                  width: '100%',
-                  textAlign: 'left',
-                  cursor: 'pointer'
-                }}
-              >
-                공유 초대 링크 복사
-              </button>
-            </div>
-          )}
-
-
           {showNotification && (
             <div style={{
               position: 'fixed',
@@ -668,24 +559,6 @@ const ChatRoom = () => {
               초대 코드가 복사되었습니다.
             </div>
           )}
-
-          {showUrlCopiedModal && (
-            <div style={{
-              position: 'absolute',
-              top: modalPosition.y,
-              left: modalPosition.x,
-              transform: 'translateY(-100%)', // 모달이 클릭 위치 위로 뜨도록
-              backgroundColor: '#333',
-              color: 'white',
-              padding: '10px 16px',
-              borderRadius: '6px',
-              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-              zIndex: 2000
-            }}>
-              공유 초대 링크가 복사되었습니다
-            </div>
-          )}
-
 
           {/* 나가기 확인 모달 */}
           {showLeaveConfirm && (
@@ -725,7 +598,6 @@ const ChatRoom = () => {
             </div>
           )}
 
-
           {/* 나가기 완료 모달 */}
           {showLeaveSuccess && (
             <div style={{
@@ -738,6 +610,7 @@ const ChatRoom = () => {
             </div>
           )}
         </div>
+
         {showSearchSidebar && (
           <SearchSidebar
             searchKeyword={searchKeyword}
