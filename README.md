@@ -37,6 +37,9 @@
 |javascript| - |
 
 </div>
+    
+<br>
+
 
 
 ---
@@ -58,3 +61,35 @@
 
 ### 깃허브 연동 기능
 - 채팅방에 연결된 깃허브 레포지터리에서 이벤트 발생(이슈, PR 등)시 이를 채팅방에 채팅형식 알림으로 전송
+
+<br>
+<br>
+
+---
+# 👯역할 분담
+|이 름|GitHub|역할|
+|:---:|---|---|
+|[TL]배문성|[gitHub](https://github.com/heets-blue)|-**문서**: 리드미, 와이어프레임 <br> -**기능**: 로그인/회원가입, OAuth 로그인, JWT 토큰 인증, axios 인터셉터, 회원CRUD 기능, 회원정보 수정|
+|임강현|[gitHub](https://github.com/LimKangHyun)|-**문서**: 시스템 구성도, 플로우차트  <br>   -**기능**: 메시지 비동기 처리, 채팅 검색, 성능 최적화|                                
+|임창인|[gitHub](https://github.com/cba700)|-**문서**: 발표자료 <br>-**기능**: 채팅방 생성,초대,입장 구현, url 보안 강화|
+|남지은|[gitHub](https://github.com/zie-ning)|-**문서**: 기획서 <br>-**기능**: 웹소켓을 통한 실시간 통신 구현, 깃허브 이벤트 메세지 제작|
+
+<br>
+<br>
+
+---
+# 📄문서
+## 🛢️ERD
+![image](https://github.com/user-attachments/assets/d84700d9-3e1b-476f-b3c8-aff4712cca61)
+
+## Flow Chart
+![image](https://github.com/user-attachments/assets/ce20f766-e6e0-4ca8-a9b5-568af69ed073)
+
+## API 명세
+Swagger를 사용하여 API명세서를 제작 <br>
+![image](https://github.com/user-attachments/assets/d3867fcc-1198-4908-946a-6ecb98ed3a6b)
+*Swagger명세 개요 이미지*
+
+## 시스템 구성도
+![시스템 구성도  8팀_2차 팀프로젝트](https://github.com/user-attachments/assets/4d0eb7ed-9255-489e-88ff-3ebd6354c0e8)
+배포환경 시스템 구성도 업데이트 예정
