@@ -55,11 +55,9 @@ const BlankRoom = () => {
       alert(err.response?.data?.message || err.message || "방 입장에 실패했습니다.");
       throw err;
     }
-  };
-  
+  };  
   // 버튼 스타일 공통화
   const buttonStyle = {
-    backgroundColor: '#4a6cf7',
     color: 'white',
     border: 'none',
     borderRadius: '4px',
@@ -68,11 +66,9 @@ const BlankRoom = () => {
     fontSize: '14px',
     fontWeight: '500',
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
   };
 
   return (

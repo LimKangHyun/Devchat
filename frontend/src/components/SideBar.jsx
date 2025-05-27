@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { 
-  FaRegCommentDots,
-  FaInfoCircle,
-  FaAngleLeft, 
-  FaAngleRight,
-  FaComments,
-  FaPlus
-} from 'react-icons/fa';
+import { FaRegCommentDots, FaInfoCircle, FaAngleLeft, FaAngleRight, FaComments, FaPlus } from 'react-icons/fa';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
@@ -116,7 +109,7 @@ const Sidebar = () => {
 
   const fetchCurrentUser = async () => {
     try {
-      const res = await axiosInstance.get('/users/current');
+      const res = await axiosInstance.get('/user/details');
       setCurrentUser(res.data);
     } catch (err) {
       console.error('사용자 정보 로딩 오류:', err);
