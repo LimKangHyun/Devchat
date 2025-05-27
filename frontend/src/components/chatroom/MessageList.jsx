@@ -2,7 +2,7 @@ import React from 'react';
 import Highlight from 'react-highlight';
 import { FaCopy, FaTrashAlt, FaUserPlus, FaClock } from 'react-icons/fa';
 
- // 날짜를 YYYY-MM-DD 형식으로 변환하는 함수 (수정됨)
+// 날짜를 YYYY-MM-DD 형식으로 변환하는 함수
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleDateString('ko-KR', {
@@ -12,7 +12,7 @@ const formatDate = (dateString) => {
   });
 };
 
-// 시간을 HH:MM 형식으로 변환하는 함수 (수정됨)
+// 시간을 HH:MM 형식으로 변환하는 함수
 const formatTime = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleTimeString('ko-KR', {

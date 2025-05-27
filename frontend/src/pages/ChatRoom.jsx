@@ -3,11 +3,12 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../components/SideBar';
 import Header from '../components/header';
 import SearchSidebar from '../components/SearchSideBar';
-import { FaCopy } from 'react-icons/fa';
 import axiosInstance from '../components/api/axiosInstance';
 import MessageInput from '../components/chatroom/MessageInput';
 import MessageList from '../components/chatroom/MessageList';
 import useWebSocket from '../components/common/useWebSocket';
+import RoomHeader from '../components/chatroom/RoomHeader';
+
 const ChatRoom = () => {
 
   const { roomId, inviteCode } = useParams();
@@ -23,14 +24,8 @@ const ChatRoom = () => {
   const [editContent, setEditContent] = useState(""); // 수정 중인 내용
 
   const messagesEndRef = useRef(null);
-  const [showNotification, setShowModal] = useState(false);
-
   const navigate = useNavigate();           // ← 네비게이트 훅
   const location = useLocation();           // ← 현재 URL 가져오기
-
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [showLeaveSuccess, setShowLeaveSuccess] = useState(false);
 
   const [roomName, setRoomName] = useState("로딩 중...");
 
@@ -129,41 +124,19 @@ const ChatRoom = () => {
 
   },[roomId]);
 
-  //초대 코드 복사
-  const copyInviteCode = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteCode); // 백엔드 없이 바로 복사
-      setShowModal(true);
-      setTimeout(() => setShowModal(false), 2000);
-    } catch (err) {
-      console.error(err);
-      alert('초대 코드 복사 중 오류가 발생했습니다.');
-    }
-  };
-
-  //채팅방 나가기
   const handleLeaveRoom = async () => {
     try {
-      const res = await axiosInstance.delete(`/chat-rooms/${roomId}/leave`);
-      
-      // 성공 처리
-      setShowLeaveConfirm(false);
-      setShowLeaveSuccess(true);
+      await axiosInstance.delete(`/chat-rooms/${roomId}/leave`);
 
-      setTimeout(() => {
-        setShowLeaveSuccess(false);
-        navigate('/');
-      }, 500);
+      // ChatRoom 컴포넌트의 상태 업데이트는 RoomHeader가 처리하도록 처리
+      return { success: true };
     } catch (err) {
-      // 실패 처리
       const errorMsg =
-        err.response?.data?.message || // 백엔드에서 보낸 메시지
-        err.message ||                 // 일반 오류 메시지
-        '나가기 실패';                 // 기본 메시지
+        err.response?.data?.message ||
+        err.message ||
+        '나가기 실패';
 
-      alert(errorMsg);
-    } finally {
-      setMenuOpen(false);
+      return { success: false, error: errorMsg };
     }
   };
 
@@ -320,7 +293,6 @@ const ChatRoom = () => {
     setInputMode('TEXT');
   };
 
-
   //메세지 수정 요청
   const handleEditMessage = (messageId) => {
     const client = stompClientRef.current;
@@ -390,115 +362,13 @@ const ChatRoom = () => {
           overflow: 'hidden'
         }}>
 
-          {/* 채팅방 헤더 - 상단에 고정 */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '6px 20px',
-            borderBottom: '1px solid #eaedf0',
-            backgroundColor: '#fff'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              position: 'relative'
-            }}>
-              <span style={{
-                fontWeight: '600',
-                fontSize: '18px',
-                color: '#2d3748'
-              }}>
-                {roomName}
-              </span>
-
-              {/* 초대 코드 복사 버튼 */}
-              <button
-                onClick={copyInviteCode}
-                style={{
-                  backgroundColor: '#2588F1',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '6px 12px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <FaCopy size={14} />
-                초대 코드 복사
-              </button>
-
-              <button
-                onClick={() => setMenuOpen(prev => !prev)}
-                style={{
-                  fontSize: '25px',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#94a3b8',    
-              }}
-              >
-                ⋮
-              </button>
-
-              {/* 드롭다운 메뉴 */}
-              {menuOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: '0',
-                  left: '100%',
-                  marginLeft: '8px',  
-                  backgroundColor: 'white',  
-                  border: '1px solid #ccc',
-                  borderRadius: '6px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                  zIndex: 1000,
-                  minWidth: '100px' 
-                }}>
-                  <button
-                    onClick={() => setShowLeaveConfirm(true)}
-                    style={{
-                      padding: '10px 16px',
-                      background: 'none',
-                      border: 'none',
-                      width: '100%',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      color: '#e53e3e',
-                      whiteSpace: 'nowrap',
-                      display: 'flex'
-                    }}
-                  >
-                    채팅방 나가기
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <input
-                type="text"
-                placeholder="메시지 검색"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSearch(e.target.value);
-                  }
-                }}
-                style={{
-                  width: '220px',
-                  backgroundColor: '#f9fafc',
-                  fontSize: '14px'
-                }}
-              />
-            </div>
-          </div>
+          {/* 채팅방 헤더 - 채팅방 이름, 초대 코드 복사 버튼, 나가기 버튼, 메세지 검색 창 */}
+          <RoomHeader
+            roomName={roomName}
+            inviteCode={inviteCode}
+            onSearch={handleSearch} // 메시지 검색 api 요청 함수
+            onLeaveRoom={handleLeaveRoom} // 방 나가기 api 요청 함수
+          />
 
           {/* 메시지 목록 */}
           <div style={{
@@ -508,19 +378,18 @@ const ChatRoom = () => {
             backgroundColor: '#fff',
             minHeight: 0
           }}>
-
-          <MessageList
-            messages={messages}
-            currentUser={currentUser}
-            contextMenuId={contextMenuId}
-            setContextMenuId={setContextMenuId}
-            setEditMessageId={setEditMessageId}
-            setEditContent={setEditContent}
-            handleDeleteMessage={handleDeleteMessage}
-            editMessageId={editMessageId}
-            editContent={editContent}
-            handleEditMessage={handleEditMessage}
-          />
+            <MessageList
+              messages={messages}
+              currentUser={currentUser}
+              contextMenuId={contextMenuId}
+              setContextMenuId={setContextMenuId}
+              setEditMessageId={setEditMessageId}
+              setEditContent={setEditContent}
+              handleDeleteMessage={handleDeleteMessage}
+              editMessageId={editMessageId}
+              editContent={editContent}
+              handleEditMessage={handleEditMessage}
+            />
             <div ref={messagesEndRef} />
           </div>
 
@@ -546,74 +415,9 @@ const ChatRoom = () => {
               setImagePreviewUrl={setImagePreviewUrl}
             />
           </div>
-
-          {showNotification && (
-            <div style={{
-              position: 'fixed',
-              top: '15px',
-              right: '15px',
-              backgroundColor: '#333',
-              color: '#fff',
-              padding: '10px 16px',
-              borderRadius: '6px',
-              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-              zIndex: 1000
-            }}>
-              초대 코드가 복사되었습니다.
-            </div>
-          )}
-
-          {/* 나가기 확인 모달 */}
-          {showLeaveConfirm && (
-            <div style={{
-              position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-              backgroundColor: 'rgba(0, 0, 0, 0.4)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', zIndex: 2000
-            }}>
-              <div style={{
-                backgroundColor: 'white', padding: '24px', borderRadius: '8px',
-                minWidth: '280px', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-              }}>
-                <p style={{ fontSize: '16px', marginBottom: '20px' }}>
-                  정말 이 채팅방을 나가시겠습니까?
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-                  <button
-                    onClick={() => setShowLeaveConfirm(false)}
-                    style={{
-                      padding: '8px 16px', backgroundColor: '#eee',
-                      border: 'none', borderRadius: '4px', cursor: 'pointer'
-                    }}
-                  >
-                    취소
-                  </button>
-                  <button
-                    onClick={handleLeaveRoom}
-                    style={{
-                      padding: '8px 16px', backgroundColor: '#e53e3e', color: 'white',
-                      border: 'none', borderRadius: '4px', cursor: 'pointer'
-                    }}
-                  >
-                    나가기
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 나가기 완료 모달 */}
-          {showLeaveSuccess && (
-            <div style={{
-              position: 'fixed', top: '20px', right: '20px',
-              backgroundColor: '#333', color: 'white',
-              padding: '12px 20px', borderRadius: '6px',
-              boxShadow: '0 4px 8px rgba(0,0,0,0.2)', zIndex: 2000
-            }}>
-              채팅방에서 나갔습니다.
-            </div>
-          )}
         </div>
 
+        {/* 메세지 검색 바 */}
         {showSearchSidebar && (
           <SearchSidebar
             searchKeyword={searchKeyword}
@@ -632,4 +436,5 @@ const ChatRoom = () => {
     </div>
   );
 };
+
 export default ChatRoom;
