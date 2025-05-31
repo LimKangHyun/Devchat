@@ -13,7 +13,7 @@ public class ChatRoomRequest {
 	@NotBlank(message = "채팅방 이름을 설정해주세요")
 	private String name;
 
-	@NotBlank(message = "채팅방 레포지토리주소를 설정해주세요")
+	//	@NotBlank(message = "채팅방 레포지토리주소를 설정해주세요")
 	private String repositoryUrl;
 
 }

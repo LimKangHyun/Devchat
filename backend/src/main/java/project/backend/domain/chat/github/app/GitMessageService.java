@@ -13,7 +13,6 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
-import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.github.GitHubClient;
 import project.backend.domain.chat.github.GitRepoUrlUtils;
@@ -66,11 +65,11 @@ public class GitMessageService {
 
 	private void sendGitMessage(ChatRoom room, GitMessageDto gitMessage) {
 		Member githubBot = memberService.getMemberByEmail(githubEmailKey);
-		ChatParticipant gitParticipant = chatParticipantRepository.findByParticipantAndChatRoom(
-				githubBot, room)
-			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
+//		ChatParticipant gitParticipant = chatParticipantRepository.findByParticipantAndChatRoom(
+//				githubBot, room)
+//			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
 
-		ChatMessage message = chatMessageMapper.toEntityWithGit(gitMessage, gitParticipant);
+		ChatMessage message = chatMessageMapper.toEntityWithGit(gitMessage, githubBot);
 		chatMessageRepository.save(message);
 		ChatMessageResponse response = chatMessageMapper.toGitResponse(message);
 

@@ -4,14 +4,16 @@ package project.backend.domain.chat.chatroom.app;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
@@ -20,23 +22,15 @@ import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
-import project.backend.domain.chat.chatroom.dto.ParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
+import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
 import project.backend.domain.chat.github.app.GitMessageService;
 import project.backend.domain.member.app.MemberService;
-import project.backend.domain.member.dao.MemberRepository;
 import project.backend.domain.member.entity.Member;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
-import project.backend.domain.chat.chatroom.dto.ChatRoomDetailResponse;
-import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
-import project.backend.global.exception.errorcode.MemberErrorCode;
-import project.backend.global.exception.ex.ChatRoomException;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
-import project.backend.global.exception.ex.MemberException;
+import project.backend.global.exception.ex.ChatRoomException;
 
 @Slf4j
 @Service
@@ -60,20 +54,21 @@ public class ChatRoomService {
 	public ChatRoomSimpleResponse createChatRoom(ChatRoomRequest request, Long ownerId) {
 		Member owner = memberService.getMemberById(ownerId);
 
-		ChatRoom chatRoom = chatRoomMapper.toEntity(request, owner);
+		ChatRoom chatRoom = chatRoomMapper.toEntity(request);
 
 		ChatParticipant chatParticipant = ChatParticipant.of(owner, chatRoom);
+		chatParticipant.setOwner(true);
 		chatRoom.addParticipant(chatParticipant);
 
 		ChatRoom savedRoom = chatRoomRepository.save(chatRoom);
 
-		if (request.getRepositoryUrl() != null) {
+		if (!request.getRepositoryUrl().isBlank()) {
 			gitMessageService.registerWebhook(request.getRepositoryUrl(),
 				savedRoom.getId(), owner.getId()); //웹훅 자동 등록
 			joinGitHubBot(savedRoom); //깃허브봇 채팅 참가
 		}
 
-		return chatRoomMapper.toSimpleResponse(savedRoom);
+		return chatRoomMapper.toSimpleResponse(savedRoom, owner);
 	}
 
 	private void joinGitHubBot(ChatRoom room) {
@@ -168,8 +163,6 @@ public class ChatRoomService {
 
 		List<ChatParticipant> participants = chatParticipantRepository.findByChatRoom(chatRoom);
 
-		Member owner = chatRoom.getOwner();
-
 		return participants.stream()
 			.map(ChatRoomMapper::toParticipantResponse).collect(Collectors.toList());
 	}
@@ -179,13 +172,13 @@ public class ChatRoomService {
 	public void leaveChatRoom(Long roomId, Long memberId) {
 		ChatRoom room = getRoomById(roomId);
 
-		if (room.getOwner().getId().equals(memberId)) {
-			throw new ChatRoomException(ChatRoomErrorCode.OWNER_CANNOT_LEAVE);
-		}
-
 		ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantId(
 				roomId, memberId)
 			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
+
+		if (participant.isOwner()) {
+			throw new ChatRoomException(ChatRoomErrorCode.OWNER_CANNOT_LEAVE);
+		}
 
 		room.getParticipants().remove(participant);
 	}

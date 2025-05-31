@@ -40,31 +40,30 @@ public class ChatRoomMapper {
 				Optional.ofNullable(p.getParticipant().getProfileImage())
 					.map(ImageFile::getStoreFileName)
 					.orElse("default_image.jpg"))
-			.isOwner(p.getParticipant().getId().equals(p.getChatRoom().getOwner().getId()))
+			.isOwner(p.isOwner())
 			.build();
 	}
 
 
 	// 임창인: 간단 응답 변환
-	public ChatRoomSimpleResponse toSimpleResponse(ChatRoom entity) {
+	public ChatRoomSimpleResponse toSimpleResponse(ChatRoom entity, Member owner) {
 		return ChatRoomSimpleResponse.of(
 			entity.getId(),
 			entity.getName(),
 			entity.getRepositoryUrl(),
-			entity.getOwner().getId(),
+			owner.getId(),
 			entity.getInviteCode()
 		);
 	}
 
 
 	// 임창인 엔티티 변환
-	public ChatRoom toEntity(ChatRoomRequest dto, Member owner) {
+	public ChatRoom toEntity(ChatRoomRequest dto) {
 		return ChatRoom.builder()
 			.name(dto.getName())
 			.createdAt(LocalDateTime.now())
 			.repositoryUrl(dto.getRepositoryUrl())
 			.inviteCode(generateInviteCode())
-			.owner(owner)
 			.build();
 	}
 
