@@ -29,6 +29,16 @@ const ChatRoom = () => {
 
   const [roomName, setRoomName] = useState("로딩 중...");
 
+  // 방 이동시 memberStatus 상태 변경
+  const fetchMoveRoom = async () => {
+    try {
+      const res = await axiosInstance.get(`/chat-rooms/move?roomId=${roomId}`, {
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   // 1. 방 이름 불러오기
   const fetchRoomInfo = async () => {
     try {
@@ -121,6 +131,8 @@ const ChatRoom = () => {
     fetchCurrentUser();
     fetchRoomInfo(); // 방 정보 가져오기 함수 호출 추가
     fetchMessages();
+
+    fetchMoveRoom();
 
   },[roomId]);
 

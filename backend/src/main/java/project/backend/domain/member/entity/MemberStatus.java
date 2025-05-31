@@ -8,6 +8,7 @@ import jakarta.persistence.OneToOne;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 
 @Entity
@@ -16,7 +17,7 @@ import project.backend.domain.chat.chatroom.entity.ChatRoom;
 public class MemberStatus {
 
 	@Id
-	private Long MemberId;
+	private Long id;
 
 	@OneToOne
 	@MapsId
@@ -25,5 +26,10 @@ public class MemberStatus {
 
 	@OneToOne
 	@JoinColumn(name = "room_id")
-	private ChatRoom chatRoom;
+	@Setter
+	private ChatRoom room;
+
+	public MemberStatus(Member member) {
+		this.member = member;
+	}
 }

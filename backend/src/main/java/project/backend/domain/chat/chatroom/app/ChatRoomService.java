@@ -3,7 +3,6 @@ package project.backend.domain.chat.chatroom.app;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +12,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
@@ -40,7 +38,6 @@ public class ChatRoomService {
 
 
 	private final ChatRoomRepository chatRoomRepository;
-	private final ChatMessageRepository chatMessageRepository;
 	private final ChatParticipantRepository chatParticipantRepository;
 	private final ChatRoomMapper chatRoomMapper;
 	private final MemberService memberService;
@@ -91,7 +88,6 @@ public class ChatRoomService {
 		return room.getId();
 	}
 
-
 	@Transactional
 	public InviteJoinResponse joinChatRoom(String inviteCode, Long memberId) {
 		ChatRoom room = findByInviteCode(inviteCode);
@@ -117,27 +113,18 @@ public class ChatRoomService {
 			room.getName());
 	}
 
-
-	public Long getMostRecentRoomId(String email) {
-
-		// 1순위: 가장 최근 메시지가 도착한 채팅방
-		Optional<Long> recentRoomId = chatMessageRepository.findMostRecentRoomIdByMemberEmail(
-			email);
-		if (recentRoomId.isPresent()) {
-			return recentRoomId.get();
-		}
-
-		// 2순위: 채팅방에 메세지가 없을 때 참여중인 채팅방 중 roomId가 가장 큰 채팅방
-		Optional<Long> fallbackRoomId = chatParticipantRepository.findMostLargeRoomIdByEmail(email);
-		if (fallbackRoomId.isPresent()) {
-			return fallbackRoomId.get();
-		}
+	@Transactional(readOnly = true)
+	public Long getMostRecentRoomId(Long memberId) {
+		ChatRoom room = memberService.getMemberById(memberId).getMemberStatus().getRoom();
 
 		// 아무 채팅방에도 참여한 적이 없음 → 예외 던지기
-		throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_EXIST);
-
+		if (room == null) {
+			throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_EXIST);
+		}
+		return room.getId();
 	}
 
+	@Transactional(readOnly = true)
 	public Page<MyChatRoomResponse> findAllRoomsByOwnerId(Long memberId, Pageable pageable) {
 		Page<ChatRoom> allRoomsByOwnerId = chatRoomRepository.findAllRoomsByOwnerId(memberId,
 			pageable);
@@ -198,6 +185,12 @@ public class ChatRoomService {
 	public ChatRoomNameResponse getChatRoomByInviteCode(String inviteCode) {
 		ChatRoom room = findByInviteCode(inviteCode);
 		return ChatRoomMapper.toListResponse(room);
+	}
+
+	@Transactional
+	public void moveRoom(Long memberId, Long roomId) {
+		ChatRoom room = getRoomById(roomId);
+		memberService.getMemberById(memberId).getMemberStatus().setRoom(room);
 	}
 }
 

@@ -37,10 +37,6 @@ public class ChatRoom {
 
 	private String inviteCode;
 
-//	@ManyToOne(fetch = FetchType.LAZY)
-//	@JoinColumn(name = "owner_id")
-//	private Member owner;
-
 	@OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<ChatMessage> messages = new ArrayList<>();
 

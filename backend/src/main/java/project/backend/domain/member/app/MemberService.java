@@ -12,13 +12,12 @@ import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.imagefile.ImageType;
 import project.backend.domain.member.dao.MemberRepository;
-import project.backend.global.config.security.dto.MemberDetails;
 import project.backend.domain.member.dto.MemberResponse;
 import project.backend.domain.member.dto.MemberUpdateRequest;
 import project.backend.domain.member.dto.SignUpRequest;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.mapper.MemberMapper;
-import project.backend.global.config.security.dto.OAuthMemberDto;
+import project.backend.global.config.security.dto.MemberDetails;
 import project.backend.global.exception.errorcode.MemberErrorCode;
 import project.backend.global.exception.ex.MemberException;
 
@@ -113,5 +112,4 @@ public class MemberService {
 		Member member = getMemberById(memberId);
 		return MemberMapper.toResponse(member);
 	}
-
 }

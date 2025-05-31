@@ -5,6 +5,10 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,15 +27,9 @@ import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinRequest;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
-import project.backend.domain.chat.chatroom.dto.ChatRoomDetailResponse;
-import project.backend.domain.chat.chatroom.dto.ParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
-import project.backend.domain.chat.chatroom.entity.ChatRoom;
+import project.backend.domain.member.app.MemberService;
 import project.backend.global.config.security.dto.MemberDetails;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.ex.AuthException;
@@ -43,6 +41,7 @@ import project.backend.global.exception.ex.AuthException;
 public class ChatRoomController {
 
 	private final ChatRoomService chatRoomService;
+	private final MemberService memberService;
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
@@ -66,13 +65,19 @@ public class ChatRoomController {
 		return chatRoomService.joinChatRoom(request.getInviteCode(), memberDetails.getId());
 	}
 
-
 	@GetMapping("/recent")
 	public RecentChatRoomResponse getRecentRoomId(
 		@AuthenticationPrincipal MemberDetails memberDetails) {
-		Long roomId = chatRoomService.getMostRecentRoomId(memberDetails.getEmail());
+		Long roomId = chatRoomService.getMostRecentRoomId(memberDetails.getId());
 		String inviteCode = chatRoomService.getInviteCode(roomId);
 		return new RecentChatRoomResponse(roomId, inviteCode);
+	}
+
+	//채팅방 이동 시 memberStatus의 roomId를 업데이트
+	@GetMapping("/move")
+	public void moveChatRoom(@AuthenticationPrincipal MemberDetails memberDetails,
+		@RequestParam Long roomId) {
+		chatRoomService.moveRoom(memberDetails.getId(), roomId);
 	}
 
 	@GetMapping

@@ -24,7 +24,6 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
-import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
@@ -45,7 +44,6 @@ public class ChatMessageService {
 	private final ChatMessageRepository chatMessageRepository;
 	private final ChatRoomService chatRoomService;
 	private final MemberService memberService;
-	private final ChatParticipantRepository chatParticipantRepository;
 	private final ImageFileService imageFileService;
 	private final ChatRoomRepository chatRoomRepository;
 	private final ChatMessageSearchRepository chatMessageSearchRepository;
