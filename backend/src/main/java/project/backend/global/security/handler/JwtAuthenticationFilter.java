@@ -5,10 +5,13 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -37,7 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			return;
 		}
 
-		Optional<Cookie> accessToken = CookieUtils.getCookie((HttpServletRequest) request,
+		Optional<Cookie> accessToken = CookieUtils.getCookie(request,
 			"accessToken");
 
 		if (accessToken.isPresent()) {
@@ -54,17 +57,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 				}
 				case EXPIRED -> {
 					log.info("[JWT] 토큰 만료됨. 재발급 시도");
-					Authentication authentication = jwtProvider.replaceAccessToken(response, token);
+					Authentication authentication = jwtProvider.replaceAccessToken(response,
+						token);
 					if (authentication != null) {
-						log.info("Successfully expired access token");
+						log.info("토큰 재발급 성공");
 						SecurityContextHolder.getContext().setAuthentication(authentication);
 					}
 				}
 				default -> {
 					log.warn("JWT 토큰 인증 처리 불가: {}", token);
 					log.warn("재로그인 필요");
-					response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-					return;
+					SecurityContextHolder.clearContext();
 				}
 			}
 		}
