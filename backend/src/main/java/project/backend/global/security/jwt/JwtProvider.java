@@ -167,23 +167,27 @@ public class JwtProvider {
 	}
 
 	private Long getIdFromToken(String token) {
-		return getJwtVerifier(TOKEN_VALIDATION_SECOND)
+		return Long.parseLong(getJwtVerifier(TOKEN_VALIDATION_SECOND)
 			.verify(token)
 			.getClaim("id")
-			.asLong();
+			.asString());
 	}
 
 	public Authentication getAuthentication(String token) {
 
 		Long id = getIdFromToken(token);
+		try {
+			Member member = memberRepository.findById(id)
+				.orElseThrow(
+					() -> new UsernameNotFoundException("존재 하지 않는 유저입니다."));
 
-		Member member = memberRepository.findById(id)
-			.orElseThrow(
-				() -> new UsernameNotFoundException("존재 하지 않는 유저입니다."));
-		MemberDetails memberDetails = new MemberDetails(member);
+			MemberDetails memberDetails = new MemberDetails(member);
 
-		return new UsernamePasswordAuthenticationToken(memberDetails, token,
-			memberDetails.getAuthorities());
+			return new UsernamePasswordAuthenticationToken(memberDetails, token,
+				memberDetails.getAuthorities());
+		} catch (AuthenticationException e) {
+			throw e;
+		}
 	}
 
 	public Authentication replaceAccessToken(HttpServletResponse response,
@@ -222,6 +226,9 @@ public class JwtProvider {
 		} catch (RedisException e) {
 			log.error(e.getMessage());
 			throw new BadCredentialsException("로그인 유지에 실패했습니다. 다시 로그인해주세요.");
+		} catch (AuthException e) {
+			log.error(e.getMessage());
+			throw e;
 		}
 
 	}

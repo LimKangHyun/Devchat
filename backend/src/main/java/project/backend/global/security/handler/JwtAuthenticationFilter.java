@@ -32,7 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 		String uri = request.getRequestURI();
 
-		if (uri.equals("/auth")) {
+		if (uri.equals("/auth/refresh")) {
 			filterChain.doFilter(request, response); // JWT 검사 건너뜀
 			return;
 		}

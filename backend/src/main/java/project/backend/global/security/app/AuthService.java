@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 import project.backend.global.exception.errorcode.AuthErrorCode;
@@ -30,50 +31,29 @@ public class AuthService {
 	private final TokenRedisRepository tokenRedisRepository;
 
 	public void validateAuthentication(HttpServletRequest request, HttpServletResponse response) {
-		try {
-			String accessTokenInCookie = getAccessTokenFromCookie(request);
 
-			if (accessTokenInCookie == null) {
+		String accessToken = getAccessTokenFromCookie(request);
 
-			}
-
-			log.info("accessToken = {}", accessToken);
-			log.info("refreshToken = {}", refreshToken);
-
-			TokenStatus tokenStatus = jwtProvider.validateAccessToken(accessToken);
-			log.info("tokenStatus = {}", tokenStatus);
-
-			switch (tokenStatus) {
-				case VALID:
-					response.setStatus(HttpServletResponse.SC_OK);
-					break;
-
-				case EXPIRED:
-					try {
-						// refreshToken 재검증
-						JWTVerifier jwtVerifier = jwtProvider.getJwtVerifier(
-							REFRESH_TOKEN_VALIDATION_SECOND);
-						jwtVerifier.verify(refreshToken);
-
-						String newAccessToken = jwtProvider.regenerateAccessToken(refreshToken);
-						CookieUtils.saveCookie(response, newAccessToken);
-						tokenRedis.updateAccessToken(newAccessToken);
-						tokenRedisRepository.save(tokenRedis);
-						log.info("액세스 토큰 재발급 완료");
-						response.setStatus(HttpServletResponse.SC_OK);
-					} catch (JWTVerificationException e) {
-						log.warn("리프레시 토큰이 유효하지 않습니다: {}", e.getMessage());
-						response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-					}
-					break;
-
-				default:
-					response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-			}
-		} catch (JwtException e) {
-			log.warn("토큰 인증 실패: {}", e.getMessage());
-			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+		if (accessToken == null) {
+			throw new BadCredentialsException("로그인 유지에 실패했습니다. 다시 로그인해주세요.");
 		}
+
+		TokenStatus tokenStatus = jwtProvider.validateAccessToken(accessToken);
+		log.info("tokenStatus = {}", tokenStatus);
+
+		switch (tokenStatus) {
+			case VALID:
+				response.setStatus(HttpServletResponse.SC_OK);
+				break;
+
+			case EXPIRED:
+				jwtProvider.replaceAccessToken(response, accessToken);
+				break;
+
+			default:
+				response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+		}
+
 	}
 
 
