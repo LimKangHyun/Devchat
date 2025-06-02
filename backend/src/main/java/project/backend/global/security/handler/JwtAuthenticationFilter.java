@@ -28,6 +28,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtProvider jwtProvider;
 
+	private static final List<String> WHITE_LIST = List.of(
+		"/token/sync",
+		"/signup"
+	);
+
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
 		FilterChain filterChain)
@@ -35,7 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 		String uri = request.getRequestURI();
 
-		if (uri.equals("/auth/refresh")) {
+		if (uri.equals("/token/sync")) {
 			filterChain.doFilter(request, response); // JWT 검사 건너뜀
 			return;
 		}
@@ -56,6 +61,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 					SecurityContextHolder.getContext().setAuthentication(authentication);
 				}
 				case EXPIRED -> {
+
 					log.info("[JWT] 토큰 만료됨. 재발급 시도");
 					Authentication authentication = jwtProvider.replaceAccessToken(response,
 						token);

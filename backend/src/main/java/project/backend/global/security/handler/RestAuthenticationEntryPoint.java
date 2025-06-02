@@ -25,7 +25,8 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 		String message = authException.getMessage() != null
 			? authException.getMessage()
 			: "로그인이 필요한 서비스입니다.";
-
-		response.getWriter().write("{\"message\":\"" + message + "\"}");
+		
+		response.getWriter()
+			.write("{\"message\":\"" + message + "\"}");
 	}
 }

@@ -64,10 +64,7 @@ public class SecurityConfig {
 					.requestMatchers("/signup", "/login", "/", "/login/oauth2/**", "/error",
 						"/github/**")
 					.anonymous()
-
-					.requestMatchers("/auth/**")
-					.permitAll()
-
+					
 					.anyRequest()
 					.authenticated();
 			})

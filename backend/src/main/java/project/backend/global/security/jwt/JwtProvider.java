@@ -173,6 +173,21 @@ public class JwtProvider {
 			.asString());
 	}
 
+	public void getAccessTokenByAuthentication(Authentication authentication,
+		HttpServletResponse response) {
+
+		var memberDetails = (MemberDetails) authentication.getPrincipal();
+
+		Long id = memberDetails.getId();
+
+		String lastToken = tokenRedisRepository.findById(id).orElseThrow(
+			() -> new UsernameNotFoundException("다시 로그인 해주세요")
+		).getAccessToken();
+
+		CookieUtils.saveCookie(response, lastToken);
+	}
+
+
 	public Authentication getAuthentication(String token) {
 
 		Long id = getIdFromToken(token);
@@ -212,7 +227,6 @@ public class JwtProvider {
 			tokenRedis.updateAccessToken(newAccessToken);
 
 			tokenRedisRepository.save(tokenRedis);
-			log.info("토큰 재발급 완료");
 
 			return authentication;
 		} catch (JwtException e) {

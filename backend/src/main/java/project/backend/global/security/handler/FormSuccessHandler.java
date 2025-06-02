@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
@@ -46,8 +47,8 @@ public class FormSuccessHandler implements AuthenticationSuccessHandler {
 		response.setContentType("application/json");
 		response.setCharacterEncoding("UTF-8");
 
-		Map<String, String> result = Map.of("message", "로그인 성공");
-		new ObjectMapper().writeValue(response.getWriter(), result);
+		response.getWriter()
+			.write("{\"message\":\"" + "로그인 성공" + "\"}");
 		log.info("로그인 성공: {}", authentication.getName());
 	}
 }

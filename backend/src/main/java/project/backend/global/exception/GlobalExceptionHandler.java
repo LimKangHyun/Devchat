@@ -31,12 +31,6 @@ public class GlobalExceptionHandler {
 			.body(response);
 	}
 
-	@ExceptionHandler(UsernameNotFoundException.class)
-	public ResponseEntity<?> handleUsernameNotFound(UsernameNotFoundException ex) {
-		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-			.body(Map.of("error", Optional.ofNullable(ex.getMessage()).orElse("인증 실패")));
-	}
-
 	@ExceptionHandler(AuthException.class)
 	public ResponseEntity<ErrorResponse> handleAuthException(AuthException ex) {
 
