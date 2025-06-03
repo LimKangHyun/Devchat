@@ -183,7 +183,7 @@ public class JwtProvider {
 		String token) {
 		try {
 			TokenRedis tokenRedis = tokenRedisRepository.findByAccessToken(token)
-				.orElseThrow(() -> new CustomJwtException(TokenErrorCode.INVALID_TOKEN));
+				.orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));
 
 			String refreshToken = tokenRedis.getRefreshToken();
 
@@ -202,15 +202,15 @@ public class JwtProvider {
 
 			tokenRedisRepository.save(tokenRedis);
 
+		} catch (TokenExpiredException e) {
+			log.error("리프레시 토큰 만료");
+			throw new CustomJwtException(TokenErrorCode.EXPIRED_TOKEN);
+
 		} catch (JwtException e) {
-			log.error(e.getMessage());
 			log.error("리프레시 토큰 검증 실패", e);
 			throw new CustomJwtException(TokenErrorCode.INVALID_TOKEN);
 
-		} catch (AuthenticationException e) {
-			throw e;
-
-		} catch (Exception e) {
+		} catch (RedisException e) {
 			log.error(e.getMessage());
 			throw new CustomJwtException(TokenErrorCode.UNKNOWN_ERROR);
 		}

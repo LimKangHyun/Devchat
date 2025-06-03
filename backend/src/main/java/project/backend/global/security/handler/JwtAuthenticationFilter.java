@@ -46,7 +46,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		log.info("JWT필터 도달 = {}", request.getRequestURI());
 
 		Cookie cookie = CookieUtils.getCookie(request,
-			"accessToken").orElseThrow(() -> new CustomJwtException(TokenErrorCode.INVALID_TOKEN));
+				"accessToken")
+			.orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));
 		String accessToken = cookie.getValue();
 
 		TokenStatus tokenStatus = jwtProvider.validateAccessToken(accessToken);

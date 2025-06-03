@@ -30,7 +30,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 			message = errorCode.getMessage();
 		} else {
 			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-			message = "인증실패, 로그인해주세요.";
+			message = "로그인이 필요한 서비스입니다.";
 		}
 
 		response.getWriter()
