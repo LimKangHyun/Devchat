@@ -15,7 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import project.backend.global.exception.errorcode.TokenErrorCode;
-import project.backend.global.exception.ex.JwtException;
+import project.backend.global.exception.ex.CustomJwtException;
 import project.backend.global.security.app.CookieUtils;
 import project.backend.global.security.jwt.JwtProvider;
 import project.backend.global.security.jwt.TokenStatus;
@@ -29,7 +29,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private static final List<String> WHITE_LIST = List.of(
 		"/signup",
-		"/login"
+		"/login",
+		"/token/refresh"
 	);
 
 	@Override
@@ -45,7 +46,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		log.info("JWT필터 도달 = {}", request.getRequestURI());
 
 		Cookie cookie = CookieUtils.getCookie(request,
-			"accessToken").orElseThrow(() -> new JwtException(TokenErrorCode.INVALID_TOKEN));
+			"accessToken").orElseThrow(() -> new CustomJwtException(TokenErrorCode.INVALID_TOKEN));
 		String accessToken = cookie.getValue();
 
 		TokenStatus tokenStatus = jwtProvider.validateAccessToken(accessToken);
@@ -61,5 +62,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 		filterChain.doFilter(request, response);
 	}
-
 }

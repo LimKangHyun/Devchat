@@ -9,20 +9,18 @@ import com.auth0.jwt.exceptions.SignatureVerificationException;
 import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import io.lettuce.core.RedisException;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.Optional;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.transaction.annotation.Transactional;
+import project.backend.global.exception.errorcode.TokenErrorCode;
+import project.backend.global.exception.ex.CustomJwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Component;
 import project.backend.domain.member.dao.MemberRepository;
 import project.backend.domain.member.entity.Member;
@@ -33,8 +31,6 @@ import java.util.Date;
 import java.util.Map;
 import project.backend.global.redis.dao.TokenRedisRepository;
 import project.backend.global.redis.entity.TokenRedis;
-import project.backend.global.exception.errorcode.AuthErrorCode;
-import project.backend.global.exception.ex.AuthException;
 
 
 @Slf4j
@@ -93,31 +89,28 @@ public class JwtProvider {
 		return doGenerateToken(REFRESH_TOKEN_VALIDATION_SECOND, payload);
 	}
 
-	private String regenerateAccessToken(Authentication authentication) {
-		var memberDetails = (MemberDetails) authentication.getPrincipal();
-		Map<String, String> payload = Map.of(
-			"id", memberDetails.getId().toString(),
-			"email", memberDetails.getEmail(),
-			"nickname", memberDetails.getNickname()
-		);
-
-		return generateAccessToken(payload);
-	}
-
 	public String regenerateAccessToken(String refreshToken) {
-		DecodedJWT decodedJWT = getJwtVerifier(REFRESH_TOKEN_VALIDATION_SECOND).verify(
-			refreshToken);
+		try {
+			DecodedJWT decodedJWT = getJwtVerifier(REFRESH_TOKEN_VALIDATION_SECOND).verify(
+				refreshToken);
 
-		String id = decodedJWT.getClaim("id").asString();
-		String email = decodedJWT.getClaim("email").asString();
-		String nickname = decodedJWT.getClaim("nickname").asString();
+			String id = decodedJWT.getClaim("id").asString();
+			String email = decodedJWT.getClaim("email").asString();
+			String nickname = decodedJWT.getClaim("nickname").asString();
 
-		Map<String, String> payload = Map.of(
-			"id", id,
-			"email", email,
-			"nickname", nickname
-		);
-		return generateAccessToken(payload);
+			Map<String, String> payload = Map.of(
+				"id", id,
+				"email", email,
+				"nickname", nickname
+			);
+			return generateAccessToken(payload);
+
+		} catch (JwtException e) {
+			log.error(e.getMessage());
+			log.error("리프레시 토큰 검증 실패", e);
+			throw new CustomJwtException(TokenErrorCode.INVALID_TOKEN);
+
+		}
 	}
 
 	public JWTVerifier getJwtVerifier(Long expiresSeconds) {
@@ -154,7 +147,6 @@ public class JwtProvider {
 		}
 	}
 
-
 	private String doGenerateToken(Long expiration, Map<String, String> payload) {
 		long now = System.currentTimeMillis();
 
@@ -173,21 +165,6 @@ public class JwtProvider {
 			.asString());
 	}
 
-	public void getAccessTokenByAuthentication(Authentication authentication,
-		HttpServletResponse response) {
-
-		var memberDetails = (MemberDetails) authentication.getPrincipal();
-
-		Long id = memberDetails.getId();
-
-		String lastToken = tokenRedisRepository.findById(id).orElseThrow(
-			() -> new UsernameNotFoundException("다시 로그인 해주세요")
-		).getAccessToken();
-
-		CookieUtils.saveCookie(response, lastToken);
-	}
-
-
 	public Authentication getAuthentication(String token) {
 
 		Long id = getIdFromToken(token);
@@ -201,13 +178,12 @@ public class JwtProvider {
 
 	}
 
-
-	public Authentication replaceAccessToken(HttpServletResponse response,
+	@Transactional
+	public void replaceAccessToken(HttpServletResponse response,
 		String token) {
 		try {
-
 			TokenRedis tokenRedis = tokenRedisRepository.findByAccessToken(token)
-				.orElseThrow(() -> new BadCredentialsException("유효하지 않은 토큰입니다."));
+				.orElseThrow(() -> new CustomJwtException(TokenErrorCode.INVALID_TOKEN));
 
 			String refreshToken = tokenRedis.getRefreshToken();
 
@@ -215,12 +191,10 @@ public class JwtProvider {
 			JWTVerifier jwtVerifier = getJwtVerifier(REFRESH_TOKEN_VALIDATION_SECOND);
 			jwtVerifier.verify(refreshToken);
 
-			log.info("accessToken 재발급 시작 = {}", refreshToken);
-
-			Authentication authentication = getAuthentication(refreshToken);
+			log.info("accessToken 재발급 시작 = {}", token);
 
 			// 새로운 액세스 토큰 발급
-			String newAccessToken = regenerateAccessToken(authentication);
+			String newAccessToken = regenerateAccessToken(refreshToken);
 
 			CookieUtils.saveCookie(response, newAccessToken);
 
@@ -228,19 +202,17 @@ public class JwtProvider {
 
 			tokenRedisRepository.save(tokenRedis);
 
-			return authentication;
 		} catch (JwtException e) {
 			log.error(e.getMessage());
 			log.error("리프레시 토큰 검증 실패", e);
-			throw new BadCredentialsException("세션이 만료되었습니다. 다시 로그인 해주세요.");
-
-		} catch (RedisException e) {
-			log.error(e.getMessage());
-			throw new BadCredentialsException("로그인 유지에 실패했습니다. 다시 로그인해주세요.");
+			throw new CustomJwtException(TokenErrorCode.INVALID_TOKEN);
 
 		} catch (AuthenticationException e) {
-			log.error(e.getMessage());
 			throw e;
+
+		} catch (Exception e) {
+			log.error(e.getMessage());
+			throw new CustomJwtException(TokenErrorCode.UNKNOWN_ERROR);
 		}
 
 	}
