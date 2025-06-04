@@ -13,14 +13,12 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 public class CustomOAuth2User implements OAuth2User {
 
 	private final OAuth2User oAuth2User;
-	private final String email;
 	private final String githubAccess;
 
 	@Override
 	public Map<String, Object> getAttributes() {
 		Map<String, Object> extended = new HashMap<>(oAuth2User.getAttributes());
 		extended.put("githubAccess", githubAccess);
-		extended.put("email", email);
 		return extended;
 	}
 

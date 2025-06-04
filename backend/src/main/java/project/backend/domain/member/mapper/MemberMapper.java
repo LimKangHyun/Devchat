@@ -35,10 +35,10 @@ public class MemberMapper {
 
 	public static Member toEntity(OAuthMemberDto request, ImageFile defaultProfileImg) {
 		return Member.builder()
+			.username(request.login())
 			.email(request.email())
 			.nickname(request.nickname())
 			.provider(ProviderType.GITHUB)
-			.username(request.login())
 			.profileImage(defaultProfileImg)
 			.build();
 	}

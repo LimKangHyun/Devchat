@@ -57,8 +57,7 @@ public class JwtProvider {
 	public Token generateTokenPair(Member member) {
 		Map<String, String> payload = Map.of(
 			"id", member.getId().toString(),
-			"email", member.getEmail(),
-			"nickname", member.getNickname()
+			"username", member.getUsername()
 		);
 
 		String accessToken = generateAccessToken(payload);
@@ -71,8 +70,7 @@ public class JwtProvider {
 
 		Map<String, String> payload = Map.of(
 			"id", memberDetails.getId().toString(),
-			"email", memberDetails.getEmail(),
-			"nickname", memberDetails.getNickname()
+			"username", memberDetails.getUsername()
 		);
 
 		String accessToken = generateAccessToken(payload);
@@ -95,13 +93,11 @@ public class JwtProvider {
 				refreshToken);
 
 			String id = decodedJWT.getClaim("id").asString();
-			String email = decodedJWT.getClaim("email").asString();
-			String nickname = decodedJWT.getClaim("nickname").asString();
+			String username = decodedJWT.getClaim("username").asString();
 
 			Map<String, String> payload = Map.of(
 				"id", id,
-				"email", email,
-				"nickname", nickname
+				"username", username
 			);
 			return generateAccessToken(payload);
 

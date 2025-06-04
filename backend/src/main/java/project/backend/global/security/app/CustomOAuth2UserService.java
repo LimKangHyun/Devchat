@@ -33,16 +33,19 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 		OAuth2User oAuth2User = oAuth2UserService.loadUser(userRequest);
 		String accessToken = userRequest.getAccessToken().getTokenValue();
 
-		//public이메일 없으면 primary이메일 가져와서 사용
-		String email = Optional.ofNullable((String) oAuth2User.getAttributes().get("email"))
-			.orElseGet(() -> gitHubClient.getPrivateEmail(accessToken));
+//		//public이메일 없으면 primary이메일 가져와서 사용
+//		String email = Optional.ofNullable((String) oAuth2User.getAttributes().get("email"))
+//			.orElseGet(() -> gitHubClient.getPrivateEmail(accessToken));
 
 		String registrationId = userRequest.getClientRegistration().getRegistrationId();
 
+		//login임 식별자 역할
 		String userNameAttributeName = userRequest.getClientRegistration().getProviderDetails()
 			.getUserInfoEndpoint().getUserNameAttributeName();
 
-		CustomOAuth2User customOAuth2User = new CustomOAuth2User(oAuth2User, email, accessToken);
+		log.info("userNameAttributeName = {}", userNameAttributeName);
+
+		CustomOAuth2User customOAuth2User = new CustomOAuth2User(oAuth2User, accessToken);
 
 		OAuth2Attribute oAuth2Attribute = OAuth2Attribute.of(registrationId, userNameAttributeName,
 			customOAuth2User.getAttributes());
@@ -51,7 +54,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
 		return new DefaultOAuth2User(
 			Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")),
-			memberAttribute, "login");
+			memberAttribute, userNameAttributeName);
 	}
 }
 
