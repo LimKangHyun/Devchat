@@ -10,8 +10,7 @@ import useWebSocket from '../components/common/useWebSocket';
 import RoomHeader from '../components/chatroom/RoomHeader';
 
 const ChatRoom = () => {
-
-  const { roomId, inviteCode } = useParams();
+  const { inviteCode } = useParams();
   const [messages, setMessages] = useState([]);
   const [content, setContent] = useState("");
   const [inputMode, setInputMode] = useState("TEXT");
@@ -20,39 +19,45 @@ const ChatRoom = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [contextMenuId, setContextMenuId] = useState(null);
 
-  const [editMessageId, setEditMessageId] = useState(null); // 현재 수정 중인 메시지 ID
-  const [editContent, setEditContent] = useState(""); // 수정 중인 내용
+  const [editMessageId, setEditMessageId] = useState(null);
+  const [editContent, setEditContent] = useState("");
 
   const messagesEndRef = useRef(null);
-  const navigate = useNavigate();           // ← 네비게이트 훅
-  const location = useLocation();           // ← 현재 URL 가져오기
+  const navigate = useNavigate();
 
   const [roomName, setRoomName] = useState("로딩 중...");
+  const [roomId, setRoomId] = useState(null);
+  
+  // 초기화 상태 관리
+  const [isRoomValidated, setIsRoomValidated] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // 1. 방 이름 불러오기
+  // 1. 방 정보(현재는 방 이름만) 불러오기
   const fetchRoomInfo = async () => {
     try {
-      const res = await axiosInstance.get(`/chat-rooms/check?inviteCode=${inviteCode}`, {
-      });
-
+      const res = await axiosInstance.get(`/chat-rooms/${inviteCode}`);
       const roomData = res.data;
+
+      setRoomId(roomData.roomId);
       setRoomName(roomData.roomName);
+      return roomData.roomId;
     } catch (error) {
-      console.error('방 정보 요청 실패:', error);
-      setRoomName(`채팅방 #${roomId}`); // 오류 시 기본값으로 표시
+      console.error('방 정보 조회 실패:', error);
+      navigate(`/error`);
+      return null;
     }
   };
 
   // 2. 메시지 목록 불러오기
-  const fetchMessages = async () => {
+  const fetchMessages = async (roomId) => {
     try {
-      const res = await axiosInstance.get(`/${roomId}/messages`);
+      const res = await axiosInstance.get(`/${roomId}/messages`); 
       const data = res.data;
 
       // 날짜 유효성 검사
       const validatedData = data.map(msg => {
         const sendAt = new Date(msg.sendAt);
-        const isInvalidDate = isNaN(sendAt.getTime()); // getTime이 NaN이면 잘못된 날짜
+        const isInvalidDate = isNaN(sendAt.getTime());
 
         if (!msg.sendAt || isInvalidDate) {
           return { ...msg, sendAt: new Date().toISOString() };
@@ -61,7 +66,7 @@ const ChatRoom = () => {
         return msg;
       });
 
-      //sendAt 기준으로 메시지 정렬
+      // sendAt 기준으로 메시지 정렬
       const sortedData = validatedData.sort(
           (a, b) => new Date(a.sendAt).getTime() - new Date(b.sendAt).getTime()
       );
@@ -85,20 +90,19 @@ const ChatRoom = () => {
         throw new Error('로그인 정보를 가져오지 못했습니다.');
       }
 
-      const user = await res.json(); // { id, email, nickname, profileImg }
+      const user = await res.json();
       setCurrentUser(user);
     } catch (error) {
       console.error('사용자 정보 요청 실패:', error);
     }
   };
 
-  //웹소켓 연결 (현재 채팅방 구독)
+  // 웹소켓 연결 (roomId가 검증된 후에만 연결)
   const stompClientRef = useWebSocket({
-    roomId,
-    onMessageReceived: (received)=> {
-      //메세지 상태 업데이트
+    roomId: isRoomValidated ? roomId : null, // 방이 검증된 후에만 roomId 전달
+    onMessageReceived: (received) => {
       setMessages(prev => {
-        const updated=prev.some(m => m.messageId === received.messageId)
+        const updated = prev.some(m => m.messageId === received.messageId)
         ? prev.map(m => m.messageId === received.messageId ? received : m)
         : [...prev, received];
 
@@ -108,27 +112,51 @@ const ChatRoom = () => {
     }
   });
 
-  //roomId가 변할 때 초기 데이터 불러오기
+  // 초기화 로직 
   useEffect(() => {
-    if (!roomId) {
-      console.error("No roomId available");
-      navigate("/");
+    if (!inviteCode) {
+      console.error("No inviteCode available");
+      navigate("/error");
       return;
     }
 
-    setMessages([]); // 이전 채팅방 메세지 제거
+    const initializeRoom = async () => {
+      setIsInitializing(true);
+      setIsRoomValidated(false);
+      setMessages([]); // 이전 채팅방 메시지 제거
+      
+      try {
+        // 1단계: 방 정보 검증 및 로딩
+        const fetchedRoomId = await fetchRoomInfo();
+        
+        if (!fetchedRoomId) {
+          // 방 정보 로딩 실패 시 여기서 종료 (navigate는 fetchRoomInfo에서 처리)
+          return;
+        }
 
-    fetchCurrentUser();
-    fetchRoomInfo(); // 방 정보 가져오기 함수 호출 추가
-    fetchMessages();
+        // 2단계: 방 검증 완료 표시 (이제 웹소켓 연결 가능)
+        setIsRoomValidated(true);
+        
+        // 3단계: 병렬로 사용자 정보와 메시지 로딩
+        await Promise.all([
+          fetchCurrentUser(),
+          fetchMessages(fetchedRoomId)
+        ]);
 
-  },[roomId]);
+      } catch (error) {
+        console.error('방 초기화 중 오류:', error);
+        navigate("/error");
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    initializeRoom();
+  }, [inviteCode]);
 
   const handleLeaveRoom = async () => {
     try {
       await axiosInstance.delete(`/chat-rooms/${roomId}/leave`);
-
-      // ChatRoom 컴포넌트의 상태 업데이트는 RoomHeader가 처리하도록 처리
       return { success: true };
     } catch (err) {
       const errorMsg =
@@ -140,7 +168,7 @@ const ChatRoom = () => {
     }
   };
 
-  //메세지 검색
+  // 메시지 검색 관련 상태
   const [showSearchSidebar, setShowSearchSidebar] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -151,15 +179,16 @@ const ChatRoom = () => {
   const [errorMessage, setErrorMessage] = useState(null);
 
   const handleSearch = async (keyword, page = 0) => {
-    // Check if roomId is defined before proceeding
-    if (!roomId) {
-      setErrorMessage('채팅방 ID가 유효하지 않습니다.');
+    // roomId 검증 - 더 명확한 에러 처리
+    if (!roomId || !isRoomValidated) {
+      setErrorMessage('채팅방이 아직 로딩 중입니다. 잠시 후 다시 시도해주세요.');
       return;
     }
+    
     setIsSearching(true);
     setShowSearchSidebar(true);
     setSearchKeyword(keyword);
-    setErrorMessage(null); // 이전 에러 메시지 초기화
+    setErrorMessage(null);
 
     try {
       const response = await axiosInstance.get(`/chat/search/${roomId}`, {
@@ -173,7 +202,7 @@ const ChatRoom = () => {
       const data = response.data;
       const validatedResults = (data.content || []).map(msg => {
       const sendAt = new Date(msg.sendAt);
-      const isInvalid = !msg.sendAt || isNaN(sendAt.getTime()); // NaN = Invalid Date
+      const isInvalid = !msg.sendAt || isNaN(sendAt.getTime());
 
       return isInvalid
         ? { ...msg, sendAt: new Date().toISOString() }
@@ -260,9 +289,14 @@ const ChatRoom = () => {
   // 메시지 전송 (텍스트/코드/이미지 모두 처리)
   const sendMessage = (overrideMessage = null) => {
     const client = stompClientRef.current;
-    // 연결이 끊긴 경우 재연결 시도
-    if (!client.connected) {
-      client.activate();
+    
+    // 방 검증 상태 확인
+    if (!roomId || !isRoomValidated) {
+      alert('채팅방 정보를 로딩 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    
+    if (!client || !client.connected) {
       alert('⚠️ 서버와 연결이 끊어졌습니다. 재연결을 시도합니다.');
       return;
     }
@@ -293,7 +327,7 @@ const ChatRoom = () => {
     setInputMode('TEXT');
   };
 
-  //메세지 수정 요청
+  // 메시지 수정 요청
   const handleEditMessage = (messageId) => {
     const client = stompClientRef.current;
     if (!client || !client.connected) {
@@ -316,7 +350,7 @@ const ChatRoom = () => {
     setEditContent('');
   };
 
-  //메세지 삭제 요청
+  // 메시지 삭제 요청
   const handleDeleteMessage = (messageId) => {
     const client = stompClientRef.current;
     if (!client || !client.connected) {
@@ -331,6 +365,24 @@ const ChatRoom = () => {
 
     setContextMenuId(null); // 메뉴 닫기
   };
+
+  // 로딩 상태 표시
+  if (isInitializing) {
+    return (
+      <div style={{
+        backgroundColor: '#f5f7fa',
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div>채팅방을 불러오는 중...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

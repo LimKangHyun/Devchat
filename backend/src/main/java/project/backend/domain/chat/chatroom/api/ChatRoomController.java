@@ -117,8 +117,9 @@ public class ChatRoomController {
 	}
 	//임창인 끝
 
-	@GetMapping("/check")
-	public ChatRoomNameResponse getChatRoomName(@RequestParam String inviteCode) {
-		return chatRoomService.getChatRoomByInviteCode(inviteCode);
+	@GetMapping("/{inviteCode}")
+	public ChatRoomNameResponse getChatRoomDetails(@PathVariable String inviteCode,
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		return chatRoomService.getChatRoomDetails(inviteCode,memberDetails.getId());
 	}
 }

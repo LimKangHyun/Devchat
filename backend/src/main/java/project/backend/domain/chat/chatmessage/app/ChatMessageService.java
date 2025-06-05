@@ -193,9 +193,14 @@ public class ChatMessageService {
 
 	// 예외 처리
 	@Transactional(readOnly = true)
-	public List<ChatMessageResponse> getMessagesByRoomId(Long roomId) {
+	public List<ChatMessageResponse> getMessagesByRoomId(Long roomId, Long memberId) {
 		chatRoomRepository.findById(roomId)
 			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+
+		if (!chatParticipantRepository.
+			existsByParticipantIdAndChatRoomId(memberId, roomId)) {
+			throw new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT);
+		}
 
 		List<ChatMessage> messages = chatMessageRepository.findByChatRoom_IdOrderBySendAtAsc(
 			roomId);

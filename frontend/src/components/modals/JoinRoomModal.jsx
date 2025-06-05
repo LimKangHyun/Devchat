@@ -27,7 +27,7 @@ const JoinRoomModal = ({ onClose, onSubmit }) => {
     setError(null);
     
     try {
-      const res = await axiosInstance.get(`/chat-rooms/check?inviteCode=${inviteCode.trim()}`);
+      const res = await axiosInstance.get(`/chat-rooms/${inviteCode}`);
       setRoomInfo(res.data);
     } catch (err) {
       console.error('초대 코드 확인 오류:', err);

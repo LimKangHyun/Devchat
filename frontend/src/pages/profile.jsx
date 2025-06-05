@@ -58,8 +58,8 @@ const ProfilePage = () => {
     fetchUserRooms();
   }, [userDetails, navigate]);
 
-  const handleJoinClick = (roomId, inviteCode) => {
-    navigate(`/chat/${roomId}/${inviteCode}`);
+  const handleJoinClick = (inviteCode) => {
+    navigate(`/chat/${inviteCode}`);
   };
 
   if (!userDetails) {
@@ -127,7 +127,7 @@ const ProfilePage = () => {
                       </div>
                       <button
                         className={styles["join-button"]}
-                        onClick={() => handleJoinClick(room.roomId, room.inviteCode)}
+                        onClick={() => handleJoinClick(room.inviteCode)}
                       >
                         Join
                       </button>

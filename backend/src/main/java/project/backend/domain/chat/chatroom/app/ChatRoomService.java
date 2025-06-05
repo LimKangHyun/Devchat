@@ -103,12 +103,7 @@ public class ChatRoomService {
 
 		Member member = memberService.getMemberById(memberId);
 
-		boolean isAlreadyParticipant = chatParticipantRepository
-			.existsByParticipantIdAndChatRoomId(memberId, room.getId());
-
-		if (isAlreadyParticipant) {
-			throw new ChatRoomException(ChatRoomErrorCode.ALREADY_PARTICIPANT);
-		}
+		validateNotParticipant(memberId,room.getId());
 
 		ChatParticipant chatParticipant = ChatParticipant.of(member, room);
 
@@ -202,9 +197,19 @@ public class ChatRoomService {
 	}
 
 	@Transactional(readOnly = true)
-	public ChatRoomNameResponse getChatRoomByInviteCode(String inviteCode) {
+	public ChatRoomNameResponse getChatRoomDetails(String inviteCode,Long memberId) {
 		ChatRoom room = findByInviteCode(inviteCode);
+
+		validateNotParticipant(memberId,room.getId());
+
 		return ChatRoomMapper.toListResponse(room);
+	}
+
+	private void validateNotParticipant(Long memberId, Long roomId) {
+		if (!chatParticipantRepository.
+			existsByParticipantIdAndChatRoomId(memberId, roomId)) {
+			throw new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT);
+		}
 	}
 }
 

@@ -28,11 +28,16 @@ const Home = () => {
       .then(res => {
         const roomId = res.data.roomId;
         const inviteCode = res.data.inviteCode;
-        console.log(roomId);
-        if (roomId) {
-            navigate(`/chat/${roomId}/${inviteCode}`);
+        console.log('최근 방 - roomId:', roomId, 'inviteCode:', inviteCode);
+        
+        if (inviteCode) {
+            navigate(`/chat/${inviteCode}`); // ✅ inviteCode만 사용
+        } else if (roomId) {
+            // inviteCode가 없지만 roomId가 있는 경우 fallback
+            console.warn('inviteCode가 없어서 /blank로 이동');
+            navigate('/blank');
         } else {
-            console.warn('roomId가 응답에 없음');
+            console.warn('roomId와 inviteCode가 모두 응답에 없음');
             navigate('/blank'); // fallback
         }
       })
