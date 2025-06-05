@@ -58,21 +58,23 @@ public class ChatMessageService {
 		Member sender = memberService.getMemberByEmail(email);
 		ChatRoom room = chatRoomService.getRoomById(roomId);
 
-		//todo 따로 뺀 메서드 사용
+		//todo
 		if (!chatParticipantRepository.existsByParticipantIdAndChatRoomId(
 			sender.getId(), room.getId())) {
 			throw new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT);
 		}
 
 		ChatMessage message;
-		switch (request.getType()) {
-			case IMAGE -> {
-				ImageFile findImage = imageFileService.getImageById(request.getImageFileId());
-				message = messageMapper.toEntityWithImage(room, sender, findImage);
-			}
-			case TEXT -> message = messageMapper.toEntityWithText(room, sender, request);
-			case CODE -> message = messageMapper.toEntityWithCode(room, sender, request);
-			default -> throw new ChatMessageException(ChatMessageErrorCode.INVALID_ROUTE);
+
+		if (request.getType().equals(MessageType.IMAGE) && request.getImageFileId() != null) {
+			ImageFile findImage = imageFileService.getImageById(request.getImageFileId());
+			message = messageMapper.toEntityWithImage(room, sender, findImage);
+		} else if (request.getType().equals(MessageType.TEXT)) {
+			message = messageMapper.toEntityWithText(room, sender, request);
+		} else if (request.getType().equals(MessageType.CODE)) {
+			message = messageMapper.toEntityWithCode(room, sender, request);
+		} else {
+			throw new ChatMessageException(ChatMessageErrorCode.INVALID_ROUTE);
 		}
 
 		chatMessageRepository.save(message);
