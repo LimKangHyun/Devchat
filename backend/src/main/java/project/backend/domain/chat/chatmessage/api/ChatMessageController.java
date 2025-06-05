@@ -21,6 +21,7 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
+import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.imagefile.ImageType;
@@ -71,14 +72,12 @@ public class ChatMessageController {
 	}
 
 	@GetMapping("/{roomId}/messages")
-	public List<ChatMessageResponse> getMessages(@PathVariable Long roomId,
-		@AuthenticationPrincipal MemberDetails memberDetails) {
-
-		if (memberDetails == null) {
-			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
-		}
-
-		return chatMessageService.getMessagesByRoomId(roomId, memberDetails.getId());
+	public ChatScrollResponse getMessages(
+		@PathVariable Long roomId,
+		@RequestParam(required = false) Long cursor,
+		@RequestParam(defaultValue = "30") int size
+	) {
+		return chatMessageService.getMessagesByRoomId(roomId, cursor, size);
 	}
 
 	@MessageMapping("/delete-message/{roomId}")
