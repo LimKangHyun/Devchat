@@ -81,7 +81,7 @@ public class ChatRoomService {
 		return room.getInviteCode();
 	}
 
-	@Transactional
+	@Transactional(readOnly = true)
 	public Long getRoomIdByInviteCode(String inviteCode) {
 		ChatRoom room = getByInviteCode(inviteCode);
 

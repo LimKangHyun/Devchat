@@ -92,10 +92,7 @@ public class ChatMessageMapper {
 			.type(message.getType())
 			.sendAt(message.getSendAt())
 			.language(message.getCodeLanguage())
-			.profileImageUrl(
-				Optional.ofNullable(message.getSender().getProfileImage())
-					.map(ImageFile::getStoreFileName)
-					.orElse("default_image.jpg"))
+			.profileImageUrl(message.getSender().getProfileImage().getStoreFileName())
 			.chatImageUrl(
 				Optional.ofNullable(message.getChatImage())
 					.map(ImageFile::getStoreFileName)
@@ -112,10 +109,7 @@ public class ChatMessageMapper {
 			.messageId(message.getId())
 			.content(message.getContent())
 			.senderName(message.getSender().getNickname())
-			.profileImageUrl(
-				Optional.ofNullable(message.getSender().getProfileImage())
-					.map(ImageFile::getStoreFileName)
-					.orElse("default_image.jpg"))
+			.profileImageUrl(message.getSender().getProfileImage().getStoreFileName())
 			.sendAt(message.getSendAt())
 			.type(message.getType())
 			.build();
