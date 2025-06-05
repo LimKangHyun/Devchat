@@ -8,6 +8,7 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,6 +24,9 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.imagefile.ImageType;
+import project.backend.global.config.security.dto.MemberDetails;
+import project.backend.global.exception.errorcode.AuthErrorCode;
+import project.backend.global.exception.ex.AuthException;
 
 @RestController
 @RequiredArgsConstructor
@@ -67,8 +71,14 @@ public class ChatMessageController {
 	}
 
 	@GetMapping("/{roomId}/messages")
-	public List<ChatMessageResponse> getMessages(@PathVariable Long roomId) {
-		return chatMessageService.getMessagesByRoomId(roomId);
+	public List<ChatMessageResponse> getMessages(@PathVariable Long roomId,
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+
+		if (memberDetails == null) {
+			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
+		}
+
+		return chatMessageService.getMessagesByRoomId(roomId, memberDetails.getId());
 	}
 
 	@MessageMapping("/delete-message/{roomId}")

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../components/api/axiosInstance';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -8,31 +8,21 @@ const Home = () => {
 
   useEffect(() => {
 
-    axios.get(`http://localhost:8080/auth`, {
-      withCredentials: true,
-    })
-      .catch(err => {
-        const status = err.response?.status;
-        if(status===401) {
-          navigate("/login")
-        } else {
-          console.error("에러 발생", err);
-          navigate("/login")
-        }
-      })
-
-    axios.get(`http://localhost:8080/chat-rooms/recent`, { 
-        withCredentials: true,
-
+    axiosInstance.get(`/chat-rooms/recent`, { 
     })
       .then(res => {
         const roomId = res.data.roomId;
         const inviteCode = res.data.inviteCode;
-        console.log(roomId);
-        if (roomId) {
-            navigate(`/chat/${roomId}/${inviteCode}`);
+        console.log('최근 방 - roomId:', roomId, 'inviteCode:', inviteCode);
+        
+        if (inviteCode) {
+            navigate(`/chat/${inviteCode}`); // ✅ inviteCode만 사용
+        } else if (roomId) {
+            // inviteCode가 없지만 roomId가 있는 경우 fallback
+            console.warn('inviteCode가 없어서 /blank로 이동');
+            navigate('/blank');
         } else {
-            console.warn('roomId가 응답에 없음');
+            console.warn('roomId와 inviteCode가 모두 응답에 없음');
             navigate('/blank'); // fallback
         }
       })
@@ -40,12 +30,9 @@ const Home = () => {
         const status = err.response?.status;
         if (status === 404) {
           navigate('/blank'); // 참여 중인 채팅방 없음
-        } else if (status === 401) {
-          navigate('/login'); // 인증 필요
         } else {
-          console.error('채팅방 이동 실패:', status);
-          alert(err);
-
+          const message = err.response?.data?.message || '채팅방 조회 실패';
+          alert(message); 
         }
       })
       .finally(() => {

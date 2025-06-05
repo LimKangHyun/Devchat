@@ -5,11 +5,8 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,14 +19,21 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
+import project.backend.domain.chat.chatroom.dto.ChatRoomDetailResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomNameResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinRequest;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
+import project.backend.domain.chat.chatroom.dto.ChatRoomDetailResponse;
+import project.backend.domain.chat.chatroom.dto.ParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
-import project.backend.global.config.security.dto.MemberDetails;
+import project.backend.global.security.dto.MemberDetails;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.ex.AuthException;
 
@@ -62,6 +66,7 @@ public class ChatRoomController {
 
 		return chatRoomService.joinChatRoom(request.getInviteCode(), memberDetails.getId());
 	}
+
 
 	@GetMapping("/recent")
 	public RecentChatRoomResponse getRecentRoomInviteCode(
@@ -120,8 +125,11 @@ public class ChatRoomController {
 	}
 	//임창인 끝
 
-	@GetMapping("/check")
-	public ChatRoomNameResponse getChatRoomName(@RequestParam String inviteCode) {
-		return chatRoomService.getChatRoomByInviteCode(inviteCode);
+	@GetMapping("/{inviteCode}")
+	public ChatRoomNameResponse getChatRoomDetails(@PathVariable String inviteCode,
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		return chatRoomService.getChatRoomDetails(inviteCode,memberDetails.getId());
 	}
+
+
 }

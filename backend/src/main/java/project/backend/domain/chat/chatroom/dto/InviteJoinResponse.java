@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class InviteJoinResponse {
+
 	private Long id;
 	private String inviteCode;
 	private String name;

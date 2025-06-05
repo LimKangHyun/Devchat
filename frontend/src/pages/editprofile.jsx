@@ -30,13 +30,10 @@ const EditProfilePage = () => {
       } catch (error) {
         if (!alertShownRef.current) {
           alertShownRef.current = true
-          const status = error?.response?.status
           const msg = error?.response?.data?.message || "사용자 정보 조회 실패"
           alert(msg)
           stopRequestRef.current = true
-          if (status === 401) {
-            navigate("/login")
-          }
+          
         }
       }
     }

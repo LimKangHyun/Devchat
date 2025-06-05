@@ -15,6 +15,12 @@ const useWebSocket = ({
     const navigate = useNavigate(); 
 
     useEffect(() => {
+        
+        if (!roomId) {
+            console.log('⏳ roomId가 없어서 웹소켓 연결을 대기합니다.');
+            return;
+        }
+
         const client = new Client({
             webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
             reconnectDelay: 1000,
@@ -55,23 +61,7 @@ const useWebSocket = ({
                 }
             }, 20000);
             },
-
-            onWebSocketClose: async () => {
-                try {
-                    const res = await fetch('http://localhost:8080/auth', {
-                    credentials: "include"
-                    });
-
-                    if (res.status === 401) {
-                    console.warn("세션 만료 → 로그인 페이지로 이동");
-                    window.location.href = '/login';
-                }
-            } catch (err) {
-                console.warn("네트워크 오류 → 로그인 페이지로 이동", err);
-                window.location.href = '/login';
-            }
-            },
-
+            
             onStompError: (frame) => {
                 console.error("💥 STOMP error:", frame.headers['message']);
                 if (frame.headers['message']?.includes('Unauthorized') || frame.body?.includes('expired')) {
