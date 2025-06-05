@@ -6,7 +6,7 @@ import project.backend.domain.member.dto.MemberResponse;
 import project.backend.domain.member.dto.SignUpRequest;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.entity.ProviderType;
-import project.backend.global.config.security.dto.OAuthMemberDto;
+import project.backend.global.security.dto.OAuthMemberDto;
 
 @RequiredArgsConstructor
 public class MemberMapper {

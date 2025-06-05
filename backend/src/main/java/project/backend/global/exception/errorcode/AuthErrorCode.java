@@ -13,7 +13,7 @@ public enum AuthErrorCode implements ErrorCode {
 	UNSUPPORTED_PROVIDER("AUTH-003", "지원하지 않는 제공자 입니다.", HttpStatus.UNPROCESSABLE_ENTITY),
 	FORBIDDEN_MESSAGE_EDIT("AUTH-004", "본인이 전송한 메세지만 수정할 수 있습니다.", HttpStatus.FORBIDDEN),
 	FORBIDDEN_MESSAGE_DELETE("AUTH-005", "본인이 전송한 메세지만 삭제할 수 있습니다.", HttpStatus.FORBIDDEN),
-	WRONG_AUTH_TYPE_LOGIN("LE-005", "깃허브(OAuth)로 가입된 계정입니다. 깃허브 로그인을 이용해주세요.",
+	WRONG_AUTH_TYPE_LOGIN("AUTH-006", "깃허브(OAuth)로 가입된 계정입니다. 깃허브 로그인을 이용해주세요.",
 		HttpStatus.UNAUTHORIZED);
 
 	private final String code;

@@ -21,8 +21,8 @@ import project.backend.domain.chat.github.dto.GitMessageDto;
 import project.backend.domain.chat.github.dto.GitRepoDto;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
-import project.backend.global.config.security.redis.dao.TokenRedisRepository;
-import project.backend.global.config.security.redis.entity.TokenRedis;
+import project.backend.global.redis.dao.TokenRedisRepository;
+import project.backend.global.redis.entity.TokenRedis;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.ex.ChatRoomException;
 
