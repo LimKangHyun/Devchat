@@ -1,6 +1,7 @@
 package project.backend.domain.chat.chatroom.listener;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -17,10 +18,12 @@ import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
 import project.backend.domain.member.app.MemberService;
+import project.backend.domain.member.dto.event.ProfileUpdateEvent;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.ex.ChatRoomException;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ChatRoomEventListener {
@@ -53,8 +56,15 @@ public class ChatRoomEventListener {
 			joinEvent.roomId());
 	}
 
-	private ChatParticipant getParticipantByRoomAndMember(Long roomId, Long memberId) {
-		return chatParticipantRepository.findByChatRoom_IdAndParticipant_Id(roomId, memberId)
-			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+	@Async
+	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+	public void handleProfileUpdate(ProfileUpdateEvent updateEvent) {
+		log.debug("🔥 프로필 업데이트 이벤트 수신: userId={}, nickname={}",
+			updateEvent.userId(), updateEvent.nickname());
+
+		simpMessagingTemplate.convertAndSend("/topic/profile-update",
+			new ProfileUpdateEvent(updateEvent.userId(), updateEvent.nickname(),
+				updateEvent.profileImageUrl())
+		);
 	}
 }
