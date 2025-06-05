@@ -32,7 +32,7 @@ const ChatRoom = () => {
   const [isRoomValidated, setIsRoomValidated] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // 1. 방 정보(현재는 방 이름만) 불러오기
+  // 1. 방 정보 불러오기
   const fetchRoomInfo = async () => {
     try {
       const res = await axiosInstance.get(`/chat-rooms/${inviteCode}`);

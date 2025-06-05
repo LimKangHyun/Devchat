@@ -17,13 +17,8 @@ const Home = () => {
         
         if (inviteCode) {
             navigate(`/chat/${inviteCode}`); // ✅ inviteCode만 사용
-        } else if (roomId) {
-            // inviteCode가 없지만 roomId가 있는 경우 fallback
-            console.warn('inviteCode가 없어서 /blank로 이동');
-            navigate('/blank');
         } else {
-            console.warn('roomId와 inviteCode가 모두 응답에 없음');
-            navigate('/blank'); // fallback
+            navigate('/blank');
         }
       })
       .catch(err => {
@@ -31,8 +26,7 @@ const Home = () => {
         if (status === 404) {
           navigate('/blank'); // 참여 중인 채팅방 없음
         } else {
-          const message = err.response?.data?.message || '채팅방 조회 실패';
-          alert(message); 
+          navigate('/login');
         }
       })
       .finally(() => {

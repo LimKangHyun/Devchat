@@ -107,7 +107,7 @@ const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEdi
           </div>
 
           {/* 점 세개 메뉴는 조건부 렌더링 */}
-          {currentUser?.id === msg.senderId && !msg.deleted && (
+          {currentUser?.id === msg.senderId && !(msg.status === "DELETED") && (
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() =>
@@ -267,7 +267,7 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
     );
   }
 
-  if (msg.deleted) {
+  if (msg.status === "DELETED") {
     return <div style={{
       fontSize: '14px',
       lineHeight: '1.5',
@@ -319,7 +319,7 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
           content={msg.content}
           language={msg.language || 'java'} //java가 디폴트 언어
         />
-        {msg.edited && (
+        {msg.status === "EDITED" && (
           <span style={{
             marginLeft: '6px',
             fontSize: '11px',
@@ -414,7 +414,7 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
       whiteSpace: 'pre-wrap'
     }}>
       {msg.content}
-      {(msg.edited) && (
+      {(msg.status === "EDITED") && (
         <span style={{
           marginLeft: '6px',
           fontSize: '11px',

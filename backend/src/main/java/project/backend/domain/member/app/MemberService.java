@@ -107,7 +107,6 @@ public class MemberService {
 	}
 
 	public MemberResponse getMemberDetails(Authentication auth) {
-		
 		MemberDetails loginMember = (MemberDetails) auth.getPrincipal();
 		Long memberId = loginMember.getId();
 		log.info("memberId = {}", memberId);

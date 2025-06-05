@@ -9,8 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-
-public class ChatRoomNameResponse {
+public class RoomInfoResponse {
 
 	private Long roomId;
 

@@ -42,8 +42,7 @@ const useWebSocket = ({
                     const received = JSON.parse(message.body);
                     // received.sendAt ||= new Date().toISOString();
                     // sendAt → 없으면 joinAt → 없으면 현재 시간
-                    received.sendAt = received.sendAt || received.joinAt || new Date().toISOString();
-
+                    received.sendAt = received.sendAt || new Date().toISOString();
                     onMessageReceived(received)
                 } catch (e) {
                 console.error("📛 Failed to parse incoming message", e);

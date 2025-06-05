@@ -6,11 +6,11 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
-import project.backend.domain.chat.chatroom.dto.ChatRoomNameResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
+import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.event.EventMessageResponse;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
@@ -22,8 +22,8 @@ import project.backend.domain.member.entity.Member;
 public class ChatRoomMapper {
 
 
-	public static ChatRoomNameResponse toListResponse(ChatRoom chatRoom) {
-		return ChatRoomNameResponse.builder()
+	public static RoomInfoResponse toListResponse(ChatRoom chatRoom) {
+		return RoomInfoResponse.builder()
 			.roomId(chatRoom.getId())
 			.roomName(chatRoom.getName())
 			.repositoryUrl(chatRoom.getRepositoryUrl())
@@ -40,31 +40,30 @@ public class ChatRoomMapper {
 				Optional.ofNullable(p.getParticipant().getProfileImage())
 					.map(ImageFile::getStoreFileName)
 					.orElse("default_image.jpg"))
-			.isOwner(p.getParticipant().getId().equals(p.getChatRoom().getOwner().getId()))
+			.isOwner(p.isOwner())
 			.build();
 	}
 
 
 	// 임창인: 간단 응답 변환
-	public ChatRoomSimpleResponse toSimpleResponse(ChatRoom entity) {
+	public ChatRoomSimpleResponse toSimpleResponse(ChatRoom entity, Member owner) {
 		return ChatRoomSimpleResponse.of(
 			entity.getId(),
 			entity.getName(),
 			entity.getRepositoryUrl(),
-			entity.getOwner().getId(),
+			owner.getId(),
 			entity.getInviteCode()
 		);
 	}
 
 
 	// 임창인 엔티티 변환
-	public ChatRoom toEntity(ChatRoomRequest dto, Member owner) {
+	public ChatRoom toEntity(ChatRoomRequest dto) {
 		return ChatRoom.builder()
 			.name(dto.getName())
 			.createdAt(LocalDateTime.now())
 			.repositoryUrl(dto.getRepositoryUrl())
 			.inviteCode(generateInviteCode())
-			.owner(owner)
 			.build();
 	}
 

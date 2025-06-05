@@ -24,9 +24,9 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.imagefile.ImageType;
-import project.backend.global.config.security.dto.MemberDetails;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.ex.AuthException;
+import project.backend.global.security.dto.MemberDetails;
 
 @RestController
 @RequiredArgsConstructor
