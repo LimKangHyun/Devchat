@@ -25,6 +25,8 @@ import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.imagefile.ImageType;
 import project.backend.global.config.security.dto.MemberDetails;
+import project.backend.global.exception.errorcode.AuthErrorCode;
+import project.backend.global.exception.ex.AuthException;
 
 @RestController
 @RequiredArgsConstructor
@@ -71,6 +73,11 @@ public class ChatMessageController {
 	@GetMapping("/{roomId}/messages")
 	public List<ChatMessageResponse> getMessages(@PathVariable Long roomId,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
+
+		if (memberDetails == null) {
+			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
+		}
+
 		return chatMessageService.getMessagesByRoomId(roomId, memberDetails.getId());
 	}
 
