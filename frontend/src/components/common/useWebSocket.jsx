@@ -151,7 +151,7 @@ const useWebSocket = ({
                 });
             }
         };
-    }, [currentRoomId, navigate, onProfileUpdate, chatRooms, roomId]);
+    }, [currentRoomId, navigate, onProfileUpdate, roomId]);
 
     return stompClientRef;
 };
