@@ -50,10 +50,6 @@ public class ChatRoomEventListener {
 		// 입장 메시지 전송
 		simpMessagingTemplate.convertAndSend("/topic/chat/" + joinEvent.roomId(),
 			eventMessageResponse);
-
-		// 채팅방 인원 갱신 트리거 전송
-		simpMessagingTemplate.convertAndSend("/topic/chat/" + joinEvent.roomId() + "/refresh",
-			joinEvent.roomId());
 	}
 
 	@Async
