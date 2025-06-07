@@ -15,6 +15,7 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
+import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.member.dao.MemberRepository;
 import project.backend.domain.member.entity.Member;
 import project.backend.auth.app.CookieUtils;
@@ -55,7 +56,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 		// 기존에 없는 email이면 회원가입
 		Member member = oAuthSignUpService.OAuthSignUp(userDto);
 
-		Token token = jwtProvider.generateTokenPair(member);
+		Token token = jwtProvider.generateTokenPair(new MemberDetails(member));
 
 		//쿠키 생성 및 저장
 		CookieUtils.saveCookie(response, token.accessToken());

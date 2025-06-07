@@ -52,22 +52,9 @@ public class JwtProvider {
 		return Algorithm.HMAC256(secretKey);
 	}
 
-	public Token generateTokenPair(Member member) {
-		Map<String, String> payload = Map.of(
-			"id", member.getId().toString(),
-			"username", member.getUsername()
-		);
-
-		String accessToken = generateAccessToken(payload);
-		String refreshToken = generateRefreshToken(payload);
-
-		return new Token(accessToken, refreshToken);
-	}
-
 	public Token generateTokenPair(MemberDetails memberDetails) {
 
 		Map<String, String> payload = Map.of(
-			"id", memberDetails.getId().toString(),
 			"username", memberDetails.getUsername()
 		);
 
@@ -86,25 +73,15 @@ public class JwtProvider {
 	}
 
 	public String regenerateAccessToken(String refreshToken) {
-		try {
-			DecodedJWT decodedJWT = getJwtVerifier(REFRESH_TOKEN_VALIDATION_SECOND).verify(
-				refreshToken);
+		DecodedJWT decodedJWT = getJwtVerifier(REFRESH_TOKEN_VALIDATION_SECOND).verify(
+			refreshToken);
 
-			String id = decodedJWT.getClaim("id").asString();
-			String username = decodedJWT.getClaim("username").asString();
+		String username = decodedJWT.getClaim("username").asString();
 
-			Map<String, String> payload = Map.of(
-				"id", id,
-				"username", username
-			);
-			return generateAccessToken(payload);
-
-		} catch (JwtException e) {
-			log.error(e.getMessage());
-			log.error("리프레시 토큰 검증 실패", e);
-			throw new CustomJwtException(TokenErrorCode.INVALID_TOKEN);
-
-		}
+		Map<String, String> payload = Map.of(
+			"username", username
+		);
+		return generateAccessToken(payload);
 	}
 
 	public JWTVerifier getJwtVerifier(Long expiresSeconds) {
@@ -152,17 +129,17 @@ public class JwtProvider {
 			.sign(getSignatureAlgorithm(SECRET_KEY));
 	}
 
-	private Long getIdFromToken(String token) {
-		return Long.parseLong(getJwtVerifier(TOKEN_VALIDATION_SECOND)
+	private String getUsernameFromToken(String token) {
+		return getJwtVerifier(TOKEN_VALIDATION_SECOND)
 			.verify(token)
-			.getClaim("id")
-			.asString());
+			.getClaim("username")
+			.asString();
 	}
 
 	public Authentication getAuthentication(String token) {
 
-		Long id = getIdFromToken(token);
-		Member member = memberRepository.findById(id)
+		String username = getUsernameFromToken(token);
+		Member member = memberRepository.findByUsername(username)
 			.orElseThrow(() -> new UsernameNotFoundException("존재 하지 않는 유저입니다."));
 
 		MemberDetails memberDetails = new MemberDetails(member);
