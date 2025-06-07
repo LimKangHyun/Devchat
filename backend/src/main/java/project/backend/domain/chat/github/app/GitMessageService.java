@@ -20,8 +20,8 @@ import project.backend.domain.chat.github.dto.GitMessageDto;
 import project.backend.domain.chat.github.dto.GitRepoDto;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
-import project.backend.global.redis.dao.TokenRedisRepository;
-import project.backend.global.redis.entity.TokenRedis;
+import project.backend.auth.token.dao.TokenRedisRepository;
+import project.backend.auth.token.entity.TokenRedis;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.ex.ChatRoomException;
 
@@ -65,7 +65,7 @@ public class GitMessageService {
 
 	private void sendGitMessage(ChatRoom room, GitMessageDto gitMessage) {
 		Member githubBot = memberService.getMemberByUsername(githubUsername);
-		
+
 		ChatMessage message = chatMessageMapper.toEntityWithGit(gitMessage, githubBot);
 		chatMessageRepository.save(message);
 

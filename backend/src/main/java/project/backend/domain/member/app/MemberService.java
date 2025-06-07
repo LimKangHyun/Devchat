@@ -14,7 +14,7 @@ import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.imagefile.ImageType;
 import project.backend.domain.member.dao.MemberRepository;
 import project.backend.domain.member.dto.event.ProfileUpdateEvent;
-import project.backend.global.security.dto.MemberDetails;
+import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.member.dto.MemberResponse;
 import project.backend.domain.member.dto.MemberUpdateRequest;
 import project.backend.domain.member.dto.SignUpRequest;

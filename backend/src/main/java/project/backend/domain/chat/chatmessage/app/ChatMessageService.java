@@ -32,13 +32,11 @@ import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
-import project.backend.global.common.ScrollPaginationCollection;
+import project.backend.domain.chat.chatmessage.dto.ScrollPaginationCollection;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.errorcode.ChatMessageErrorCode;
-import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.ChatMessageException;
-import project.backend.global.exception.ex.ChatRoomException;
 
 @Service
 @RequiredArgsConstructor

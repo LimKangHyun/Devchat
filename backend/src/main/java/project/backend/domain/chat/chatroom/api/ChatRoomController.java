@@ -31,7 +31,7 @@ import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.ex.AuthException;
-import project.backend.global.security.dto.MemberDetails;
+import project.backend.auth.dto.MemberDetails;
 
 @Slf4j
 @RestController

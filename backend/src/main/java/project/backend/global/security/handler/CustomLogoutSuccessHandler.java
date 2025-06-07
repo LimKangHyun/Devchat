@@ -10,9 +10,9 @@ import org.springframework.security.web.authentication.logout.LogoutSuccessHandl
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import project.backend.global.security.app.CookieUtils;
-import project.backend.global.security.dto.MemberDetails;
-import project.backend.global.redis.dao.TokenRedisRepository;
+import project.backend.auth.app.CookieUtils;
+import project.backend.auth.dto.MemberDetails;
+import project.backend.auth.token.dao.TokenRedisRepository;
 
 @Slf4j
 @Component
