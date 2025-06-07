@@ -157,6 +157,9 @@ const ChatRoom = () => {
   const handleLeaveRoom = async () => {
     try {
       await axiosInstance.delete(`/chat-rooms/${roomId}/leave`);
+
+      navigate(`/`);
+
       return { success: true };
     } catch (err) {
       const errorMsg =

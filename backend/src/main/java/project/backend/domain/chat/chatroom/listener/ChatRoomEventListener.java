@@ -1,6 +1,7 @@
 package project.backend.domain.chat.chatroom.listener;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -13,14 +14,13 @@ import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dto.event.EventMessageResponse;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
-import project.backend.domain.chat.chatroom.entity.ChatParticipant;
+import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
-import project.backend.global.exception.errorcode.ChatRoomErrorCode;
-import project.backend.global.exception.ex.ChatRoomException;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ChatRoomEventListener {
@@ -38,11 +38,11 @@ public class ChatRoomEventListener {
 		ChatRoom chatRoom = chatRoomService.getRoomById(joinEvent.roomId());
 		Member member = memberService.getMemberById(joinEvent.memberId());
 
-		ChatMessage message = chatMessageMapper.toEntityWithEvent(chatRoom, member, joinEvent);
-		chatMessageRepository.save(message);
+		ChatMessage message = chatMessageMapper.toEntityWithJoinEvent(chatRoom, member, joinEvent);
+		ChatMessage savedMessage = chatMessageRepository.save(message);
 
-		EventMessageResponse eventMessageResponse = ChatRoomMapper.toEventMessageResponse(
-			joinEvent);
+		EventMessageResponse eventMessageResponse = ChatRoomMapper.toJoinEventMessageResponse(
+			joinEvent, savedMessage.getId());
 
 		// 입장 메시지 전송
 		simpMessagingTemplate.convertAndSend("/topic/chat/" + joinEvent.roomId(),
@@ -53,8 +53,24 @@ public class ChatRoomEventListener {
 			joinEvent.roomId());
 	}
 
-	private ChatParticipant getParticipantByRoomAndMember(Long roomId, Long memberId) {
-		return chatParticipantRepository.findByChatRoom_IdAndParticipant_Id(roomId, memberId)
-			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+	@Async
+	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+	public void handleMemberLeave(LeaveChatRoomEvent leaveEvent) {
+		ChatRoom chatRoom = chatRoomService.getRoomById(leaveEvent.roomId());
+		Member member = memberService.getMemberById(leaveEvent.memberId());
+
+		ChatMessage message = chatMessageMapper.toEntityWithLeaveEvent(chatRoom, member, leaveEvent);
+		ChatMessage savedMessage = chatMessageRepository.save(message);
+
+		EventMessageResponse eventMessageResponse = ChatRoomMapper.toLeaveEventMessageResponse(
+			leaveEvent, savedMessage.getId());
+
+		// 입장 메시지 전송
+		simpMessagingTemplate.convertAndSend("/topic/chat/" + leaveEvent.roomId(),
+			eventMessageResponse);
+
+		// 채팅방 인원 갱신 트리거 전송
+		simpMessagingTemplate.convertAndSend("/topic/chat/" + leaveEvent.roomId() + "/refresh",
+			leaveEvent.roomId());
 	}
 }

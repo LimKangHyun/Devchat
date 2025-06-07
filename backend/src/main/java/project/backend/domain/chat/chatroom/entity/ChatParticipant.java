@@ -35,6 +35,8 @@ public class ChatParticipant {
 
 	private boolean isOwner;
 
+	private boolean isActive = true;
+
 	@Builder
 	public ChatParticipant(Long id, Member participant, ChatRoom chatRoom, boolean isOwner) {
 		this.id = id;
@@ -56,6 +58,14 @@ public class ChatParticipant {
 			.chatRoom(chatRoom)
 			.isOwner(true)
 			.build();
+	}
+
+	public void leave() {
+		this.isActive = false;
+	}
+
+	public void rejoin() {
+		this.isActive = true;
 	}
 
 }

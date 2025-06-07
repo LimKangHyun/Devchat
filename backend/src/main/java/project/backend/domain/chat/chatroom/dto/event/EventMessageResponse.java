@@ -13,6 +13,8 @@ import project.backend.domain.chat.chatmessage.entity.MessageType;
 @NoArgsConstructor
 public class EventMessageResponse {
 
+	private Long messageId;
+
 	private MessageType type;
 
 	private String sender;

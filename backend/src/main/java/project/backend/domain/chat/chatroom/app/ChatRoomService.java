@@ -3,6 +3,7 @@ package project.backend.domain.chat.chatroom.app;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
+import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
@@ -93,10 +95,7 @@ public class ChatRoomService {
 		ChatRoom room = getByInviteCode(inviteCode);
 		Member member = memberService.getMemberById(memberId);
 
-		validateAlreadyParticipant(memberId, room);
-
-		ChatParticipant chatParticipant = ChatParticipant.of(member, room);
-		room.addParticipant(chatParticipant);
+		handleParticipantJoin(room, member);
 
 		eventPublisher.publishEvent(
 			new JoinChatRoomEvent(room.getId(), memberId, member.getNickname(),
@@ -106,12 +105,35 @@ public class ChatRoomService {
 			room.getName());
 	}
 
+	private void handleParticipantJoin(ChatRoom room, Member member) {
+		//참여중 여부와 관계없이 기존 참가 기록들을 확인
+		Optional<ChatParticipant> existingParticipant =
+			chatParticipantRepository.findByChatRoomIdAndParticipantIdIgnoreActive(
+				room.getId(), member.getId());
+
+		if (existingParticipant.isPresent()) {
+			ChatParticipant participant = existingParticipant.get();
+			if (participant.isActive()) {
+				throw new ChatRoomException(ChatRoomErrorCode.ALREADY_PARTICIPANT);
+			}
+			participant.rejoin();
+		} else {
+			ChatParticipant chatParticipant = ChatParticipant.of(member, room);
+			room.addParticipant(chatParticipant);
+		}
+	}
+
+
 	@Transactional(readOnly = true)
 	public String getRecentRoomInviteCode(Long memberId) {
 		Long roomId = memberService.getMemberById(memberId).getRecentRoomId();
 
 		// 아무 채팅방에도 참여한 적이 없음 → 예외 던지기
 		if (roomId == null) {
+			throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_EXIST);
+		}
+
+		if (!chatParticipantRepository.existsByParticipantIdAndChatRoomId(memberId, roomId)) {
 			throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_EXIST);
 		}
 
@@ -151,7 +173,6 @@ public class ChatRoomService {
 	//임창인
 	@Transactional
 	public void leaveChatRoom(Long roomId, Long memberId) {
-		ChatRoom room = getRoomById(roomId);
 
 		ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantId(
 				roomId, memberId)
@@ -161,7 +182,32 @@ public class ChatRoomService {
 			throw new ChatRoomException(ChatRoomErrorCode.OWNER_CANNOT_LEAVE);
 		}
 
-		room.getParticipants().remove(participant);
+		participant.leave();
+
+		Member member = memberService.getMemberById(memberId);
+
+		eventPublisher.publishEvent(
+			new LeaveChatRoomEvent(roomId, memberId, member.getNickname(),
+				LocalDateTime.now()));
+
+		updateRecentRoomAfterLeaving(memberId);
+	}
+
+	private void updateRecentRoomAfterLeaving(Long memberId) {
+		Member member = memberService.getMemberById(memberId);
+
+		long countActiveRooms = chatParticipantRepository.countByParticipantIdAndIsActiveTrue(memberId);
+
+		if (countActiveRooms == 0) {
+			member.setRecentRoomId(null);
+		} else {
+			Optional<ChatParticipant> otherActiveRoom =
+				chatParticipantRepository.findTopByParticipantIdAndIsActiveTrueOrderByIdDesc(memberId);
+
+			if (otherActiveRoom.isPresent()) {
+				member.setRecentRoomId(otherActiveRoom.get().getChatRoom().getId());
+			}
+		}
 	}
 
 	private ChatRoom getByInviteCode(String inviteCode) {
@@ -198,13 +244,5 @@ public class ChatRoomService {
 		}
 	}
 
-	private void validateAlreadyParticipant(Long memberId, ChatRoom room) {
-		boolean isAlreadyParticipant = chatParticipantRepository
-			.existsByParticipantIdAndChatRoomId(memberId, room.getId());
-
-		if (isAlreadyParticipant) {
-			throw new ChatRoomException(ChatRoomErrorCode.ALREADY_PARTICIPANT);
-		}
-	}
 }
 
