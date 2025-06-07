@@ -119,8 +119,8 @@ public class MemberService {
 		return MemberMapper.toResponse(member);
 	}
 
-	public boolean checkIfMemberExists(String email) {
-		return memberRepository.findByEmail(email).isPresent();
+	public boolean checkIfMemberExists(String username) {
+		return memberRepository.findByUsername(username).isPresent();
 	}
 
 	public MemberResponse getMemberDetails(Authentication auth) {
