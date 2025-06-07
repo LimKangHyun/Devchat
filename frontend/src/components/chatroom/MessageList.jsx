@@ -297,7 +297,7 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
           {msg.content.split('\n').map((line, i) => (
              <div key={i}>
               {i === 0 ? (
-                <strong>{renderWithLink(line)}</strong> // renderWithLink 적용
+                <strong>{line}</strong>
               ) : (
                 <>{renderWithLink(line)}</>
               )}
