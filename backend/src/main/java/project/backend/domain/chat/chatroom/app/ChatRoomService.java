@@ -142,7 +142,7 @@ public class ChatRoomService {
 		ChatRoom chatRoom = chatRoomRepository.findById(roomId)
 			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 
-		validateAlreadyParticipant(memberId, chatRoom);
+		validateNotParticipant(memberId, roomId);
 
 		List<ChatParticipant> participants = chatParticipantRepository.findByChatRoom(chatRoom);
 
