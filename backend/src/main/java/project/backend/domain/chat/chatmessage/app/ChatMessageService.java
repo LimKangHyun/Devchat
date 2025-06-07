@@ -19,6 +19,7 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
+import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
@@ -31,6 +32,7 @@ import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
+import project.backend.global.common.ScrollPaginationCollection;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.errorcode.ChatMessageErrorCode;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
@@ -88,7 +90,7 @@ public class ChatMessageService {
 	}
 
 	@Transactional(readOnly = true)
-	public Page<ChatMessageSearchResponse> searchMessages(Long roomId,
+	public Page<ChatMessageSearchResponse> searchMessages(Long memberId, Long roomId,
 		@Valid ChatMessageSearchRequest request) {
 
 		String keyword = request.getKeyword();
@@ -96,6 +98,7 @@ public class ChatMessageService {
 		int size = request.getPageSize();
 		int offset = page * size;
 
+		chatRoomService.validateNotParticipant(memberId, roomId);
 		// messageIds는 DESC 정렬 보장
 		List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomId(keyword,
 			roomId, size, offset);
@@ -179,19 +182,29 @@ public class ChatMessageService {
 
 	// 예외 처리
 	@Transactional(readOnly = true)
-	public List<ChatMessageResponse> getMessagesByRoomId(Long roomId, Long memberId) {
-		chatRoomRepository.findById(roomId)
-			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+	public ChatScrollResponse getMessagesByRoomId(Long memberId, Long roomId, Long cursor,
+		int size) {
+		chatRoomService.getRoomById(roomId);
+		chatRoomService.validateNotParticipant(memberId, roomId);
 
-		if (!chatParticipantRepository.
-			existsByParticipantIdAndChatRoomId(memberId, roomId)) {
-			throw new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT);
+		PageRequest pageRequest = PageRequest.of(0, size + 1);
+		List<ChatMessage> result;
+
+		if (cursor == null) {
+			result = chatMessageRepository.findByChatRoom_IdOrderByIdDesc(
+				roomId, pageRequest);
+		} else {
+			result = chatMessageRepository.findByChatRoom_IdAndIdLessThanOrderByIdDesc(
+				roomId, cursor, pageRequest);
 		}
+		ScrollPaginationCollection<ChatMessage> scroll = ScrollPaginationCollection.of(result,
+			size);
 
-		List<ChatMessage> messages = chatMessageRepository.findByChatRoom_IdOrderBySendAtAsc(
-			roomId);
-		return messages.stream()
-			.map(messageMapper::toResponse)
-			.toList();
+		List<ChatMessageResponse> responses = scroll.getCurrentScrollItems().stream()
+			.map(messageMapper::toResponse).toList();
+
+		Long nextCursor = scroll.isLastScroll() ? null : scroll.getNextCursor().getId();
+
+		return new ChatScrollResponse(responses, nextCursor);
 	}
 }

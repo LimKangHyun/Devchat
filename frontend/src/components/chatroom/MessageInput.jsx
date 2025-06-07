@@ -1,4 +1,4 @@
-//입력 모드 전환과 입력 필드
+// 입력 모드 전환과 입력 필드
 import React, { useRef } from 'react';
 import { FaTrashAlt } from 'react-icons/fa';
 
@@ -9,15 +9,15 @@ const MessageInput = ({
   setContent,
   language,
   setLanguage,
-  sendMessage,
-  handleUnifiedSend,
+  // sendMessage, // ⚡️ 이 prop은 더 이상 받지 않으므로 제거하거나 주석 처리
+  handleUnifiedSend, // ✅ 이 prop을 사용합니다.
   setImageFile,
   imagePreviewUrl,
   setImagePreviewUrl,
 }) => {
     const fileInputRef = useRef(null);
     const isComposingRef = useRef(false);
-    
+
     return (
         <>
           <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center'}}>
@@ -162,7 +162,8 @@ const MessageInput = ({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current) {
                         e.preventDefault();
-                        sendMessage(e.target.value);
+                        // ⚡️ 중요: sendMessage 대신 handleUnifiedSend를 호출합니다.
+                        handleUnifiedSend();
                       }
                     }}
                     placeholder={inputMode === 'CODE' ? '코드를 입력하세요.' : inputMode === 'IMAGE' ? '이미지를 업로드 해주세요.' : '메시지를 입력하세요.'}
@@ -202,7 +203,7 @@ const MessageInput = ({
                   />
 
                   <button
-                    onClick={handleUnifiedSend}
+                    onClick={handleUnifiedSend} // 이 버튼은 이미 handleUnifiedSend를 호출하고 있습니다.
                     style={{
                       backgroundColor: '#4a6cf7',
                       color: 'white',

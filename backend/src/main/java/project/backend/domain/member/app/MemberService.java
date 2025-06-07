@@ -3,6 +3,7 @@ package project.backend.domain.member.app;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -13,6 +14,7 @@ import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.imagefile.ImageType;
 import project.backend.domain.member.dao.MemberRepository;
+import project.backend.domain.member.dto.event.ProfileUpdateEvent;
 import project.backend.global.security.dto.MemberDetails;
 import project.backend.domain.member.dto.MemberResponse;
 import project.backend.domain.member.dto.MemberUpdateRequest;
@@ -31,6 +33,7 @@ public class MemberService {
 	private final MemberRepository memberRepository;
 	private final ImageFileService imageFileService;
 	private final PasswordEncoder passwordEncoder;
+	private final ApplicationEventPublisher eventPublisher;
 
 	@Value("${file.images.profile.default}")
 	private String defaultProfile;
@@ -55,13 +58,27 @@ public class MemberService {
 
 
 	public MemberResponse updateMember(Authentication auth, MemberUpdateRequest request) {
-
 		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
-
 		Member targetMember = getMemberById(memberDetails.getId());
+
+		boolean isUpdated = updateMemberFields(targetMember, request);
+
+		if (isUpdated) {
+			eventPublisher.publishEvent(
+				ProfileUpdateEvent.of(targetMember)
+			);
+		}
+
+		return MemberMapper.toResponse(targetMember);
+	}
+
+	// 로직 변경 필요 (setter -> update 메서드로 엔티티에 책임 위임)
+	private boolean updateMemberFields(Member targetMember, MemberUpdateRequest request) {
+		boolean isUpdated = false;
 
 		if (request.getNickname() != null) {
 			targetMember.setNickname(request.getNickname());
+			isUpdated = true;
 		}
 
 		if (request.getPassword() != null) {
@@ -72,9 +89,10 @@ public class MemberService {
 			ImageFile newProfile = imageFileService.saveImageFile(request.getProfileImg(),
 				ImageType.PROFILE_IMAGE);
 			targetMember.setProfileImage(newProfile);
+			isUpdated = true;
 		}
 
-		return MemberMapper.toResponse(targetMember);
+		return isUpdated;
 	}
 
 	// Spring Security에서 UsernameNotFoundException을 처리하도록 유도하는 메서드

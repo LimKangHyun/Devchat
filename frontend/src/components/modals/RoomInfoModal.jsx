@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FaInfoCircle,
   FaTimes,
@@ -6,15 +6,11 @@ import {
   FaUser,
   FaCrown
 } from 'react-icons/fa';
-import SockJS from 'sockjs-client';
-import { Client } from '@stomp/stompjs';
 import axiosInstance from "../api/axiosInstance"
 
 const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(false);
-  const stompClientRef = useRef(null);
-  const hasLoadedInitialData = useRef(false);
 
   const fetchParticipants = async () => {
     setLoading(true);
@@ -30,33 +26,9 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
   };
 
   useEffect(() => {
-    if (room?.roomId && !hasLoadedInitialData.current) {
+    if (room?.roomId) {
       fetchParticipants();
-      hasLoadedInitialData.current = true;
     }
-
-    if (!room?.roomId) return;
-
-    const socket = new SockJS('http://localhost:8080/ws');
-    const stomp = new Client({
-      webSocketFactory: () => socket,
-      reconnectDelay: 5000,
-      onConnect: () => {
-        stomp.subscribe(`/topic/chat/${room.roomId}/refresh`, () => {
-          fetchParticipants();
-        });
-      },
-      onStompError: (frame) => {
-        console.error('STOMP error', frame);
-      }
-    });
-
-    stomp.activate();
-    stompClientRef.current = stomp;
-
-    return () => {
-      stomp.deactivate();
-    };
   }, [room?.roomId]);
 
   // 프로필 이미지 컴포넌트

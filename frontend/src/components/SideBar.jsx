@@ -1,20 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FaRegCommentDots, FaInfoCircle, FaAngleLeft, FaAngleRight, FaComments, FaPlus } from 'react-icons/fa';
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 
 import CreateRoomModal from './modals/CreateRoomModal';
 import JoinRoomModal from './modals/JoinRoomModal';
 import RoomInfoModal from './modals/RoomInfoModal';
 import Toast from './common/Toast';
 import axiosInstance from "./api/axiosInstance"
+import useWebSocket from './common/useWebSocket'; // useWebSocket 훅 import
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const { inviteCode } = useParams();
   const sidebarRef = useRef(null);
-  const stompClientRef = useRef(null);
 
   const [chatRooms, setChatRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,61 +39,31 @@ const Sidebar = () => {
   const [unreadMessages, setUnreadMessages] = useState({});
   const [roomId, setRoomId] = useState(null);
 
+  // 사이드바 메시지 처리 콜백
+  const handleSidebarMessage = (roomUniqueId, message) => {
+    // 현재 있는 채팅방이 아닌 경우에만 알림 표시
+    if (Number(roomId) !== Number(roomUniqueId)) {
+      setUnreadMessages(prev => ({
+        ...prev,
+        [roomUniqueId]: true
+      }));
+      console.log(`📨 New message in room ${roomUniqueId}`);
+    }
+  };
+
+  // useWebSocket 훅 사용 - 사이드바용 구독만 활성화
+  const stompClientRef = useWebSocket({
+    roomId: null, // 메인 채팅방 구독은 비활성화
+    onMessageReceived: () => {}, // 메인 메시지 처리는 비활성화
+    chatRooms, // 채팅방 목록 전달
+    currentRoomId: roomId, // 현재 활성화된 채팅방 ID
+    onSidebarMessage: handleSidebarMessage, // 사이드바 메시지 처리 콜백
+  });
+
   useEffect(() => {
     fetchChatRooms(currentPage);
     fetchCurrentUser();
   }, [currentPage]);
-
-  // WebSocket 연결 설정
-  useEffect(() => {
-    if (chatRooms.length === 0) return;
-
-    const client = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
-      reconnectDelay: 1000,
-      heartbeatIncoming: 15000,
-      heartbeatOutgoing: 10000,
-      debug: (str) => console.log(`[SIDEBAR STOMP] ${str}`),
-      onConnect: () => {
-        console.log('✅ Sidebar connected to WebSocket');
-
-        // 모든 채팅방에 대해 구독
-        chatRooms.forEach(room => {
-          const subscription = client.subscribe(`/topic/chat/${room.uniqueId}`, (message) => {
-            try {
-              const received = JSON.parse(message.body);
-
-              // 현재 있는 채팅방이 아닌 경우에만 알림 표시
-              if (Number(roomId) !== Number(room.uniqueId)) {
-                setUnreadMessages(prev => ({
-                  ...prev,
-                  [room.uniqueId]: true
-                }));
-                console.log(`📨 New message in room ${room.uniqueId}`);
-              }
-            } catch (e) {
-              console.error("📛 Failed to parse sidebar message", e);
-            }
-          });
-        });
-      },
-      onWebSocketClose: () => {
-        console.log('❌ Sidebar WebSocket disconnected');
-      },
-      onStompError: (frame) => {
-        console.error("💥 Sidebar STOMP error:", frame.headers['message']);
-      }
-    });
-
-    client.activate();
-    stompClientRef.current = client;
-
-    return () => {
-      if (stompClientRef.current) {
-        stompClientRef.current.deactivate();
-      }
-    };
-  }, [chatRooms, roomId]);
 
   // 현재 채팅방이 변경될 때 해당 방의 읽지 않은 메시지 상태 제거
   useEffect(() => {
