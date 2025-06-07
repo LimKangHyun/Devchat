@@ -19,6 +19,7 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
+import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
@@ -26,21 +27,18 @@ import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
-import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.member.app.MemberService;
-import project.backend.domain.member.dao.MemberRepository;
 import project.backend.domain.member.entity.Member;
+import project.backend.global.common.ScrollPaginationCollection;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.errorcode.ChatMessageErrorCode;
+import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.ChatMessageException;
 import project.backend.global.exception.ex.ChatRoomException;
-import project.backend.global.exception.ex.MemberException;
-import project.backend.global.exception.errorcode.ChatRoomErrorCode;
-import project.backend.global.exception.errorcode.MemberErrorCode;
 
 @Service
 @RequiredArgsConstructor
@@ -49,10 +47,10 @@ public class ChatMessageService {
 	private final ChatMessageRepository chatMessageRepository;
 	private final ChatRoomService chatRoomService;
 	private final MemberService memberService;
-	private final ChatParticipantRepository chatParticipantRepository;
 	private final ImageFileService imageFileService;
 	private final ChatRoomRepository chatRoomRepository;
 	private final ChatMessageSearchRepository chatMessageSearchRepository;
+	private final ChatParticipantRepository chatParticipantRepository;
 
 	private final ChatMessageMapper messageMapper;
 
@@ -63,21 +61,18 @@ public class ChatMessageService {
 
 		ChatRoom room = chatRoomService.getRoomById(roomId);
 
-		ChatParticipant participant = chatParticipantRepository.findByParticipantAndChatRoom(
-				sender, room)
-			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
+		chatRoomService.validateNotParticipant(sender.getId(), roomId);
 
 		ChatMessage message;
 
-		if (request.getType().equals(MessageType.IMAGE) && request.getImageFileId() != null) {
-			ImageFile findImage = imageFileService.getImageById(request.getImageFileId());
-			message = messageMapper.toEntityWithImage(room, participant, findImage);
-		} else if (request.getType().equals(MessageType.TEXT)) {
-			message = messageMapper.toEntityWithText(room, participant, request);
-		} else if (request.getType().equals(MessageType.CODE)) {
-			message = messageMapper.toEntityWithCode(room, participant, request);
-		} else {
-			throw new ChatMessageException(ChatMessageErrorCode.INVALID_ROUTE);
+		switch (request.getType()) {
+			case IMAGE -> {
+				ImageFile findImage = imageFileService.getImageById(request.getImageFileId());
+				message = messageMapper.toEntityWithImage(room, sender, findImage);
+			}
+			case TEXT -> message = messageMapper.toEntityWithText(room, sender, request);
+			case CODE -> message = messageMapper.toEntityWithCode(room, sender, request);
+			default -> throw new ChatMessageException(ChatMessageErrorCode.INVALID_ROUTE);
 		}
 
 		chatMessageRepository.save(message);
@@ -96,7 +91,7 @@ public class ChatMessageService {
 	}
 
 	@Transactional(readOnly = true)
-	public Page<ChatMessageSearchResponse> searchMessages(Long roomId,
+	public Page<ChatMessageSearchResponse> searchMessages(Long memberId, Long roomId,
 		@Valid ChatMessageSearchRequest request) {
 
 		String keyword = request.getKeyword();
@@ -104,6 +99,7 @@ public class ChatMessageService {
 		int size = request.getPageSize();
 		int offset = page * size;
 
+		chatRoomService.validateNotParticipant(memberId, roomId);
 		// messageIds는 DESC 정렬 보장
 		List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomId(keyword,
 			roomId, size, offset);
@@ -140,7 +136,7 @@ public class ChatMessageService {
 		ChatMessage message = chatMessageRepository.findById(request.messageId())
 			.orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-		if (!message.getSender().getParticipant().getUsername().equals(username)) {
+		if (!message.getSender().getUsername().equals(username)) {
 			throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_EDIT);
 		}
 
@@ -158,10 +154,7 @@ public class ChatMessageService {
 				});
 		}
 
-		ChatMessageResponse response = messageMapper.toResponse(message);
-		response.setEdited(true);
-
-		return response;
+		return messageMapper.toResponse(message);
 	}
 
 	@Transactional
@@ -174,7 +167,7 @@ public class ChatMessageService {
 		ChatMessage message = chatMessageRepository.findById(messageId)
 			.orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-		if (!message.getSender().getParticipant().getUsername().equals(username)) {
+		if (!message.getSender().getUsername().equals(username)) {
 			throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_DELETE);
 		}
 
@@ -185,22 +178,34 @@ public class ChatMessageService {
 				.ifPresent(ChatMessageSearch::deleteContent);
 		}
 
-		ChatMessageResponse response = messageMapper.toResponse(message);
-		response.setDeleted(true);
-
-		return response;
+		return messageMapper.toResponse(message);
 	}
 
 	// 예외 처리
 	@Transactional(readOnly = true)
-	public List<ChatMessageResponse> getMessagesByRoomId(Long roomId) {
-		chatRoomRepository.findById(roomId)
-			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+	public ChatScrollResponse getMessagesByRoomId(Long memberId, Long roomId, Long cursor,
+		int size) {
+		chatRoomService.getRoomById(roomId);
+		chatRoomService.validateNotParticipant(memberId, roomId);
 
-		List<ChatMessage> messages = chatMessageRepository.findByChatRoom_IdOrderBySendAtAsc(
-			roomId);
-		return messages.stream()
-			.map(messageMapper::toResponse)
-			.toList();
+		PageRequest pageRequest = PageRequest.of(0, size + 1);
+		List<ChatMessage> result;
+
+		if (cursor == null) {
+			result = chatMessageRepository.findByChatRoom_IdOrderByIdDesc(
+				roomId, pageRequest);
+		} else {
+			result = chatMessageRepository.findByChatRoom_IdAndIdLessThanOrderByIdDesc(
+				roomId, cursor, pageRequest);
+		}
+		ScrollPaginationCollection<ChatMessage> scroll = ScrollPaginationCollection.of(result,
+			size);
+
+		List<ChatMessageResponse> responses = scroll.getCurrentScrollItems().stream()
+			.map(messageMapper::toResponse).toList();
+
+		Long nextCursor = scroll.isLastScroll() ? null : scroll.getNextCursor().getId();
+
+		return new ChatScrollResponse(responses, nextCursor);
 	}
 }

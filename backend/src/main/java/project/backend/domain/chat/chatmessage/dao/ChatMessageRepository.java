@@ -1,36 +1,20 @@
 package project.backend.domain.chat.chatmessage.dao;
 
 import java.util.List;
-import java.util.Optional;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
-	@Query(value = """
-		select m.room_id 
-		from chat_message m 
-		join chat_participant cp on cp.room_id = m.room_id 
-		join member mb on cp.member_id = mb.member_id 
-		where mb.username = :username 
-		order by m.send_at desc 
-		limit 1
-		""", nativeQuery = true)
-	Optional<Long> findMostRecentRoomIdByMemberUsername(@Param("username") String username);
-
-	@Query(value = """
-		SELECT * 
-		FROM chat_message 
-		WHERE room_id = :roomId 
-		AND MATCH(content) AGAINST (:keyword IN NATURAL LANGUAGE MODE)
-		""", nativeQuery = true)
-	Page<ChatMessage> searchByKeywordAndRoomId(String keyword, Long roomId, Pageable pageable);
-
 	List<ChatMessage> findByChatRoom_IdOrderBySendAtAsc(Long roomId);
 
 	List<ChatMessage> findByIdIn(List<Long> ids);
+
+	// 채팅방 입장 시, cursor가 null값이므로, 초반 메시지를 가져올 메서드
+	List<ChatMessage> findByChatRoom_IdOrderByIdDesc(Long roomId, Pageable pageable);
+
+	// 커서기반 무한스크롤 메서드
+	List<ChatMessage> findByChatRoom_IdAndIdLessThanOrderByIdDesc(Long roomId, Long cursor,
+		Pageable pageable);
 }

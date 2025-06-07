@@ -5,7 +5,6 @@ import "./header.css"
 import axiosInstance from "./api/axiosInstance"
 
 export function Header() {
-  const [memberId, setMemberId] = useState(null)
   const [profileImage, setProfileImage] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -20,7 +19,6 @@ export function Header() {
         const { data } = await axiosInstance.get("/user/details")
 
         setProfileImage(data.profileImg)
-        setMemberId(data.id)
         setIsLoading(false)
       } catch (err) {
         console.error("Error fetching profile image:", err)

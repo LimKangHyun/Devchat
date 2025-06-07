@@ -130,7 +130,7 @@ const EditProfilePage = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength="12"
+                    minLength="4"
                   />
                 </div>
                 <div className={styles["form-group"]}>
@@ -141,7 +141,7 @@ const EditProfilePage = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    minLength="12"
+                    minLength="4"
                   />
                 </div>
               </div>

@@ -1,6 +1,7 @@
 package project.backend.global.initializer;
 
 import jakarta.annotation.PostConstruct;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -13,8 +14,6 @@ import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.dao.MemberRepository;
 import project.backend.domain.member.dto.SignUpRequest;
 import project.backend.domain.member.entity.Member;
-
-import java.util.List;
 
 @Component
 @Profile("local")
@@ -62,7 +61,6 @@ public class MockDataInitializer {
 				ChatRoom room = ChatRoom.builder()
 					.name("TestRoom-" + (i + 1) + "-" + j)
 					.repositoryUrl("https://github.com/test" + (i + 1) + "/repo" + j)
-					.owner(owner)
 					.inviteCode(UUID.randomUUID().toString())
 					.build();
 

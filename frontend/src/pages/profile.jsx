@@ -22,7 +22,6 @@ const ProfilePage = () => {
       } catch (error) {
         if (!alertShownRef.current) {
           alertShownRef.current = true;
-          const status = error?.response?.status;
           const msg = error?.response?.data?.message || "사용자 정보 조회 실패";
           alert(msg);
           stopRequestRef.current = true;
@@ -54,8 +53,8 @@ const ProfilePage = () => {
     fetchUserRooms();
   }, [userDetails, navigate]);
 
-  const handleJoinClick = (roomId, inviteCode) => {
-    navigate(`/chat/${roomId}/${inviteCode}`);
+  const handleJoinClick = (inviteCode) => {
+    navigate(`/chat/${inviteCode}`);
   };
 
   if (!userDetails) {
@@ -123,7 +122,7 @@ const ProfilePage = () => {
                       </div>
                       <button
                         className={styles["join-button"]}
-                        onClick={() => handleJoinClick(room.roomId, room.inviteCode)}
+                        onClick={() => handleJoinClick(room.inviteCode)}
                       >
                         Join
                       </button>

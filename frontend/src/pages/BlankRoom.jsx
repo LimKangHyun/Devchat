@@ -24,7 +24,7 @@ const BlankRoom = () => {
       setShowCreateModal(false);
 
       if (created?.id) {
-        navigate(`/chat/${created.id}/${created.inviteCode}`);
+        navigate(`/chat/${created.inviteCode}`);
       }
     } catch (err) {
       const backendMessage = err.response?.data?.message;
@@ -50,7 +50,7 @@ const BlankRoom = () => {
       const data = res.data;
       setShowJoinModal(false);
       
-      navigate(`/chat/${data.id}/${data.inviteCode}`);
+      navigate(`/chat/${data.inviteCode}`);
     } catch (err) {
       alert(err.response?.data?.message || err.message || "방 입장에 실패했습니다.");
       throw err;

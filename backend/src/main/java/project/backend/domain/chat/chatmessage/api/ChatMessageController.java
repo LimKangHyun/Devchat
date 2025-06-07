@@ -8,6 +8,7 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,17 +21,25 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
+import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
+import project.backend.domain.chat.chatroom.app.ChatRoomService;
+import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.imagefile.ImageType;
+import project.backend.global.exception.errorcode.AuthErrorCode;
+import project.backend.global.exception.ex.AuthException;
+import project.backend.global.security.dto.MemberDetails;
 
 @RestController
 @RequiredArgsConstructor
 public class ChatMessageController {
 
+	private final ChatRoomService chatRoomService;
 	private final ChatMessageService chatMessageService;
 	private final ImageFileService imageFileService;
 	private final SimpMessagingTemplate messagingTemplate;
+	private final ChatParticipantRepository chatParticipantRepository;
 
 	@MessageMapping("/send-message/{roomId}") //클라이언트가 메세지를 보낼 경로
 	public ChatMessageResponse sendMessage(@DestinationVariable Long roomId,
@@ -56,6 +65,7 @@ public class ChatMessageController {
 
 	@GetMapping("/chat/search/{roomId}")
 	public Page<ChatMessageSearchResponse> searchMessages(
+		@AuthenticationPrincipal MemberDetails memberDetails,
 		@PathVariable("roomId") Long roomId,
 		@RequestParam("keyword") String keyword,
 		@RequestParam(defaultValue = "0") int page,
@@ -63,12 +73,17 @@ public class ChatMessageController {
 	) {
 		ChatMessageSearchRequest request = ChatMessageSearchRequest.of(keyword, page, size);
 
-		return chatMessageService.searchMessages(roomId, request);
+		return chatMessageService.searchMessages(memberDetails.getId(), roomId, request);
 	}
 
 	@GetMapping("/{roomId}/messages")
-	public List<ChatMessageResponse> getMessages(@PathVariable Long roomId) {
-		return chatMessageService.getMessagesByRoomId(roomId);
+	public ChatScrollResponse getMessages(
+		@AuthenticationPrincipal MemberDetails memberDetails,
+		@PathVariable Long roomId,
+		@RequestParam(required = false) Long cursor,
+		@RequestParam(defaultValue = "30") int size
+	) {
+		return chatMessageService.getMessagesByRoomId(memberDetails.getId(), roomId, cursor, size);
 	}
 
 	@MessageMapping("/delete-message/{roomId}")

@@ -10,27 +10,25 @@ import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import io.lettuce.core.RedisException;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.oauth2.jwt.JwtException;
-import org.springframework.transaction.annotation.Transactional;
-import project.backend.global.exception.errorcode.TokenErrorCode;
-import project.backend.global.exception.ex.CustomJwtException;
+import java.util.Date;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import project.backend.domain.member.dao.MemberRepository;
 import project.backend.domain.member.entity.Member;
-import project.backend.global.security.app.CookieUtils;
-import project.backend.global.security.dto.MemberDetails;
-
-import java.util.Date;
-import java.util.Map;
+import project.backend.global.exception.errorcode.TokenErrorCode;
+import project.backend.global.exception.ex.CustomJwtException;
 import project.backend.global.redis.dao.TokenRedisRepository;
 import project.backend.global.redis.entity.TokenRedis;
+import project.backend.global.security.app.CookieUtils;
+import project.backend.global.security.dto.MemberDetails;
 
 
 @Slf4j
@@ -38,7 +36,7 @@ import project.backend.global.redis.entity.TokenRedis;
 @RequiredArgsConstructor
 public class JwtProvider {
 
-	public static final Long TOKEN_VALIDATION_SECOND = 10L;
+	public static final Long TOKEN_VALIDATION_SECOND = 7 * 24 * 60 * 60L;
 	public static final Long REFRESH_TOKEN_VALIDATION_SECOND = 7 * 24 * 60 * 60L;
 
 	private final TokenRedisRepository tokenRedisRepository;

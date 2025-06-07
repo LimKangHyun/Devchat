@@ -6,9 +6,10 @@ import Login from "./pages/login-form"
 import Signup from "./pages/signup"
 import MyPage from "./pages/profile"
 import EditProfilePage from "./pages/editprofile"
-
+import ErrorPage from './pages/ErrorPage';
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
 
 
 
@@ -17,12 +18,13 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />}/>
-        <Route path="/chat/:roomId/:inviteCode" element={<ChatRoom />} />
+        <Route path="/chat/:inviteCode" element={<ChatRoom />} />
         <Route path="/blank" element={<BlankRoom />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/myprofile" element={<MyPage />} />
         <Route path="/myprofile/edit" element={<EditProfilePage />} />
+        <Route path="/error" element={<ErrorPage />} />
  
 
       </Routes>

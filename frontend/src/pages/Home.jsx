@@ -13,12 +13,12 @@ const Home = () => {
       .then(res => {
         const roomId = res.data.roomId;
         const inviteCode = res.data.inviteCode;
-        console.log(roomId);
-        if (roomId) {
-            navigate(`/chat/${roomId}/${inviteCode}`);
+        console.log('최근 방 - roomId:', roomId, 'inviteCode:', inviteCode);
+        
+        if (inviteCode) {
+            navigate(`/chat/${inviteCode}`); // ✅ inviteCode만 사용
         } else {
-            console.warn('roomId가 응답에 없음');
-            navigate('/blank'); // fallback
+            navigate('/blank');
         }
       })
       .catch(err => {
@@ -26,8 +26,7 @@ const Home = () => {
         if (status === 404) {
           navigate('/blank'); // 참여 중인 채팅방 없음
         } else {
-          const message = err.response?.data?.message || '채팅방 조회 실패';
-          alert(message); 
+          navigate('/login');
         }
       })
       .finally(() => {

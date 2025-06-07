@@ -5,8 +5,11 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,26 +17,21 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
-import project.backend.domain.chat.chatroom.dto.ChatRoomDetailResponse;
-import project.backend.domain.chat.chatroom.dto.ChatRoomNameResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
+import project.backend.domain.chat.chatroom.dto.EntryRoomResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinRequest;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
-import project.backend.global.security.dto.MemberDetails;
+import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.ex.AuthException;
+import project.backend.global.security.dto.MemberDetails;
 
 @Slf4j
 @RestController
@@ -65,22 +63,19 @@ public class ChatRoomController {
 		return chatRoomService.joinChatRoom(request.getInviteCode(), memberDetails.getId());
 	}
 
-
 	@GetMapping("/recent")
-	public RecentChatRoomResponse getRecentRoomId(
+	public RecentChatRoomResponse getRecentRoomInviteCode(
 		@AuthenticationPrincipal MemberDetails memberDetails) {
-		Long roomId = chatRoomService.getMostRecentRoomId(memberDetails.getUsername());
-		String inviteCode = chatRoomService.getInviteCode(roomId);
-		return new RecentChatRoomResponse(roomId, inviteCode);
+		String inviteCode = chatRoomService.getRecentRoomInviteCode(
+			memberDetails.getId());
+		return new RecentChatRoomResponse(inviteCode);
 	}
 
 	@GetMapping
-	public Page<ChatRoomNameResponse> getChatRooms(
+	public Page<RoomInfoResponse> getChatRooms(
 		@AuthenticationPrincipal MemberDetails memberDetails,
 		@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-		if (memberDetails == null) {
-			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
-		}
+
 		Long memberId = memberDetails.getId();
 		// 채팅방 목록 리스트로 가져오기
 		return chatRoomService.findChatRoomsByMemberId(memberId, pageable);
@@ -91,11 +86,7 @@ public class ChatRoomController {
 		@PathVariable Long roomId,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 
-		if (memberDetails == null) {
-			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
-		}
-
-		return chatRoomService.getParticipants(roomId);
+		return chatRoomService.getParticipants(memberDetails.getId(), roomId);
 	}
 
 	// 자신이 만든 채팅방 가져오기 -> 주후 인증객체 id로 조회가능 할듯(Authentication)
@@ -104,21 +95,26 @@ public class ChatRoomController {
 		@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 		log.info("자신이 만든 채팅방 요청: memberId = {}", memberId);
 		return chatRoomService.findAllRoomsByOwnerId(memberId, pageable);
-
 	}
 
-	//임창인 시작
 	@DeleteMapping("/{roomId}/leave")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void leaveChatRoom(@PathVariable Long roomId,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		chatRoomService.leaveChatRoom(roomId, memberDetails.getId());
 	}
-	//임창인 끝
 
-	@GetMapping("/check")
-	public ChatRoomNameResponse getChatRoomName(@RequestParam String inviteCode) {
-		return chatRoomService.getChatRoomByInviteCode(inviteCode);
+	//채팅방 입장
+	@GetMapping("/{inviteCode}")
+	public EntryRoomResponse entryChatRoom(@PathVariable String inviteCode,
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		return chatRoomService.getEntryInfo(inviteCode, memberDetails.getId());
+	}
+
+	@GetMapping("/info/{inviteCode}")
+	public RoomInfoResponse getChatRoomDetails(@PathVariable String inviteCode,
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		return chatRoomService.getRoomInfo(inviteCode, memberDetails.getId());
 	}
 
 

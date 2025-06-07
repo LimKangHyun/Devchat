@@ -11,15 +11,15 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
-import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.github.dto.GitMessageDto;
 import project.backend.domain.imagefile.ImageFile;
+import project.backend.domain.member.entity.Member;
 
 @Component
 public class ChatMessageMapper {
 
-	public ChatMessage toEntityWithText(ChatRoom room, ChatParticipant sender,
+	public ChatMessage toEntityWithText(ChatRoom room, Member sender,
 		ChatMessageRequest request) {
 		return ChatMessage.builder()
 			.chatRoom(room)
@@ -30,7 +30,7 @@ public class ChatMessageMapper {
 			.build();
 	}
 
-	public ChatMessage toEntityWithCode(ChatRoom room, ChatParticipant sender,
+	public ChatMessage toEntityWithCode(ChatRoom room, Member sender,
 		ChatMessageRequest request) {
 		return ChatMessage.builder()
 			.chatRoom(room)
@@ -42,7 +42,7 @@ public class ChatMessageMapper {
 			.build();
 	}
 
-	public ChatMessage toEntityWithImage(ChatRoom room, ChatParticipant sender,
+	public ChatMessage toEntityWithImage(ChatRoom room, Member sender,
 		ImageFile chatImage) {
 		return ChatMessage.builder()
 			.chatRoom(room)
@@ -53,21 +53,21 @@ public class ChatMessageMapper {
 			.build();
 	}
 
-	public ChatMessage toEntityWithGit(GitMessageDto gitMessage, ChatParticipant gitParticipant) {
+	public ChatMessage toEntityWithGit(GitMessageDto gitMessage, Member githubBot) {
 		return ChatMessage.builder()
 			.chatRoom(gitMessage.getRoom())
 			.type(MessageType.GIT)
 			.content(gitMessage.getContent())
 			.sendAt(LocalDateTime.now())
-			.sender(gitParticipant)
+			.sender(githubBot)
 			.build();
 	}
 
-	public ChatMessage toEntityWithEvent(ChatRoom room, ChatParticipant participant,
+	public ChatMessage toEntityWithEvent(ChatRoom room, Member sender,
 		JoinChatRoomEvent joinEvent) {
 		return ChatMessage.builder()
 			.chatRoom(room)
-			.sender(participant)
+			.sender(sender)
 			.content(joinEvent.nickname() + "님이 입장했습니다.")
 			.type(MessageType.EVENT)
 			.sendAt(joinEvent.joinAt())
@@ -84,7 +84,7 @@ public class ChatMessageMapper {
 	}
 
 	public ChatMessageResponse toResponse(ChatMessage message) {
-		String senderName = message.getSender().getParticipant().getNickname();
+		String senderName = message.getSender().getNickname();
 
 		return ChatMessageResponse.builder()
 			.senderName(senderName)
@@ -92,19 +92,15 @@ public class ChatMessageMapper {
 			.type(message.getType())
 			.sendAt(message.getSendAt())
 			.language(message.getCodeLanguage())
-			.profileImageUrl(
-				Optional.ofNullable(message.getSender().getParticipant().getProfileImage())
-					.map(ImageFile::getStoreFileName)
-					.orElse("default_image.jpg"))
+			.profileImageUrl(message.getSender().getProfileImage().getStoreFileName())
 			.chatImageUrl(
 				Optional.ofNullable(message.getChatImage())
 					.map(ImageFile::getStoreFileName)
 					.orElse(null)
 			)
-			.senderId(message.getSender().getParticipant().getId())
+			.senderId(message.getSender().getId())
 			.messageId(message.getId())
-			.isDeleted(message.isDeleted())
-			.isEdited(message.isEdited())
+			.status(message.getStatus())
 			.build();
 	}
 
@@ -112,11 +108,8 @@ public class ChatMessageMapper {
 		return ChatMessageSearchResponse.builder()
 			.messageId(message.getId())
 			.content(message.getContent())
-			.senderName(message.getSender().getParticipant().getNickname())
-			.profileImageUrl(
-				Optional.ofNullable(message.getSender().getParticipant().getProfileImage())
-					.map(ImageFile::getStoreFileName)
-					.orElse("default_image.jpg"))
+			.senderName(message.getSender().getNickname())
+			.profileImageUrl(message.getSender().getProfileImage().getStoreFileName())
 			.sendAt(message.getSendAt())
 			.type(message.getType())
 			.build();

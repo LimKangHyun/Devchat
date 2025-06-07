@@ -7,6 +7,5 @@ import lombok.Data;
 @AllArgsConstructor
 public class RecentChatRoomResponse {
 
-    private Long roomId;
-    private String inviteCode;
+	private String inviteCode;
 }

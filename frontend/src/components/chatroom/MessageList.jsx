@@ -47,10 +47,10 @@ const HighlightedCode = ({ content, language }) => {
   );
 };
 
-//프로필 이미지, 날짜, 수정 삭제 메뉴
+// 프로필 이미지, 날짜, 수정 삭제 메뉴
 const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEditMessageId, setEditContent, handleEditMessage, handleDeleteMessage, editMessageId, editContent }) => {
 
-  //이벤트 타입은 메세지만 렌더링
+  // 이벤트 타입은 메시지만 렌더링 (원래 로직 유지)
   if(msg.type === 'EVENT'){
     return(
       <MessageContent
@@ -107,7 +107,7 @@ const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEdi
           </div>
 
           {/* 점 세개 메뉴는 조건부 렌더링 */}
-          {currentUser?.id === msg.senderId && !msg.deleted && (
+          {currentUser?.id === msg.senderId && !(msg.status === "DELETED") && (
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() =>
@@ -267,7 +267,7 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
     );
   }
 
-  if (msg.deleted) {
+  if (msg.status === "DELETED") {
     return <div style={{
       fontSize: '14px',
       lineHeight: '1.5',
@@ -319,7 +319,7 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
           content={msg.content}
           language={msg.language || 'java'} //java가 디폴트 언어
         />
-        {msg.edited && (
+        {msg.status === "EDITED" && (
           <span style={{
             marginLeft: '6px',
             fontSize: '11px',
@@ -413,8 +413,8 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
       wordBreak: 'break-word',
       whiteSpace: 'pre-wrap'
     }}>
-      {msg.content}
-      {(msg.edited) && (
+      {renderWithLink(msg.content)} {/* renderWithLink 적용 */}
+      {(msg.status === "EDITED") && (
         <span style={{
           marginLeft: '6px',
           fontSize: '11px',
@@ -475,7 +475,7 @@ const MessageList = ({ messages, currentUser, contextMenuId, setContextMenuId, s
     // 메시지 추가
     result.push(
       <MessageItem
-      key={`msg-${index}`}
+      key={`msg-${msg.messageId || index}`} // messageId가 없는 경우를 대비해 index 사용
       msg={msg}
       currentUser={currentUser}
       contextMenuId={contextMenuId}
@@ -493,4 +493,3 @@ const MessageList = ({ messages, currentUser, contextMenuId, setContextMenuId, s
 };
 
 export default MessageList;
-  
