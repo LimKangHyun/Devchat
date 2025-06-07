@@ -90,7 +90,7 @@ public class ChatMessageService {
 	}
 
 	@Transactional(readOnly = true)
-	public Page<ChatMessageSearchResponse> searchMessages(Long roomId,
+	public Page<ChatMessageSearchResponse> searchMessages(Long memberId, Long roomId,
 		@Valid ChatMessageSearchRequest request) {
 
 		String keyword = request.getKeyword();
@@ -98,6 +98,7 @@ public class ChatMessageService {
 		int size = request.getPageSize();
 		int offset = page * size;
 
+		chatRoomService.validateNotParticipant(memberId, roomId);
 		// messageIds는 DESC 정렬 보장
 		List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomId(keyword,
 			roomId, size, offset);
@@ -181,9 +182,10 @@ public class ChatMessageService {
 
 	// 예외 처리
 	@Transactional(readOnly = true)
-	public ChatScrollResponse getMessagesByRoomId(Long roomId, Long cursor, int size) {
-		chatRoomRepository.findById(roomId)
-			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+	public ChatScrollResponse getMessagesByRoomId(Long memberId, Long roomId, Long cursor,
+		int size) {
+		chatRoomService.getRoomById(roomId);
+		chatRoomService.validateNotParticipant(memberId, roomId);
 
 		PageRequest pageRequest = PageRequest.of(0, size + 1);
 		List<ChatMessage> result;

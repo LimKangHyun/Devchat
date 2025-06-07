@@ -76,9 +76,7 @@ public class ChatRoomController {
 	public Page<RoomInfoResponse> getChatRooms(
 		@AuthenticationPrincipal MemberDetails memberDetails,
 		@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-		if (memberDetails == null) {
-			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
-		}
+
 		Long memberId = memberDetails.getId();
 		// 채팅방 목록 리스트로 가져오기
 		return chatRoomService.findChatRoomsByMemberId(memberId, pageable);
@@ -89,11 +87,7 @@ public class ChatRoomController {
 		@PathVariable Long roomId,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 
-		if (memberDetails == null) {
-			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
-		}
-
-		return chatRoomService.getParticipants(roomId);
+		return chatRoomService.getParticipants(memberDetails.getId(), roomId);
 	}
 
 	// 자신이 만든 채팅방 가져오기 -> 주후 인증객체 id로 조회가능 할듯(Authentication)
