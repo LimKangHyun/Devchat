@@ -62,11 +62,10 @@ public class SecurityConfig {
 
 			.authorizeHttpRequests(auth -> {
 				auth
-					.requestMatchers("/signup", "/login", "/", "/login/oauth2/**", "/error",
-						"/github/**")
+					.requestMatchers("/signup", "/login", "/login/oauth2/**", "/error")
 					.anonymous()
 
-					.requestMatchers("/token/**")
+					.requestMatchers("/token/**", "/github/**")
 					.permitAll()
 
 					.anyRequest()
