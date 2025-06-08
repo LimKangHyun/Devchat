@@ -64,14 +64,14 @@ function App() {
 
           <div className="form-group">
             <label htmlFor="username">
-              Username<span style={{ color: 'red' }}> *</span>
+              ID<span style={{ color: 'red' }}> *</span>
             </label>
             <input
               id="username"
               type="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="유저네임을 입력해주세요"
+              placeholder="ID를 입력해주세요"
               required
               minLength="5"
               maxLength="12"

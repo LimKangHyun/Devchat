@@ -60,13 +60,13 @@ const handleGithubLogin = () => {
          <form onSubmit={handleSubmit}>
           {/* Username / Password */}
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">ID</label>
             <input
               id="username"
               type="username"
               value={username}
               onChange={e => setUsername(e.target.value)}
-              placeholder="유저네임을 입력해주세요"
+              placeholder="ID를 입력해주세요"
               required
             />
           </div>

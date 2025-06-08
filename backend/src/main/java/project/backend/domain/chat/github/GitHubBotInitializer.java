@@ -39,8 +39,7 @@ public class GitHubBotInitializer {
 
 		Member gitHubBot = Member.builder()
 			.username(githubUsername)
-			.email("github@github.com")
-			.nickname("깃허브봇")
+			.nickname(githubUsername)
 			.profileImage(
 				imageFileRepository.findByStoreFileName(githubProfile).orElseThrow(
 					() -> new ImageFileException(ImageFileErrorCode.FILE_NOT_FOUND)
