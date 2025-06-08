@@ -39,9 +39,12 @@ public class MemberService {
 
 	public MemberResponse saveMember(SignUpRequest request) {
 
-		if (checkIfMemberExists(request.getUsername())) {
-			log.info("이미 존재하는 username :  = {}", request.getUsername());
-			throw new MemberException(MemberErrorCode.MEMBER_ALREADY_EXISTS);
+		if (checkUsernameAlreadyExists(request.getUsername())) {
+			throw new MemberException(MemberErrorCode.USERNAME_ALREADY_EXISTS);
+		}
+
+		if (checkEmailAlreadyExists(request.getEmail())) {
+			throw new MemberException(MemberErrorCode.EMAIL_ALREADY_EXISTS);
 		}
 
 		ImageFile defaultProfileImg = imageFileService.getProfileImageByStoreFileName(
@@ -119,16 +122,20 @@ public class MemberService {
 		return MemberMapper.toResponse(member);
 	}
 
-	public boolean checkIfMemberExists(String username) {
-		return memberRepository.findByUsername(username).isPresent();
-	}
-
 	public MemberResponse getMemberDetails(Authentication auth) {
 		MemberDetails loginMember = (MemberDetails) auth.getPrincipal();
 		Long memberId = loginMember.getId();
 		log.info("memberId = {}", memberId);
 		Member member = getMemberById(memberId);
 		return MemberMapper.toResponse(member);
+	}
+
+	private boolean checkUsernameAlreadyExists(String username) {
+		return memberRepository.findByUsername(username).isPresent();
+	}
+
+	private boolean checkEmailAlreadyExists(String email) {
+		return memberRepository.findByEmail(email).isPresent();
 	}
 
 }

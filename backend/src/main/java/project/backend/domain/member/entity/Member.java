@@ -42,6 +42,7 @@ public class Member {
 	private String nickname;
 
 	@Setter
+	@Column(unique = true)
 	private String email;
 
 	@Setter

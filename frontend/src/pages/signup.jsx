@@ -14,6 +14,14 @@ function App() {
   const handleSubmit = async (e) => {
   e.preventDefault();
 
+    // 이메일이 비어있을 경우 확인 메시지 표시
+  if (!email) {
+    const confirmProceed = window.confirm(
+      "이메일을 입력하지 않으면 비밀번호 찾기, 이메일 발송 서비스 등을 이용 할 수 없습니다. \n그래도 진행하시겠습니까? \n(가입 후 프로필 관리에서 이메일을 설정 할 수 있습니다.)"
+    );
+    if (!confirmProceed) return;
+  }
+
   const payload = {
     username,
     password,
