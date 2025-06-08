@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 import { useNavigate } from 'react-router-dom';
+import { safeRefreshToken } from "../api/refreshManager";
 
 const useWebSocket = ({
     roomId,
@@ -119,6 +120,11 @@ const useWebSocket = ({
                 console.log("📡 Sent keep-alive ping");
                 }
             }, 20000);
+            },
+
+            onWebSocketClose: async () => {
+                console.warn('🛑 WebSocket 끊김 → 토큰 갱신 시도');
+                await safeRefreshToken(); // 중복 요청 방지됨
             },
             
             onStompError: (frame) => {

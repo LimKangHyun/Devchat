@@ -6,7 +6,7 @@ import project.backend.domain.member.dto.MemberResponse;
 import project.backend.domain.member.dto.SignUpRequest;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.entity.ProviderType;
-import project.backend.global.security.dto.OAuthMemberDto;
+import project.backend.auth.dto.OAuthMemberDto;
 
 @RequiredArgsConstructor
 public class MemberMapper {
@@ -14,6 +14,7 @@ public class MemberMapper {
 	public static Member toEntity(SignUpRequest request, String encryptedPassword,
 		ImageFile defaultProfileImg) {
 		return Member.builder()
+			.username(request.getUsername())
 			.email(request.getEmail())
 			.password(encryptedPassword)
 			.nickname(request.getNickname())
@@ -25,6 +26,7 @@ public class MemberMapper {
 	public static MemberResponse toResponse(Member member) {
 		return MemberResponse.builder()
 			.id(member.getId())
+			.username(member.getUsername())
 			.email(member.getEmail())
 			.nickname(member.getNickname())
 			.profileImg(member.getProfileImage().getStoreFileName())
@@ -33,10 +35,10 @@ public class MemberMapper {
 
 	public static Member toEntity(OAuthMemberDto request, ImageFile defaultProfileImg) {
 		return Member.builder()
+			.username(request.login())
 			.email(request.email())
 			.nickname(request.nickname())
 			.provider(ProviderType.GITHUB)
-			.gitHubUserName(request.login())
 			.profileImage(defaultProfileImg)
 			.build();
 	}

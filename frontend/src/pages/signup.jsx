@@ -6,6 +6,7 @@ import "../App.css"
 
 function App() {
   const navigate = useNavigate();
+  const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [nickname, setNickname] = useState("")
@@ -13,10 +14,19 @@ function App() {
   const handleSubmit = async (e) => {
   e.preventDefault();
 
+    // 이메일이 비어있을 경우 확인 메시지 표시
+  if (!email) {
+    const confirmProceed = window.confirm(
+      "이메일을 입력하지 않으면 비밀번호 찾기, 이메일 발송 서비스 등을 이용 할 수 없습니다. \n그래도 진행하시겠습니까? \n(가입 후 프로필 관리에서 이메일을 설정 할 수 있습니다.)"
+    );
+    if (!confirmProceed) return;
+  }
+
   const payload = {
-    email,
+    username,
     password,
     nickname,
+    email,
   };
 
   try {
@@ -57,21 +67,29 @@ function App() {
 
         <h1 className="heading">Let's Start!</h1>
 
+      
         <form onSubmit={handleSubmit}>
+
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="username">
+              ID<span style={{ color: 'red' }}> *</span>
+            </label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="이메일을 입력해주세요"
+              id="username"
+              type="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="ID를 입력해주세요"
               required
+              minLength="5"
+              maxLength="12"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">
+              Password<span style={{ color: 'red' }}> *</span>
+            </label>
             <input
               id="password"
               type="password"
@@ -84,7 +102,9 @@ function App() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="nickname">Username</label>
+            <label htmlFor="nickname">
+              Nickname<span style={{ color: 'red' }}> *</span>
+            </label>
             <input
               id="nickname"
               type="text"
@@ -93,6 +113,17 @@ function App() {
               placeholder="사용할 닉네임을 입력해주세요"
               required
               minLength="3"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="이메일을 입력해주세요"
             />
           </div>
 

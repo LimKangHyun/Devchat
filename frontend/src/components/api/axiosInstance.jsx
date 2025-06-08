@@ -1,14 +1,12 @@
 // axiosInstance.js
 import axios from 'axios';
+import { safeRefreshToken } from './refreshManager'; // 👈 중복 호출 방지용 유틸
 
-// Axios 인스턴스 생성
 const instance = axios.create({
   baseURL: 'http://localhost:8080',
   withCredentials: true,
 });
 
-// ✅ 재발급 Promise (동시 요청 막기용)
-let isRefreshing = false;
 let refreshSubscribers = [];
 
 const onRefreshed = () => {
@@ -21,7 +19,6 @@ const addRefreshSubscriber = (callback) => {
 };
 
 // ✅ 응답 인터셉터
-// ✅ 재요청을 큐에 담았다가 refresh가 끝나고 다시 실행
 instance.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -30,30 +27,21 @@ instance.interceptors.response.use(
 
     if (response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      originalRequest.withCredentials = true;
 
       return new Promise((resolve, reject) => {
         addRefreshSubscriber(() => {
-          resolve(instance(originalRequest));
+          resolve(instance(originalRequest)); // 재요청 실행
         });
 
-        if (!isRefreshing) {
-          isRefreshing = true;
-
-          axios.get('http://localhost:8080/token/refresh', {
-            withCredentials: true,
+        // ✅ 단 한 번만 refresh 실행
+        safeRefreshToken()
+          .then(() => {
+            onRefreshed(); // 대기 중인 요청들 처리
           })
-            .then(() => {
-              onRefreshed(); // 모든 구독된 요청 실행
-            })
-            .catch((refreshError) => {
-              window.location.replace('/login');
-              reject(refreshError);
-            })
-            .finally(() => {
-              isRefreshing = false;
-            });
-        }
+          .catch((err) => {
+            window.location.replace('/login');
+            reject(err);
+          });
       });
     }
 

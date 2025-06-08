@@ -5,12 +5,12 @@ import "../App.css"
 function App() {
   const navigate = useNavigate()
   const location = useLocation()  // ← 현재 URL 정보
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const handleSubmit = async (e) => {
     e.preventDefault()
     const params = new URLSearchParams()
-    params.append("email", email)
+    params.append("username", username)
     params.append("password", password)
     try {
       const response = await fetch("http://localhost:8080/login", {
@@ -58,15 +58,15 @@ const handleGithubLogin = () => {
         </div>
         <h1 className="heading">Welcome Back!</h1>
          <form onSubmit={handleSubmit}>
-          {/* Email / Password */}
+          {/* Username / Password */}
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="username">ID</label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="이메일을 입력해주세요"
+              id="username"
+              type="username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="ID를 입력해주세요"
               required
             />
           </div>

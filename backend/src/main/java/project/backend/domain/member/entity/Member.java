@@ -35,21 +35,22 @@ public class Member {
 	private Long id;
 
 	@Column(nullable = false, unique = true)
+	private String username;
+
+	@Setter
+	@Column(nullable = false)
+	private String nickname;
+
+	@Setter
+	@Column(unique = true)
 	private String email;
 
 	@Setter
 	private String password;
 
-	@Column(updatable = false, name = "github_username")
-	private String gitHubUserName;
-
 	@Column(updatable = false)
 	@Enumerated(EnumType.STRING)
 	private ProviderType provider;
-
-	@Setter
-	@Column(nullable = false)
-	private String nickname;
 
 	@Builder.Default
 	private LocalDateTime joinAt = LocalDateTime.now();

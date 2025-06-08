@@ -1,7 +1,6 @@
 package project.backend.domain.chat.chatmessage.api;
 
 import java.security.Principal;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -27,9 +26,7 @@ import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.imagefile.ImageType;
-import project.backend.global.exception.errorcode.AuthErrorCode;
-import project.backend.global.exception.ex.AuthException;
-import project.backend.global.security.dto.MemberDetails;
+import project.backend.auth.dto.MemberDetails;
 
 @RestController
 @RequiredArgsConstructor

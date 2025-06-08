@@ -22,7 +22,6 @@ const ProfilePage = () => {
       } catch (error) {
         if (!alertShownRef.current) {
           alertShownRef.current = true;
-          const status = error?.response?.status;
           const msg = error?.response?.data?.message || "사용자 정보 조회 실패";
           alert(msg);
           stopRequestRef.current = true;
@@ -46,7 +45,6 @@ const ProfilePage = () => {
           const msg = error?.response?.data?.message || "채팅방 로딩 실패";
           alert(msg);
           stopRequestRef.current = true;
-          navigate("/login");
         }
       }
     };
@@ -86,7 +84,8 @@ const ProfilePage = () => {
                   </div>
                 </div>
                 <h2 className={styles["profile-name"]}>{userDetails.nickname}</h2>
-                <p className={styles["profile-email"]}>{userDetails.email}</p>
+                <p className={styles["profile-username"]}>{userDetails.username}</p>
+                <p className={styles["profile-email"]}>{userDetails.email || "이메일을 설정해주세요"}</p>
                 <button
                   className={styles["edit-profile-button"]}
                   onClick={() => navigate("/myprofile/edit")}

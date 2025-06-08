@@ -25,7 +25,7 @@ body {
 .logo-container {
   display: flex;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 .logo-image {
   height: 60px;
@@ -34,7 +34,7 @@ body {
 .heading {
   font-size: 3rem;
   font-weight: bold;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 /* Make the form wider */
 form {
@@ -42,7 +42,7 @@ form {
   width: 100%;
 }
 .form-group {
-  margin-bottom: 2rem;
+  margin-bottom: 0.7rem;
 }
 label {
   display: block;
@@ -68,6 +68,7 @@ input {
   border-radius: 0.375rem;
   cursor: pointer;
   transition: background-color 0.2s;
+  margin-top: 1rem;
 }
 .signup-button:hover {
   background-color: #1976D2;

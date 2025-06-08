@@ -58,7 +58,7 @@ file:
       path: images/chat/
 
 github:
-  email-key: github@github.com
+  username: GitHubBot
 
 url:
   ngrok: ${NGROK_URL}

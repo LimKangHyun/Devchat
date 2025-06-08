@@ -37,7 +37,6 @@ import project.backend.global.exception.ex.ChatRoomException;
 @RequiredArgsConstructor
 public class ChatRoomService {
 
-
 	private final ChatRoomRepository chatRoomRepository;
 	private final ChatParticipantRepository chatParticipantRepository;
 	private final ChatRoomMapper chatRoomMapper;
@@ -45,8 +44,8 @@ public class ChatRoomService {
 	private final GitMessageService gitMessageService;
 	private final ApplicationEventPublisher eventPublisher;
 
-	@Value("${github.email-key}")
-	private String githubEmailKey;
+	@Value("${github.username}")
+	private String githubUsername;
 
 	@Transactional
 	public ChatRoomSimpleResponse createChatRoom(ChatRoomRequest request, Long ownerId) {
@@ -69,7 +68,7 @@ public class ChatRoomService {
 	}
 
 	private void joinGitHubBot(ChatRoom room) {
-		Member githubBot = memberService.getMemberByEmail(githubEmailKey);
+		Member githubBot = memberService.getMemberByUsername(githubUsername);
 		ChatParticipant gitParticipant = ChatParticipant.of(githubBot, room);
 		room.addParticipant(gitParticipant);
 	}
