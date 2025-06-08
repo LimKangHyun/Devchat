@@ -90,7 +90,7 @@ const ProfilePage = () => {
                   className={styles["edit-profile-button"]}
                   onClick={() => navigate("/myprofile/edit")}
                 >
-                  Edit Profile
+                  Profile Setting
                 </button>
               </div>
             </div>

@@ -208,8 +208,16 @@
   transition: background-color 0.2s;
 }
 
-.saveButton:hover {
-  background-color: #2563eb;
+/* ✅ 비활성화 상태 */
+.saveButton:disabled {
+  background-color: #d1d5db;  /* 연한 회색 */
+  color: #9ca3af;             /* 텍스트도 흐리게 */
+  cursor: not-allowed;
+}
+
+/* ✅ 활성화 + hover일 때만 진해짐 */
+.saveButton:not(:disabled):hover {
+  background-color: #2563eb;  /* 더 진한 파란색 */
 }
 
 /* Security Section Styles */

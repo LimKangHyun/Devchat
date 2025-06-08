@@ -16,6 +16,7 @@ export default function EditProfilePage() {
   const [email, setEmail] = useState("")
   const [selectedImage, setSelectedImage] = useState(null)
   const [imageFile, setImageFile] = useState(null)
+  const [isModified, setIsModified] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("personal")
 
@@ -48,21 +49,25 @@ export default function EditProfilePage() {
       const imageUrl = URL.createObjectURL(file)
       setSelectedImage(imageUrl)
       setImageFile(file)
+      setIsModified(true);
     }
   }
 
   const handleSavePersonalInfo = async () => {
     const formData = new FormData()
     formData.append("nickname", nickname)
+    formData.append("email", email)
     if (imageFile) {
       formData.append("profileImg", imageFile)
     }
 
     try {
-      await axiosInstance.put("/user/update", formData)
+      await axiosInstance.put("/user/info", formData)
       alert("프로필이 성공적으로 수정되었습니다!")
       const response = await axiosInstance.get("/user/details")
       setUserDetails(response.data)
+      setNickname(response.data.nickname)
+      setEmail(response.data.email)
       setSelectedImage(null)
       setImageFile(null)
     } catch (error) {
@@ -74,14 +79,6 @@ export default function EditProfilePage() {
   if (!userDetails) {
     return (
       <div className={styles.appContainer}>
-        <div className={styles.sidebar}>
-          <div className={styles.sidebarHeader}>
-            <div className={styles.logo}>
-              <div className={styles.logoIcon}>{"</>"}</div>
-              <span className={styles.logoText}>DevChat</span>
-            </div>
-          </div>
-        </div>
         <div className={styles.loadingContainer}>
           <div className={styles.loading}>Loading...</div>
         </div>
@@ -153,7 +150,15 @@ export default function EditProfilePage() {
                           type="text"
                           placeholder="닉네임 입력"
                           value={nickname}
-                          onChange={(e) => setNickname(e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setNickname(value);
+                            setIsModified(
+                              value !== userDetails.nickname ||
+                              email !== userDetails.email ||
+                              imageFile !== null
+                            );
+                          }}
                           className={styles.input}
                           required
                         />
@@ -165,7 +170,15 @@ export default function EditProfilePage() {
                           type="text"
                           placeholder="사용할 email을 설정해주세요."
                           value={email}
-                          onChange={(e) => setEmail(e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setEmail(value);
+                            setIsModified(
+                              nickname !== userDetails.nickname ||
+                              value !== userDetails.email ||
+                              imageFile !== null
+                            );
+                          }}
                           className={styles.input}
                           required
                         />
@@ -175,7 +188,11 @@ export default function EditProfilePage() {
 
                     {/* Save Button */}
                     <div className={styles.buttonSection}>
-                      <button className={styles.saveButton} onClick={handleSavePersonalInfo}>
+                      <button 
+                      className={styles.saveButton}
+                      onClick={handleSavePersonalInfo}
+                      disabled={!isModified}
+                      >
                         Save
                       </button>
                     </div>

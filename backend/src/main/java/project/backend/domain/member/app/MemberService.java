@@ -13,10 +13,11 @@ import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.imagefile.ImageType;
 import project.backend.domain.member.dao.MemberRepository;
+import project.backend.domain.member.dto.PasswordChangeRequest;
 import project.backend.domain.member.dto.event.ProfileUpdateEvent;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.member.dto.MemberResponse;
-import project.backend.domain.member.dto.MemberUpdateRequest;
+import project.backend.domain.member.dto.MemberInfoUpdateRequest;
 import project.backend.domain.member.dto.SignUpRequest;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.mapper.MemberMapper;
@@ -43,7 +44,7 @@ public class MemberService {
 			throw new MemberException(MemberErrorCode.USERNAME_ALREADY_EXISTS);
 		}
 
-		if (checkEmailAlreadyExists(request.getEmail())) {
+		if (request.getEmail() != null && checkEmailAlreadyExists(request.getEmail())) {
 			throw new MemberException(MemberErrorCode.EMAIL_ALREADY_EXISTS);
 		}
 
@@ -58,44 +59,51 @@ public class MemberService {
 		return MemberMapper.toResponse(newMember);
 	}
 
-
-	public MemberResponse updateMember(Authentication auth, MemberUpdateRequest request) {
+	public MemberResponse updateMemberInfo(Authentication auth, MemberInfoUpdateRequest request) {
 		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
 		Member targetMember = getMemberById(memberDetails.getId());
 
-		boolean isUpdated = updateMemberFields(targetMember, request);
+		doUpdateMemberInfo(targetMember, request);
 
-		if (isUpdated) {
-			eventPublisher.publishEvent(
-				ProfileUpdateEvent.of(targetMember)
-			);
-		}
+		eventPublisher.publishEvent(ProfileUpdateEvent.of(targetMember));
 
 		return MemberMapper.toResponse(targetMember);
 	}
 
-	// 로직 변경 필요 (setter -> update 메서드로 엔티티에 책임 위임)
-	private boolean updateMemberFields(Member targetMember, MemberUpdateRequest request) {
-		boolean isUpdated = false;
-
-		if (request.getNickname() != null) {
-			targetMember.setNickname(request.getNickname());
-			isUpdated = true;
+	private void doUpdateMemberInfo(Member targetMember, MemberInfoUpdateRequest request) {
+		if (request.nickname() != null) {
+			targetMember.updateNickname(request.nickname());
 		}
 
-		if (request.getPassword() != null) {
-			targetMember.setPassword(passwordEncoder.encode(request.getPassword()));
+		if (request.email() != null) {
+			targetMember.updateEmail(request.email());
 		}
 
-		if (request.getProfileImg() != null) {
-			ImageFile newProfile = imageFileService.saveImageFile(request.getProfileImg(),
+		if (request.profileImg() != null) {
+			ImageFile newProfile = imageFileService.saveImageFile(request.profileImg(),
 				ImageType.PROFILE_IMAGE);
-			targetMember.setProfileImage(newProfile);
-			isUpdated = true;
+			targetMember.updateProfileImage(newProfile);
+		}
+	}
+
+	public void updatePassword(Authentication auth, PasswordChangeRequest request) {
+		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
+		Member targetMember = getMemberById(memberDetails.getId());
+
+		String currentPassword = targetMember.getPassword();
+
+		if (!passwordEncoder.matches(request.currentPassword(),
+			currentPassword)) {
+			throw new MemberException(MemberErrorCode.WRONG_PASSWORD);
 		}
 
-		return isUpdated;
+		if (passwordEncoder.matches(request.newPassword(), currentPassword)) {
+			throw new MemberException(MemberErrorCode.SAME_AS_OLD_PASSWORD);
+		}
+
+		targetMember.updatePassword(request.newPassword(), passwordEncoder);
 	}
+
 
 	// Spring Security에서 UsernameNotFoundException을 처리하도록 유도하는 메서드
 	public Member getMemberForLogin(String username) {
@@ -115,11 +123,6 @@ public class MemberService {
 	public Member getMemberById(Long id) {
 		return memberRepository.findById(id)
 			.orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
-	}
-
-	public MemberResponse getMemberResponseById(Long memberId) {
-		Member member = getMemberById(memberId);
-		return MemberMapper.toResponse(member);
 	}
 
 	public MemberResponse getMemberDetails(Authentication auth) {

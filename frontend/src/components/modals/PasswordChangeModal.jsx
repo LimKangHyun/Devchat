@@ -24,6 +24,8 @@ export default function PasswordChangeModal({ isOpen, onClose, axiosInstance }) 
       newErrors.newPassword = "New password is required"
     } else if (formData.newPassword.length < 4) {
       newErrors.newPassword = "Password must be at least 4 characters"
+    } else if (formData.newPassword === formData.currentPassword) {
+      newErrors.newPassword = "The new password must be different from the current password."
     }
 
     if (!formData.confirmPassword) {
@@ -53,12 +55,15 @@ export default function PasswordChangeModal({ isOpen, onClose, axiosInstance }) 
     setIsSubmitting(true)
 
     try {
-      const updateData = new FormData()
-      updateData.append("currentPassword", formData.currentPassword)
-      updateData.append("password", formData.newPassword)
-      updateData.append("confirmPassword", formData.confirmPassword)
+      const updateData = {
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword,
+        confirmPassword: formData.confirmPassword
+      };
 
-      await axiosInstance.put("/user/update-password", updateData)
+      await axiosInstance.put("/user/password", updateData, {
+        headers: { 'Content-Type': 'application/json' }
+      });
 
       alert("비밀번호가 성공적으로 변경되었습니다!")
 
