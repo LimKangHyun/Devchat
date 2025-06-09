@@ -28,7 +28,15 @@ export function Header() {
     }
 
     fetchProfileImage()
-  }, [])
+    
+    const handler = () => {
+      console.log("🔥 Header 이벤트 수신됨")
+      fetchProfileImage()
+    }
+
+    window.addEventListener("profile-updated", handler)
+      return () => window.removeEventListener("profile-updated", handler)
+    }, [])
 
   return (
     <header className="header">

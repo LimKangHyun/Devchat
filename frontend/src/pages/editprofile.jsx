@@ -72,6 +72,9 @@ export default function EditProfilePage() {
       setEmail(response.data.email)
       setSelectedImage(null)
       setImageFile(null)
+
+      window.dispatchEvent(new Event("profile-updated"))
+      console.log("🔥 profile-updated 이벤트 발생")
     } catch (error) {
       const msg = error?.response?.data?.message || "업데이트 실패"
       alert(msg)
