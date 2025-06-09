@@ -199,18 +199,15 @@ public class ChatRoomService {
 	private void updateRecentRoomAfterLeaving(Long memberId) {
 		Member member = memberService.getMemberById(memberId);
 
-		long countActiveRooms = chatParticipantRepository.countByParticipantIdAndIsActiveTrue(memberId);
+		Optional<ChatParticipant> mostRecentActiveRoom =
+			chatParticipantRepository.findTopByParticipantIdAndIsActiveTrueOrderByIdDesc(memberId);
 
-		if (countActiveRooms == 0) {
-			member.setRecentRoomId(null);
+		if (mostRecentActiveRoom.isPresent()) {
+			member.setRecentRoomId(mostRecentActiveRoom.get().getChatRoom().getId());
 		} else {
-			Optional<ChatParticipant> otherActiveRoom =
-				chatParticipantRepository.findTopByParticipantIdAndIsActiveTrueOrderByIdDesc(memberId);
-
-			if (otherActiveRoom.isPresent()) {
-				member.setRecentRoomId(otherActiveRoom.get().getChatRoom().getId());
-			}
+			member.setRecentRoomId(null);
 		}
+
 	}
 
 	private ChatRoom getByInviteCode(String inviteCode) {
