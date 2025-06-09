@@ -115,11 +115,11 @@ const useWebSocket = ({
                 if (client && client.connected) {
                 client.publish({
                     destination: '/app/ping',
-                    body: 'ping'
+                    body: 'p'
                 });
                 console.log("📡 Sent keep-alive ping");
                 }
-            }, 20000);
+            }, 15000);
             },
 
             onWebSocketClose: async () => {
