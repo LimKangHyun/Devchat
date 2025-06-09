@@ -12,7 +12,7 @@ public class CookieUtils {
 		Cookie cookie = new Cookie("accessToken", accessToken);
 		cookie.setPath("/");
 		cookie.setHttpOnly(true);
-		cookie.setMaxAge(60 * 10);
+		cookie.setMaxAge(60 * 60 * 24 * 7);
 		response.addCookie(cookie);
 	}
 
