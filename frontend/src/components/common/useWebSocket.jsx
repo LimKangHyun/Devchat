@@ -29,7 +29,7 @@ const useWebSocket = ({
         }
 
         const client = new Client({
-            webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+            webSocketFactory: () => new WebSocket('ws://localhost:8080/ws'),
             reconnectDelay: 1000,
             heartbeatIncoming: 15000,
             heartbeatOutgoing: 10000,
@@ -47,8 +47,6 @@ const useWebSocket = ({
             subscriptionRef.current = client.subscribe(`/topic/chat/${roomId}`, (message) => {
                 try {
                     const received = JSON.parse(message.body);
-                    // received.sendAt ||= new Date().toISOString();
-                    // sendAt → 없으면 joinAt → 없으면 현재 시간
                     received.sendAt = received.sendAt || new Date().toISOString();
                     onMessageReceived(received)
                 } catch (e) {
