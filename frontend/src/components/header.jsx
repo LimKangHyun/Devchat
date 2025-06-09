@@ -72,6 +72,9 @@ export function Header() {
               src={`http://localhost:8080/images/profile/${profileImage}`}
               alt="User profile"
               className="profile-image"
+              onError={(e) => {
+                e.currentTarget.src = "/images/not-found-profile.png" // 기본 이미지 경로
+              }}
             />
           </Link>
           )}

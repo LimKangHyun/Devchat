@@ -78,8 +78,9 @@ const ProfilePage = () => {
                       alt="Profile"
                       onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = "/placeholder.svg";
+                        e.target.src = "/images/not-found-profile.png";
                       }}
+
                     />
                   </div>
                 </div>

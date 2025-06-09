@@ -136,6 +136,10 @@ export default function EditProfilePage() {
                           src={selectedImage || `http://localhost:8080/images/profile/${userDetails.profileImg}`}
                           alt="Profile"
                           className={styles.avatarImage}
+                          onError={(e) => {
+                            e.currentTarget.src = "/images/not-found-profile.png" 
+                          }}
+                          
                         />
                         <div className={styles.editIcon}>
                           <Edit2 size={20} style={{ pointerEvents: "none" }} />
