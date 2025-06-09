@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.CloseStatus;
@@ -21,6 +22,7 @@ import org.springframework.web.socket.handler.WebSocketHandlerDecorator;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 	private final WebSocketHandShakeInterceptor handShakeInterceptor;
+	private final WebSocketChannelInterceptor channelInterceptor;
 
 	//클라이언트가 연결할 웹소켓 엔드포인트 지정
 	//해당 주소로 접속 시 웹소켓 핸드셰이크 커넥션 생성
@@ -39,6 +41,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 		registry.enableSimpleBroker("/topic")
 			.setHeartbeatValue(new long[]{10000, 20000})
 			.setTaskScheduler(customWebSocketTaskScheduler());
+	}
+
+	@Override
+	public void configureClientInboundChannel(ChannelRegistration registration) {
+		registration.interceptors(channelInterceptor);
 	}
 
 	@Bean
