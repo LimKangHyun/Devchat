@@ -20,8 +20,11 @@ import project.backend.domain.member.dto.MemberResponse;
 import project.backend.domain.member.dto.MemberInfoUpdateRequest;
 import project.backend.domain.member.dto.SignUpRequest;
 import project.backend.domain.member.entity.Member;
+import project.backend.domain.member.entity.ProviderType;
 import project.backend.domain.member.mapper.MemberMapper;
+import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.errorcode.MemberErrorCode;
+import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.MemberException;
 
 @Slf4j
@@ -89,6 +92,10 @@ public class MemberService {
 	public void updatePassword(Authentication auth, PasswordChangeRequest request) {
 		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
 		Member targetMember = getMemberById(memberDetails.getId());
+
+		if (targetMember.getProvider() != ProviderType.LOCAL) {
+			throw new AuthException(AuthErrorCode.WRONG_AUTH_TYPE_LOGIN);
+		}
 
 		String currentPassword = targetMember.getPassword();
 

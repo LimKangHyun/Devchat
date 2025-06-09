@@ -109,13 +109,15 @@ export default function EditProfilePage() {
                   <User className={styles.tabIcon} />
                   Personal Info
                 </button>
-                <button
-                  className={`${styles.tabTrigger} ${activeTab === "security" ? styles.tabActive : ""}`}
-                  onClick={() => setActiveTab("security")}
-                >
-                  <Shield className={styles.tabIcon} />
-                  Security
-                </button>
+                {userDetails.provider === "LOCAL" && (
+                  <button
+                    className={`${styles.tabTrigger} ${activeTab === "security" ? styles.tabActive : ""}`}
+                    onClick={() => setActiveTab("security")}
+                  >
+                    <Shield className={styles.tabIcon} />
+                    Security
+                  </button>
+                )}
               </div>
 
               {/* Personal Info Tab */}

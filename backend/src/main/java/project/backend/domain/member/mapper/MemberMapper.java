@@ -29,6 +29,7 @@ public class MemberMapper {
 			.username(member.getUsername())
 			.email(member.getEmail())
 			.nickname(member.getNickname())
+			.provider(member.getProvider())
 			.profileImg(member.getProfileImage().getStoreFileName())
 			.build();
 	}
