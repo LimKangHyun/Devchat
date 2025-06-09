@@ -1,5 +1,6 @@
 package project.backend.global.webconfig;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,14 +17,18 @@ import org.springframework.web.socket.handler.WebSocketHandlerDecorator;
 @Configuration
 @EnableWebSocketMessageBroker
 @Slf4j
+@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+	private final WebSocketHandShakeInterceptor handShakeInterceptor;
 
 	//클라이언트가 연결할 웹소켓 엔드포인트 지정
 	//해당 주소로 접속 시 웹소켓 핸드셰이크 커넥션 생성
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
 		registry.addEndpoint("/ws")
-			.setAllowedOriginPatterns("http://localhost:3000");
+			.setAllowedOriginPatterns("http://localhost:3000")
+			.addInterceptors(handShakeInterceptor);
 //			.withSockJS();
 	}
 
