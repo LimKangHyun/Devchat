@@ -110,7 +110,7 @@ public class ChatRoomService {
 	private void handleParticipantJoin(ChatRoom room, Member member) {
 		//참여중 여부와 관계없이 기존 참가 기록들을 확인
 		Optional<ChatParticipant> existingParticipant =
-			chatParticipantRepository.findByChatRoomIdAndParticipantIdIgnoreActive(
+			chatParticipantRepository.findByChatRoomIdAndParticipantId(
 				room.getId(), member.getId());
 
 		if (existingParticipant.isPresent()) {
@@ -174,7 +174,7 @@ public class ChatRoomService {
 	@Transactional
 	public void leaveChatRoom(Long roomId, Long memberId) {
 
-		ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantId(
+		ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantIdAndIsActiveTrue(
 				roomId, memberId)
 			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
 
@@ -231,7 +231,7 @@ public class ChatRoomService {
 	}
 
 	private Long findOwnerId(Long roomId) {
-		ChatParticipant owner = chatParticipantRepository.findByChatRoomIdAndIsOwnerTrue(roomId)
+		ChatParticipant owner = chatParticipantRepository.findByChatRoomIdAndIsOwnerTrueAndIsActiveTrue(roomId)
 			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.OWNER_NOT_FOUND));
 		return owner.getParticipant().getId();
 	}
@@ -244,7 +244,7 @@ public class ChatRoomService {
 
 	public void validateNotParticipant(Long memberId, Long roomId) {
 		if (!chatParticipantRepository.
-			existsByParticipantIdAndChatRoomId(memberId, roomId)) {
+			existsByParticipantIdAndChatRoomIdAndIsActiveTrue(memberId, roomId)) {
 			throw new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT);
 		}
 	}
@@ -253,7 +253,7 @@ public class ChatRoomService {
 	public void deleteChatRoom(Long roomId, Long memberId) {
 		ChatRoom room = getRoomById(roomId);
 
-		ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantId(
+		ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantIdAndIsActiveTrue(
 				roomId, memberId)
 			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
 
