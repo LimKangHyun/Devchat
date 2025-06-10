@@ -20,8 +20,4 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 	List<ChatMessage> findByChatRoom_IdAndIdLessThanOrderByIdDesc(Long roomId, Long cursor,
 		Pageable pageable);
 
-	@Modifying
-	@Query("DELETE FROM ChatMessage cm WHERE cm.chatRoom.id = :roomId")
-	void deleteByChatRoomId(Long roomId);
-
 }
