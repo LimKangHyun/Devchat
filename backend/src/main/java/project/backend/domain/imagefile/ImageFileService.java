@@ -42,7 +42,7 @@ public class ImageFileService {
 		String storeFileName = uploadImageToS3(file, chatImagePath);
 
 		ImageFile imageFile = ImageFile.of(storeFileName, originalFilename);
-		return imageFileRepository.saveAndFlush(imageFile);
+		return imageFileRepository.save(imageFile);
 	}
 
 	@Transactional
