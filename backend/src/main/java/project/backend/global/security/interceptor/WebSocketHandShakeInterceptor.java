@@ -1,4 +1,4 @@
-package project.backend.global.webconfig;
+package project.backend.global.security.interceptor;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,7 +37,7 @@ public class WebSocketHandShakeInterceptor implements HandshakeInterceptor {
 				String token = accessTokenCookie.get().getValue();
 				Authentication authentication = jwtProvider.getAuthentication(token);
 
-				// 이후 ChannelInterceptor에서 꺼내쓰기 위해 attributes에도 저장
+				// 이후 ChannelInterceptor에서 꺼내쓰기 위해 attributes에 저장
 				attributes.put("auth", authentication);
 			} else {
 				log.error("웹소켓 핸드쉐이크 요청 시 쿠키에 accessToken이 포함되지 않음");
