@@ -6,8 +6,6 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,62 +36,29 @@ public class ImageFileService {
 	@Value("${cloud.aws.s3.bucket}")
 	private String bucket;
 
-	//뭔가 이미지 종류(ex. 게시글 사진?)이 늘어난다면 ImageType을 부활시키고 리펙토링이 가능할 듯
 	@Transactional
 	public ImageFile saveChatImage(MultipartFile file) {
-		String uploadFileName = file.getOriginalFilename();
+		String originalFilename = file.getOriginalFilename();
+		String storeFileName = uploadImageToS3(file, chatImagePath);
 
-		checkExtension(uploadFileName);
-		checkFileTypeIsImage(file.getContentType());
-
-		String extension = uploadFileName.substring(uploadFileName.lastIndexOf(".")).toLowerCase();
-
-		checkFileExtensionIsImage(extension);
-
-		String storeFileName = UUID.randomUUID() + extension;
-		String s3Key = chatImagePath + storeFileName;
-
-		ImageFile imageFile = ImageFile.of(storeFileName, uploadFileName);
-		imageFileRepository.saveAndFlush(imageFile);
-
-		try {
-			log.info("[S3] 채팅 이미지 업로드 : {}", s3Key);
-			// 메타데이터 설정
-			ObjectMetadata metadata = new ObjectMetadata();
-			metadata.setContentType(file.getContentType());
-			metadata.setContentLength(file.getSize());
-
-			// 업로드 실행
-			amazonS3.putObject(
-				new PutObjectRequest(bucket, s3Key, file.getInputStream(), metadata));
-
-			return imageFile;
-
-		} catch (IOException | SdkClientException | AmazonServiceException e) {
-			imageFileRepository.delete(imageFile);
-			log.error("파일 업로드 실패", e);
-			throw new ImageFileException(ImageFileErrorCode.FILE_SAVE_FAILURE);
-		}
+		ImageFile imageFile = ImageFile.of(storeFileName, originalFilename);
+		return imageFileRepository.saveAndFlush(imageFile);
 	}
 
-	//뭔가 이미지 종류(ex. 게시글 사진?)이 늘어난다면 ImageType을 부활시키고 리펙토링이 가능할 듯
 	@Transactional
 	public String saveProfileImage(MultipartFile file) {
-		String originalFilename = file.getOriginalFilename();
-		checkExtension(originalFilename);
-		checkFileTypeIsImage(file.getContentType());
+		return uploadImageToS3(file, profilePath);
+	}
 
-		String extension = originalFilename.substring(originalFilename.lastIndexOf("."))
-			.toLowerCase();
 
-		checkFileExtensionIsImage(extension);
+	@Transactional
+	protected String uploadImageToS3(MultipartFile file, String s3Path) {
+		String storeFileName = genStorageFileName(file);
 
-		String storeFileName = UUID.randomUUID() + extension;
-
-		String s3Key = profilePath + storeFileName;
+		String s3Key = s3Path + storeFileName;
 
 		try {
-			log.info("[S3] 프로필 이미지 업로드 : {}", s3Key);
+			log.info("[S3] 이미지 업로드 : {}", s3Key);
 			// 메타데이터 설정
 			ObjectMetadata metadata = new ObjectMetadata();
 			metadata.setContentType(file.getContentType());
@@ -112,6 +77,20 @@ public class ImageFileService {
 	}
 
 
+	private String genStorageFileName(MultipartFile file) {
+		String originalFilename = file.getOriginalFilename();
+
+		validateFileName(originalFilename);
+		checkFileTypeIsImage(file.getContentType());
+
+		String extension = originalFilename.substring(originalFilename.lastIndexOf("."))
+			.toLowerCase();
+
+		checkFileExtensionIsImage(extension);
+
+		return UUID.randomUUID() + extension;
+	}
+
 	private void checkFileExtensionIsImage(String extension) {
 		List<String> imageExtensions = List.of(".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp");
 		if (!imageExtensions.contains(extension)) {
@@ -125,7 +104,7 @@ public class ImageFileService {
 		}
 	}
 
-	private void checkExtension(String fileName) {
+	private void validateFileName(String fileName) {
 		if (fileName == null || !fileName.contains(".")) {
 			throw new ImageFileException(ImageFileErrorCode.INVALID_IMAGE_TYPE);
 		}
