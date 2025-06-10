@@ -136,10 +136,6 @@ public class ChatRoomService {
 			throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_EXIST);
 		}
 
-		if (!chatParticipantRepository.existsByParticipantIdAndChatRoomId(memberId, roomId)) {
-			throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_EXIST);
-		}
-
 		return getRoomById(roomId).getInviteCode();
 	}
 

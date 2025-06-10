@@ -57,13 +57,6 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
 	Optional<ChatParticipant> findTopByParticipantIdAndIsActiveTrueOrderByJoinAtDesc(
 		Long participantId);
 
-	@Modifying
-	@Query("""
-    DELETE FROM ChatParticipant cp 
-    WHERE cp.chatRoom.id = :roomId
-    """)
-	void deleteByChatRoomId(@Param("roomId") Long roomId);
-
 	@Query("""
     SELECT cp 
     FROM ChatParticipant cp 
