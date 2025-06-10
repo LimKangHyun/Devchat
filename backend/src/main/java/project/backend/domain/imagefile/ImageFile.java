@@ -20,33 +20,22 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ImageFile {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long imageId;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long imageId;
 
-    @Column(nullable = false)
-    private String storeFileName;
+	@Column(nullable = false)
+	private String storeFileName;
 
-    @Column(nullable = false)
-    private String uploadFileName;
+	@Column(nullable = false)
+	private String uploadFileName;
 
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
-    private ImageType imageType;
 
-    public static ImageFile ofProfile(String storeFileName, String uploadFileName) {
-        return ImageFile.builder()
-                .storeFileName(storeFileName)
-                .uploadFileName(uploadFileName)
-                .imageType(ImageType.PROFILE_IMAGE)
-                .build();
-    }
+	public static ImageFile of(String storeFileName, String uploadFileName) {
+		return ImageFile.builder()
+			.storeFileName(storeFileName)
+			.uploadFileName(uploadFileName)
+			.build();
+	}
 
-    public static ImageFile ofChat(String storeFileName, String uploadFileName) {
-        return ImageFile.builder()
-                .storeFileName(storeFileName)
-                .uploadFileName(uploadFileName)
-                .imageType(ImageType.CHAT_IMAGE)
-                .build();
-    }
 }

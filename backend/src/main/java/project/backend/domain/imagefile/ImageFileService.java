@@ -30,9 +30,7 @@ public class ImageFileService {
 	private String chatImagePath;
 
 	@Transactional
-	public ImageFile saveImageFile(MultipartFile file, ImageType type) {
-
-		log.info("Saving profile image file");
+	public ImageFile saveChatImage(MultipartFile file) {
 		String uploadFileName = file.getOriginalFilename();
 
 		checkExtension(uploadFileName);
@@ -44,18 +42,9 @@ public class ImageFileService {
 
 		String storeFileName = UUID.randomUUID() + extension;
 
-		Path savePath;
-		if (type.equals(ImageType.PROFILE_IMAGE)) {
-			savePath = Paths.get(profilePath, storeFileName);
-		} else if (type.equals(ImageType.CHAT_IMAGE)) {
-			savePath = Paths.get(chatImagePath, storeFileName);
-		} else {
-			throw new ImageFileException(ImageFileErrorCode.INVALID_ROUTE);
-		}
-
-		ImageFile imageFile = ImageFile.ofProfile(storeFileName, uploadFileName);
+		ImageFile imageFile = ImageFile.of(storeFileName, uploadFileName);
 		imageFileRepository.saveAndFlush(imageFile);
-		log.info("Saved Metadata of profile image file");
+		Path savePath = Paths.get(chatImagePath, storeFileName);
 
 		try {
 			log.info("📁 저장 경로: {}", savePath.toAbsolutePath());
@@ -67,6 +56,33 @@ public class ImageFileService {
 			log.error("파일 저장 중 IOException 발생", e);
 			throw new ImageFileException(ImageFileErrorCode.FILE_SAVE_FAILURE);
 		}
+	}
+
+	@Transactional
+	public String saveProfileImage(MultipartFile file) {
+		String originalFilename = file.getOriginalFilename();
+		checkExtension(originalFilename);
+		checkFileTypeIsImage(file.getContentType());
+
+		String extension = originalFilename.substring(originalFilename.lastIndexOf("."))
+			.toLowerCase();
+
+		checkFileExtensionIsImage(extension);
+
+		String storeFileName = UUID.randomUUID() + extension;
+
+		Path savePath = Paths.get(profilePath, storeFileName);
+
+		try {
+			log.info("📁 저장 경로: {}", savePath.toAbsolutePath());
+			file.transferTo(savePath);
+
+		} catch (IOException e) {
+			log.error("파일 저장 중 IOException 발생", e);
+			throw new ImageFileException(ImageFileErrorCode.FILE_SAVE_FAILURE);
+		}
+
+		return storeFileName;
 	}
 
 
@@ -87,12 +103,6 @@ public class ImageFileService {
 		if (fileName == null || !fileName.contains(".")) {
 			throw new ImageFileException(ImageFileErrorCode.INVALID_IMAGE_TYPE);
 		}
-	}
-
-	@Transactional(readOnly = true)
-	public ImageFile getProfileImageByStoreFileName(String storeFileName) {
-		return imageFileRepository.findByStoreFileName(storeFileName)
-			.orElseThrow(() -> new ImageFileException(ImageFileErrorCode.FILE_NOT_FOUND));
 	}
 
 	@Transactional(readOnly = true)

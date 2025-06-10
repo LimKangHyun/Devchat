@@ -68,7 +68,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 			new TokenRedis(member.getId(), token.accessToken(), token.refreshToken(),
 				githubAccess));
 
-		log.info("OAuth 로그인 성공: {}", member.getEmail());
+		log.info("OAuth 로그인 성공: {}", member.getUsername());
 
 		String redirectUrl = UriComponentsBuilder.fromUriString(baseUrl)
 			.build().toUriString();

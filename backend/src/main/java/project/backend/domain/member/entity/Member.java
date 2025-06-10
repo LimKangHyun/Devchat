@@ -19,6 +19,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.imagefile.ImageFile;
 
@@ -37,15 +38,12 @@ public class Member {
 	@Column(nullable = false, unique = true)
 	private String username;
 
-	@Setter
 	@Column(nullable = false)
 	private String nickname;
 
-	@Setter
 	@Column(unique = true)
 	private String email;
 
-	@Setter
 	private String password;
 
 	@Column(updatable = false)
@@ -59,11 +57,26 @@ public class Member {
 	@OneToMany(mappedBy = "participant")
 	private List<ChatParticipant> participants = new ArrayList<>();
 
-	@Setter
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "profile_image_id")
-	private ImageFile profileImage;
+	@Column(nullable = false)
+	private String profileImage;
 
 	@Setter
 	private Long recentRoomId;
+
+	public void updateNickname(String nickname) {
+		this.nickname = nickname;
+
+	}
+
+	public void updateEmail(String email) {
+		this.email = email;
+	}
+
+	public void updatePassword(String password, PasswordEncoder encoder) {
+		this.password = encoder.encode(password);
+	}
+
+	public void updateProfileImage(String profileImage) {
+		this.profileImage = profileImage;
+	}
 }

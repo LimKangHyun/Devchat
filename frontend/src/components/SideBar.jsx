@@ -362,10 +362,20 @@ const Sidebar = () => {
         </div>
 
         {/* 채팅방 목록 */}
+        <style>
+          {`
+            .hide-scrollbar::-webkit-scrollbar {
+              display: none;
+            }
+          `}
+        </style>  
+
         <div className="rooms-container" style={{
           overflowY: 'auto',
           flex: 1,
-          padding: '5px 0'
+          padding: '5px 0',
+          scrollbarWidth: 'none',     // Firefox
+          msOverflowStyle: 'none'     // IE/Edge
         }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '20px', color: 'rgba(255,255,255,0.7)' }}>

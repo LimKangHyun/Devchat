@@ -9,18 +9,21 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.backend.domain.imagefile.ImageFile;
+import org.springframework.web.multipart.MultipartFile;
 import project.backend.domain.imagefile.ImageFileService;
-import project.backend.domain.imagefile.ImageType;
 import project.backend.domain.member.dao.MemberRepository;
+import project.backend.domain.member.dto.PasswordChangeRequest;
 import project.backend.domain.member.dto.event.ProfileUpdateEvent;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.member.dto.MemberResponse;
-import project.backend.domain.member.dto.MemberUpdateRequest;
+import project.backend.domain.member.dto.MemberInfoUpdateRequest;
 import project.backend.domain.member.dto.SignUpRequest;
 import project.backend.domain.member.entity.Member;
+import project.backend.domain.member.entity.ProviderType;
 import project.backend.domain.member.mapper.MemberMapper;
+import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.errorcode.MemberErrorCode;
+import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.MemberException;
 
 @Slf4j
@@ -35,7 +38,7 @@ public class MemberService {
 	private final ApplicationEventPublisher eventPublisher;
 
 	@Value("${file.images.profile.default}")
-	private String defaultProfile;
+	private String defaultProfileImg;
 
 	public MemberResponse saveMember(SignUpRequest request) {
 
@@ -43,12 +46,9 @@ public class MemberService {
 			throw new MemberException(MemberErrorCode.USERNAME_ALREADY_EXISTS);
 		}
 
-		if (checkEmailAlreadyExists(request.getEmail())) {
+		if (request.getEmail() != null && checkEmailAlreadyExists(request.getEmail())) {
 			throw new MemberException(MemberErrorCode.EMAIL_ALREADY_EXISTS);
 		}
-
-		ImageFile defaultProfileImg = imageFileService.getProfileImageByStoreFileName(
-			defaultProfile);
 
 		String encryptedPassword = passwordEncoder.encode(request.getPassword());
 
@@ -58,44 +58,57 @@ public class MemberService {
 		return MemberMapper.toResponse(newMember);
 	}
 
+	public MemberResponse updateMemberInfo(Authentication auth, MemberInfoUpdateRequest request,
+		MultipartFile file) {
 
-	public MemberResponse updateMember(Authentication auth, MemberUpdateRequest request) {
 		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
 		Member targetMember = getMemberById(memberDetails.getId());
 
-		boolean isUpdated = updateMemberFields(targetMember, request);
+		doUpdateMemberInfo(targetMember, request, file);
 
-		if (isUpdated) {
-			eventPublisher.publishEvent(
-				ProfileUpdateEvent.of(targetMember)
-			);
-		}
+		eventPublisher.publishEvent(ProfileUpdateEvent.of(targetMember));
 
 		return MemberMapper.toResponse(targetMember);
 	}
 
-	// 로직 변경 필요 (setter -> update 메서드로 엔티티에 책임 위임)
-	private boolean updateMemberFields(Member targetMember, MemberUpdateRequest request) {
-		boolean isUpdated = false;
-
+	private void doUpdateMemberInfo(Member targetMember, MemberInfoUpdateRequest request,
+		MultipartFile file) {
 		if (request.getNickname() != null) {
-			targetMember.setNickname(request.getNickname());
-			isUpdated = true;
+			targetMember.updateNickname(request.getNickname());
 		}
 
-		if (request.getPassword() != null) {
-			targetMember.setPassword(passwordEncoder.encode(request.getPassword()));
+		if (request.getEmail() != null) {
+			targetMember.updateEmail(request.getEmail());
 		}
 
-		if (request.getProfileImg() != null) {
-			ImageFile newProfile = imageFileService.saveImageFile(request.getProfileImg(),
-				ImageType.PROFILE_IMAGE);
-			targetMember.setProfileImage(newProfile);
-			isUpdated = true;
+		if (file != null) {
+			String profileImage = imageFileService.saveProfileImage(file);
+			targetMember.updateProfileImage(profileImage);
 		}
-
-		return isUpdated;
 	}
+
+	public void updatePassword(Authentication auth, PasswordChangeRequest request) {
+		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
+		Member targetMember = getMemberById(memberDetails.getId());
+
+		if (targetMember.getProvider() != ProviderType.LOCAL) {
+			throw new AuthException(AuthErrorCode.WRONG_AUTH_TYPE_LOGIN);
+		}
+
+		String currentPassword = targetMember.getPassword();
+
+		if (!passwordEncoder.matches(request.getCurrentPassword(),
+			currentPassword)) {
+			throw new MemberException(MemberErrorCode.WRONG_PASSWORD);
+		}
+
+		if (passwordEncoder.matches(request.getNewPassword(), currentPassword)) {
+			throw new MemberException(MemberErrorCode.SAME_AS_OLD_PASSWORD);
+		}
+
+		targetMember.updatePassword(request.getNewPassword(), passwordEncoder);
+	}
+
 
 	// Spring Security에서 UsernameNotFoundException을 처리하도록 유도하는 메서드
 	public Member getMemberForLogin(String username) {
@@ -115,11 +128,6 @@ public class MemberService {
 	public Member getMemberById(Long id) {
 		return memberRepository.findById(id)
 			.orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
-	}
-
-	public MemberResponse getMemberResponseById(Long memberId) {
-		Member member = getMemberById(memberId);
-		return MemberMapper.toResponse(member);
 	}
 
 	public MemberResponse getMemberDetails(Authentication auth) {

@@ -25,7 +25,6 @@ import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
-import project.backend.domain.imagefile.ImageType;
 import project.backend.auth.dto.MemberDetails;
 
 @RestController
@@ -97,7 +96,7 @@ public class ChatMessageController {
 
 	@PostMapping("/send-image")
 	public Long uploadImage(@RequestParam MultipartFile image) {
-		ImageFile imageFile = imageFileService.saveImageFile(image, ImageType.CHAT_IMAGE);
+		ImageFile imageFile = imageFileService.saveChatImage(image);
 		return imageFile.getImageId();
 	}
 

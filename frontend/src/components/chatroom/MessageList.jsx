@@ -69,18 +69,23 @@ const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEdi
       id= {`message-${msg.messageId}`} // 추가
       style={{ marginBottom: '18px', display: 'flex', alignItems: 'flex-start' }}>
       {/* 프로필 이미지 */}
-      <div style={{
-        width: '38px',
-        height: '38px',
-        borderRadius: '50%',
-        marginRight: '12px',
-        display: 'flex',
-        fontWeight: '600',
-        fontSize: '16px',
-        backgroundImage: `url("http://localhost:8080/images/profile/${msg.profileImageUrl}")`,
-        backgroundSize: 'cover'
-      }}>
-      </div>
+      <img
+        src={`http://localhost:8080/images/profile/${msg.profileImageUrl}`}
+        alt="프로필"
+        width={38}
+        height={38}
+        onError={(e) => {
+          e.currentTarget.src = "/images/not-found-profile.png";
+        }}
+        style={{
+          borderRadius: '50%',
+          marginRight: '12px',
+          objectFit: 'cover',
+          display: 'block',
+          fontWeight: '600',
+          fontSize: '16px'
+        }}
+      />
 
       <div style={{ flex: 1}}>
         <div style={{

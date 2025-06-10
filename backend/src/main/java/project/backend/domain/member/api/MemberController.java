@@ -5,9 +5,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.dto.MemberResponse;
-import project.backend.domain.member.dto.MemberUpdateRequest;
+import project.backend.domain.member.dto.MemberInfoUpdateRequest;
+import project.backend.domain.member.dto.PasswordChangeRequest;
 
 @Slf4j
 @RestController
@@ -22,18 +24,19 @@ public class MemberController {
 		return memberService.getMemberDetails(authentication);
 	}
 
-	@PutMapping(value = "/update", consumes = "multipart/form-data")
-	public MemberResponse updateMemberDetails(Authentication authentication,
-		@ModelAttribute @Valid MemberUpdateRequest updateRequest) {
-		log.info("updateMemberDetails");
-		return memberService.updateMember(authentication, updateRequest);
+	@PutMapping(value = "/info", consumes = "multipart/form-data")
+	public MemberResponse updateMemberInfo(
+		Authentication authentication,
+		@RequestPart("request") @Valid MemberInfoUpdateRequest request,
+		@RequestPart(value = "profileImg", required = false) MultipartFile profileImg
+	) {
+		return memberService.updateMemberInfo(authentication, request, profileImg);
 	}
 
-	//사용안함 추후에 사용 가능 (edit profile)을 안보여주는 유저 정보 페이지 띄울때
-	@Deprecated()
-	@GetMapping("/details/{memberId}")
-	public MemberResponse getMemberDetails(@PathVariable Long memberId,
-		Authentication authentication) {
-		return memberService.getMemberResponseById(memberId);
+	@PutMapping("/password")
+	public void updatePassword(Authentication authentication,
+		@RequestBody @Valid PasswordChangeRequest request) {
+		memberService.updatePassword(authentication, request);
 	}
+
 }

@@ -14,9 +14,7 @@ public record ProfileUpdateEvent(
 		return new ProfileUpdateEvent(
 			member.getId(),
 			member.getNickname(),
-			Optional.ofNullable(member.getProfileImage())
-				.map(ImageFile::getStoreFileName)
-				.orElse("default.jpg")
+			member.getProfileImage()
 		);
 	}
 

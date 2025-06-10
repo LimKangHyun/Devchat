@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import "./header.css"
 import axiosInstance from "./api/axiosInstance"
+import { Link } from "react-router-dom"
 
 export function Header() {
   const [profileImage, setProfileImage] = useState(null)
@@ -28,14 +29,22 @@ export function Header() {
     }
 
     fetchProfileImage()
-  }, [])
+
+    const handler = () => {
+      console.log("🔥 Header 이벤트 수신됨")
+      fetchProfileImage()
+    }
+
+    window.addEventListener("profile-updated", handler)
+      return () => window.removeEventListener("profile-updated", handler)
+    }, [])
 
   return (
     <header className="header">
       <div className="container">
-          <a href="/">
+          <Link to="/">
             <img src="/images/devchat-logo.png" alt="DevChat Logo" className="header-logo-image" />     
-          </a>
+          </Link>
         <div className="profile-container">
           {isLoading ? (
             <div className="profile-image-loading"></div>
@@ -58,13 +67,16 @@ export function Header() {
               </svg>
             </div>
           ) : (
-            <a href= {"/myprofile"}>
+          <Link to="/myprofile">
             <img 
               src={`http://localhost:8080/images/profile/${profileImage}`}
               alt="User profile"
               className="profile-image"
+              onError={(e) => {
+                e.currentTarget.src = "/images/not-found-profile.png" // 기본 이미지 경로
+              }}
             />
-            </a>
+          </Link>
           )}
           <button
             className="logout-text"

@@ -21,13 +21,11 @@ public class OAuthSignUpService {
 	private final ImageFileService imageFileService;
 
 	@Value("${file.images.profile.default}")
-	private String defaultProfile;
+	private String defaultProfileImg;
 
 	public Member OAuthSignUp(OAuthMemberDto request) {
 		return memberRepository.findByUsername(request.login())
 			.orElseGet(() -> {
-				ImageFile defaultProfileImg = imageFileService.getProfileImageByStoreFileName(
-					defaultProfile);
 				return memberRepository.save(MemberMapper.toEntity(request, defaultProfileImg));
 			});
 	}

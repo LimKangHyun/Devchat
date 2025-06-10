@@ -12,7 +12,7 @@ import project.backend.auth.dto.OAuthMemberDto;
 public class MemberMapper {
 
 	public static Member toEntity(SignUpRequest request, String encryptedPassword,
-		ImageFile defaultProfileImg) {
+		String defaultProfileImg) {
 		return Member.builder()
 			.username(request.getUsername())
 			.email(request.getEmail())
@@ -29,11 +29,12 @@ public class MemberMapper {
 			.username(member.getUsername())
 			.email(member.getEmail())
 			.nickname(member.getNickname())
-			.profileImg(member.getProfileImage().getStoreFileName())
+			.provider(member.getProvider())
+			.profileImg(member.getProfileImage())
 			.build();
 	}
 
-	public static Member toEntity(OAuthMemberDto request, ImageFile defaultProfileImg) {
+	public static Member toEntity(OAuthMemberDto request, String defaultProfileImg) {
 		return Member.builder()
 			.username(request.login())
 			.email(request.email())
