@@ -11,6 +11,8 @@ const useWebSocket = ({
     currentRoomId, // 현재 활성화된 채팅방 ID
     onSidebarMessage, // 사이드바 메시지 처리 콜백
     onProfileUpdate,
+    onRoomDeleted
+
 }) => {
     const stompClientRef = useRef(null);
     const subscriptionRef = useRef(null);
@@ -18,6 +20,7 @@ const useWebSocket = ({
     const hasConnectedRef = useRef(false); // 실제 연결에 성공했는지 추적
     const sidebarSubscriptionsRef = useRef(new Map()); // 사이드바 구독들 관리하는 Map
     const keepAliveIntervalRef = useRef(null);
+    const deleteSubscriptionRef = useRef(null)
 
     const navigate = useNavigate(); 
 
@@ -106,6 +109,20 @@ const useWebSocket = ({
             
             console.log('👤 프로필 업데이트 구독 완료');
             }
+            // 방 삭제 구독 추가
+            deleteSubscriptionRef.current = client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
+                try {
+                    const deleteData = JSON.parse(message.body);
+                    console.log("🗑️ Room deletion received:", deleteData);
+                    
+                    if (onRoomDeleted && typeof onRoomDeleted === 'function') {
+                        onRoomDeleted(deleteData);
+                    }
+                } catch (e) {
+                    console.error("📛 Failed to parse delete message", e);
+                }
+            });
+
 
             if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current);
 
@@ -151,6 +168,11 @@ const useWebSocket = ({
                 subscriptionRef.current.unsubscribe();
                 subscriptionRef.current = null;
                 console.log("🔌 Subscription unsubscribed.");
+            }
+             if (deleteSubscriptionRef.current) {
+                deleteSubscriptionRef.current.unsubscribe();
+                deleteSubscriptionRef.current = null;
+                console.log("🗑️ Delete subscription unsubscribed.");
             }
             if (client && client.active) {
                 client.deactivate().then(() => {

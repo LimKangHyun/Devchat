@@ -54,12 +54,6 @@ public class ChatRoomController {
 	public InviteJoinResponse joinChatRoom(@RequestBody InviteJoinRequest request,
 		@AuthenticationPrincipal MemberDetails memberDetails
 	) {
-		if (memberDetails == null) {
-			Long roomId = chatRoomService.getRoomIdByInviteCode(request.getInviteCode());
-			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER, roomId,
-				request.getInviteCode());
-		}
-
 		return chatRoomService.joinChatRoom(request.getInviteCode(), memberDetails.getId());
 	}
 
@@ -117,5 +111,9 @@ public class ChatRoomController {
 		return chatRoomService.getRoomInfo(inviteCode, memberDetails.getId());
 	}
 
-
+	@DeleteMapping("/{roomId}")
+	public void deleteChatRoom(@PathVariable Long roomId,
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		chatRoomService.deleteChatRoom(roomId, memberDetails.getId());
+	}
 }

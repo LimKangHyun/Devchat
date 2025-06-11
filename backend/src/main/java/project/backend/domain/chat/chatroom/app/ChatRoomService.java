@@ -3,6 +3,7 @@ package project.backend.domain.chat.chatroom.app;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
@@ -21,7 +23,9 @@ import project.backend.domain.chat.chatroom.dto.EntryRoomResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
+import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
+import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
@@ -43,6 +47,7 @@ public class ChatRoomService {
 	private final MemberService memberService;
 	private final GitMessageService gitMessageService;
 	private final ApplicationEventPublisher eventPublisher;
+	private final ChatMessageRepository chatMessageRepository;
 
 	@Value("${github.username}")
 	private String githubUsername;
@@ -92,10 +97,7 @@ public class ChatRoomService {
 		ChatRoom room = getByInviteCode(inviteCode);
 		Member member = memberService.getMemberById(memberId);
 
-		validateAlreadyParticipant(memberId, room);
-
-		ChatParticipant chatParticipant = ChatParticipant.of(member, room);
-		room.addParticipant(chatParticipant);
+		handleParticipantJoin(room, member);
 
 		eventPublisher.publishEvent(
 			new JoinChatRoomEvent(room.getId(), memberId, member.getNickname(),
@@ -104,6 +106,25 @@ public class ChatRoomService {
 		return ChatRoomMapper.toInviteJoinResponse(room.getId(), room.getInviteCode(),
 			room.getName());
 	}
+
+	private void handleParticipantJoin(ChatRoom room, Member member) {
+		//참여중 여부와 관계없이 기존 참가 기록들을 확인
+		Optional<ChatParticipant> existingParticipant =
+			chatParticipantRepository.findByChatRoomIdAndParticipantId(
+				room.getId(), member.getId());
+
+		if (existingParticipant.isPresent()) {
+			ChatParticipant participant = existingParticipant.get();
+			if (participant.isActive()) {
+				throw new ChatRoomException(ChatRoomErrorCode.ALREADY_PARTICIPANT);
+			}
+			participant.rejoin();
+		} else {
+			ChatParticipant chatParticipant = ChatParticipant.of(member, room);
+			room.addParticipant(chatParticipant);
+		}
+	}
+
 
 	@Transactional(readOnly = true)
 	public String getRecentRoomInviteCode(Long memberId) {
@@ -152,9 +173,8 @@ public class ChatRoomService {
 	//임창인
 	@Transactional
 	public void leaveChatRoom(Long roomId, Long memberId) {
-		ChatRoom room = getRoomById(roomId);
 
-		ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantId(
+		ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantIdAndIsActiveTrue(
 				roomId, memberId)
 			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
 
@@ -162,7 +182,29 @@ public class ChatRoomService {
 			throw new ChatRoomException(ChatRoomErrorCode.OWNER_CANNOT_LEAVE);
 		}
 
-		room.getParticipants().remove(participant);
+		participant.leave();
+
+		Member member = memberService.getMemberById(memberId);
+
+		eventPublisher.publishEvent(
+			new LeaveChatRoomEvent(roomId, memberId, member.getNickname(),
+				LocalDateTime.now()));
+
+		updateRecentRoomAfterLeaving(memberId);
+	}
+
+	private void updateRecentRoomAfterLeaving(Long memberId) {
+		Member member = memberService.getMemberById(memberId);
+
+		Optional<ChatParticipant> mostRecentActiveRoom =
+			chatParticipantRepository.findTopByParticipantIdAndIsActiveTrueOrderByJoinAtDesc(memberId);
+
+		if (mostRecentActiveRoom.isPresent()) {
+			member.setRecentRoomId(mostRecentActiveRoom.get().getChatRoom().getId());
+		} else {
+			member.setRecentRoomId(null);
+		}
+
 	}
 
 	private ChatRoom getByInviteCode(String inviteCode) {
@@ -183,7 +225,15 @@ public class ChatRoomService {
 
 		memberService.getMemberById(memberId).setRecentRoomId(room.getId()); //recentRoomId 업데이트
 
-		return new EntryRoomResponse(room.getId(), room.getName());
+		Long ownerId = findOwnerId(room.getId());
+
+		return new EntryRoomResponse(room.getId(), room.getName(), ownerId);
+	}
+
+	private Long findOwnerId(Long roomId) {
+		ChatParticipant owner = chatParticipantRepository.findByChatRoomIdAndIsOwnerTrue(roomId)
+			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.OWNER_NOT_FOUND));
+		return owner.getParticipant().getId();
 	}
 
 	@Transactional(readOnly = true)
@@ -194,18 +244,28 @@ public class ChatRoomService {
 
 	public void validateNotParticipant(Long memberId, Long roomId) {
 		if (!chatParticipantRepository.
-			existsByParticipantIdAndChatRoomId(memberId, roomId)) {
+			existsByParticipantIdAndChatRoomIdAndIsActiveTrue(memberId, roomId)) {
 			throw new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT);
 		}
 	}
 
-	private void validateAlreadyParticipant(Long memberId, ChatRoom room) {
-		boolean isAlreadyParticipant = chatParticipantRepository
-			.existsByParticipantIdAndChatRoomId(memberId, room.getId());
+	@Transactional
+	public void deleteChatRoom(Long roomId, Long memberId) {
+		ChatRoom room = getRoomById(roomId);
 
-		if (isAlreadyParticipant) {
-			throw new ChatRoomException(ChatRoomErrorCode.ALREADY_PARTICIPANT);
+		ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantIdAndIsActiveTrue(
+				roomId, memberId)
+			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
+
+		if (!participant.isOwner()) {
+			throw new ChatRoomException(ChatRoomErrorCode.OWNER_PERMISSION_REQUIRED);
 		}
+
+		eventPublisher.publishEvent(
+			new DeleteChatRoomEvent(roomId, room.getName())
+		);
+
+		chatRoomRepository.delete(room);
 	}
 }
 

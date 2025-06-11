@@ -15,7 +15,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 		SELECT DISTINCT cr
 		FROM ChatRoom cr
 		JOIN cr.participants cp
-		WHERE cp.participant.id = :memberId
+		WHERE cp.participant.id = :memberId AND cp.isActive = true
 		""")
 	Page<ChatRoom> findChatRoomsByParticipantId(@Param("memberId") Long memberId,
 		Pageable pageable);
@@ -26,7 +26,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 		SELECT cr
 		FROM ChatRoom cr
 		JOIN cr.participants cp
-		WHERE cp.participant.id = :ownerId AND cp.isOwner=true
+		WHERE cp.participant.id = :ownerId AND cp.isOwner=true AND cp.isActive = true
 		""")
 	Page<ChatRoom> findAllRoomsByOwnerId(Long ownerId, Pageable pageable);
 

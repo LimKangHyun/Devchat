@@ -61,4 +61,10 @@ public class ChatRoom {
 	public void addParticipant(ChatParticipant chatParticipant) {
 		participants.add(chatParticipant);
 	}
+
+	public int getActiveParticipantCount() {
+		return (int) participants.stream()
+			.filter(ChatParticipant::isActive)
+			.count();
+	}
 }

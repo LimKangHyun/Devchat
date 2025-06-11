@@ -11,8 +11,10 @@ import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
-import project.backend.domain.chat.chatroom.dto.event.EventMessageResponse;
+import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
+import project.backend.domain.chat.chatmessage.dto.event.EventMessageResponse;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
+import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
@@ -69,7 +71,7 @@ public class ChatRoomMapper {
 		return MyChatRoomResponse.builder()
 			.roomId(chatRoom.getId())
 			.roomName(chatRoom.getName())
-			.participantCount(chatRoom.getParticipants().size())
+			.participantCount(chatRoom.getActiveParticipantCount())
 			.inviteCode(chatRoom.getInviteCode())
 			.build();
 	}
@@ -86,13 +88,35 @@ public class ChatRoomMapper {
 		return UUID.randomUUID().toString();
 	}
 
-	public static EventMessageResponse toEventMessageResponse(JoinChatRoomEvent joinEvent) {
+	public static EventMessageResponse toJoinEventMessageResponse(JoinChatRoomEvent joinEvent,
+		Long messageId) {
 		return EventMessageResponse.builder()
+			.messageId(messageId)
 			.type(MessageType.EVENT)
 			.roomId(joinEvent.roomId())
 			.sender(joinEvent.nickname())
 			.content(joinEvent.nickname() + "님이 입장했습니다.")
 			.sendAt(joinEvent.joinAt())
+			.build();
+	}
+
+	public static EventMessageResponse toLeaveEventMessageResponse(LeaveChatRoomEvent leaveEvent,
+		Long messageId) {
+		return EventMessageResponse.builder()
+			.messageId(messageId)
+			.type(MessageType.EVENT)
+			.roomId(leaveEvent.roomId())
+			.sender(leaveEvent.nickname())
+			.content(leaveEvent.nickname() + "님이 나갔습니다.")
+			.sendAt(leaveEvent.leaveAt())
+			.build();
+	}
+
+	public static EventMessageResponse toDeleteEventMessageResponse(DeleteChatRoomEvent deleteEvent) {
+		return EventMessageResponse.builder()
+			.type(MessageType.EVENT)
+			.roomId(deleteEvent.roomId())
+			.content("채팅방 '" + deleteEvent.roomName() + "'이 삭제되었습니다.")
 			.build();
 	}
 }
