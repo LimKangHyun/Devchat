@@ -11,6 +11,8 @@ const useWebSocket = ({
     currentRoomId, // 현재 활성화된 채팅방 ID
     onSidebarMessage, // 사이드바 메시지 처리 콜백
     onProfileUpdate,
+    onRoomDeleted
+
 }) => {
     const stompClientRef = useRef(null);
     const subscriptionRef = useRef(null);
@@ -18,6 +20,7 @@ const useWebSocket = ({
     const hasConnectedRef = useRef(false); // 실제 연결에 성공했는지 추적
     const sidebarSubscriptionsRef = useRef(new Map()); // 사이드바 구독들 관리하는 Map
     const keepAliveIntervalRef = useRef(null);
+    const deleteSubscriptionRef = useRef(null)
 
     const navigate = useNavigate(); 
 
@@ -29,7 +32,7 @@ const useWebSocket = ({
         }
 
         const client = new Client({
-            webSocketFactory: () => new SockJS(`${process.env.REACT_APP_API_URL}/ws`),
+            webSocketFactory: () => new WebSocket('ws://localhost:8080/ws'),
             reconnectDelay: 1000,
             heartbeatIncoming: 15000,
             heartbeatOutgoing: 10000,
@@ -47,8 +50,6 @@ const useWebSocket = ({
             subscriptionRef.current = client.subscribe(`/topic/chat/${roomId}`, (message) => {
                 try {
                     const received = JSON.parse(message.body);
-                    // received.sendAt ||= new Date().toISOString();
-                    // sendAt → 없으면 joinAt → 없으면 현재 시간
                     received.sendAt = received.sendAt || new Date().toISOString();
                     onMessageReceived(received)
                 } catch (e) {
@@ -108,6 +109,20 @@ const useWebSocket = ({
             
             console.log('👤 프로필 업데이트 구독 완료');
             }
+            // 방 삭제 구독 추가
+            deleteSubscriptionRef.current = client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
+                try {
+                    const deleteData = JSON.parse(message.body);
+                    console.log("🗑️ Room deletion received:", deleteData);
+                    
+                    if (onRoomDeleted && typeof onRoomDeleted === 'function') {
+                        onRoomDeleted(deleteData);
+                    }
+                } catch (e) {
+                    console.error("📛 Failed to parse delete message", e);
+                }
+            });
+
 
             if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current);
 
@@ -115,23 +130,26 @@ const useWebSocket = ({
                 if (client && client.connected) {
                 client.publish({
                     destination: '/app/ping',
-                    body: 'ping'
+                    body: 'p'
                 });
                 console.log("📡 Sent keep-alive ping");
                 }
-            }, 20000);
+            }, 15000);
             },
 
             onWebSocketClose: async () => {
                 console.warn('🛑 WebSocket 끊김 → 토큰 갱신 시도');
-                await safeRefreshToken(); // 중복 요청 방지됨
+                try{
+                    await safeRefreshToken(); // 중복 요청 방지됨
+                } catch(err){
+                    console.error('❌ 토큰 갱신 실패 → 로그인 페이지로 이동');
+                    navigate('/login');
+                }
+                
             },
             
             onStompError: (frame) => {
                 console.error("💥 STOMP error:", frame.headers['message']);
-                if (frame.headers['message']?.includes('Unauthorized') || frame.body?.includes('expired')) {
-                    navigate("/login");
-                }
             }
         });
 
@@ -150,6 +168,11 @@ const useWebSocket = ({
                 subscriptionRef.current.unsubscribe();
                 subscriptionRef.current = null;
                 console.log("🔌 Subscription unsubscribed.");
+            }
+             if (deleteSubscriptionRef.current) {
+                deleteSubscriptionRef.current.unsubscribe();
+                deleteSubscriptionRef.current = null;
+                console.log("🗑️ Delete subscription unsubscribed.");
             }
             if (client && client.active) {
                 client.deactivate().then(() => {

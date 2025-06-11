@@ -31,18 +31,6 @@ public class GlobalExceptionHandler {
 			.body(response);
 	}
 
-	@ExceptionHandler(AuthException.class)
-	public ResponseEntity<ErrorResponse> handleAuthException(AuthException ex) {
-
-		Map<String, Object> details = new HashMap<>();
-		details.put("roomId", ex.getRoomId());
-		details.put("error", ex.getErrorCode());
-
-		ErrorResponse response = ErrorResponse.toResponse(ex.getErrorCode(), details);
-		return ResponseEntity.status(ex.getStatus()).body(response);
-	}
-
-
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<?> handleMethodArgumentNotValidException(
 		MethodArgumentNotValidException ex) {

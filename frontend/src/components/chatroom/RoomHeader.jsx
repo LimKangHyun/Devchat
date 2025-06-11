@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { FaCopy } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
-const RoomHeader= ({roomName, inviteCode, onSearch, onLeaveRoom}) => {
+const RoomHeader= ({roomName, inviteCode, onSearch, onLeaveRoom, onDeleteRoom, isOwner}) => {
 
     const navigate = useNavigate();  
     const [showNotification, setShowModal] = useState(false);
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [showLeaveSuccess, setShowLeaveSuccess] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false); 
 
     //채팅방 나가기 핸들러 (API는 chatRoom에서 호출)
@@ -23,6 +24,20 @@ const RoomHeader= ({roomName, inviteCode, onSearch, onLeaveRoom}) => {
             }, 500);
         } else {
             alert(result.error);
+        }
+    };
+
+     // 채팅방 삭제 핸들러 (추가)
+    const handleDelete = async () => {
+        const result = await onDeleteRoom();
+
+        if (result.success) {
+            setShowDeleteConfirm(false);
+            alert("채팅방이 삭제되었습니다.");
+            navigate(`/`);
+        } else {
+            alert(result.error);
+            setShowDeleteConfirm(false);
         }
     };
 
@@ -133,6 +148,31 @@ const RoomHeader= ({roomName, inviteCode, onSearch, onLeaveRoom}) => {
                   >
                     채팅방 나가기
                   </button>
+
+                  {/* 방장만 삭제 버튼 표시 */}
+                  {isOwner && (
+                    <button
+                      onClick={() => {
+                        setShowDeleteConfirm(true);
+                        setMenuOpen(false);
+                      }}
+                      style={{
+                        padding: '10px 16px',
+                        background: 'none',
+                        border: 'none',
+                        width: '100%',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        color: '#dc2626',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        fontWeight: '600'
+                      }}
+                    >
+                      채팅방 삭제
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -203,6 +243,46 @@ const RoomHeader= ({roomName, inviteCode, onSearch, onLeaveRoom}) => {
                     }}
                   >
                     나가기
+                  </button>
+                </div>
+              </div>
+            </div>)}
+
+             {/* 삭제 확인 모달 (추가) */}
+            {showDeleteConfirm && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+              backgroundColor: 'rgba(0, 0, 0, 0.4)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', zIndex: 2000
+            }}>
+              <div style={{
+                backgroundColor: 'white', padding: '24px', borderRadius: '8px',
+                minWidth: '320px', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+              }}>
+                <p style={{ fontSize: '16px', marginBottom: '8px', fontWeight: '600' }}>
+                  채팅방을 삭제하시겠습니까?
+                </p>
+                <p style={{ fontSize: '14px', marginBottom: '20px', color: '#666' }}>
+                  삭제된 채팅방과 모든 메시지는 복구할 수 없습니다.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    style={{
+                      padding: '8px 16px', backgroundColor: '#eee',
+                      border: 'none', borderRadius: '4px', cursor: 'pointer'
+                    }}
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    style={{
+                      padding: '8px 16px', backgroundColor: '#dc2626', color: 'white',
+                      border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600'
+                    }}
+                  >
+                    삭제
                   </button>
                 </div>
               </div>

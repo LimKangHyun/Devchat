@@ -30,11 +30,4 @@ public class ErrorResponse {
                 .build();
     }
 
-    public static ErrorResponse toResponse(ErrorCode errorCode, Map<String, Object> details) {
-        return ErrorResponse.builder()
-            .code(errorCode.getCode())
-            .message(errorCode.getMessage())
-            .details(details)
-            .build();
-    }
 }

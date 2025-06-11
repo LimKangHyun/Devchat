@@ -480,7 +480,7 @@ const MessageList = ({ messages, currentUser, contextMenuId, setContextMenuId, s
     // 메시지 추가
     result.push(
       <MessageItem
-      key={`msg-${msg.messageId || index}`} // messageId가 없는 경우를 대비해 index 사용
+      key={`msg-${msg.messageId}`} // messageId가 없는 경우를 대비해 index 사용
       msg={msg}
       currentUser={currentUser}
       contextMenuId={contextMenuId}

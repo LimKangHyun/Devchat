@@ -6,6 +6,7 @@ import MessageInput from '../components/chatroom/MessageInput';
 import MessageList from '../components/chatroom/MessageList';
 import useWebSocket from '../components/common/useWebSocket';
 import RoomHeader from '../components/chatroom/RoomHeader';
+import RoomDeletedModal from '../components/modals/RoomDeletedModal';
 
 const ChatRoom = () => {
   const { inviteCode } = useParams();
@@ -34,6 +35,9 @@ const ChatRoom = () => {
 
   const [roomName, setRoomName] = useState("로딩 중...");
   const [roomId, setRoomId] = useState(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const [roomData, setRoomData] = useState(null);
+  const [deleteNotification, setDeleteNotification] = useState(null);
 
   // 초기화 상태를 하나로 통합하고 단계별로 관리
   const [initState, setInitState] = useState({
@@ -60,6 +64,7 @@ const ChatRoom = () => {
     }
   }, []);
 
+
   // 1. 방 정보 불러오기
   const fetchRoomInfo = useCallback(async () => {
     try {
@@ -68,7 +73,8 @@ const ChatRoom = () => {
 
       setRoomId(roomData.roomId);
       setRoomName(roomData.roomName);
-
+      setRoomData(roomData);
+      
       // 한 번에 상태 업데이트
       setInitState(prev => ({
         ...prev,
@@ -110,6 +116,7 @@ const ChatRoom = () => {
 
       console.log('📡 API 요청:', `/${roomId}/messages`, params);
       const res = await axiosInstance.get(`/${roomId}/messages`, { params });
+
       const data = res.data;
 
       const messageList = data.messages || [];
@@ -132,6 +139,7 @@ const ChatRoom = () => {
 
       // sendAt 기준으로 메시지 정렬 (오래된 순)
       const sortedMessages = validatedMessages.sort(
+
         (a, b) => new Date(a.sendAt).getTime() - new Date(b.sendAt).getTime()
       );
 
@@ -246,7 +254,12 @@ const ChatRoom = () => {
         return sorted;
       });
     },
-    onProfileUpdate: handleProfileUpdate
+    onProfileUpdate: handleProfileUpdate,
+
+    onRoomDeleted: (eventMessage) => {  // 새로 추가
+      setDeleteNotification(eventMessage.content);
+    }
+
   });
 
   // 스크롤 위치 복원 함수 (무한 스크롤 시 사용)
@@ -379,12 +392,32 @@ const ChatRoom = () => {
   }, [messages, isInitialLoad, restoreScrollPosition, isLoadingMessages, scrollToBottom]);
 
 
+  useEffect(() => {
+    if (currentUser && roomData && roomData.ownerId) {
+      setIsOwner(currentUser.id === roomData.ownerId);
+    }
+  }, [currentUser, roomData]);
+
   const handleLeaveRoom = async () => {
     try {
       await axiosInstance.delete(`/chat-rooms/${roomId}/leave`);
+
+      navigate(`/`);
+
       return { success: true };
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.message || '나가기 실패';
+      return { success: false, error: errorMsg };
+    }
+  };
+
+  // 채팅방 삭제 함수
+  const handleDeleteRoom = async () => {
+    try {
+      await axiosInstance.delete(`/chat-rooms/${roomId}`);
+      return { success: true };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || '채팅방 삭제에 실패했습니다';
       return { success: false, error: errorMsg };
     }
   };
@@ -419,7 +452,9 @@ const ChatRoom = () => {
       const validatedResults = (data.content || []).map(msg => {
         const sendAt = new Date(msg.sendAt);
         const isInvalid = !msg.sendAt || isNaN(sendAt.getTime());
+
         return isInvalid ? { ...msg, sendAt: new Date().toISOString() } : msg;
+
       });
 
       setSearchResults(validatedResults);
@@ -446,7 +481,6 @@ const ChatRoom = () => {
       messageElement.style.backgroundColor = '#e8f4fd';
       messageElement.style.borderRadius = '6px';
       messageElement.style.transition = 'all 0.3s ease';
-
       setTimeout(() => {
         messageElement.style.backgroundColor = '';
         messageElement.style.borderRadius = '';
@@ -499,6 +533,7 @@ const ChatRoom = () => {
     const client = stompClientRef.current;
 
     if (!roomId || !initState.isRoomValidated) {
+
       alert('채팅방 정보를 로딩 중입니다. 잠시 후 다시 시도해주세요.');
       return;
     }
@@ -641,8 +676,11 @@ const ChatRoom = () => {
           <RoomHeader
             roomName={roomName}
             inviteCode={inviteCode}
-            onSearch={handleSearch}
+            onSearch={handleSearch} 
             onLeaveRoom={handleLeaveRoom}
+            onDeleteRoom={handleDeleteRoom}
+            isOwner={isOwner}
+
           />
 
           <div
@@ -774,6 +812,13 @@ const ChatRoom = () => {
             onMessageClick={scrollToMessage}
           />
         )}
+
+        <RoomDeletedModal
+          isOpen={!!deleteNotification}
+          message={deleteNotification}
+          onClose={() => setDeleteNotification(null)}
+        />
+
       </div>
     </div>
   );

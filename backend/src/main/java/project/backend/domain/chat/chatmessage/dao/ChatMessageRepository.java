@@ -7,8 +7,6 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
-	List<ChatMessage> findByChatRoom_IdOrderBySendAtAsc(Long roomId);
-
 	List<ChatMessage> findByIdIn(List<Long> ids);
 
 	// 채팅방 입장 시, cursor가 null값이므로, 초반 메시지를 가져올 메서드
@@ -17,4 +15,5 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 	// 커서기반 무한스크롤 메서드
 	List<ChatMessage> findByChatRoom_IdAndIdLessThanOrderByIdDesc(Long roomId, Long cursor,
 		Pageable pageable);
+
 }

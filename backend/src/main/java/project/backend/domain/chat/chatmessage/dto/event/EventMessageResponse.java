@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatroom.dto.event;
+package project.backend.domain.chat.chatmessage.dto.event;
 
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -12,6 +12,8 @@ import project.backend.domain.chat.chatmessage.entity.MessageType;
 @AllArgsConstructor
 @NoArgsConstructor
 public class EventMessageResponse {
+
+	private Long messageId;
 
 	private MessageType type;
 
