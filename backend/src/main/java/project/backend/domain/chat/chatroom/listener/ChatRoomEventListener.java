@@ -64,7 +64,8 @@ public class ChatRoomEventListener {
 		ChatRoom chatRoom = chatRoomService.getRoomById(leaveEvent.roomId());
 		Member member = memberService.getMemberById(leaveEvent.memberId());
 
-		ChatMessage message = chatMessageMapper.toEntityWithLeaveEvent(chatRoom, member, leaveEvent);
+		ChatMessage message = chatMessageMapper.toEntityWithLeaveEvent(chatRoom, member,
+			leaveEvent);
 		ChatMessage savedMessage = chatMessageRepository.save(message);
 
 		EventMessageResponse eventMessageResponse = ChatRoomMapper.toLeaveEventMessageResponse(
