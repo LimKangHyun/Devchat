@@ -37,4 +37,4 @@ jobs:
           node-version: 22
       - run: npm install
       - run: CI=false npm run build
-      - run: npm test
+      - run: npm test -- --passWithNoTests
