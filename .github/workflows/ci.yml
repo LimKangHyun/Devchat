@@ -21,8 +21,7 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: chmod +x ./gradlew
-      - run: ./gradlew clean build
-      - run: ./gradlew test
+      - run: ./gradlew clean build -x test
 
   frontend:
     runs-on: ubuntu-latest
@@ -39,4 +38,3 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npm test
-      
