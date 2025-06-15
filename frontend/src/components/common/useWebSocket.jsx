@@ -32,10 +32,11 @@ const useWebSocket = ({
         }
 
         const client = new Client({
-            webSocketFactory: () => new WebSocket('ws://localhost:8080/ws'),
+            webSocketFactory: () => new WebSocket(process.env.REACT_APP_WEB_SOCKET_URL),
             reconnectDelay: 1000,
             heartbeatIncoming: 15000,
             heartbeatOutgoing: 10000,
+            withCredentials: true,
             debug: (str) => console.log(`[STOMP] ${str}`),
 
             onConnect: () => {

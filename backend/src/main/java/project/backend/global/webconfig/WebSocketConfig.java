@@ -30,7 +30,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	//해당 주소로 접속 시 웹소켓 핸드셰이크 커넥션 생성
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
-		registry.addEndpoint("/ws")
+		registry.addEndpoint("/wss")
 			.setAllowedOriginPatterns("http://localhost:3000")
 			.addInterceptors(handShakeInterceptor);
 	}
