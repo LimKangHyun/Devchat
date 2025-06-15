@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaTimes, FaCopy, FaExpand, FaCompress, FaPlus, FaCheck, FaTrash } from 'react-icons/fa';
-import axiosInstance from '../api/axiosInstance'; 
+import axiosInstance from '../api/axiosInstance';
+import Highlight from 'react-highlight';
 
 const CodeReviewModal = ({ message, onClose }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-  
+
   // 댓글 관련 상태
   const [comments, setComments] = useState({}); // { lineNumber: [comments] }
   const [activeCommentLine, setActiveCommentLine] = useState(null);
@@ -16,100 +17,100 @@ const CodeReviewModal = ({ message, onClose }) => {
   const codeRef = useRef(null);
 
   useEffect(() => {
-  const loadExistingReviews = async () => {
-    try {
-      setLoading(true);
-      
-      if (!message.messageId) {
-        return;
-      }
+    const loadExistingReviews = async () => {
+      try {
+        setLoading(true);
 
-      const reviews = await codeReviewAPI.getByMessageId(message.messageId);
-      
-      // 서버에서 받은 리뷰 데이터를 라인별로 정리
-      const reviewsByLine = {};
-      
-      if (reviews && Array.isArray(reviews)) {
-        reviews.forEach(review => {
-          const lineNumber = review.lineNumber;
-          
-          if (!reviewsByLine[lineNumber]) {
-            reviewsByLine[lineNumber] = [];
-          }
-          
-          reviewsByLine[lineNumber].push({
-            id: review.reviewId,
-            content: review.content,
-            author: review.authorName,
-            timestamp: review.createAt
+        if (!message.messageId) {
+          return;
+        }
+
+        const reviews = await codeReviewAPI.getByMessageId(message.messageId);
+
+        // 서버에서 받은 리뷰 데이터를 라인별로 정리
+        const reviewsByLine = {};
+
+        if (reviews && Array.isArray(reviews)) {
+          reviews.forEach(review => {
+            const lineNumber = review.lineNumber;
+
+            if (!reviewsByLine[lineNumber]) {
+              reviewsByLine[lineNumber] = [];
+            }
+
+            reviewsByLine[lineNumber].push({
+              id: review.reviewId,
+              content: review.content,
+              author: review.authorName,
+              timestamp: review.createAt
+            });
           });
-        });
-      }
-      
-      setComments(reviewsByLine);
-      
-    } catch (error) {
-      if (error.message.includes('404')) {
-        setComments({});
-        return;
-      }
-      
-      let errorMessage = '기존 댓글을 불러오는데 실패했습니다.';
-      if (error.message.includes('401')) {
-        errorMessage = '로그인이 필요합니다.';
-      } else if (error.message.includes('403')) {
-        errorMessage = '댓글 조회 권한이 없습니다.';
-      }
-      
-      alert(errorMessage);
-      
-    } finally {
-      setLoading(false);
-    }
-  };
+        }
 
-  loadExistingReviews();
-}, [message.messageId]);
+        setComments(reviewsByLine);
+
+      } catch (error) {
+        if (error.message.includes('404')) {
+          setComments({});
+          return;
+        }
+
+        let errorMessage = '기존 댓글을 불러오는데 실패했습니다.';
+        if (error.message.includes('401')) {
+          errorMessage = '로그인이 필요합니다.';
+        } else if (error.message.includes('403')) {
+          errorMessage = '댓글 조회 권한이 없습니다.';
+        }
+
+        alert(errorMessage);
+
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadExistingReviews();
+  }, [message.messageId]);
 
 
   const codeReviewAPI = {
-  // 리뷰 생성
-  create: async (reviewData) => {
-    try {
-      const response = await axiosInstance.post('/code-reviews', reviewData);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || '리뷰 생성 실패');
-    }
-  },
-
-  // 메시지별 리뷰 조회
-  getByMessageId: async (messageId) => {
-    try {
-      const response = await axiosInstance.get(`/code-reviews/${messageId}`);
-      
-      // 응답 데이터 구조에 따라 수정 필요
-      return response.data.reviews || response.data;
-      
-    } catch (error) {
-      if (error.response?.status === 404) {
-        return [];
+    // 리뷰 생성
+    create: async (reviewData) => {
+      try {
+        const response = await axiosInstance.post('/code-reviews', reviewData);
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || '리뷰 생성 실패');
       }
-      
-      throw new Error(error.response?.data?.message || '리뷰 조회 실패');
-    }
-  },
+    },
 
-  // 리뷰 삭제
-  delete: async (reviewId) => {
-    try {
-      await axiosInstance.delete(`/code-reviews/${reviewId}`);
-    } catch (error) {
-      throw new Error(error.response?.data?.message || '리뷰 삭제 실패');
+    // 메시지별 리뷰 조회
+    getByMessageId: async (messageId) => {
+      try {
+        const response = await axiosInstance.get(`/code-reviews/${messageId}`);
+
+        // 응답 데이터 구조에 따라 수정 필요
+        return response.data.reviews || response.data;
+
+      } catch (error) {
+        if (error.response?.status === 404) {
+          return [];
+        }
+
+        throw new Error(error.response?.data?.message || '리뷰 조회 실패');
+      }
+    },
+
+    // 리뷰 삭제
+    delete: async (reviewId) => {
+      try {
+        await axiosInstance.delete(`/code-reviews/${reviewId}`);
+      } catch (error) {
+        throw new Error(error.response?.data?.message || '리뷰 삭제 실패');
+      }
     }
-  }
-};
- 
+  };
+
 
   // 코드를 라인별로 분리
   const codeLines = message.content.split('\n');
@@ -155,41 +156,41 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   // 댓글 저장
   const handleSaveComment = async () => {
-  if (!commentText.trim()) return;
+    if (!commentText.trim()) return;
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const reviewData = {
-      messageId: message.messageId,
-      lineNumber: activeCommentLine,
-      content: commentText.trim()
-    };
+      const reviewData = {
+        messageId: message.messageId,
+        lineNumber: activeCommentLine,
+        content: commentText.trim()
+      };
 
-    const createdReview = await codeReviewAPI.create(reviewData);
+      const createdReview = await codeReviewAPI.create(reviewData);
 
-    const newComment = {
-      id: createdReview.reviewId,
-      content: createdReview.content,
-      author: createdReview.authorName,
-      timestamp: createdReview.createAt
-    };
+      const newComment = {
+        id: createdReview.reviewId,
+        content: createdReview.content,
+        author: createdReview.authorName,
+        timestamp: createdReview.createAt
+      };
 
-    setComments(prev => ({
-      ...prev,
-      [activeCommentLine]: [...(prev[activeCommentLine] || []), newComment]
-    }));
+      setComments(prev => ({
+        ...prev,
+        [activeCommentLine]: [...(prev[activeCommentLine] || []), newComment]
+      }));
 
-    setActiveCommentLine(null);
-    setCommentText('');
+      setActiveCommentLine(null);
+      setCommentText('');
 
-  } catch (error) {
-    console.error('댓글 저장 실패:', error);
-    alert(error.message);
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (error) {
+      console.error('댓글 저장 실패:', error);
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 댓글 취소(취소버튼 누르는 것)
   const handleCancelComment = () => {
@@ -215,7 +216,7 @@ const CodeReviewModal = ({ message, onClose }) => {
 
 
   return (
-    <div 
+    <div
       style={{
         position: 'fixed',
         top: 0,
@@ -231,7 +232,7 @@ const CodeReviewModal = ({ message, onClose }) => {
       }}
       onClick={handleBackgroundClick}
     >
-      <div 
+      <div
         style={{
           backgroundColor: '#ffffff',
           borderRadius: isFullscreen ? '0' : '12px',
@@ -274,7 +275,7 @@ const CodeReviewModal = ({ message, onClose }) => {
               {message.language || 'java'}
             </span>
           </div>
-          
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* 복사 버튼 */}
             <button
@@ -377,7 +378,7 @@ const CodeReviewModal = ({ message, onClose }) => {
                   {codeLines.map((line, index) => {
                     const lineNumber = index + 1;
                     const hasComments = comments[lineNumber] && comments[lineNumber].length > 0;
-                    
+
                     return (
                       <div key={lineNumber}>
                         {/* 코드 라인 */}
@@ -602,7 +603,7 @@ const CodeReviewModal = ({ message, onClose }) => {
           }}>
             💬 라인별로 댓글을 달아 코드 리뷰를 진행하세요
           </div>
-          
+
           <div style={{
             fontSize: '12px',
             color: '#a0aec0'
