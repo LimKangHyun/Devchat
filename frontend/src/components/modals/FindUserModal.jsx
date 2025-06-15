@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { FaSearch, FaTimes, FaUserPlus, FaUser, FaSpinner } from "react-icons/fa"
-
+import axioxInstance from "../api/axiosInstance"
 // Mock search results - replace with your actual API
 const mockSearchResults = [
   { username: "alice_wonder", nickname: "Alice", status: "online", isFriend: false },
@@ -20,7 +20,10 @@ const FindUserModal = ({ onClose, onSendFriendRequest }) => {
   const [sendingRequests, setSendingRequests] = useState({})
   const modalRef = useRef(null)
   const searchInputRef = useRef(null)
-
+  
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [isFetchingMore, setIsFetchingMore] = useState(false)
   // Focus search input when modal opens
   useEffect(() => {
     if (searchInputRef.current) {
@@ -64,35 +67,63 @@ const FindUserModal = ({ onClose, onSendFriendRequest }) => {
     }
 
     const delayDebounce = setTimeout(() => {
-        handleSearch()
-    }, 400) // 400ms 대기 후 검색 실행
+        handleSearch(0)
+        setHasSearched(true)
+    }, 200) // 400ms 대기 후 검색 실행
 
     return () => clearTimeout(delayDebounce) // 입력 중이면 이전 타이머 제거
   }, [searchQuery])
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return
+  const handleSearch = async (targetPage = 0) => {
+    const trimmedQuery = searchQuery.trim()
+    if (!trimmedQuery) return
 
-    setLoading(true)
-    setHasSearched(true)
+    // 초기 검색일 경우 로딩 상태 + 결과 초기화
+    if (targetPage === 0) {
+        setLoading(true)
+        setSearchResults([])
+        setHasSearched(true)
+    } else {
+        setIsFetchingMore(true)
+    }
 
     try {
-      // Replace with your actual API call
-      // const res = await axiosInstance.get(`/users/search?username=${searchQuery}`);
-      // setSearchResults(res.data);
+        const response = await axioxInstance.get('/user/username', {
+        params: {
+            username: trimmedQuery,
+            page: targetPage,
+            size: 10,
+        },
+        })
 
-      // Mock API call - search only by username
-      setTimeout(() => {
-        const filtered = mockSearchResults.filter((user) =>
-          user.username.toLowerCase().includes(searchQuery.toLowerCase()),
+        const content = response.data.content
+        const isLastPage = response.data.last
+
+        // 페이지별로 처리
+        setSearchResults(prev =>
+        targetPage === 0 ? content : [...prev, ...content]
         )
-        setSearchResults(filtered)
-        setLoading(false)
-      }, 800)
+        setPage(targetPage)
+        setHasMore(!isLastPage)
     } catch (err) {
-      console.error("사용자 검색 오류:", err)
-      setSearchResults([])
-      setLoading(false)
+        console.error("사용자 검색 오류:", err)
+        if (targetPage === 0) {
+        setSearchResults([])
+        setHasMore(false)
+        }
+    } finally {
+        if (targetPage === 0) {
+        setLoading(false)
+        } else {
+        setIsFetchingMore(false)
+        }
+    }
+  }
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target
+    if (scrollHeight - scrollTop <= clientHeight + 150 && hasMore && !isFetchingMore) {
+        handleSearch(page + 1)  // 다음 페이지 요청
     }
   }
 
@@ -318,6 +349,7 @@ const FindUserModal = ({ onClose, onSendFriendRequest }) => {
 
         {/* Results Section */}
         <div
+          onScroll={handleScroll}
           style={{
             flex: 1,
             overflowY: "auto",

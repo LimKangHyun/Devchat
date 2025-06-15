@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.member.dao.MemberRepository;
+import project.backend.domain.member.dto.MemberSearchResponse;
 import project.backend.domain.member.dto.PasswordChangeRequest;
 import project.backend.domain.member.dto.event.ProfileUpdateEvent;
 import project.backend.auth.dto.MemberDetails;
@@ -136,6 +139,19 @@ public class MemberService {
 		log.info("memberId = {}", memberId);
 		Member member = getMemberById(memberId);
 		return MemberMapper.toResponse(member);
+	}
+
+	public Page<MemberSearchResponse> searchMembers(Authentication auth, String username,
+		Pageable pageable) {
+		var memberDetails = (MemberDetails) auth.getPrincipal();
+
+		if (memberDetails == null) {
+			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
+		}
+
+		return memberRepository.searchByUsernameExcludeSelf(username, memberDetails.getUsername(),
+			pageable);
+
 	}
 
 	private boolean checkUsernameAlreadyExists(String username) {
