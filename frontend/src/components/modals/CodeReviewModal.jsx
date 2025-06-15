@@ -16,6 +16,25 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   const codeRef = useRef(null);
 
+const HighlightedCode = ({ content, language }) => {
+  return (
+    <>
+      <Highlight className={language}>{content}</Highlight>
+      <style>{`
+        .hljs {
+          margin: 0 !important;
+          padding: 0 !important;
+          background: transparent !important;
+          line-height: 22px !important;
+          font-size: 16px !important;
+          font-family: inherit !important;
+          display: inline !important;
+        }
+      `}</style>
+    </>
+  );
+};
+
   useEffect(() => {
     const loadExistingReviews = async () => {
       try {
@@ -446,7 +465,10 @@ const CodeReviewModal = ({ message, onClose }) => {
                             whiteSpace: 'pre',
                             lineHeight: '20px'
                           }}>
-                            <code>{line}</code>
+                            <HighlightedCode
+                              content={line}
+                              language={message.language || 'java'}
+                            />
                           </div>
                         </div>
 
