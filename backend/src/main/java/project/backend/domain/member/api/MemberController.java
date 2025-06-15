@@ -47,7 +47,7 @@ public class MemberController {
 	public Page<MemberSearchResponse> searchUsers(
 		Authentication auth,
 		@RequestParam String username,
-		@PageableDefault(size = 10) Pageable pageable
+		Pageable pageable
 	) {
 		return memberService.searchMembers(auth, username, pageable);
 	}

@@ -1,37 +1,302 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, memo, useCallback, useMemo } from "react"
 import { FaSearch, FaTimes, FaUserPlus, FaUser, FaSpinner } from "react-icons/fa"
 import axioxInstance from "../api/axiosInstance"
-// Mock search results - replace with your actual API
-const mockSearchResults = [
-  { username: "alice_wonder", nickname: "Alice", status: "online", isFriend: false },
-  { username: "bob_builder", nickname: "Bob", status: "offline", isFriend: false },
-  { username: "charlie_brown", nickname: "Charlie", status: "away", isFriend: true },
-  { username: "diana_prince", nickname: "Diana", status: "online", isFriend: false },
-  { username: "edward_elric", nickname: "Edward", status: "online", isFriend: false },
-]
+import "./FindUserModal.css"
 
-const FindUserModal = ({ onClose, onSendFriendRequest }) => {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [searchResults, setSearchResults] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [hasSearched, setHasSearched] = useState(false)
-  const [sendingRequests, setSendingRequests] = useState({})
-  const modalRef = useRef(null)
+// Memoized Header Component - never re-renders
+const ModalHeader = memo(({ onClose }) => (
+  <div
+    style={{
+      padding: "24px 28px 20px",
+      borderBottom: "1px solid #F3F4F6",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      background: "linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)",
+    }}
+  >
+    <div>
+      <h2 style={{ margin: 0, fontSize: "24px", fontWeight: "700", color: "#111827", letterSpacing: "-0.025em" }}>
+        Find Friends
+      </h2>
+      <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#6B7280", fontWeight: "400" }}>
+        Wanna be lonely? Don't search here.
+      </p>
+    </div>
+    <button onClick={onClose} className="close-btn">
+      <FaTimes size={18} />
+    </button>
+  </div>
+))
+
+// Separate component for search query display - only re-renders when query changes
+const SearchQueryDisplay = memo(({ searchQuery }) => <strong>{searchQuery}</strong>)
+
+// Optimized Search Section - minimal re-renders
+const SearchSection = memo(({ onSearchChange, onSearch, loading, hasValidQuery }) => {
+  const [inputValue, setInputValue] = useState("")
   const searchInputRef = useRef(null)
-  
-  const [page, setPage] = useState(0)
-  const [hasMore, setHasMore] = useState(true)
-  const [isFetchingMore, setIsFetchingMore] = useState(false)
-  // Focus search input when modal opens
+
   useEffect(() => {
     if (searchInputRef.current) {
       searchInputRef.current.focus()
     }
   }, [])
 
-  // Handle click outside modal
+  const handleInputChange = useCallback(
+    (e) => {
+      const value = e.target.value
+      setInputValue(value)
+      onSearchChange(value)
+    },
+    [onSearchChange],
+  )
+
+  const handleKeyPress = useCallback(
+    (event) => {
+      if (event.key === "Enter") {
+        onSearch()
+      }
+    },
+    [onSearch],
+  )
+
+  return (
+    <div style={{ padding: "28px 28px 24px" }}>
+      <div style={{ display: "flex", gap: "16px", alignItems: "stretch" }}>
+        <div style={{ position: "relative", flex: 1 }}>
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="Enter ID to search..."
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyPress={handleKeyPress}
+            className="search-input"
+          />
+          <FaSearch
+            style={{
+              position: "absolute",
+              left: "18px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "#9CA3AF",
+              fontSize: "16px",
+            }}
+          />
+        </div>
+        <button onClick={onSearch} disabled={!hasValidQuery || loading} className="search-btn">
+          {loading ? <FaSpinner className="spinner-animation" size={16} /> : <FaSearch size={16} />}
+          {loading ? "Searching" : "Search"}
+        </button>
+      </div>
+    </div>
+  )
+})
+
+// Highly optimized User Item - no inline styles, no manual DOM manipulation
+const UserItem = memo(({ user, sendingRequest, onSendFriendRequest }) => {
+  const statusClass = useMemo(() => {
+    switch (user.status) {
+      case "online":
+        return "online"
+      case "away":
+        return "away"
+      case "offline":
+        return "offline"
+      default:
+        return "offline"
+    }
+  }, [user.status])
+
+  const handleAddFriend = useCallback(() => {
+    onSendFriendRequest(user)
+  }, [user, onSendFriendRequest])
+
+  return (
+    <div className="user-item">
+      <div style={{ display: "flex", alignItems: "center", flex: 1 }}>
+        <div className="user-avatar">
+          <FaUser size={18} />
+          <div className={`status-indicator status-${statusClass}`} />
+        </div>
+        <div className="user-info">
+          <div className="user-name">{user.nickname || user.username}</div>
+          <div className="user-username">@{user.username}</div>
+        </div>
+        <div className={`status-badge ${statusClass}`}>{user.status}</div>
+      </div>
+      <div>
+        {user.isFriend || user.requestSent ? (
+          <span className="friend-status">{user.requestSent ? "Request Sent" : "Friends"}</span>
+        ) : (
+          <button onClick={handleAddFriend} disabled={sendingRequest} className="add-friend-btn">
+            {sendingRequest ? (
+              <>
+                <FaSpinner className="spinner-animation" size={12} />
+                Sending...
+              </>
+            ) : (
+              <>
+                <FaUserPlus size={12} />
+                Add Friend
+              </>
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+})
+
+// Optimized Results List - virtualization-ready
+const ResultsList = memo(({ results, sendingRequests, onSendFriendRequest }) => {
+  return (
+    <div>
+      {results.map((user) => (
+        <UserItem
+          key={user.username}
+          user={user}
+          sendingRequest={sendingRequests[user.username]}
+          onSendFriendRequest={onSendFriendRequest}
+        />
+      ))}
+    </div>
+  )
+})
+
+// Optimized Loading States
+const LoadingState = memo(({ type, searchQuery }) => {
+  if (type === "initial") {
+    return (
+      <div className="empty-state">
+        <FaSpinner className="spinner-animation" size={32} style={{ marginBottom: "16px", color: "#3B82F6" }} />
+        <p style={{ margin: 0, fontSize: "18px", fontWeight: "500" }}>Searching users...</p>
+        <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#9CA3AF" }}>Please wait a moment</p>
+      </div>
+    )
+  }
+
+  if (type === "scroll") {
+    return (
+      <div className="loading-overlay">
+        <FaSpinner className="spinner-animation" size={24} style={{ marginRight: "12px", color: "#3B82F6" }} />
+        <span style={{ fontSize: "16px", fontWeight: "500" }}>Loading users...</span>
+      </div>
+    )
+  }
+
+  if (type === "no-results") {
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon no-results">
+          <FaUser size={32} style={{ color: "#F87171" }} />
+        </div>
+        <h3>No users found</h3>
+        <p>
+          No users match "<SearchQueryDisplay searchQuery={searchQuery} />
+          ". Try a different username.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="empty-state">
+      <div className="empty-state-icon search">
+        <FaSearch size={32} style={{ color: "#9CA3AF" }} />
+      </div>
+      <h3>Ready to search</h3>
+      <p>Enter an ID above to find and connect with other users</p>
+    </div>
+  )
+})
+
+// Optimized Results Component - minimal re-renders
+const SearchResults = memo(
+  ({
+    hasSearched,
+    isInitialSearch,
+    isFetchingMore,
+    searchResults,
+    lastSearchQuery,
+    sendingRequests,
+    onSendFriendRequest,
+    onScroll,
+  }) => {
+    // Determine what to show
+    const content = useMemo(() => {
+      if (!hasSearched) {
+        return <LoadingState type="ready" />
+      }
+
+      if (isInitialSearch) {
+        return <LoadingState type="initial" />
+      }
+
+      if (searchResults.length === 0 && !isFetchingMore) {
+        return <LoadingState type="no-results" searchQuery={lastSearchQuery} />
+      }
+
+      if (searchResults.length === 0 && isFetchingMore) {
+        return <LoadingState type="scroll" />
+      }
+
+      return (
+        <>
+          <ResultsList
+            results={searchResults}
+            sendingRequests={sendingRequests}
+            onSendFriendRequest={onSendFriendRequest}
+          />
+          {isFetchingMore && (
+            <div className="scroll-loading">
+              <div className="scroll-loading-content">
+                <FaSpinner className="spinner-animation" size={18} style={{ marginRight: "10px", color: "#3B82F6" }} />
+                <span style={{ fontSize: "14px", fontWeight: "500" }}>Loading more users...</span>
+              </div>
+            </div>
+          )}
+        </>
+      )
+    }, [
+      hasSearched,
+      isInitialSearch,
+      isFetchingMore,
+      searchResults,
+      lastSearchQuery,
+      sendingRequests,
+      onSendFriendRequest,
+    ])
+
+    return (
+      <div className="results-container" onScroll={onScroll}>
+        {content}
+      </div>
+    )
+  },
+)
+
+const FindUserModal = ({ onClose, onSendFriendRequest }) => {
+  const [currentInputValue, setCurrentInputValue] = useState("")
+  const [lastSearchQuery, setLastSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [sendingRequests, setSendingRequests] = useState({})
+  const modalRef = useRef(null)
+
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [isFetchingMore, setIsFetchingMore] = useState(false)
+  const [isInitialSearch, setIsInitialSearch] = useState(false)
+
+  // Memoized values
+  const hasValidQuery = useMemo(() => currentInputValue.trim().length > 0, [currentInputValue])
+
+  // Event handlers
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -39,597 +304,155 @@ const FindUserModal = ({ onClose, onSendFriendRequest }) => {
       }
     }
 
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
-  }, [onClose])
-
-  // Handle escape key
-  useEffect(() => {
     const handleEscape = (event) => {
       if (event.key === "Escape") {
         onClose()
       }
     }
 
+    document.addEventListener("mousedown", handleClickOutside)
     document.addEventListener("keydown", handleEscape)
     return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
       document.removeEventListener("keydown", handleEscape)
     }
   }, [onClose])
 
+  // Debounced search
   useEffect(() => {
-    if (!searchQuery.trim()) {
-        setSearchResults([])
-        setHasSearched(false)
-        return
+    if (!currentInputValue.trim()) {
+      setSearchResults([])
+      setHasSearched(false)
+      setPage(0)
+      setHasMore(true)
+      setLastSearchQuery("")
+      return
     }
 
     const delayDebounce = setTimeout(() => {
-        handleSearch(0)
-        setHasSearched(true)
-    }, 200) // 400ms 대기 후 검색 실행
+      handleSearch(0, currentInputValue.trim())
+      setHasSearched(true)
+    }, 150)
 
-    return () => clearTimeout(delayDebounce) // 입력 중이면 이전 타이머 제거
-  }, [searchQuery])
+    return () => clearTimeout(delayDebounce)
+  }, [currentInputValue])
 
-  const handleSearch = async (targetPage = 0) => {
-    const trimmedQuery = searchQuery.trim()
-    if (!trimmedQuery) return
+  const handleSearch = useCallback(
+    async (targetPage = 0, queryToSearch = null) => {
+      const trimmedQuery = queryToSearch || currentInputValue.trim()
+      if (!trimmedQuery) return
 
-    // 초기 검색일 경우 로딩 상태 + 결과 초기화
-    if (targetPage === 0) {
+      if (targetPage === 0) {
+        setIsInitialSearch(true)
         setLoading(true)
         setSearchResults([])
-        setHasSearched(true)
-    } else {
+        setPage(0)
+        setHasMore(true)
+        setLastSearchQuery(trimmedQuery)
+      } else {
         setIsFetchingMore(true)
-    }
+      }
 
-    try {
-        const response = await axioxInstance.get('/user/username', {
-        params: {
+      try {
+        const response = await axioxInstance.get("/user/username", {
+          params: {
             username: trimmedQuery,
             page: targetPage,
             size: 10,
-        },
+          },
         })
 
-        const content = response.data.content
+        const content = response.data.content || []
         const isLastPage = response.data.last
 
-        // 페이지별로 처리
-        setSearchResults(prev =>
-        targetPage === 0 ? content : [...prev, ...content]
-        )
+        setSearchResults((prev) => (targetPage === 0 ? content : [...prev, ...content]))
         setPage(targetPage)
         setHasMore(!isLastPage)
-    } catch (err) {
+      } catch (err) {
         console.error("사용자 검색 오류:", err)
         if (targetPage === 0) {
-        setSearchResults([])
-        setHasMore(false)
+          setSearchResults([])
+          setHasMore(false)
         }
-    } finally {
+      } finally {
         if (targetPage === 0) {
-        setLoading(false)
+          setIsInitialSearch(false)
+          setLoading(false)
         } else {
-        setIsFetchingMore(false)
+          setIsFetchingMore(false)
         }
-    }
-  }
+      }
+    },
+    [currentInputValue],
+  )
 
-  const handleScroll = (e) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.target
-    if (scrollHeight - scrollTop <= clientHeight + 150 && hasMore && !isFetchingMore) {
-        handleSearch(page + 1)  // 다음 페이지 요청
-    }
-  }
+  const handleScroll = useCallback(
+    (e) => {
+      const { scrollTop, scrollHeight, clientHeight } = e.target
+      if (scrollHeight - scrollTop <= clientHeight + 100 && hasMore && !isFetchingMore && !isInitialSearch) {
+        handleSearch(page + 1, lastSearchQuery)
+      }
+    },
+    [hasMore, isFetchingMore, isInitialSearch, page, handleSearch, lastSearchQuery],
+  )
 
-  const handleSendFriendRequest = async (user) => {
-    setSendingRequests((prev) => ({ ...prev, [user.username]: true }))
+  const handleSendFriendRequest = useCallback(
+    async (user) => {
+      setSendingRequests((prev) => ({ ...prev, [user.username]: true }))
 
-    try {
-      // Replace with your actual API call using username
-      // await axiosInstance.post('/friends/request', { username: user.username });
+      try {
+        setTimeout(() => {
+          setSearchResults((prev) =>
+            prev.map((u) => (u.username === user.username ? { ...u, isFriend: true, requestSent: true } : u)),
+          )
 
-      // Mock API call
-      setTimeout(() => {
-        // Update the user's friend status in search results
-        setSearchResults((prev) =>
-          prev.map((u) => (u.username === user.username ? { ...u, isFriend: true, requestSent: true } : u)),
-        )
+          setSendingRequests((prev) => ({ ...prev, [user.username]: false }))
 
+          if (onSendFriendRequest) {
+            onSendFriendRequest(user)
+          }
+
+          console.log(`Friend request sent to ${user.username}`)
+        }, 1000)
+      } catch (err) {
+        console.error("친구 요청 전송 오류:", err)
         setSendingRequests((prev) => ({ ...prev, [user.username]: false }))
+        alert("친구 요청 전송에 실패했습니다.")
+      }
+    },
+    [onSendFriendRequest],
+  )
 
-        // Call parent callback if provided
-        if (onSendFriendRequest) {
-          onSendFriendRequest(user)
-        }
+  // Stable handlers
+  const handleSearchChange = useCallback((value) => {
+    setCurrentInputValue(value)
+  }, [])
 
-        // Show success message (you can implement toast notification here)
-        console.log(`Friend request sent to ${user.username}`)
-      }, 1000)
-    } catch (err) {
-      console.error("친구 요청 전송 오류:", err)
-      setSendingRequests((prev) => ({ ...prev, [user.username]: false }))
-      // Show error message
-      alert("친구 요청 전송에 실패했습니다.")
-    }
-  }
-
-  const handleKeyPress = (event) => {
-    if (event.key === "Enter") {
-      handleSearch()
-    }
-  }
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "online":
-        return "#10B981"
-      case "away":
-        return "#F59E0B"
-      case "offline":
-        return "#6B7280"
-      default:
-        return "#6B7280"
-    }
-  }
+  const handleSearchClick = useCallback(() => {
+    handleSearch(0, currentInputValue.trim())
+  }, [handleSearch, currentInputValue])
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.6)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        backdropFilter: "blur(4px)",
-      }}
-    >
-      <div
-        ref={modalRef}
-        style={{
-          backgroundColor: "#ffffff",
-          borderRadius: "20px",
-          width: "90%",
-          maxWidth: "520px",
-          maxHeight: "85vh",
-          color: "#1F2937",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          border: "1px solid rgba(229, 231, 235, 0.8)",
-          animation: "modalSlideIn 0.3s ease-out",
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            padding: "24px 28px 20px",
-            borderBottom: "1px solid #F3F4F6",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)",
-          }}
-        >
-          <div>
-            <h2 style={{ margin: 0, fontSize: "24px", fontWeight: "700", color: "#111827", letterSpacing: "-0.025em" }}>
-              Find Friends
-            </h2>
-            <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#6B7280", fontWeight: "400" }}>
-              Wanna be lonely? Don’t search here.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#9CA3AF",
-              cursor: "pointer",
-              padding: "10px",
-              borderRadius: "12px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.2s ease",
-              width: "40px",
-              height: "40px",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#F3F4F6"
-              e.currentTarget.style.color = "#374151"
-              e.currentTarget.style.transform = "scale(1.05)"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent"
-              e.currentTarget.style.color = "#9CA3AF"
-              e.currentTarget.style.transform = "scale(1)"
-            }}
-          >
-            <FaTimes size={18} />
-          </button>
-        </div>
-
-        {/* Search Section */}
-        <div style={{ padding: "28px 28px 24px" }}>
-          <div style={{ display: "flex", gap: "16px", alignItems: "stretch" }}>
-            <div style={{ position: "relative", flex: 1 }}>
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Enter ID to search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
-                style={{
-                  width: "100%",
-                  padding: "16px 20px 16px 48px",
-                  backgroundColor: "#F9FAFB",
-                  border: "2px solid #E5E7EB",
-                  borderRadius: "16px",
-                  color: "#111827",
-                  fontSize: "16px",
-                  outline: "none",
-                  transition: "all 0.3s ease",
-                  fontWeight: "500",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.backgroundColor = "#ffffff"
-                  e.currentTarget.style.borderColor = "#3B82F6"
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)"
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.backgroundColor = "#F9FAFB"
-                  e.currentTarget.style.borderColor = "#E5E7EB"
-                  e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)"
-                }}
-              />
-              <FaSearch
-                style={{
-                  position: "absolute",
-                  left: "18px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#9CA3AF",
-                  fontSize: "16px",
-                }}
-              />
-            </div>
-            <button
-              onClick={handleSearch}
-              disabled={!searchQuery.trim() || loading}
-              style={{
-                padding: "16px 24px",
-                background:
-                  !searchQuery.trim() || loading ? "#E5E7EB" : "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
-                border: "none",
-                borderRadius: "16px",
-                color: !searchQuery.trim() || loading ? "#9CA3AF" : "white",
-                fontSize: "16px",
-                fontWeight: "600",
-                cursor: !searchQuery.trim() || loading ? "not-allowed" : "pointer",
-                transition: "all 0.3s ease",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                minWidth: "120px",
-                justifyContent: "center",
-                boxShadow: !searchQuery.trim() || loading ? "none" : "0 4px 14px 0 rgba(59, 130, 246, 0.3)",
-              }}
-              onMouseEnter={(e) => {
-                if (searchQuery.trim() && !loading) {
-                  e.currentTarget.style.transform = "translateY(-2px)"
-                  e.currentTarget.style.boxShadow = "0 8px 25px 0 rgba(59, 130, 246, 0.4)"
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (searchQuery.trim() && !loading) {
-                  e.currentTarget.style.transform = "translateY(0px)"
-                  e.currentTarget.style.boxShadow = "0 4px 14px 0 rgba(59, 130, 246, 0.3)"
-                }
-              }}
-            >
-              {loading ? <FaSpinner className="spin" size={16} /> : <FaSearch size={16} />}
-              {loading ? "Searching" : "Search"}
-            </button>
-          </div>
-        </div>
-
-        {/* Results Section */}
-        <div
+    <div className="modal-overlay">
+      <div ref={modalRef} className="modal-container modal-slide-in">
+        <ModalHeader onClose={onClose} />
+        <SearchSection
+          onSearchChange={handleSearchChange}
+          onSearch={handleSearchClick}
+          loading={loading}
+          hasValidQuery={hasValidQuery}
+        />
+        <SearchResults
+          hasSearched={hasSearched}
+          isInitialSearch={isInitialSearch}
+          isFetchingMore={isFetchingMore}
+          searchResults={searchResults}
+          lastSearchQuery={lastSearchQuery}
+          sendingRequests={sendingRequests}
+          onSendFriendRequest={handleSendFriendRequest}
           onScroll={handleScroll}
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "0 28px 28px",
-            minHeight: "240px",
-            maxHeight: "450px",
-          }}
-        >
-          {loading ? (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "60px 20px",
-                color: "#6B7280",
-              }}
-            >
-              <FaSpinner className="spin" size={32} style={{ marginBottom: "16px", color: "#3B82F6" }} />
-              <p style={{ margin: 0, fontSize: "18px", fontWeight: "500" }}>Searching users...</p>
-              <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#9CA3AF" }}>Please wait a moment</p>
-            </div>
-          ) : !hasSearched ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "60px 20px",
-                color: "#6B7280",
-              }}
-            >
-              <div
-                style={{
-                  width: "80px",
-                  height: "80px",
-                  backgroundColor: "#F3F4F6",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 24px",
-                }}
-              >
-                <FaSearch size={32} style={{ color: "#9CA3AF" }} />
-              </div>
-              <h3 style={{ margin: "0 0 8px 0", fontSize: "20px", fontWeight: "600", color: "#374151" }}>
-                Ready to search
-              </h3>
-              <p style={{ margin: 0, fontSize: "16px", color: "#6B7280", lineHeight: "1.5" }}>
-                Enter an ID above to find and connect with other users
-              </p>
-            </div>
-          ) : searchResults.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "60px 20px",
-                color: "#6B7280",
-              }}
-            >
-              <div
-                style={{
-                  width: "80px",
-                  height: "80px",
-                  backgroundColor: "#FEF3F2",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 24px",
-                }}
-              >
-                <FaUser size={32} style={{ color: "#F87171" }} />
-              </div>
-              <h3 style={{ margin: "0 0 8px 0", fontSize: "20px", fontWeight: "600", color: "#374151" }}>
-                No users found
-              </h3>
-              <p style={{ margin: 0, fontSize: "16px", color: "#6B7280", lineHeight: "1.5" }}>
-                No users match "<strong>{searchQuery}</strong>". Try a different username.
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {searchResults.map((user, index) => (
-                <div
-                  key={user.username}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "20px",
-                    backgroundColor: "#FAFBFC",
-                    borderRadius: "16px",
-                    border: "1px solid #F3F4F6",
-                    transition: "all 0.3s ease",
-                    animation: `fadeInUp 0.4s ease-out ${index * 0.1}s both`,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#F8FAFC"
-                    e.currentTarget.style.borderColor = "#E2E8F0"
-                    e.currentTarget.style.transform = "translateY(-2px)"
-                    e.currentTarget.style.boxShadow = "0 8px 25px -8px rgba(0, 0, 0, 0.1)"
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "#FAFBFC"
-                    e.currentTarget.style.borderColor = "#F3F4F6"
-                    e.currentTarget.style.transform = "translateY(0px)"
-                    e.currentTarget.style.boxShadow = "none"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", flex: 1 }}>
-                    <div
-                      style={{
-                        background: "linear-gradient(135deg, #E5E7EB 0%, #D1D5DB 100%)",
-                        color: "#374151",
-                        borderRadius: "50%",
-                        width: "48px",
-                        height: "48px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginRight: "16px",
-                        position: "relative",
-                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-                      }}
-                    >
-                      <FaUser size={18} />
-                      {/* Status indicator */}
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: "2px",
-                          right: "2px",
-                          width: "14px",
-                          height: "14px",
-                          backgroundColor: getStatusColor(user.status),
-                          borderRadius: "50%",
-                          border: "3px solid #ffffff",
-                          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div
-                        style={{
-                          fontWeight: "600",
-                          fontSize: "17px",
-                          marginBottom: "4px",
-                          color: "#111827",
-                          letterSpacing: "-0.025em",
-                        }}
-                      >
-                        {user.nickname || user.username}
-                      </div>
-                      <div style={{ fontSize: "14px", color: "#6B7280", fontWeight: "500" }}>@{user.username}</div>
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: getStatusColor(user.status),
-                        fontWeight: "600",
-                        textTransform: "capitalize",
-                        marginRight: "16px",
-                        padding: "4px 12px",
-                        backgroundColor: `${getStatusColor(user.status)}15`,
-                        borderRadius: "20px",
-                        border: `1px solid ${getStatusColor(user.status)}30`,
-                      }}
-                    >
-                      {user.status}
-                    </div>
-                  </div>
-
-                  <div>
-                    {user.isFriend || user.requestSent ? (
-                      <span
-                        style={{
-                          padding: "10px 20px",
-                          backgroundColor: "#ECFDF5",
-                          color: "#059669",
-                          borderRadius: "12px",
-                          fontSize: "14px",
-                          fontWeight: "600",
-                          border: "1px solid #A7F3D0",
-                        }}
-                      >
-                        {user.requestSent ? "Request Sent" : "Friends"}
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handleSendFriendRequest(user)}
-                        disabled={sendingRequests[user.username]}
-                        style={{
-                          padding: "10px 20px",
-                          background: sendingRequests[user.username]
-                            ? "#F3F4F6"
-                            : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-                          border: "none",
-                          borderRadius: "12px",
-                          color: sendingRequests[user.username] ? "#6B7280" : "white",
-                          fontSize: "14px",
-                          fontWeight: "600",
-                          cursor: sendingRequests[user.username] ? "not-allowed" : "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          transition: "all 0.3s ease",
-                          boxShadow: sendingRequests[user.username] ? "none" : "0 4px 14px 0 rgba(16, 185, 129, 0.3)",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!sendingRequests[user.username]) {
-                            e.currentTarget.style.transform = "translateY(-2px)"
-                            e.currentTarget.style.boxShadow = "0 8px 25px 0 rgba(16, 185, 129, 0.4)"
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!sendingRequests[user.username]) {
-                            e.currentTarget.style.transform = "translateY(0px)"
-                            e.currentTarget.style.boxShadow = "0 4px 14px 0 rgba(16, 185, 129, 0.3)"
-                          }
-                        }}
-                      >
-                        {sendingRequests[user.username] ? (
-                          <>
-                            <FaSpinner className="spin" size={12} />
-                            Sending...
-                          </>
-                        ) : (
-                          <>
-                            <FaUserPlus size={12} />
-                            Add Friend
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        />
       </div>
-
-      {/* Enhanced CSS animations */}
-      <style jsx>{`
-        .spin {
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        @keyframes modalSlideIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95) translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   )
 }
