@@ -464,6 +464,7 @@ const CodeReviewModal = ({ message, onClose }) => {
                             <textarea
                               value={commentText}
                               onChange={(e) => setCommentText(e.target.value)}
+                              placeholder='Leave a comment...'
                               style={{
                                 width: '100%',
                                 minHeight: '80px',
@@ -513,7 +514,7 @@ const CodeReviewModal = ({ message, onClose }) => {
                                 }}
                               >
                                 <FaCheck size={12} />
-                                댓글 저장
+                                리뷰 저장
                               </button>
                             </div>
                           </div>
