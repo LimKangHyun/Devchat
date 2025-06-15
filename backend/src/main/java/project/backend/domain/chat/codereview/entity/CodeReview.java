@@ -6,10 +6,12 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -18,8 +20,9 @@ import project.backend.domain.member.entity.Member;
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
 @Getter
+@Builder
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class CodeReview {
 
 	@Id
@@ -28,14 +31,14 @@ public class CodeReview {
 	private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@Column(name = "message_id")
+	@JoinColumn(name = "message_id")
 	private ChatMessage message;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@Column(name = "member_id")
+	@JoinColumn(name = "member_id")
 	private Member author;
 
-	private int lineNumber;
+	private Integer lineNumber;
 
 	@Column(columnDefinition = "TEXT")
 	private String content;

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaTimes, FaCopy, FaExpand, FaCompress, FaPlus, FaCheck, FaTrash } from 'react-icons/fa';
+import axiosInstance from '../api/axiosInstance'; 
 
 const CodeReviewModal = ({ message, onClose }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -10,8 +11,41 @@ const CodeReviewModal = ({ message, onClose }) => {
   const [activeCommentLine, setActiveCommentLine] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [hoveredLine, setHoveredLine] = useState(null);
+  const [loading, setLoading] = useState(false); // 이것도 추가
 
   const codeRef = useRef(null);
+
+  const codeReviewAPI = {
+  // 리뷰 생성
+  create: async (reviewData) => {
+    try {
+      const response = await axiosInstance.post('/code-reviews', reviewData);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || '리뷰 생성 실패');
+    }
+  },
+
+  // 메시지별 리뷰 조회
+  getByMessageId: async (messageId) => {
+    try {
+      const response = await axiosInstance.get(`/code-reviews/message/${messageId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || '리뷰 조회 실패');
+    }
+  },
+
+  // 리뷰 삭제
+  delete: async (reviewId) => {
+    try {
+      await axiosInstance.delete(`/code-reviews/${reviewId}`);
+    } catch (error) {
+      throw new Error(error.response?.data?.message || '리뷰 삭제 실패');
+    }
+  }
+};
+ 
 
   // 코드를 라인별로 분리
   const codeLines = message.content.split('\n');
@@ -49,7 +83,7 @@ const CodeReviewModal = ({ message, onClose }) => {
     }
   };
 
-  // 댓글 추가 시작
+  // 
   const handleAddComment = (lineNumber) => {
     setActiveCommentLine(lineNumber);
     setCommentText('');
@@ -57,37 +91,41 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   // 댓글 저장
   const handleSaveComment = async () => {
-    if (!commentText.trim()) return;
+  if (!commentText.trim()) return;
 
-    try {
-      // 임시 API 호출 (실제로는 서버로 전송)
-      console.log('댓글 저장 API 호출:', {
-        messageId: message.messageId,
-        lineNumber: activeCommentLine,
-        content: commentText,
-        timestamp: new Date().toISOString()
-      });
+  try {
+    setLoading(true);
 
-      // 로컬 상태에 댓글 추가
-      const newComment = {
-        id: Date.now(), // 임시 ID
-        content: commentText,
-        author: '현재 사용자', // 실제로는 currentUser.name
-        timestamp: new Date().toISOString()
-      };
+    const reviewData = {
+      messageId: message.messageId,
+      lineNumber: activeCommentLine,
+      content: commentText.trim()
+    };
 
-      setComments(prev => ({
-        ...prev,
-        [activeCommentLine]: [...(prev[activeCommentLine] || []), newComment]
-      }));
+    const createdReview = await codeReviewAPI.create(reviewData);
 
-      setActiveCommentLine(null);
-      setCommentText('');
-    } catch (error) {
-      console.error('댓글 저장 실패:', error);
-      alert('댓글 저장에 실패했습니다.');
-    }
-  };
+    const newComment = {
+      id: createdReview.reviewId,
+      content: createdReview.content,
+      author: createdReview.authorName,
+      timestamp: createdReview.createAt
+    };
+
+    setComments(prev => ({
+      ...prev,
+      [activeCommentLine]: [...(prev[activeCommentLine] || []), newComment]
+    }));
+
+    setActiveCommentLine(null);
+    setCommentText('');
+
+  } catch (error) {
+    console.error('댓글 저장 실패:', error);
+    alert(error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // 댓글 취소
   const handleCancelComment = () => {
@@ -359,7 +397,6 @@ const CodeReviewModal = ({ message, onClose }) => {
                             <textarea
                               value={commentText}
                               onChange={(e) => setCommentText(e.target.value)}
-                              placeholder="이 라인에 대한 리뷰를 작성하세요..."
                               style={{
                                 width: '100%',
                                 minHeight: '80px',
