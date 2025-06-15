@@ -56,6 +56,20 @@ const FindUserModal = ({ onClose, onSendFriendRequest }) => {
     }
   }, [onClose])
 
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+        setSearchResults([])
+        setHasSearched(false)
+        return
+    }
+
+    const delayDebounce = setTimeout(() => {
+        handleSearch()
+    }, 400) // 400ms 대기 후 검색 실행
+
+    return () => clearTimeout(delayDebounce) // 입력 중이면 이전 타이머 제거
+  }, [searchQuery])
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return
 
