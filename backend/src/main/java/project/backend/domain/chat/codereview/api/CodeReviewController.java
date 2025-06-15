@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,8 +26,7 @@ public class CodeReviewController {
 	@PostMapping
 	public CodeReviewResponse createReview(
 		@Valid @RequestBody CodeReviewRequest request,
-		@AuthenticationPrincipal MemberDetails memberDetails
-	) {
+		@AuthenticationPrincipal MemberDetails memberDetails) {
 		return codeReviewService.createReview(request, memberDetails.getId());
 	}
 
@@ -34,5 +34,11 @@ public class CodeReviewController {
 	public List<CodeReviewResponse> getReviews(@PathVariable Long messageId,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		return codeReviewService.getReviewsByMessageId(messageId, memberDetails.getId());
+	}
+
+	@DeleteMapping("/{reviewId}")
+	public void deleteReview(@PathVariable Long reviewId,
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		codeReviewService.deleteReview(reviewId, memberDetails.getId());
 	}
 }

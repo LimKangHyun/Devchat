@@ -16,11 +16,11 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   const codeRef = useRef(null);
 
-const HighlightedCode = ({ content, language }) => {
-  return (
-    <>
-      <Highlight className={language}>{content}</Highlight>
-      <style>{`
+  const HighlightedCode = ({ content, language }) => {
+    return (
+      <>
+        <Highlight className={language}>{content}</Highlight>
+        <style>{`
         .hljs {
           margin: 0 !important;
           padding: 0 !important;
@@ -31,9 +31,9 @@ const HighlightedCode = ({ content, language }) => {
           display: inline !important;
         }
       `}</style>
-    </>
-  );
-};
+      </>
+    );
+  };
 
   useEffect(() => {
     const loadExistingReviews = async () => {
@@ -220,15 +220,18 @@ const HighlightedCode = ({ content, language }) => {
   // 댓글 삭제
   const handleDeleteComment = async (lineNumber, commentId) => {
     try {
-      // 임시 API 호출
-      console.log('댓글 삭제 API 호출:', { commentId });
+      // 실제 API 호출
+      await codeReviewAPI.delete(commentId);
 
+      // 성공 시 UI에서 제거
       setComments(prev => ({
         ...prev,
         [lineNumber]: prev[lineNumber].filter(comment => comment.id !== commentId)
       }));
+
     } catch (error) {
       console.error('댓글 삭제 실패:', error);
+      alert(error.message || '댓글 삭제에 실패했습니다.');
     }
   };
 
