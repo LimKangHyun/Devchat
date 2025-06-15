@@ -1,8 +1,11 @@
 package project.backend.domain.chat.codereview.api;
 
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,5 +28,11 @@ public class CodeReviewController {
 		@AuthenticationPrincipal MemberDetails memberDetails
 	) {
 		return codeReviewService.createReview(request, memberDetails.getId());
+	}
+
+	@GetMapping("/{messageId}")
+	public List<CodeReviewResponse> getReviews(@PathVariable Long messageId,
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		return codeReviewService.getReviewsByMessageId(messageId, memberDetails.getId());
 	}
 }

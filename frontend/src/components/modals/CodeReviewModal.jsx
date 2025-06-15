@@ -15,6 +15,63 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   const codeRef = useRef(null);
 
+  useEffect(() => {
+  const loadExistingReviews = async () => {
+    try {
+      setLoading(true);
+      
+      if (!message.messageId) {
+        return;
+      }
+
+      const reviews = await codeReviewAPI.getByMessageId(message.messageId);
+      
+      // 서버에서 받은 리뷰 데이터를 라인별로 정리
+      const reviewsByLine = {};
+      
+      if (reviews && Array.isArray(reviews)) {
+        reviews.forEach(review => {
+          const lineNumber = review.lineNumber;
+          
+          if (!reviewsByLine[lineNumber]) {
+            reviewsByLine[lineNumber] = [];
+          }
+          
+          reviewsByLine[lineNumber].push({
+            id: review.reviewId,
+            content: review.content,
+            author: review.authorName,
+            timestamp: review.createAt
+          });
+        });
+      }
+      
+      setComments(reviewsByLine);
+      
+    } catch (error) {
+      if (error.message.includes('404')) {
+        setComments({});
+        return;
+      }
+      
+      let errorMessage = '기존 댓글을 불러오는데 실패했습니다.';
+      if (error.message.includes('401')) {
+        errorMessage = '로그인이 필요합니다.';
+      } else if (error.message.includes('403')) {
+        errorMessage = '댓글 조회 권한이 없습니다.';
+      }
+      
+      alert(errorMessage);
+      
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadExistingReviews();
+}, [message.messageId]);
+
+
   const codeReviewAPI = {
   // 리뷰 생성
   create: async (reviewData) => {
@@ -29,9 +86,16 @@ const CodeReviewModal = ({ message, onClose }) => {
   // 메시지별 리뷰 조회
   getByMessageId: async (messageId) => {
     try {
-      const response = await axiosInstance.get(`/code-reviews/message/${messageId}`);
-      return response.data;
+      const response = await axiosInstance.get(`/code-reviews/${messageId}`);
+      
+      // 응답 데이터 구조에 따라 수정 필요
+      return response.data.reviews || response.data;
+      
     } catch (error) {
+      if (error.response?.status === 404) {
+        return [];
+      }
+      
       throw new Error(error.response?.data?.message || '리뷰 조회 실패');
     }
   },
@@ -127,7 +191,7 @@ const CodeReviewModal = ({ message, onClose }) => {
   }
 };
 
-  // 댓글 취소
+  // 댓글 취소(취소버튼 누르는 것)
   const handleCancelComment = () => {
     setActiveCommentLine(null);
     setCommentText('');
@@ -147,6 +211,8 @@ const CodeReviewModal = ({ message, onClose }) => {
       console.error('댓글 삭제 실패:', error);
     }
   };
+
+
 
   return (
     <div 
@@ -195,7 +261,7 @@ const CodeReviewModal = ({ message, onClose }) => {
               fontWeight: '600',
               color: '#2d3748'
             }}>
-              코드 리뷰
+              Code Review
             </h3>
             <span style={{
               backgroundColor: '#4299e1',

@@ -1,5 +1,6 @@
 package project.backend.domain.chat.codereview.app;
 
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,21 @@ public class CodeReviewService {
 		CodeReview savedReview = codeReviewRepository.save(codeReview);
 
 		return codeReviewMapper.toResponse(savedReview);
+	}
+
+	@Transactional
+	public List<CodeReviewResponse> getReviewsByMessageId(Long messageId, Long memberId) {
+		ChatMessage message = chatMessageRepository.findById(messageId)
+			.orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
+
+		Member member = memberService.getMemberById(memberId);
+
+		List<CodeReview> reviews = codeReviewRepository
+			.findByMessageIdOrderByLineNumberAscCreatedAtAsc(messageId);
+
+		return reviews.stream()
+			.map(codeReviewMapper::toResponse)
+			.toList();
 	}
 
 }

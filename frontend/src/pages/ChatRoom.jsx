@@ -43,10 +43,8 @@ const ChatRoom = () => {
   const [selectedCodeMessage, setSelectedCodeMessage] = useState(null);
 
   const handleCodeClick = (message) => {
-     console.log('🎯 handleCodeClick 호출됨!', message);
-  setSelectedCodeMessage(message);
-  setShowCodeModal(true);
-  console.log('📊 상태 업데이트 완료, showCodeModal:', true);
+    setSelectedCodeMessage(message);
+    setShowCodeModal(true);
   };
 
   // 초기화 상태를 하나로 통합하고 단계별로 관리
