@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
-import Highlight from 'react-highlight';
-import { FaTimes, FaCopy, FaExpand, FaCompress } from 'react-icons/fa';
+import React, { useState, useRef, useEffect } from 'react';
+import { FaTimes, FaCopy, FaExpand, FaCompress, FaPlus, FaCheck, FaTrash } from 'react-icons/fa';
 
 const CodeReviewModal = ({ message, onClose }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  
+  // 댓글 관련 상태
+  const [comments, setComments] = useState({}); // { lineNumber: [comments] }
+  const [activeCommentLine, setActiveCommentLine] = useState(null);
+  const [commentText, setCommentText] = useState('');
+  const [hoveredLine, setHoveredLine] = useState(null);
+
+  const codeRef = useRef(null);
+
+  // 코드를 라인별로 분리
+  const codeLines = message.content.split('\n');
 
   // 코드 복사 기능
   const handleCopyCode = async () => {
@@ -18,20 +28,85 @@ const CodeReviewModal = ({ message, onClose }) => {
   };
 
   // ESC 키로 모달 닫기
-  React.useEffect(() => {
+  useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape') {
-        onClose();
+        if (activeCommentLine) {
+          handleCancelComment();
+        } else {
+          onClose();
+        }
       }
     };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
-  }, [onClose]);
+  }, [onClose, activeCommentLine]);
 
   // 배경 클릭으로 모달 닫기
   const handleBackgroundClick = (e) => {
     if (e.target === e.currentTarget) {
       onClose();
+    }
+  };
+
+  // 댓글 추가 시작
+  const handleAddComment = (lineNumber) => {
+    setActiveCommentLine(lineNumber);
+    setCommentText('');
+  };
+
+  // 댓글 저장
+  const handleSaveComment = async () => {
+    if (!commentText.trim()) return;
+
+    try {
+      // 임시 API 호출 (실제로는 서버로 전송)
+      console.log('댓글 저장 API 호출:', {
+        messageId: message.messageId,
+        lineNumber: activeCommentLine,
+        content: commentText,
+        timestamp: new Date().toISOString()
+      });
+
+      // 로컬 상태에 댓글 추가
+      const newComment = {
+        id: Date.now(), // 임시 ID
+        content: commentText,
+        author: '현재 사용자', // 실제로는 currentUser.name
+        timestamp: new Date().toISOString()
+      };
+
+      setComments(prev => ({
+        ...prev,
+        [activeCommentLine]: [...(prev[activeCommentLine] || []), newComment]
+      }));
+
+      setActiveCommentLine(null);
+      setCommentText('');
+    } catch (error) {
+      console.error('댓글 저장 실패:', error);
+      alert('댓글 저장에 실패했습니다.');
+    }
+  };
+
+  // 댓글 취소
+  const handleCancelComment = () => {
+    setActiveCommentLine(null);
+    setCommentText('');
+  };
+
+  // 댓글 삭제
+  const handleDeleteComment = async (lineNumber, commentId) => {
+    try {
+      // 임시 API 호출
+      console.log('댓글 삭제 API 호출:', { commentId });
+
+      setComments(prev => ({
+        ...prev,
+        [lineNumber]: prev[lineNumber].filter(comment => comment.id !== commentId)
+      }));
+    } catch (error) {
+      console.error('댓글 삭제 실패:', error);
     }
   };
 
@@ -82,7 +157,7 @@ const CodeReviewModal = ({ message, onClose }) => {
               fontWeight: '600',
               color: '#2d3748'
             }}>
-              코드 뷰어
+              코드 리뷰
             </h3>
             <span style={{
               backgroundColor: '#4299e1',
@@ -190,17 +265,226 @@ const CodeReviewModal = ({ message, onClose }) => {
                 height: '100%',
                 overflow: 'auto',
                 fontSize: '14px',
-                lineHeight: '1.6'
+                lineHeight: '1.6',
+                fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace'
               }}>
-                <Highlight className={message.language || 'java'}>
-                  {message.content}
-                </Highlight>
+                {/* 라인별 코드 렌더링 */}
+                <div style={{ position: 'relative' }}>
+                  {codeLines.map((line, index) => {
+                    const lineNumber = index + 1;
+                    const hasComments = comments[lineNumber] && comments[lineNumber].length > 0;
+                    
+                    return (
+                      <div key={lineNumber}>
+                        {/* 코드 라인 */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            minHeight: '20px',
+                            backgroundColor: hoveredLine === lineNumber ? '#f7fafc' : 'transparent',
+                            borderLeft: hasComments ? '3px solid #4299e1' : '3px solid transparent',
+                            transition: 'all 0.1s ease'
+                          }}
+                          onMouseEnter={() => setHoveredLine(lineNumber)}
+                          onMouseLeave={() => setHoveredLine(null)}
+                        >
+                          {/* 라인 번호 */}
+                          <div style={{
+                            width: '50px',
+                            padding: '0 8px',
+                            color: '#a0aec0',
+                            fontSize: '12px',
+                            textAlign: 'right',
+                            userSelect: 'none',
+                            flexShrink: 0,
+                            lineHeight: '20px'
+                          }}>
+                            {lineNumber}
+                          </div>
+
+                          {/* + 버튼 영역 */}
+                          <div style={{
+                            width: '30px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            {(hoveredLine === lineNumber || hasComments) && (
+                              <button
+                                onClick={() => handleAddComment(lineNumber)}
+                                style={{
+                                  width: '20px',
+                                  height: '20px',
+                                  borderRadius: '50%',
+                                  border: 'none',
+                                  backgroundColor: hasComments ? '#4299e1' : '#e2e8f0',
+                                  color: hasComments ? 'white' : '#4a5568',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '12px',
+                                  transition: 'all 0.2s ease'
+                                }}
+                              >
+                                <FaPlus size={8} />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* 코드 내용 */}
+                          <div style={{
+                            flex: 1,
+                            padding: '0 12px 0 0',
+                            whiteSpace: 'pre',
+                            lineHeight: '20px'
+                          }}>
+                            <code>{line}</code>
+                          </div>
+                        </div>
+
+                        {/* 댓글 입력창 */}
+                        {activeCommentLine === lineNumber && (
+                          <div style={{
+                            marginLeft: '80px',
+                            marginRight: '12px',
+                            marginBottom: '12px',
+                            padding: '12px',
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px'
+                          }}>
+                            <textarea
+                              value={commentText}
+                              onChange={(e) => setCommentText(e.target.value)}
+                              placeholder="이 라인에 대한 리뷰를 작성하세요..."
+                              style={{
+                                width: '100%',
+                                minHeight: '80px',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '4px',
+                                padding: '8px',
+                                fontSize: '14px',
+                                resize: 'vertical',
+                                fontFamily: 'inherit'
+                              }}
+                              autoFocus
+                            />
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'flex-end',
+                              gap: '8px',
+                              marginTop: '8px'
+                            }}>
+                              <button
+                                onClick={handleCancelComment}
+                                style={{
+                                  padding: '6px 12px',
+                                  backgroundColor: '#e2e8f0',
+                                  color: '#4a5568',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  fontSize: '14px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                취소
+                              </button>
+                              <button
+                                onClick={handleSaveComment}
+                                disabled={!commentText.trim()}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '6px 12px',
+                                  backgroundColor: commentText.trim() ? '#4299e1' : '#e2e8f0',
+                                  color: commentText.trim() ? 'white' : '#a0aec0',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  fontSize: '14px',
+                                  cursor: commentText.trim() ? 'pointer' : 'not-allowed'
+                                }}
+                              >
+                                <FaCheck size={12} />
+                                댓글 저장
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 기존 댓글들 */}
+                        {comments[lineNumber] && comments[lineNumber].map((comment) => (
+                          <div
+                            key={comment.id}
+                            style={{
+                              marginLeft: '80px',
+                              marginRight: '12px',
+                              marginBottom: '8px',
+                              padding: '10px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '6px',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                            }}
+                          >
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '6px'
+                            }}>
+                              <div style={{
+                                fontSize: '12px',
+                                color: '#4a5568',
+                                fontWeight: '500'
+                              }}>
+                                {comment.author}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{
+                                  fontSize: '11px',
+                                  color: '#a0aec0'
+                                }}>
+                                  {new Date(comment.timestamp).toLocaleString('ko-KR')}
+                                </span>
+                                <button
+                                  onClick={() => handleDeleteComment(lineNumber, comment.id)}
+                                  style={{
+                                    padding: '2px',
+                                    backgroundColor: 'transparent',
+                                    border: 'none',
+                                    color: '#e53e3e',
+                                    cursor: 'pointer',
+                                    fontSize: '12px'
+                                  }}
+                                >
+                                  <FaTrash size={10} />
+                                </button>
+                              </div>
+                            </div>
+                            <div style={{
+                              fontSize: '14px',
+                              color: '#2d3748',
+                              lineHeight: '1.4',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {comment.content}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 푸터 (향후 API 호출 버튼들 추가 예정) */}
+        {/* 푸터 */}
         <div style={{
           padding: '16px 20px',
           backgroundColor: '#f8fafc',
@@ -213,11 +497,14 @@ const CodeReviewModal = ({ message, onClose }) => {
             fontSize: '13px',
             color: '#718096'
           }}>
-            💡 향후 AI 코드 리뷰 기능이 추가될 예정입니다
+            💬 라인별로 댓글을 달아 코드 리뷰를 진행하세요
           </div>
           
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {/* 향후 AI 리뷰 버튼들이 여기에 추가될 예정 */}
+          <div style={{
+            fontSize: '12px',
+            color: '#a0aec0'
+          }}>
+            총 {Object.values(comments).flat().length}개의 댓글
           </div>
         </div>
       </div>
