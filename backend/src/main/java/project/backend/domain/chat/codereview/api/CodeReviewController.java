@@ -45,7 +45,7 @@ public class CodeReviewController {
 
 	@PutMapping("/{reviewId}")
 	public CodeReviewResponse editReview(@PathVariable Long reviewId,
-		@RequestBody CodeReviewRequest request,
+		@Valid @RequestBody CodeReviewRequest request,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		return codeReviewService.editReview(reviewId, request, memberDetails.getId());
 	}
