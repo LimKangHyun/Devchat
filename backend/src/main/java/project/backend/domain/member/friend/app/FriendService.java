@@ -41,6 +41,7 @@ public class FriendService {
 		Member sender = MemberDetails.of(memberDetails);
 		Member receiver = memberService.getMemberByUsername(request.targetUsername());
 
+		checkAvailableRequest(sender, receiver);
 		checkAlreadyFriends(receiver, sender);
 
 		FriendRequest friendRequest = FriendRequest.builder()
@@ -98,6 +99,13 @@ public class FriendService {
 
 	private void checkAlreadyFriends(Member owner, Member friend) {
 		boolean exists = friendsListRepository.existsByOwnerAndFriend(owner, friend);
+		if (exists) {
+			throw new FriendException(FriendErrorCode.ALREADY_REQUESTED_FRIEND);
+		}
+	}
+
+	private void checkAvailableRequest(Member sender, Member receiver) {
+		boolean exists = friendRequestRepository.existsBySenderAndReceiver(sender, receiver);
 		if (exists) {
 			throw new FriendException(FriendErrorCode.ALREADY_REQUESTED_FRIEND);
 		}
