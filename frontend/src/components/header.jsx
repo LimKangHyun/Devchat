@@ -39,13 +39,6 @@ export function HeaderWithNotifications() {
 
     playNotificationSound()
 
-    const newNotification = {
-      ...notification,
-      id: notification.id || `realtime-${Date.now()}-${Math.random()}`,
-      timestamp: new Date().toISOString(),
-      isNew: true,
-      isRealtime: true,
-    }
     setTotalApiNotificationCount((prev) => prev + 1)
     showImmediateNotification(notification)
     triggerShakeAnimation()
@@ -58,11 +51,12 @@ export function HeaderWithNotifications() {
       // Initialize WebSocket connection immediately when username is available
       // This will be handled by the useWebSocketNotifications hook
       console.log("🔌 Initializing WebSocket for user:", username)
+      fetchApiNotifications(0, true)
     }
   }, [username]) // Only depend on username
 
   // WebSocket hook call - moved outside of any conditional logic
-  const webSocketClient = useWebSocketNotifications({
+  useWebSocketNotifications({
     username: username,
     onNotificationReceived: handleNotificationReceived,
   })
