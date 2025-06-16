@@ -13,8 +13,9 @@ const CodeReviewModal = ({ message, onClose }) => {
   const [commentText, setCommentText] = useState('');
   const [hoveredLine, setHoveredLine] = useState(null);
   const [loading, setLoading] = useState(false); // 이것도 추가
-
-  const codeRef = useRef(null);
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
 
   const HighlightedCode = ({ content, language }) => {
     return (
@@ -35,6 +36,28 @@ const CodeReviewModal = ({ message, onClose }) => {
     );
   };
 
+  // 현재 사용자 정보 가져오기
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await axiosInstance.get('/user/details');
+      setCurrentUser(response.data.id); // username 대신 id 사용
+      console.log('현재 사용자 ID:', response.data.id);
+    } catch (error) {
+      console.error('사용자 정보 조회 실패:', error);
+      setCurrentUser(null);
+    }
+  };
+
+  // 수정 가능 여부 체크 함수
+  const canEdit = (comment) => {
+    return currentUser && comment.authorId === currentUser;
+  };
+
+  // 현재 사용자 정보 로드
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
+
   useEffect(() => {
     const loadExistingReviews = async () => {
       try {
@@ -43,7 +66,6 @@ const CodeReviewModal = ({ message, onClose }) => {
         if (!message.messageId) {
           return;
         }
-
         const reviews = await codeReviewAPI.getByMessageId(message.messageId);
 
         // 서버에서 받은 리뷰 데이터를 라인별로 정리
@@ -61,6 +83,7 @@ const CodeReviewModal = ({ message, onClose }) => {
               id: review.reviewId,
               content: review.content,
               author: review.authorName,
+              authorId: review.authorId, // 작성자 ID 추가
               timestamp: review.createAt
             });
           });
@@ -127,6 +150,18 @@ const CodeReviewModal = ({ message, onClose }) => {
       } catch (error) {
         throw new Error(error.response?.data?.message || '리뷰 삭제 실패');
       }
+    },
+
+    // 리뷰 수정
+    update: async (reviewId, content) => {
+      try {
+        const response = await axiosInstance.put(`/code-reviews/${reviewId}`, {
+          content: content
+        });
+        return response.data;
+      } catch (error) {
+        throw new Error(error.response?.data?.message || '리뷰 수정 실패');
+      }
     }
   };
 
@@ -149,7 +184,9 @@ const CodeReviewModal = ({ message, onClose }) => {
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape') {
-        if (activeCommentLine) {
+        if (editingCommentId) {
+          handleCancelEdit();
+        } else if (activeCommentLine) {
           handleCancelComment();
         } else {
           onClose();
@@ -158,7 +195,7 @@ const CodeReviewModal = ({ message, onClose }) => {
     };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
-  }, [onClose, activeCommentLine]);
+  }, [onClose, activeCommentLine, editingCommentId]);
 
   // 배경 클릭으로 모달 닫기
   const handleBackgroundClick = (e) => {
@@ -167,7 +204,7 @@ const CodeReviewModal = ({ message, onClose }) => {
     }
   };
 
-  // 
+  // 댓글 추가
   const handleAddComment = (lineNumber) => {
     setActiveCommentLine(lineNumber);
     setCommentText('');
@@ -192,6 +229,7 @@ const CodeReviewModal = ({ message, onClose }) => {
         id: createdReview.reviewId,
         content: createdReview.content,
         author: createdReview.authorName,
+        authorId: createdReview.authorId, // 작성자 ID 추가
         timestamp: createdReview.createAt
       };
 
@@ -235,7 +273,47 @@ const CodeReviewModal = ({ message, onClose }) => {
     }
   };
 
+  // 댓글 수정 시작
+  const handleEditComment = (comment) => {
+    setEditingCommentId(comment.id);
+    setEditCommentText(comment.content);
+  };
 
+  // 댓글 수정 저장
+  const handleSaveEdit = async (lineNumber, commentId) => {
+    if (!editCommentText.trim()) return;
+
+    try {
+      setLoading(true);
+
+      const updatedReview = await codeReviewAPI.update(commentId, editCommentText.trim());
+
+      // UI 업데이트
+      setComments(prev => ({
+        ...prev,
+        [lineNumber]: prev[lineNumber].map(comment =>
+          comment.id === commentId
+            ? { ...comment, content: updatedReview.content || editCommentText.trim() }
+            : comment
+        )
+      }));
+
+      setEditingCommentId(null);
+      setEditCommentText('');
+
+    } catch (error) {
+      console.error('댓글 수정 실패:', error);
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 댓글 수정 취소
+  const handleCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditCommentText('');
+  };
 
   return (
     <div
@@ -557,7 +635,26 @@ const CodeReviewModal = ({ message, onClose }) => {
                               backgroundColor: '#ffffff',
                               border: '1px solid #e2e8f0',
                               borderRadius: '6px',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                              cursor: canEdit(comment) && editingCommentId !== comment.id ? 'pointer' : 'default',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onClick={() => {
+                              if (canEdit(comment) && editingCommentId !== comment.id) {
+                                handleEditComment(comment);
+                              }
+                            }}
+                            onMouseEnter={(e) => {
+                              if (canEdit(comment) && editingCommentId !== comment.id) {
+                                e.currentTarget.style.backgroundColor = '#f8fafc';
+                                e.currentTarget.style.borderColor = '#4299e1';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (canEdit(comment) && editingCommentId !== comment.id) {
+                                e.currentTarget.style.backgroundColor = '#ffffff';
+                                e.currentTarget.style.borderColor = '#e2e8f0';
+                              }
                             }}
                           >
                             <div style={{
@@ -567,11 +664,27 @@ const CodeReviewModal = ({ message, onClose }) => {
                               marginBottom: '6px'
                             }}>
                               <div style={{
-                                fontSize: '12px',
-                                color: '#4a5568',
-                                fontWeight: '500'
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
                               }}>
-                                {comment.author}
+                                <span style={{
+                                  fontSize: '12px',
+                                  color: '#4a5568',
+                                  fontWeight: '500'
+                                }}>
+                                  {comment.author}
+                                </span>
+                                {canEdit(comment) && editingCommentId !== comment.id && (
+                                  <span style={{
+                                    fontSize: '10px',
+                                    color: '#4299e1',
+                                    backgroundColor: '#ebf8ff',
+                                    padding: '1px 4px',
+                                    borderRadius: '2px'
+                                  }}>
+                                  </span>
+                                )}
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span style={{
@@ -580,29 +693,96 @@ const CodeReviewModal = ({ message, onClose }) => {
                                 }}>
                                   {new Date(comment.timestamp).toLocaleString('ko-KR')}
                                 </span>
-                                <button
-                                  onClick={() => handleDeleteComment(lineNumber, comment.id)}
-                                  style={{
-                                    padding: '2px',
-                                    backgroundColor: 'transparent',
-                                    border: 'none',
-                                    color: '#e53e3e',
-                                    cursor: 'pointer',
-                                    fontSize: '12px'
-                                  }}
-                                >
-                                  <FaTrash size={10} />
-                                </button>
+                                {canEdit(comment) && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteComment(lineNumber, comment.id);
+                                    }}
+                                    style={{
+                                      padding: '2px',
+                                      backgroundColor: 'transparent',
+                                      border: 'none',
+                                      color: '#e53e3e',
+                                      cursor: 'pointer',
+                                      fontSize: '12px'
+                                    }}
+                                  >
+                                    <FaTrash size={10} />
+                                  </button>
+                                )}
                               </div>
                             </div>
-                            <div style={{
-                              fontSize: '14px',
-                              color: '#2d3748',
-                              lineHeight: '1.4',
-                              whiteSpace: 'pre-wrap'
-                            }}>
-                              {comment.content}
-                            </div>
+
+                            {/* 댓글 내용 또는 수정 입력창 */}
+                            {editingCommentId === comment.id ? (
+                              <div>
+                                <textarea
+                                  value={editCommentText}
+                                  onChange={(e) => setEditCommentText(e.target.value)}
+                                  style={{
+                                    width: '100%',
+                                    minHeight: '60px',
+                                    border: '1px solid #4299e1',
+                                    borderRadius: '4px',
+                                    padding: '8px',
+                                    fontSize: '14px',
+                                    resize: 'vertical',
+                                    fontFamily: 'inherit',
+                                    marginBottom: '8px'
+                                  }}
+                                  autoFocus
+                                />
+                                <div style={{
+                                  display: 'flex',
+                                  justifyContent: 'flex-end',
+                                  gap: '8px'
+                                }}>
+                                  <button
+                                    onClick={handleCancelEdit}
+                                    style={{
+                                      padding: '4px 8px',
+                                      backgroundColor: '#e2e8f0',
+                                      color: '#4a5568',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '12px',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    취소
+                                  </button>
+                                  <button
+                                    onClick={() => handleSaveEdit(lineNumber, comment.id)}
+                                    disabled={!editCommentText.trim() || loading}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      padding: '4px 8px',
+                                      backgroundColor: editCommentText.trim() ? '#4299e1' : '#e2e8f0',
+                                      color: editCommentText.trim() ? 'white' : '#a0aec0',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      fontSize: '12px',
+                                      cursor: editCommentText.trim() ? 'pointer' : 'not-allowed'
+                                    }}
+                                  >
+                                    <FaCheck size={10} />
+                                    저장
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{
+                                fontSize: '14px',
+                                color: '#2d3748',
+                                lineHeight: '1.4',
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {comment.content}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

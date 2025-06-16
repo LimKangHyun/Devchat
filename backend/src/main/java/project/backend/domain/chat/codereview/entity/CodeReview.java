@@ -49,7 +49,7 @@ public class CodeReview {
 	@CreationTimestamp
 	private LocalDateTime createdAt;
 
-	public void updateContent(String content) {
+	public void editReview(String content) {
 		this.content = content;
 	}
 

@@ -72,4 +72,18 @@ public class CodeReviewService {
 
 		codeReviewRepository.delete(codeReview);
 	}
+
+	@Transactional
+	public CodeReviewResponse editReview(Long reviewId, CodeReviewRequest request, Long authorId) {
+		CodeReview codeReview = codeReviewRepository.findById(reviewId)
+			.orElseThrow(() -> new IllegalArgumentException("해당 코드리뷰 존재하지 않음."));
+
+		if (!codeReview.getAuthor().getId().equals(authorId)) {
+			throw new IllegalArgumentException("본인이 작성한 코드리뷰만 수정할 수 있습니다");
+		}
+
+		codeReview.editReview(request.content());
+
+		return codeReviewMapper.toResponse(codeReview);
+	}
 }
