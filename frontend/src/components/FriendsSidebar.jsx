@@ -4,11 +4,13 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { FaUsers, FaSearch } from "react-icons/fa"
 import FindUserModal from "./modals/FindUserModal"
 import axiosInstance from "./api/axiosInstance"
+import useWebSocketNotifications from "./common/useWebSocket"
 
 const FriendsSidebar = () => {
   const [friends, setFriends] = useState([])
   const [loading, setLoading] = useState(false)
   const [showFindUserModal, setShowFindUserModal] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(0)
@@ -19,9 +21,110 @@ const FriendsSidebar = () => {
   // Refs for infinite scroll
   const friendsContainerRef = useRef(null)
 
-  useEffect(() => {
-    fetchFriends(0, true) // Initial load
+  // WebSocket notification handler for friend updates
+  const handleFriendNotification = useCallback((notification) => {
+    console.log("🔔 Friend notification received in FriendsSidebar:", notification)
+
+    switch (notification.type) {
+      case "FRIEND_REQUESTED":
+        // Don't add to friends list yet, just log
+        console.log("📨 Friend request received from:", notification.sender)
+        break
+
+      case "FRIEND_ACCEPTED":
+        // Add new friend to the list
+        console.log("✅ Friend request accepted by:", notification.sender)
+        const newFriend = {
+          username: notification.sender,
+          nickname: notification.senderNickname || notification.sender,
+          status: "online", // Assume online when they just accepted
+          avatar: notification.senderImg,
+        }
+
+        setFriends((prev) => {
+          // Check if friend already exists
+          const exists = prev.some((friend) => friend.username === newFriend.username)
+          if (!exists) {
+            setTotalFriendsCount((count) => count + 1)
+            return [newFriend, ...prev]
+          }
+          return prev
+        })
+        break
+
+      case "FRIEND_STATUS_UPDATE":
+        // Update friend's online status
+        console.log("🟢 Friend status update:", notification.sender, "->", notification.status)
+        setFriends((prev) =>
+          prev.map((friend) =>
+            friend.username === notification.sender ? { ...friend, status: notification.status || "offline" } : friend,
+          ),
+        )
+        break
+
+      case "FRIEND_REMOVED":
+        // Remove friend from list
+        console.log("❌ Friend removed:", notification.sender)
+        setFriends((prev) => {
+          const filtered = prev.filter((friend) => friend.username !== notification.sender)
+          if (filtered.length !== prev.length) {
+            setTotalFriendsCount((count) => Math.max(0, count - 1))
+          }
+          return filtered
+        })
+        break
+
+      default:
+        console.log("📝 Other friend notification:", notification.type)
+    }
   }, [])
+
+  // Use WebSocket hook directly for friend notifications
+  useWebSocketNotifications({
+    roomId: null, // Not subscribing to chat rooms
+    username: currentUser?.username,
+    onMessageReceived: null, // Not handling chat messages
+    onNotificationReceived: handleFriendNotification, // Handle friend notifications
+    chatRooms: [], // Empty array since we're not handling chat
+    currentRoomId: null,
+    onSidebarMessage: null,
+    onProfileUpdate: null,
+    onRoomDeleted: null,
+  })
+
+  // Listen for friend request accepted events from header notifications
+  useEffect(() => {
+    const handleFriendRequestAccepted = () => {
+      console.log("🔄 Friend request accepted, refreshing friends list...")
+      fetchFriends(0, true) // Refresh the entire friends list
+    }
+
+    window.addEventListener("friend-request-accepted", handleFriendRequestAccepted)
+
+    return () => {
+      window.removeEventListener("friend-request-accepted", handleFriendRequestAccepted)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCurrentUser()
+  }, [])
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchFriends(0, true) // Initial load when user is available
+    }
+  }, [currentUser])
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await axiosInstance.get("/user/details")
+      setCurrentUser(res.data)
+      console.log("👤 Current user loaded for friends WebSocket:", res.data.username || res.data.email)
+    } catch (err) {
+      console.error("사용자 정보 로딩 오류:", err)
+    }
+  }
 
   const fetchFriends = async (page = 0, reset = false) => {
     try {
@@ -52,10 +155,8 @@ const FriendsSidebar = () => {
       setHasMoreFriends(!last)
       setTotalFriendsCount(totalElements)
       setCurrentPage(page)
-      
     } catch (err) {
       console.error("친구 목록 로딩 오류:", err)
-
     } finally {
       setLoading(false)
       setIsLoadingMore(false)

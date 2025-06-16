@@ -77,6 +77,7 @@ const useWebSocketNotifications = ({
               notification.id = `${Date.now()}-${Math.random()}`
 
               console.log("🔔 New notification received:", notification)
+                
               onNotificationReceived(notification)
             } catch (e) {
               console.error("📛 Failed to parse notification message", e)
