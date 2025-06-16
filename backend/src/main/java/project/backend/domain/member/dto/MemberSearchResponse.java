@@ -5,6 +5,7 @@ public record MemberSearchResponse(
 	String nickname,
 	String status,
 	boolean friend,
+	boolean requestSent,
 	String profileImg
 ) {
 
