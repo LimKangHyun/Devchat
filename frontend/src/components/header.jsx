@@ -1,36 +1,11 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Bell, Check, X, User, Code } from "lucide-react"
+import { Bell, Check, X } from "lucide-react"
 import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link } from "react-router-dom"
 import useWebSocketNotifications from "./common/useWebSocket"
-
-// Mock data for testing
-const mockFriendRequests = [
-  {
-    id: "1",
-    senderId: "user123",
-    senderName: "Alice Johnson",
-    senderProfileImg: "alice-profile.jpg",
-    createdAt: "2024-01-15T10:30:00Z",
-  },
-  {
-    id: "2",
-    senderId: "user456",
-    senderName: "Bob Smith",
-    senderProfileImg: null,
-    createdAt: "2024-01-14T15:45:00Z",
-  },
-  {
-    id: "3",
-    senderId: "user789",
-    senderName: "Carol Davis",
-    senderProfileImg: "carol-profile.jpg",
-    createdAt: "2024-01-13T09:20:00Z",
-  },
-]
 
 export function HeaderWithNotifications() {
   const [profileImage, setProfileImage] = useState(null)
@@ -126,15 +101,15 @@ export function HeaderWithNotifications() {
     }
   }
 
-  // Get notification icon based on type
-  const getNotificationIcon = (type) => {
+  // Get notification type badge
+  const getNotificationTypeBadge = (type) => {
     switch (type) {
       case "FRIEND_REQUESTED":
-        return <User size={16} className={styles.notificationTypeIcon} />
+        return <span className={styles.notificationTypeBadge}>친구 요청</span>
       case "CODE_REVIEW":
-        return <Code size={16} className={styles.notificationTypeIcon} />
+        return <span className={styles.notificationTypeBadge}>코드 리뷰</span>
       default:
-        return <Bell size={16} className={styles.notificationTypeIcon} />
+        return <span className={styles.notificationTypeBadge}>알림</span>
     }
   }
 
@@ -201,13 +176,12 @@ export function HeaderWithNotifications() {
   }, [])
 
   // Fetch friend requests
-  const fetchFriendRequests = async () => {
+  const fetchNotifications = async () => {
     try {
       setIsLoadingRequests(true)
 
       // For testing - use mock data
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setFriendRequests(mockFriendRequests)
+      await new Promise((resolve) => setTimeout(resolve, 200))
 
       // Uncomment this for real API call:
       // const { data } = await axiosInstance.get("/friend-requests/pending")
@@ -253,7 +227,7 @@ export function HeaderWithNotifications() {
   // Toggle notification dropdown
   const toggleNotifications = () => {
     if (!isNotificationOpen) {
-      fetchFriendRequests()
+      fetchNotifications()
       // Clear unread status when opening notifications
       setHasUnreadNotifications(false)
     }
@@ -341,13 +315,15 @@ export function HeaderWithNotifications() {
                                 }}
                               />
                               <div className={styles.notificationDetails}>
+                                <div className={styles.notificationHeader}>
+                                  {getNotificationTypeBadge(notification.type)}
+                                  <span className={styles.notificationTime}>
+                                    {notification.timestamp && new Date(notification.timestamp).toLocaleString("ko-KR")}
+                                  </span>
+                                </div>
                                 <div className={styles.notificationMessage}>
-                                  {getNotificationIcon(notification.type)}
                                   <span>{getNotificationMessage(notification)}</span>
                                 </div>
-                                <span className={styles.notificationTime}>
-                                  {notification.timestamp && new Date(notification.timestamp).toLocaleString("ko-KR")}
-                                </span>
                               </div>
                             </div>
                             {notification.isNew && <div className={styles.notificationNewIndicator}></div>}
@@ -375,15 +351,17 @@ export function HeaderWithNotifications() {
                               }}
                             />
                             <div className={styles.requestDetails}>
+                              <div className={styles.requestHeader}>
+                                <span className={styles.notificationTypeBadge}>친구 요청</span>
+                                <span className={styles.requestTime}>
+                                  {new Date(request.createdAt).toLocaleDateString("ko-KR")}
+                                </span>
+                              </div>
                               <div className={styles.requestMessage}>
-                                <User size={16} className={styles.notificationTypeIcon} />
                                 <span className={styles.requestSenderName}>
                                   {request.senderName}님이 친구 요청을 보냈습니다.
                                 </span>
                               </div>
-                              <span className={styles.requestTime}>
-                                {new Date(request.createdAt).toLocaleDateString("ko-KR")}
-                              </span>
                             </div>
                           </div>
 
