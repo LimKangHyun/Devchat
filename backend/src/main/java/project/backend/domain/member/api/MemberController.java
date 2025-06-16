@@ -32,7 +32,7 @@ public class MemberController {
 	public MemberResponse updateMemberInfo(
 		Authentication authentication,
 		@RequestPart("request") @Valid MemberInfoUpdateRequest request,
-		@RequestPart(value = "profileImg", required = false) MultipartFile profileImg
+		@RequestPart(value = "profileImage", required = false) MultipartFile profileImg
 	) {
 		return memberService.updateMemberInfo(authentication, request, profileImg);
 	}

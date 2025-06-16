@@ -7,26 +7,42 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.auth.dto.MemberDetails;
+import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.notification.dao.NotificationRepository;
 import project.backend.domain.member.notification.dto.AlertTemplate;
-import project.backend.global.exception.errorcode.AuthErrorCode;
-import project.backend.global.exception.ex.AuthException;
+import project.backend.domain.member.notification.entity.Notification;
+import project.backend.domain.member.notification.entity.NotificationType;
+import project.backend.global.exception.errorcode.NotificationErrorCode;
+import project.backend.global.exception.ex.NotificationException;
 
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
 
 	private final NotificationRepository notificationRepository;
+	private final MemberService memberService;
 
 	@Transactional(readOnly = true)
 	public Page<AlertTemplate> getNotifications(Authentication auth, Pageable pageable) {
-		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
-		if (memberDetails == null) {
-			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
-		}
+		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 
 		Member receiver = MemberDetails.of(memberDetails);
 		return notificationRepository.getNotificationsAndReadNot(receiver.getId(), pageable);
+	}
+
+	public void saveNotification(Notification notification) {
+		notificationRepository.save(notification);
+	}
+
+	public Notification getNotificationByType(Member receiver, Member sender,
+		NotificationType type) {
+		return notificationRepository.getNotificationByType(receiver, sender, type)
+			.orElseThrow(
+				() -> new NotificationException(NotificationErrorCode.NOT_FOUND_NOTIFICATION));
+	}
+
+	public void deleteNotification(Notification notification) {
+		notificationRepository.delete(notification);
 	}
 }

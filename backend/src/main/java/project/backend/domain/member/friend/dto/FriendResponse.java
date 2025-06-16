@@ -4,7 +4,7 @@ public record FriendResponse(
 	String username,
 	String nickname,
 	String status,
-	String profileImg
+	String profileImage
 ) {
 
 }

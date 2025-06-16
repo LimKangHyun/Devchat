@@ -24,17 +24,17 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	Optional<Member> findByUsername(String username);
 
 	@Query("""
-		    SELECT new project.backend.domain.member.dto.MemberSearchResponse(
-		        m.username,
-		        m.nickname,
-		        "online",
-		        false,
-		        m.profileImage
-		    )
-		    FROM Member m
-		    WHERE LOWER(m.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
-		      AND m.username <> :excludeUsername
-			  AND m.username <> 'GitHubBot'
+		SELECT new project.backend.domain.member.dto.MemberSearchResponse(
+			m.username,
+			m.nickname,
+			"online",
+			false,
+			m.profileImage
+		)
+		FROM Member m
+		WHERE LOWER(m.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
+		  AND m.username <> :excludeUsername
+		  AND m.username <> 'GitHubBot'
 		""")
 	Page<MemberSearchResponse> searchByUsernameExcludeSelf(
 		@Param("keyword") String keyword,

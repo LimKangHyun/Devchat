@@ -1,8 +1,9 @@
 package project.backend.domain.member.friend.app;
 
-import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,14 +11,16 @@ import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.friend.dao.FriendRequestRepository;
+import project.backend.domain.member.friend.dao.FriendsListRepository;
+import project.backend.domain.member.friend.dto.FriendResponse;
 import project.backend.domain.member.friend.entity.FriendRequest;
 import project.backend.domain.member.friend.dto.event.FriendRequestEvent;
-import project.backend.domain.member.notification.dao.NotificationRepository;
+import project.backend.domain.member.friend.entity.FriendsList;
+import project.backend.domain.member.notification.app.NotificationService;
 import project.backend.domain.member.notification.dto.FriendRequestDto;
 import project.backend.domain.member.notification.entity.Notification;
-import project.backend.global.exception.errorcode.AuthErrorCode;
+import project.backend.domain.member.notification.entity.NotificationType;
 import project.backend.global.exception.errorcode.FriendErrorCode;
-import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.FriendException;
 
 @Service
@@ -26,25 +29,19 @@ public class FriendService {
 
 	private final MemberService memberService;
 	private final FriendRequestRepository friendRequestRepository;
-	private final NotificationRepository notificationRepository;
+	private final FriendsListRepository friendsListRepository;
+	private final NotificationService notificationService;
 	private final ApplicationEventPublisher eventPublisher;
+
 
 	@Transactional
 	public void requestFriend(Authentication auth, FriendRequestDto request) {
-		var memberDetails = (MemberDetails) auth.getPrincipal();
-
-		if (memberDetails == null) {
-			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
-		}
+		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 
 		Member sender = MemberDetails.of(memberDetails);
 		Member receiver = memberService.getMemberByUsername(request.targetUsername());
 
-		boolean already = friendRequestRepository.existsBySenderAndReceiver(sender,
-			receiver);
-		if (already) {
-			throw new FriendException(FriendErrorCode.ALREADY_REQUESTED_FRIEND);
-		}
+		checkAlreadyFriends(receiver, sender);
 
 		FriendRequest friendRequest = FriendRequest.builder()
 			.sender(sender)
@@ -52,7 +49,57 @@ public class FriendService {
 			.build();
 
 		friendRequestRepository.save(friendRequest);
-		notificationRepository.save(Notification.of(friendRequest));
+		notificationService.saveNotification(Notification.of(friendRequest));
+
 		eventPublisher.publishEvent(FriendRequestEvent.from(sender, receiver));
+	}
+
+	private FriendRequest getFriendRequestBySenderAndReceiver(Member sender, Member receiver) {
+		return friendRequestRepository.getFriendRequestBySenderAndReceiver(sender, receiver)
+			.orElseThrow(() -> new FriendException(FriendErrorCode.NOT_FOUNT_FRIEND_REQUEST));
+	}
+
+	public Page<FriendResponse> getFriends(Authentication auth, Pageable pageable) {
+		MemberDetails memberDetails = memberService.checkAuthentication(auth);
+		Long id = memberDetails.getId();
+		return friendsListRepository.getFriends(id, pageable);
+	}
+
+	@Transactional
+	public void acceptFriend(Authentication auth, Long friendId) {
+		MemberDetails memberDetails = memberService.checkAuthentication(auth);
+
+		Member receiver = MemberDetails.of(memberDetails);
+		Member sender = memberService.getMemberById(friendId);
+
+		Notification notification = notificationService.getNotificationByType(receiver,
+			sender, NotificationType.FRIEND_REQUESTED);
+
+		notification.markAsRead();
+
+		checkAlreadyFriends(sender, receiver);
+
+		FriendRequest friendRequest = getFriendRequestBySenderAndReceiver(sender, receiver);
+		friendRequest.accept();
+
+		FriendsList receiveSide = FriendsList.builder()
+			.owner(receiver)
+			.friend(sender)
+			.build();
+
+		FriendsList sendSide = FriendsList.builder()
+			.owner(sender)
+			.friend(receiver)
+			.build();
+
+		friendsListRepository.save(receiveSide);
+		friendsListRepository.save(sendSide);
+	}
+
+	private void checkAlreadyFriends(Member owner, Member friend) {
+		boolean exists = friendsListRepository.existsByOwnerAndFriend(owner, friend);
+		if (exists) {
+			throw new FriendException(FriendErrorCode.ALREADY_REQUESTED_FRIEND);
+		}
 	}
 }

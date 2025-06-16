@@ -63,8 +63,7 @@ public class MemberService {
 
 	public MemberResponse updateMemberInfo(Authentication auth, MemberInfoUpdateRequest request,
 		MultipartFile file) {
-
-		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
+		MemberDetails memberDetails = checkAuthentication(auth);
 		Member targetMember = getMemberById(memberDetails.getId());
 
 		doUpdateMemberInfo(targetMember, request, file);
@@ -91,7 +90,7 @@ public class MemberService {
 	}
 
 	public void updatePassword(Authentication auth, PasswordChangeRequest request) {
-		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
+		MemberDetails memberDetails = checkAuthentication(auth);
 		Member targetMember = getMemberById(memberDetails.getId());
 
 		if (targetMember.getProvider() != ProviderType.LOCAL) {
@@ -141,17 +140,12 @@ public class MemberService {
 		return MemberMapper.toResponse(member);
 	}
 
-	public Page<MemberSearchResponse> searchMembers(Authentication auth, String username,
+	public Page<MemberSearchResponse> searchMembers(Authentication auth, String keyword,
 		Pageable pageable) {
-		var memberDetails = (MemberDetails) auth.getPrincipal();
+		var memberDetails = checkAuthentication(auth);
 
-		if (memberDetails == null) {
-			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
-		}
-
-		return memberRepository.searchByUsernameExcludeSelf(username, memberDetails.getUsername(),
+		return memberRepository.searchByUsernameExcludeSelf(keyword, memberDetails.getUsername(),
 			pageable);
-
 	}
 
 	private boolean checkUsernameAlreadyExists(String username) {
@@ -160,6 +154,15 @@ public class MemberService {
 
 	private boolean checkEmailAlreadyExists(String email) {
 		return memberRepository.findByEmail(email).isPresent();
+	}
+
+	public MemberDetails checkAuthentication(Authentication auth) {
+		var memberDetails = (MemberDetails) auth.getPrincipal();
+		if (memberDetails == null) {
+			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
+		}
+
+		return memberDetails;
 	}
 
 }

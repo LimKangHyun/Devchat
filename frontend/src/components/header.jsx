@@ -187,8 +187,8 @@ export function HeaderWithNotifications() {
       setProcessingRequestId(notification.id)
 
       // Use referenceId for API call
-      const requestId = notification.referenceId || notification.senderId
-      await axiosInstance.post(`/friend-requests/${requestId}/accept`)
+      const requestId = notification.referenceId
+      await axiosInstance.post(`/friend/request/${requestId}/accept`)
 
       // Remove from appropriate notification list
       if (notification.isRealtime) {
@@ -201,7 +201,9 @@ export function HeaderWithNotifications() {
       window.dispatchEvent(new CustomEvent("friend-request-accepted"))
     } catch (err) {
       console.error("Error accepting friend request:", err)
-      alert("친구 요청 수락에 실패했습니다.")
+      const message =
+        err?.response?.data?.message 
+      alert(message || "친구 요청 수락에 실패했습니다.")
     } finally {
       setProcessingRequestId(null)
     }
@@ -453,13 +455,6 @@ export function HeaderWithNotifications() {
                         <div className={styles.loadingMore}>
                           <div className={styles.loadingSpinner}></div>
                           <span>더 많은 알림을 불러오는 중...</span>
-                        </div>
-                      )}
-
-                      {/* End of notifications indicator */}
-                      {!hasMoreNotifications && apiNotifications.length > 0 && (
-                        <div className={styles.endOfNotifications}>
-                          <span>모든 알림을 확인했습니다.</span>
                         </div>
                       )}
                     </div>
