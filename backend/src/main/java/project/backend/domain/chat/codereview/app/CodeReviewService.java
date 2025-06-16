@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
+import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.codereview.dao.CodeReviewRepository;
 import project.backend.domain.chat.codereview.dto.CodeReviewRequest;
 import project.backend.domain.chat.codereview.dto.CodeReviewResponse;
@@ -27,6 +28,7 @@ public class CodeReviewService {
 	private final ChatMessageRepository chatMessageRepository;
 	private final MemberService memberService;
 	private final CodeReviewMapper codeReviewMapper;
+	private final ChatRoomService chatRoomService;
 
 	@Transactional
 	public CodeReviewResponse createReview(CodeReviewRequest request, Long authorId) {
@@ -46,12 +48,12 @@ public class CodeReviewService {
 		return codeReviewMapper.toResponse(savedReview);
 	}
 
-	@Transactional
+	@Transactional(readOnly = true)
 	public List<CodeReviewResponse> getReviewsByMessageId(Long messageId, Long memberId) {
-		chatMessageRepository.findById(messageId)
+		ChatMessage message = chatMessageRepository.findById(messageId)
 			.orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-		memberService.getMemberById(memberId);
+		chatRoomService.validateParticipant(memberId,message.getChatRoom().getId());
 
 		List<CodeReview> reviews = codeReviewRepository
 			.findByMessageIdOrderByLineNumberAscCreatedAtAsc(messageId);

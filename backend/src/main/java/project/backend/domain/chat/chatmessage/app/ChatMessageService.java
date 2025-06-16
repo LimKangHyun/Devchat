@@ -59,7 +59,7 @@ public class ChatMessageService {
 
 		ChatRoom room = chatRoomService.getRoomById(roomId);
 
-		chatRoomService.validateNotParticipant(sender.getId(), roomId);
+		chatRoomService.validateParticipant(sender.getId(), roomId);
 
 		ChatMessage message;
 
@@ -97,7 +97,7 @@ public class ChatMessageService {
 		int size = request.getPageSize();
 		int offset = page * size;
 
-		chatRoomService.validateNotParticipant(memberId, roomId);
+		chatRoomService.validateParticipant(memberId, roomId);
 		// messageIds는 DESC 정렬 보장
 		List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomId(keyword,
 			roomId, size, offset);
@@ -184,7 +184,7 @@ public class ChatMessageService {
 	public ChatScrollResponse getMessagesByRoomId(Long memberId, Long roomId, Long cursor,
 		int size) {
 		chatRoomService.getRoomById(roomId);
-		chatRoomService.validateNotParticipant(memberId, roomId);
+		chatRoomService.validateParticipant(memberId, roomId);
 
 		PageRequest pageRequest = PageRequest.of(0, size + 1);
 		List<ChatMessage> result;
