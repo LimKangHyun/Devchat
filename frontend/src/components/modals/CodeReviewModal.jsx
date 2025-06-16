@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaTimes, FaCopy, FaExpand, FaCompress, FaPlus, FaCheck, FaTrash } from 'react-icons/fa';
 import axiosInstance from '../api/axiosInstance';
 import Highlight from 'react-highlight';
@@ -8,13 +8,13 @@ const CodeReviewModal = ({ message, onClose }) => {
   const [copySuccess, setCopySuccess] = useState(false);
 
   // 댓글 관련 상태
-  const [comments, setComments] = useState({}); // { lineNumber: [comments] }
-  const [activeCommentLine, setActiveCommentLine] = useState(null);
-  const [commentText, setCommentText] = useState('');
+  const [reviews, setReviews] = useState({}); // { lineNumber: [reviews] }
+  const [activeReviewLine, setActiveReviewLine] = useState(null);
+  const [reviewText, setReviewText] = useState('');
   const [hoveredLine, setHoveredLine] = useState(null);
   const [loading, setLoading] = useState(false); // 이것도 추가
-  const [editingCommentId, setEditingCommentId] = useState(null);
-  const [editCommentText, setEditCommentText] = useState('');
+  const [editingReviewId, setEditingReviewsId] = useState(null);
+  const [editReviewText, setEditReviewsText] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
 
   const HighlightedCode = ({ content, language }) => {
@@ -49,74 +49,12 @@ const CodeReviewModal = ({ message, onClose }) => {
   };
 
   // 수정 가능 여부 체크 함수
-  const canEdit = (comment) => {
+  const canEdit = (review) => {
     console.log('현재 사용자 ID:', currentUser);
-    console.log('댓글 작성자 ID:', comment.authorId);
-    console.log('수정 가능 여부:', currentUser && comment.authorId === currentUser);
-    return currentUser && comment.authorId === currentUser;
+    console.log('댓글 작성자 ID:', review.authorId);
+    console.log('수정 가능 여부:', currentUser && review.authorId === currentUser);
+    return currentUser && review.authorId === currentUser;
   };
-
-  // 현재 사용자 정보 로드
-  useEffect(() => {
-    fetchCurrentUser();
-  }, []);
-
-  useEffect(() => {
-    const loadExistingReviews = async () => {
-      try {
-        setLoading(true);
-
-        if (!message.messageId) {
-          return;
-        }
-        const reviews = await codeReviewAPI.getByMessageId(message.messageId);
-
-        // 서버에서 받은 리뷰 데이터를 라인별로 정리
-        const reviewsByLine = {};
-
-        if (reviews && Array.isArray(reviews)) {
-          reviews.forEach(review => {
-            const lineNumber = review.lineNumber;
-
-            if (!reviewsByLine[lineNumber]) {
-              reviewsByLine[lineNumber] = [];
-            }
-
-            reviewsByLine[lineNumber].push({
-              id: review.reviewId,
-              content: review.content,
-              author: review.authorName,
-              authorId: review.authorId, // 작성자 ID 추가
-              timestamp: review.createAt
-            });
-          });
-        }
-
-        setComments(reviewsByLine);
-
-      } catch (error) {
-        if (error.status === 404) {
-          setComments({});
-          return;
-        }
-
-        let errorMessage = '기존 댓글을 불러오는데 실패했습니다.';
-        if (error.status === 401) {
-          errorMessage = '로그인이 필요합니다.';
-        } else if (error.status === 403) {
-          errorMessage = '댓글 조회 권한이 없습니다.';
-        }
-
-        alert(errorMessage);
-
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadExistingReviews();
-  }, [message.messageId]);
-
 
   const codeReviewAPI = {
     // 리뷰 생성
@@ -182,6 +120,67 @@ const CodeReviewModal = ({ message, onClose }) => {
     }
   };
 
+  // 현재 사용자 정보 로드
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    const loadExistingReviews = async () => {
+      try {
+        setLoading(true);
+
+        if (!message.messageId) {
+          return;
+        }
+        const reviews = await codeReviewAPI.getByMessageId(message.messageId);
+
+        // 서버에서 받은 리뷰 데이터를 라인별로 정리
+        const reviewsByLine = {};
+
+        if (reviews && Array.isArray(reviews)) {
+          reviews.forEach(review => {
+            const lineNumber = review.lineNumber;
+
+            if (!reviewsByLine[lineNumber]) {
+              reviewsByLine[lineNumber] = [];
+            }
+
+            reviewsByLine[lineNumber].push({
+              id: review.reviewId,
+              content: review.content,
+              author: review.authorName,
+              authorId: review.authorId, // 작성자 ID 추가
+              timestamp: review.createAt
+            });
+          });
+        }
+
+        setReviews(reviewsByLine);
+
+      } catch (error) {
+        if (error.status === 404) {
+          setReviews({});
+          return;
+        }
+
+        let errorMessage = '기존 댓글을 불러오는데 실패했습니다.';
+        if (error.status === 401) {
+          errorMessage = '로그인이 필요합니다.';
+        } else if (error.status === 403) {
+          errorMessage = '댓글 조회 권한이 없습니다.';
+        }
+
+        alert(errorMessage);
+
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadExistingReviews();
+  }, [message.messageId]);
+
 
   // 코드를 라인별로 분리
   const codeLines = message.content.split('\n');
@@ -201,10 +200,10 @@ const CodeReviewModal = ({ message, onClose }) => {
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape') {
-        if (editingCommentId) {
+        if (editingReviewId) {
           handleCancelEdit();
-        } else if (activeCommentLine) {
-          handleCancelComment();
+        } else if (activeReviewLine) {
+          handleCancelReview();
         } else {
           onClose();
         }
@@ -212,7 +211,7 @@ const CodeReviewModal = ({ message, onClose }) => {
     };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
-  }, [onClose, activeCommentLine, editingCommentId]);
+  }, [onClose, activeReviewLine, editingReviewId]);
 
   // 배경 클릭으로 모달 닫기
   const handleBackgroundClick = (e) => {
@@ -222,27 +221,27 @@ const CodeReviewModal = ({ message, onClose }) => {
   };
 
   // 댓글 추가
-  const handleAddComment = (lineNumber) => {
-    setActiveCommentLine(lineNumber);
-    setCommentText('');
+  const handleAddReview = (lineNumber) => {
+    setActiveReviewLine(lineNumber);
+    setReviewText('');
   };
 
   // 댓글 저장
-  const handleSaveComment = async () => {
-    if (!commentText.trim()) return;
+  const handleSaveReview = async () => {
+    if (!reviewText.trim()) return;
 
     try {
       setLoading(true);
 
       const reviewData = {
         messageId: message.messageId,
-        lineNumber: activeCommentLine,
-        content: commentText.trim()
+        lineNumber: activeReviewLine,
+        content: reviewText.trim()
       };
 
       const createdReview = await codeReviewAPI.create(reviewData);
 
-      const newComment = {
+      const newReview = {
         id: createdReview.reviewId,
         content: createdReview.content,
         author: createdReview.authorName,
@@ -250,13 +249,13 @@ const CodeReviewModal = ({ message, onClose }) => {
         timestamp: createdReview.createAt
       };
 
-      setComments(prev => ({
+      setReviews(prev => ({
         ...prev,
-        [activeCommentLine]: [...(prev[activeCommentLine] || []), newComment]
+        [activeReviewLine]: [...(prev[activeReviewLine] || []), newReview]
       }));
 
-      setActiveCommentLine(null);
-      setCommentText('');
+      setActiveReviewLine(null);
+      setReviewText('');
 
     } catch (error) {
       console.error('댓글 저장 실패:', error);
@@ -267,21 +266,21 @@ const CodeReviewModal = ({ message, onClose }) => {
   };
 
   // 댓글 취소(취소버튼 누르는 것)
-  const handleCancelComment = () => {
-    setActiveCommentLine(null);
-    setCommentText('');
+  const handleCancelReview = () => {
+    setActiveReviewLine(null);
+    setReviewText('');
   };
 
   // 댓글 삭제
-  const handleDeleteComment = async (lineNumber, commentId) => {
+  const handleDeleteReview = async (lineNumber, reviewId) => {
     try {
       // 실제 API 호출
-      await codeReviewAPI.delete(commentId);
+      await codeReviewAPI.delete(reviewId);
 
       // 성공 시 UI에서 제거
-      setComments(prev => ({
+      setReviews(prev => ({
         ...prev,
-        [lineNumber]: prev[lineNumber].filter(comment => comment.id !== commentId)
+        [lineNumber]: prev[lineNumber].filter(review => review.id !== reviewId)
       }));
 
     } catch (error) {
@@ -291,32 +290,32 @@ const CodeReviewModal = ({ message, onClose }) => {
   };
 
   // 댓글 수정 시작
-  const handleEditComment = (comment) => {
-    setEditingCommentId(comment.id);
-    setEditCommentText(comment.content);
+  const handleEditReview = (review) => {
+    setEditingReviewsId(review.id);
+    setEditReviewsText(review.content);
   };
 
   // 댓글 수정 저장
-  const handleSaveEdit = async (lineNumber, commentId) => {
-    if (!editCommentText.trim()) return;
+  const handleSaveEdit = async (lineNumber, reviewId) => {
+    if (!editReviewText.trim()) return;
 
     try {
       setLoading(true);
 
-      const updatedReview = await codeReviewAPI.update(commentId, editCommentText.trim());
+      const updatedReview = await codeReviewAPI.update(reviewId, editReviewText.trim());
 
       // UI 업데이트
-      setComments(prev => ({
+      setReviews(prev => ({
         ...prev,
-        [lineNumber]: prev[lineNumber].map(comment =>
-          comment.id === commentId
-            ? { ...comment, content: updatedReview.content || editCommentText.trim() }
-            : comment
+        [lineNumber]: prev[lineNumber].map(review =>
+          review.id === reviewId
+            ? { ...review, content: updatedReview.content || editReviewText.trim() }
+            : review
         )
       }));
 
-      setEditingCommentId(null);
-      setEditCommentText('');
+      setEditingReviewsId(null);
+      setEditReviewsText('');
 
     } catch (error) {
       console.error('댓글 수정 실패:', error);
@@ -328,8 +327,8 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   // 댓글 수정 취소
   const handleCancelEdit = () => {
-    setEditingCommentId(null);
-    setEditCommentText('');
+    setEditingReviewsId(null);
+    setEditReviewsText('');
   };
 
   return (
@@ -494,7 +493,7 @@ const CodeReviewModal = ({ message, onClose }) => {
                 <div style={{ position: 'relative' }}>
                   {codeLines.map((line, index) => {
                     const lineNumber = index + 1;
-                    const hasComments = comments[lineNumber] && comments[lineNumber].length > 0;
+                    const hasReviews = reviews[lineNumber] && reviews[lineNumber].length > 0;
 
                     return (
                       <div key={lineNumber}>
@@ -505,7 +504,7 @@ const CodeReviewModal = ({ message, onClose }) => {
                             alignItems: 'flex-start',
                             minHeight: '20px',
                             backgroundColor: hoveredLine === lineNumber ? '#f7fafc' : 'transparent',
-                            borderLeft: hasComments ? '3px solid #4299e1' : '3px solid transparent',
+                            borderLeft: hasReviews ? '3px solid #4299e1' : '3px solid transparent',
                             transition: 'all 0.1s ease'
                           }}
                           onMouseEnter={() => setHoveredLine(lineNumber)}
@@ -533,16 +532,16 @@ const CodeReviewModal = ({ message, onClose }) => {
                             justifyContent: 'center',
                             flexShrink: 0
                           }}>
-                            {(hoveredLine === lineNumber || hasComments) && (
+                            {(hoveredLine === lineNumber || hasReviews) && (
                               <button
-                                onClick={() => handleAddComment(lineNumber)}
+                                onClick={() => handleAddReview(lineNumber)}
                                 style={{
                                   width: '20px',
                                   height: '20px',
                                   borderRadius: '50%',
                                   border: 'none',
-                                  backgroundColor: hasComments ? '#4299e1' : '#e2e8f0',
-                                  color: hasComments ? 'white' : '#4a5568',
+                                  backgroundColor: hasReviews ? '#4299e1' : '#e2e8f0',
+                                  color: hasReviews ? 'white' : '#4a5568',
                                   cursor: 'pointer',
                                   display: 'flex',
                                   alignItems: 'center',
@@ -571,7 +570,7 @@ const CodeReviewModal = ({ message, onClose }) => {
                         </div>
 
                         {/* 댓글 입력창 */}
-                        {activeCommentLine === lineNumber && (
+                        {activeReviewLine === lineNumber && (
                           <div style={{
                             marginLeft: '80px',
                             marginRight: '12px',
@@ -582,9 +581,9 @@ const CodeReviewModal = ({ message, onClose }) => {
                             borderRadius: '6px'
                           }}>
                             <textarea
-                              value={commentText}
-                              onChange={(e) => setCommentText(e.target.value)}
-                              placeholder='Leave a comment...'
+                              value={reviewText}
+                              onChange={(e) => setReviewText(e.target.value)}
+                              placeholder='Leave a review...'
                               style={{
                                 width: '100%',
                                 minHeight: '80px',
@@ -604,7 +603,7 @@ const CodeReviewModal = ({ message, onClose }) => {
                               marginTop: '8px'
                             }}>
                               <button
-                                onClick={handleCancelComment}
+                                onClick={handleCancelReview}
                                 style={{
                                   padding: '6px 12px',
                                   backgroundColor: '#e2e8f0',
@@ -618,19 +617,19 @@ const CodeReviewModal = ({ message, onClose }) => {
                                 취소
                               </button>
                               <button
-                                onClick={handleSaveComment}
-                                disabled={!commentText.trim()}
+                                onClick={handleSaveReview}
+                                disabled={!reviewText.trim()}
                                 style={{
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '6px',
                                   padding: '6px 12px',
-                                  backgroundColor: commentText.trim() ? '#4299e1' : '#e2e8f0',
-                                  color: commentText.trim() ? 'white' : '#a0aec0',
+                                  backgroundColor: reviewText.trim() ? '#4299e1' : '#e2e8f0',
+                                  color: reviewText.trim() ? 'white' : '#a0aec0',
                                   border: 'none',
                                   borderRadius: '4px',
                                   fontSize: '14px',
-                                  cursor: commentText.trim() ? 'pointer' : 'not-allowed'
+                                  cursor: reviewText.trim() ? 'pointer' : 'not-allowed'
                                 }}
                               >
                                 <FaCheck size={12} />
@@ -641,9 +640,9 @@ const CodeReviewModal = ({ message, onClose }) => {
                         )}
 
                         {/* 기존 댓글들 */}
-                        {comments[lineNumber] && comments[lineNumber].map((comment) => (
+                        {reviews[lineNumber] && reviews[lineNumber].map((review) => (
                           <div
-                            key={comment.id}
+                            key={review.id}
                             style={{
                               marginLeft: '80px',
                               marginRight: '12px',
@@ -653,22 +652,22 @@ const CodeReviewModal = ({ message, onClose }) => {
                               border: '1px solid #e2e8f0',
                               borderRadius: '6px',
                               boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                              cursor: canEdit(comment) && editingCommentId !== comment.id ? 'pointer' : 'default',
+                              cursor: canEdit(review) && editingReviewId !== review.id ? 'pointer' : 'default',
                               transition: 'all 0.2s ease'
                             }}
                             onClick={() => {
-                              if (canEdit(comment) && editingCommentId !== comment.id) {
-                                handleEditComment(comment);
+                              if (canEdit(review) && editingReviewId !== review.id) {
+                                handleEditReview(review);
                               }
                             }}
                             onMouseEnter={(e) => {
-                              if (canEdit(comment) && editingCommentId !== comment.id) {
+                              if (canEdit(review) && editingReviewId !== review.id) {
                                 e.currentTarget.style.backgroundColor = '#f8fafc';
                                 e.currentTarget.style.borderColor = '#4299e1';
                               }
                             }}
                             onMouseLeave={(e) => {
-                              if (canEdit(comment) && editingCommentId !== comment.id) {
+                              if (canEdit(review) && editingReviewId !== review.id) {
                                 e.currentTarget.style.backgroundColor = '#ffffff';
                                 e.currentTarget.style.borderColor = '#e2e8f0';
                               }
@@ -690,9 +689,9 @@ const CodeReviewModal = ({ message, onClose }) => {
                                   color: '#4a5568',
                                   fontWeight: '500'
                                 }}>
-                                  {comment.author}
+                                  {review.author}
                                 </span>
-                                {canEdit(comment) && editingCommentId !== comment.id && (
+                                {canEdit(review) && editingReviewId !== review.id && (
                                   <span style={{
                                     fontSize: '10px',
                                     color: '#4299e1',
@@ -708,13 +707,13 @@ const CodeReviewModal = ({ message, onClose }) => {
                                   fontSize: '11px',
                                   color: '#a0aec0'
                                 }}>
-                                  {new Date(comment.timestamp).toLocaleString('ko-KR')}
+                                  {new Date(review.timestamp).toLocaleString('ko-KR')}
                                 </span>
-                                {canEdit(comment) && (
+                                {canEdit(review) && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleDeleteComment(lineNumber, comment.id);
+                                      handleDeleteReview(lineNumber, review.id);
                                     }}
                                     style={{
                                       padding: '2px',
@@ -732,11 +731,11 @@ const CodeReviewModal = ({ message, onClose }) => {
                             </div>
 
                             {/* 댓글 내용 또는 수정 입력창 */}
-                            {editingCommentId === comment.id ? (
+                            {editingReviewId === review.id ? (
                               <div>
                                 <textarea
-                                  value={editCommentText}
-                                  onChange={(e) => setEditCommentText(e.target.value)}
+                                  value={editReviewText}
+                                  onChange={(e) => setEditReviewsText(e.target.value)}
                                   style={{
                                     width: '100%',
                                     minHeight: '60px',
@@ -770,19 +769,19 @@ const CodeReviewModal = ({ message, onClose }) => {
                                     취소
                                   </button>
                                   <button
-                                    onClick={() => handleSaveEdit(lineNumber, comment.id)}
-                                    disabled={!editCommentText.trim() || loading}
+                                    onClick={() => handleSaveEdit(lineNumber, review.id)}
+                                    disabled={!editReviewText.trim() || loading}
                                     style={{
                                       display: 'flex',
                                       alignItems: 'center',
                                       gap: '4px',
                                       padding: '4px 8px',
-                                      backgroundColor: editCommentText.trim() ? '#4299e1' : '#e2e8f0',
-                                      color: editCommentText.trim() ? 'white' : '#a0aec0',
+                                      backgroundColor: editReviewText.trim() ? '#4299e1' : '#e2e8f0',
+                                      color: editReviewText.trim() ? 'white' : '#a0aec0',
                                       border: 'none',
                                       borderRadius: '4px',
                                       fontSize: '12px',
-                                      cursor: editCommentText.trim() ? 'pointer' : 'not-allowed'
+                                      cursor: editReviewText.trim() ? 'pointer' : 'not-allowed'
                                     }}
                                   >
                                     <FaCheck size={10} />
@@ -797,7 +796,7 @@ const CodeReviewModal = ({ message, onClose }) => {
                                 lineHeight: '1.4',
                                 whiteSpace: 'pre-wrap'
                               }}>
-                                {comment.content}
+                                {review.content}
                               </div>
                             )}
                           </div>
@@ -831,7 +830,7 @@ const CodeReviewModal = ({ message, onClose }) => {
             fontSize: '12px',
             color: '#a0aec0'
           }}>
-            총 {Object.values(comments).flat().length}개의 댓글
+            총 {Object.values(reviews).flat().length}개의 댓글
           </div>
         </div>
       </div>
