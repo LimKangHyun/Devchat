@@ -42,6 +42,19 @@ public record FriendEvent(
 		);
 	}
 
+	public static FriendEvent ofFriendAcceptSelf(Member acceptor, Member requester) {
+		return new FriendEvent(
+			NotificationType.FRIEND_ACCEPTED,
+			acceptor.getUsername(),
+			requester.getUsername(),
+			requester.getNickname(),
+			requester.getProfileImage(),
+			requester.getNickname() + "님과 친구가 되었습니다.",
+			requester.getId(),
+			LocalDateTime.now()
+		);
+	}
+
 	public static FriendEvent ofNotification(Notification notification) {
 		return new FriendEvent(
 			notification.getType(),

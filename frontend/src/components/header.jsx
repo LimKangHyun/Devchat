@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Bell, Check, X } from "lucide-react"
+import { Bell, Check, X, ArrowRight, User, Code, MessageSquare, Clock } from "lucide-react"
 import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link } from "react-router-dom"
@@ -48,14 +48,12 @@ export function HeaderWithNotifications() {
   // Initialize WebSocket connection only once when username is available
   useEffect(() => {
     if (username) {
-      // Initialize WebSocket connection immediately when username is available
-      // This will be handled by the useWebSocketNotifications hook
       console.log("🔌 Initializing WebSocket for user:", username)
       fetchApiNotifications(0, true)
     }
-  }, [username]) // Only depend on username
+  }, [username])
 
-  // WebSocket hook call - moved outside of any conditional logic
+  // WebSocket hook call
   useWebSocketNotifications({
     username: username,
     onNotificationReceived: handleNotificationReceived,
@@ -67,7 +65,7 @@ export function HeaderWithNotifications() {
     if (!message) {
       console.warn("❗ notification.content가 비어있음:", notification)
       return
-  }
+    }
 
     if (Notification.permission === "granted") {
       new Notification("DevChat Notification", {
@@ -79,15 +77,37 @@ export function HeaderWithNotifications() {
     }
   }
 
-  // Get notification type badge
-  const getNotificationTypeBadge = (type) => {
+  // Get notification type info
+  const getNotificationTypeInfo = (type) => {
     switch (type) {
       case "FRIEND_REQUESTED":
-        return <span className={styles.notificationTypeBadge}>친구 요청</span>
+        return {
+          label: "Friend Request",
+          icon: <User size={14} />,
+          color: "#10b981",
+          bgColor: "#ecfdf5",
+        }
       case "CODE_REVIEW":
-        return <span className={styles.notificationTypeBadge}>코드 리뷰</span>
+        return {
+          label: "Code Review",
+          icon: <Code size={14} />,
+          color: "#3b82f6",
+          bgColor: "#eff6ff",
+        }
+      case "MESSAGE":
+        return {
+          label: "Message",
+          icon: <MessageSquare size={14} />,
+          color: "#8b5cf6",
+          bgColor: "#f3e8ff",
+        }
       default:
-        return <span className={styles.notificationTypeBadge}>알림</span>
+        return {
+          label: "Notification",
+          icon: <Bell size={14} />,
+          color: "#6b7280",
+          bgColor: "#f9fafb",
+        }
     }
   }
 
@@ -133,7 +153,7 @@ export function HeaderWithNotifications() {
         referenceId: notification.referenceId,
         content: notification.content,
         timestamp: notification.createdAt || new Date().toISOString(),
-        isNew: false, // API notifications are considered read
+        isNew: false,
         isRealtime: false,
       }))
 
@@ -179,11 +199,9 @@ export function HeaderWithNotifications() {
     try {
       setProcessingRequestId(notification.id)
 
-      // Use referenceId for API call
       const requestId = notification.referenceId
       await axiosInstance.post(`/friend/request/${requestId}/accept`)
 
-      // Remove from appropriate notification list
       if (notification.isRealtime) {
         setRealtimeNotifications((prev) => prev.filter((n) => n.id !== notification.id))
       } else {
@@ -194,8 +212,7 @@ export function HeaderWithNotifications() {
       window.dispatchEvent(new CustomEvent("friend-request-accepted"))
     } catch (err) {
       console.error("Error accepting friend request:", err)
-      const message =
-        err?.response?.data?.message 
+      const message = err?.response?.data?.message
       alert(message || "친구 요청 수락에 실패했습니다.")
     } finally {
       setProcessingRequestId(null)
@@ -207,11 +224,9 @@ export function HeaderWithNotifications() {
     try {
       setProcessingRequestId(notification.id)
 
-      // Use referenceId for API call
       const requestId = notification.referenceId || notification.senderId
       await axiosInstance.post(`/friend-requests/${requestId}/reject`)
 
-      // Remove from appropriate notification list
       if (notification.isRealtime) {
         setRealtimeNotifications((prev) => prev.filter((n) => n.id !== notification.id))
       } else {
@@ -226,60 +241,108 @@ export function HeaderWithNotifications() {
     }
   }
 
+  // Handle navigation for non-friend-request notifications
+  const handleNotificationNavigation = (notification) => {
+    switch (notification.type) {
+      case "CODE_REVIEW":
+        // Navigate to code review page
+        window.location.href = `/code-review/${notification.referenceId}`
+        break
+      case "MESSAGE":
+        // Navigate to chat
+        window.location.href = `/chat/${notification.referenceId}`
+        break
+      default:
+        console.log("Navigation not implemented for type:", notification.type)
+    }
+    setIsNotificationOpen(false)
+  }
+
+  // Format relative time
+  const formatRelativeTime = (timestamp) => {
+    const now = new Date()
+    const time = new Date(timestamp)
+    const diffInMinutes = Math.floor((now - time) / (1000 * 60))
+
+    if (diffInMinutes < 1) return "방금 전"
+    if (diffInMinutes < 60) return `${diffInMinutes}분 전`
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}시간 전`
+    return `${Math.floor(diffInMinutes / 1440)}일 전`
+  }
+
   // Render notification item
   const renderNotificationItem = (notification) => {
     const isFriendRequest = notification.type === "FRIEND_REQUESTED"
+    const typeInfo = getNotificationTypeInfo(notification.type)
 
     if (isFriendRequest) {
       return (
-        <div
-          key={notification.id}
-          className={`${styles.friendRequestItem} ${notification.isNew ? styles.friendRequestNew : ""}`}
-        >
-          <div className={styles.requestUserInfo}>
-            <img
-              src={
-                notification.senderImg
-                  ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
-                  : "/images/not-found-profile.png"
-              }
-              alt={notification.sender}
-              className={styles.requestProfileImage}
-              onError={(e) => {
-                e.currentTarget.src = "/images/not-found-profile.png"
-              }}
-            />
-            <div className={styles.requestDetails}>
-              <div className={styles.requestHeader}>
-                {getNotificationTypeBadge(notification.type)}
-                <span className={styles.requestTime}>
-                  {new Date(notification.timestamp).toLocaleDateString("ko-KR")}
-                </span>
+        <div key={notification.id} className={styles.notificationItem}>
+          <div className={styles.notificationContent}>
+            <div className={styles.notificationAvatar}>
+              <img
+                src={
+                  notification.senderImg
+                    ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
+                    : "/images/not-found-profile.png"
+                }
+                alt={notification.sender}
+                className={styles.avatarImage}
+                onError={(e) => {
+                  e.currentTarget.src = "/images/not-found-profile.png"
+                }}
+              />
+              {notification.isNew && <div className={styles.newIndicator}></div>}
+            </div>
+
+            <div className={styles.notificationBody}>
+              <div className={styles.notificationHeader}>
+                <div className={styles.badgeContainer}>
+                  <span
+                    className={styles.notificationBadge}
+                    style={{
+                      color: typeInfo.color,
+                      backgroundColor: typeInfo.bgColor,
+                    }}
+                  >
+                    {typeInfo.icon}
+                    {typeInfo.label}
+                  </span>
+                </div>
+                <div className={styles.timestampContainer}>
+                  <Clock size={12} />
+                  <span className={styles.notificationTime}>{formatRelativeTime(notification.timestamp)}</span>
+                </div>
               </div>
-              <div className={styles.requestMessage}>
-                <span className={styles.requestSenderName}>{notification.sender}님이 친구 요청을 보냈습니다.</span>
+
+              <div className={styles.notificationMessage}>
+                <strong className={styles.senderName}>{notification.sender}</strong>
+                <div className={styles.messageText}>{notification.content}</div>
               </div>
             </div>
-          </div>
 
-          <div className={styles.requestActionsWrapper}>
-            {notification.isNew && <div className={styles.notificationNewIndicator}></div>}
-            <div className={styles.requestActions}>
+            <div className={styles.notificationActions}>
               <button
-                className={styles.acceptBtn}
+                className={`${styles.actionButton} ${styles.acceptButton}`}
                 onClick={() => handleAcceptRequest(notification)}
                 disabled={processingRequestId === notification.id}
-                aria-label="수락"
               >
-                <Check size={16} />
+                {processingRequestId === notification.id ? (
+                  <div className={styles.buttonSpinner}></div>
+                ) : (
+                  <Check size={16} />
+                )}
               </button>
               <button
-                className={styles.rejectBtn}
+                className={`${styles.actionButton} ${styles.rejectButton}`}
                 onClick={() => handleRejectRequest(notification)}
                 disabled={processingRequestId === notification.id}
-                aria-label="거절"
               >
-                <X size={16} />
+                {processingRequestId === notification.id ? (
+                  <div className={styles.buttonSpinner}></div>
+                ) : (
+                  <X size={16} />
+                )}
               </button>
             </div>
           </div>
@@ -287,14 +350,11 @@ export function HeaderWithNotifications() {
       )
     }
 
-    // Regular notification
+    // Regular notification with navigation
     return (
-      <div
-        key={notification.id}
-        className={`${styles.notificationItem} ${notification.isNew ? styles.notificationNew : ""}`}
-      >
-        <div className={styles.notificationContentWrapper}>
-          <div className={styles.notificationUserInfo}>
+      <div key={notification.id} className={styles.notificationItem}>
+        <div className={styles.notificationContent}>
+          <div className={styles.notificationAvatar}>
             <img
               src={
                 notification.senderImg
@@ -302,24 +362,40 @@ export function HeaderWithNotifications() {
                   : "/images/not-found-profile.png"
               }
               alt={notification.sender}
-              className={styles.notificationProfileImage}
+              className={styles.avatarImage}
               onError={(e) => {
                 e.currentTarget.src = "/images/not-found-profile.png"
               }}
             />
-            <div className={styles.notificationDetails}>
-              <div className={styles.notificationHeader}>
-                {getNotificationTypeBadge(notification.type)}
-                <span className={styles.notificationTime}>
-                  {new Date(notification.timestamp).toLocaleString("ko-KR")}
+            {notification.isNew && <div className={styles.newIndicator}></div>}
+          </div>
+
+          <div className={styles.notificationBody}>
+            <div className={styles.notificationHeader}>
+              <div className={styles.badgeContainer}>
+                <span
+                  className={styles.notificationBadge}
+                  style={{
+                    color: typeInfo.color,
+                    backgroundColor: typeInfo.bgColor,
+                  }}
+                >
+                  {typeInfo.icon}
+                  {typeInfo.label}
                 </span>
               </div>
-              <div className={styles.notificationMessage}>
-                <span>{notification.content}</span>
+              <div className={styles.timestampContainer}>
+                <Clock size={12} />
+                <span className={styles.notificationTime}>{formatRelativeTime(notification.timestamp)}</span>
               </div>
             </div>
+
+            <div className={styles.notificationMessage}>{notification.content}</div>
           </div>
-          {notification.isNew && <div className={styles.notificationNewIndicator}></div>}
+
+          <button className={styles.navigationButton} onClick={() => handleNotificationNavigation(notification)}>
+            <ArrowRight size={16} />
+          </button>
         </div>
       </div>
     )
@@ -328,15 +404,13 @@ export function HeaderWithNotifications() {
   // Toggle notification dropdown
   const toggleNotifications = () => {
     if (!isNotificationOpen) {
-      // Fetch API notifications when opening
       fetchApiNotifications(0, true)
-      // Clear unread status when opening notifications
       setHasUnreadNotifications(false)
     }
     setIsNotificationOpen(!isNotificationOpen)
   }
 
-  // Combine and sort all notifications (realtime first, then API)
+  // Combine and sort all notifications
   const allNotifications = [...realtimeNotifications, ...apiNotifications]
   const totalNotificationCount = realtimeNotifications.length + totalApiNotificationCount
 
@@ -414,7 +488,7 @@ export function HeaderWithNotifications() {
             >
               <Bell size={20} />
               {totalNotificationCount > 0 && (
-                <span className={styles.notificationBadge}>
+                <span className={styles.notificationCount}>
                   {totalNotificationCount > 99 ? "99+" : totalNotificationCount}
                 </span>
               )}
@@ -423,21 +497,22 @@ export function HeaderWithNotifications() {
             {/* Notification Dropdown */}
             {isNotificationOpen && (
               <div className={styles.notificationDropdown}>
-                <div className={styles.notificationHeader}>
+                <div className={styles.notificationDropdownHeader}>
                   <h3>Notifications</h3>
+                  {totalNotificationCount > 0 && <span className={styles.totalCount}>{totalNotificationCount}</span>}
                 </div>
 
-                <div className={styles.notificationContent} ref={notificationContentRef} onScroll={handleScroll}>
+                <div className={styles.notificationList} ref={notificationContentRef}>
                   {isLoadingNotifications ? (
-                    <div className={styles.notificationLoading}>
+                    <div className={styles.loadingState}>
                       <div className={styles.loadingSpinner}></div>
-                      <span>로딩 중...</span>
+                      <span>Loading notifications...</span>
                     </div>
                   ) : allNotifications.length === 0 ? (
-                    <div className={styles.noNotifications}>
-                      <div className={styles.noNotificationsIcon}>🎉</div>
-                      <span className={styles.noNotificationsTitle}>All caught up!</span>
-                      <span className={styles.noNotificationsSubtitle}>No notifications.</span>
+                    <div className={styles.emptyState}>
+                      <Bell size={48} className={styles.emptyIcon} />
+                      <h4>All caught up!</h4>
+                      <p>You have no new notifications</p>
                     </div>
                   ) : (
                     <div className={styles.notificationsList}>
@@ -447,7 +522,14 @@ export function HeaderWithNotifications() {
                       {isLoadingMore && (
                         <div className={styles.loadingMore}>
                           <div className={styles.loadingSpinner}></div>
-                          <span>더 많은 알림을 불러오는 중...</span>
+                          <span>Loading more...</span>
+                        </div>
+                      )}
+
+                      {/* End indicator */}
+                      {!hasMoreNotifications && allNotifications.length > 0 && (
+                        <div className={styles.endMessage}>
+                          <span>You're all caught up!</span>
                         </div>
                       )}
                     </div>
@@ -492,7 +574,7 @@ export function HeaderWithNotifications() {
           )}
 
           <button
-            className={styles.logoutText}
+            className={styles.logoutButton}
             style={{
               background: "none",
               border: "none",

@@ -101,6 +101,7 @@ public class FriendService {
 		friendsListRepository.save(sendSide);
 
 		eventPublisher.publishEvent(FriendEvent.ofFriendAcceptEvent(acceptor, requester));
+		eventPublisher.publishEvent(FriendEvent.ofFriendAcceptSelf(acceptor, requester));
 	}
 
 	private void checkAlreadyFriends(Member owner, Member friend) {

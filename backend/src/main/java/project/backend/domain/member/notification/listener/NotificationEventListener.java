@@ -28,6 +28,7 @@ public class NotificationEventListener {
 				log.info("친구 요청 알림: {} → {}", event.senderUsername(), event.receiverUsername());
 			}
 			case FRIEND_ACCEPTED -> {
+
 				log.info("친구 수락 알림: {} → {}", event.senderUsername(), event.receiverUsername());
 			}
 			case CODE_REVIEW -> {
