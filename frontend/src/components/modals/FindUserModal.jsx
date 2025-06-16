@@ -141,7 +141,7 @@ const UserItem = memo(({ user, sendingRequest, onSendFriendRequest }) => {
                 <div className={`status-badge ${statusClass}`}>{user.status}</div>
             </div>
             <div>
-                {user.isFriend || user.requestSent ? (
+                {user.friend || user.requestSent ? (
                     <span className="friend-status">{user.requestSent ? "Request Sent" : "Friends"}</span>
                 ) : (
                     <button onClick={handleAddFriend} disabled={sendingRequest} className="add-friend-btn">
@@ -444,7 +444,8 @@ const FindUserModal = ({ onClose, onSendFriendRequest }) => {
         } catch (err) {
         console.error("❌ 친구 요청 전송 실패:", err);
         setSendingRequests((prev) => ({ ...prev, [user.username]: false }));
-        alert("친구 요청에 실패했습니다.");
+        const msg = err?.response?.data?.message
+        alert(msg);
         }
     },
     [onSendFriendRequest]

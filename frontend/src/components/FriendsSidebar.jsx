@@ -52,24 +52,10 @@ const FriendsSidebar = () => {
       setHasMoreFriends(!last)
       setTotalFriendsCount(totalElements)
       setCurrentPage(page)
+      
     } catch (err) {
       console.error("친구 목록 로딩 오류:", err)
 
-      // Fallback to mock data if API fails
-      if (reset) {
-        const mockFriends = [
-          { username: "john_doe", nickname: "John", status: "online", avatar: null },
-          { username: "jane_smith", nickname: "Jane", status: "offline", avatar: null },
-          { username: "mike_wilson", nickname: "Mike", status: "online", avatar: null },
-          { username: "sarah_jones", nickname: "Sarah", status: "away", avatar: null },
-          { username: "alex_brown", nickname: "Alex", status: "online", avatar: null },
-          { username: "chris_lee", nickname: "Chris", status: "online", avatar: null },
-          { username: "emma_davis", nickname: "Emma", status: "offline", avatar: null },
-        ]
-        setFriends(mockFriends)
-        setHasMoreFriends(false)
-        setTotalFriendsCount(mockFriends.length)
-      }
     } finally {
       setLoading(false)
       setIsLoadingMore(false)

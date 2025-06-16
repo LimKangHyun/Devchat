@@ -14,18 +14,12 @@ import project.backend.domain.member.notification.entity.NotificationType;
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
 	@Query("""
-			SELECT new project.backend.domain.member.notification.dto.AlertTemplate(
-				n.type,
-				s.username,
-				s.profileImage,
-				n.referenceId
-			)
+			SELECT n
 			FROM Notification n
-			JOIN n.sender s
-			WHERE n.receiver.id = :receiverId AND n.isRead = false
-			ORDER BY n.createdAt DESC
+			WHERE n.receiver.id = :receiverId
+			AND n.isRead = false
 		""")
-	Page<AlertTemplate> getNotificationsAndReadNot(@Param("receiverId") Long receiverId,
+	Page<Notification> getNotificationsAndReadNot(@Param("receiverId") Long receiverId,
 		Pageable pageable);
 
 

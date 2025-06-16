@@ -14,7 +14,7 @@ import project.backend.domain.member.friend.dao.FriendRequestRepository;
 import project.backend.domain.member.friend.dao.FriendsListRepository;
 import project.backend.domain.member.friend.dto.FriendResponse;
 import project.backend.domain.member.friend.entity.FriendRequest;
-import project.backend.domain.member.friend.dto.event.FriendRequestEvent;
+import project.backend.domain.member.friend.dto.event.FriendEvent;
 import project.backend.domain.member.friend.entity.FriendsList;
 import project.backend.domain.member.notification.app.NotificationService;
 import project.backend.domain.member.notification.dto.FriendRequestDto;
@@ -51,7 +51,7 @@ public class FriendService {
 		friendRequestRepository.save(friendRequest);
 		notificationService.saveNotification(Notification.of(friendRequest));
 
-		eventPublisher.publishEvent(FriendRequestEvent.from(sender, receiver));
+		eventPublisher.publishEvent(FriendEvent.ofFriendRequest(sender, receiver));
 	}
 
 	private FriendRequest getFriendRequestBySenderAndReceiver(Member sender, Member receiver) {

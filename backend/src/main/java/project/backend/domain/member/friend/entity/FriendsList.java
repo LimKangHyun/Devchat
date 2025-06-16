@@ -6,6 +6,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -21,6 +22,7 @@ import project.backend.domain.member.entity.Member;
 @NoArgsConstructor
 @Table(
 	name = "friends_list",
+	indexes = @Index(name = "idx_owner_friend", columnList = "owner_id, friend_id"),
 	uniqueConstraints = @UniqueConstraint(columnNames = {"owner_id", "friend_id"})
 )
 public class FriendsList {

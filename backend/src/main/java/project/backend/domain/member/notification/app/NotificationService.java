@@ -28,7 +28,10 @@ public class NotificationService {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 
 		Member receiver = MemberDetails.of(memberDetails);
-		return notificationRepository.getNotificationsAndReadNot(receiver.getId(), pageable);
+		Page<Notification> notReadNotification = notificationRepository.getNotificationsAndReadNot(
+			receiver.getId(), pageable);
+
+		return notReadNotification.map(AlertTemplate::fromNotification);
 	}
 
 	public void saveNotification(Notification notification) {

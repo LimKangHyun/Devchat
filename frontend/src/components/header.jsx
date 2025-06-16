@@ -63,7 +63,7 @@ export function HeaderWithNotifications() {
 
   // Show immediate notification popup/toast
   const showImmediateNotification = (notification) => {
-    const message = getNotificationMessage(notification)
+    const message = notification.content
 
     if (Notification.permission === "granted") {
       new Notification("DevChat Notification", {
@@ -322,7 +322,7 @@ export function HeaderWithNotifications() {
                 </span>
               </div>
               <div className={styles.notificationMessage}>
-                <span>{getNotificationMessage(notification)}</span>
+                <span>{notification.content}</span>
               </div>
             </div>
           </div>

@@ -145,6 +145,7 @@ public class MemberService {
 		var memberDetails = checkAuthentication(auth);
 
 		return memberRepository.searchByUsernameExcludeSelf(keyword, memberDetails.getUsername(),
+			memberDetails.getId(),
 			pageable);
 	}
 

@@ -7,8 +7,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import project.backend.domain.member.friend.dto.event.FriendRequestEvent;
+import project.backend.domain.member.friend.dto.event.FriendEvent;
 import project.backend.domain.member.notification.dto.AlertTemplate;
+import project.backend.domain.member.notification.entity.NotificationType;
 
 @Slf4j
 @Component
@@ -19,12 +20,20 @@ public class NotificationEventListener {
 
 	@Async
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-	public void handleFriendRequest(FriendRequestEvent event) {
+	public void handleFriendRequest(FriendEvent event) {
 		log.info("친구요청 이벤트 수신: {} => {}", event.senderUsername(), event.receiverUsername());
 
-		AlertTemplate alertTemplate = AlertTemplate.of(event);
+		NotificationType type = event.type();
+
+		AlertTemplate alertTemplate = switch (type) {
+			case FRIEND_REQUESTED -> AlertTemplate.fromFriendEvent(event);
+			case FRIEND_ACCEPTED -> null;
+			case CODE_REVIEW -> null;
+		};
 
 		simpMessagingTemplate.convertAndSend("/topic/notifications/" + event.receiverUsername(),
 			alertTemplate);
 	}
+
+
 }
