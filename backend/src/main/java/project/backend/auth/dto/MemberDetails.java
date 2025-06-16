@@ -53,4 +53,16 @@ public class MemberDetails implements UserDetails {
 			.build();
 	}
 
+	public static Member of(MemberDetails memberDetails) {
+		return Member.builder()
+			.id(memberDetails.id)
+			.username(memberDetails.username)
+			.email(memberDetails.email)
+			.password(memberDetails.password)
+			.nickname(memberDetails.nickname)
+			.provider(memberDetails.provider)
+			.profileImage(memberDetails.profileImg)
+			.build();
+	}
+
 }

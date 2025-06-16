@@ -34,6 +34,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 		    FROM Member m
 		    WHERE LOWER(m.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
 		      AND m.username <> :excludeUsername
+			  AND m.username <> 'GitHubBot'
 		""")
 	Page<MemberSearchResponse> searchByUsernameExcludeSelf(
 		@Param("keyword") String keyword,

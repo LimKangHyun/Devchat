@@ -1,4 +1,4 @@
-package project.backend.domain.member.dto;
+package project.backend.domain.member.friend.dto;
 
 public record FriendResponse(
 	String username,
