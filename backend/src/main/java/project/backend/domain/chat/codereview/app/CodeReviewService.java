@@ -15,7 +15,9 @@ import project.backend.domain.chat.codereview.mapper.CodeReviewMapper;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.errorcode.ChatMessageErrorCode;
+import project.backend.global.exception.errorcode.CodeReviewErrorCode;
 import project.backend.global.exception.ex.ChatMessageException;
+import project.backend.global.exception.ex.CodeReviewException;
 
 @Service
 @RequiredArgsConstructor
@@ -34,10 +36,8 @@ public class CodeReviewService {
 			.orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
 		if (message.getType() != MessageType.CODE) {
-			throw new IllegalArgumentException("코드 메시지에만 리뷰 작성 가능");
+			throw new CodeReviewException(CodeReviewErrorCode.INVALID_MESSAGE_TYPE);
 		}
-
-		//참여자가 아닌 멤버가 리뷰남기는거 막는 거 필요?
 
 		CodeReview codeReview = codeReviewMapper.toEntity(request, message, author);
 
@@ -48,10 +48,10 @@ public class CodeReviewService {
 
 	@Transactional
 	public List<CodeReviewResponse> getReviewsByMessageId(Long messageId, Long memberId) {
-		ChatMessage message = chatMessageRepository.findById(messageId)
+		chatMessageRepository.findById(messageId)
 			.orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-		Member member = memberService.getMemberById(memberId);
+		memberService.getMemberById(memberId);
 
 		List<CodeReview> reviews = codeReviewRepository
 			.findByMessageIdOrderByLineNumberAscCreatedAtAsc(messageId);
@@ -63,27 +63,28 @@ public class CodeReviewService {
 
 	@Transactional
 	public void deleteReview(Long reviewId, Long authorId) {
-		CodeReview codeReview = codeReviewRepository.findById(reviewId)
-			.orElseThrow(() -> new IllegalArgumentException("해당 코드리뷰 존재하지 않음."));
-
-		if (!codeReview.getAuthor().getId().equals(authorId)) {
-			throw new IllegalArgumentException("본인이 작성한 코드리뷰만 삭제할 수 있습니다");
-		}
+		CodeReview codeReview = validateReviewOwnership(reviewId, authorId);
 
 		codeReviewRepository.delete(codeReview);
 	}
 
 	@Transactional
 	public CodeReviewResponse editReview(Long reviewId, CodeReviewRequest request, Long authorId) {
+		CodeReview editCodeReview = validateReviewOwnership(reviewId, authorId);
+
+		editCodeReview.editReview(request.content());
+
+		return codeReviewMapper.toResponse(editCodeReview);
+	}
+
+	private CodeReview validateReviewOwnership(Long reviewId, Long authorId) {
 		CodeReview codeReview = codeReviewRepository.findById(reviewId)
-			.orElseThrow(() -> new IllegalArgumentException("해당 코드리뷰 존재하지 않음."));
+			.orElseThrow(() -> new CodeReviewException(CodeReviewErrorCode.REVIEW_NOT_FOUND));
 
 		if (!codeReview.getAuthor().getId().equals(authorId)) {
-			throw new IllegalArgumentException("본인이 작성한 코드리뷰만 수정할 수 있습니다");
+			throw new CodeReviewException(CodeReviewErrorCode.UNAUTHORIZED_ACCESS);
 		}
 
-		codeReview.editReview(request.content());
-
-		return codeReviewMapper.toResponse(codeReview);
+		return codeReview;
 	}
 }

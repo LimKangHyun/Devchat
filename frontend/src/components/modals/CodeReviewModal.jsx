@@ -50,6 +50,9 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   // 수정 가능 여부 체크 함수
   const canEdit = (comment) => {
+    console.log('현재 사용자 ID:', currentUser);
+    console.log('댓글 작성자 ID:', comment.authorId);
+    console.log('수정 가능 여부:', currentUser && comment.authorId === currentUser);
     return currentUser && comment.authorId === currentUser;
   };
 
@@ -92,15 +95,15 @@ const CodeReviewModal = ({ message, onClose }) => {
         setComments(reviewsByLine);
 
       } catch (error) {
-        if (error.message.includes('404')) {
+        if (error.status === 404) {
           setComments({});
           return;
         }
 
         let errorMessage = '기존 댓글을 불러오는데 실패했습니다.';
-        if (error.message.includes('401')) {
+        if (error.status === 401) {
           errorMessage = '로그인이 필요합니다.';
-        } else if (error.message.includes('403')) {
+        } else if (error.status === 403) {
           errorMessage = '댓글 조회 권한이 없습니다.';
         }
 
@@ -122,7 +125,12 @@ const CodeReviewModal = ({ message, onClose }) => {
         const response = await axiosInstance.post('/code-reviews', reviewData);
         return response.data;
       } catch (error) {
-        throw new Error(error.response?.data?.message || '리뷰 생성 실패');
+        // 상태코드와 메시지를 함께 전달
+        const status = error.response?.status;
+        const message = error.response?.data?.message || '리뷰 생성 실패';
+        const customError = new Error(message);
+        customError.status = status;
+        throw customError;
       }
     },
 
@@ -130,16 +138,17 @@ const CodeReviewModal = ({ message, onClose }) => {
     getByMessageId: async (messageId) => {
       try {
         const response = await axiosInstance.get(`/code-reviews/${messageId}`);
-
-        // 응답 데이터 구조에 따라 수정 필요
         return response.data.reviews || response.data;
-
       } catch (error) {
         if (error.response?.status === 404) {
           return [];
         }
-
-        throw new Error(error.response?.data?.message || '리뷰 조회 실패');
+        
+        const status = error.response?.status;
+        const message = error.response?.data?.message || '리뷰 조회 실패';
+        const customError = new Error(message);
+        customError.status = status;
+        throw customError;
       }
     },
 
@@ -148,7 +157,11 @@ const CodeReviewModal = ({ message, onClose }) => {
       try {
         await axiosInstance.delete(`/code-reviews/${reviewId}`);
       } catch (error) {
-        throw new Error(error.response?.data?.message || '리뷰 삭제 실패');
+        const status = error.response?.status;
+        const message = error.response?.data?.message || '리뷰 삭제 실패';
+        const customError = new Error(message);
+        customError.status = status;
+        throw customError;
       }
     },
 
@@ -160,7 +173,11 @@ const CodeReviewModal = ({ message, onClose }) => {
         });
         return response.data;
       } catch (error) {
-        throw new Error(error.response?.data?.message || '리뷰 수정 실패');
+        const status = error.response?.status;
+        const message = error.response?.data?.message || '리뷰 수정 실패';
+        const customError = new Error(message);
+        customError.status = status;
+        throw customError;
       }
     }
   };
