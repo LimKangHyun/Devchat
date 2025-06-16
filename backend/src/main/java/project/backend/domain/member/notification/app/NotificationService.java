@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
+import project.backend.domain.member.friend.dto.event.FriendEvent;
 import project.backend.domain.member.notification.dao.NotificationRepository;
 import project.backend.domain.member.notification.dto.AlertTemplate;
 import project.backend.domain.member.notification.entity.Notification;
@@ -24,14 +25,14 @@ public class NotificationService {
 	private final MemberService memberService;
 
 	@Transactional(readOnly = true)
-	public Page<AlertTemplate> getNotifications(Authentication auth, Pageable pageable) {
+	public Page<FriendEvent> getNotifications(Authentication auth, Pageable pageable) {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 
 		Member receiver = MemberDetails.of(memberDetails);
 		Page<Notification> notReadNotification = notificationRepository.getNotificationsAndReadNot(
 			receiver.getId(), pageable);
 
-		return notReadNotification.map(AlertTemplate::fromNotification);
+		return notReadNotification.map(FriendEvent::ofNotification);
 	}
 
 	public void saveNotification(Notification notification) {

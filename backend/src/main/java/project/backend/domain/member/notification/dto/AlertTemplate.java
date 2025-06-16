@@ -13,18 +13,29 @@ public record AlertTemplate(
 	Long referenceId
 ) {
 
-	public static AlertTemplate fromFriendEvent(FriendEvent friendEvent) {
+	public static AlertTemplate ofFriendRequestEvent(FriendEvent friendEvent) {
 		return new AlertTemplate(
 			NotificationType.FRIEND_REQUESTED,
 			friendEvent.senderUsername(),
 			friendEvent.senderNickname(),
 			getContentByType(friendEvent.senderNickname(), NotificationType.FRIEND_REQUESTED),
-			friendEvent.senderProfileImg(),
-			friendEvent.senderId()
+			friendEvent.senderImg(),
+			friendEvent.referenceId()
 		);
 	}
 
-	public static AlertTemplate fromNotification(Notification notification) {
+	public static AlertTemplate ofFriendAcceptEvent(FriendEvent friendEvent) {
+		return new AlertTemplate(
+			NotificationType.FRIEND_ACCEPTED,
+			friendEvent.senderUsername(),
+			friendEvent.senderNickname(),
+			getContentByType(friendEvent.senderNickname(), NotificationType.FRIEND_ACCEPTED),
+			friendEvent.senderImg(),
+			friendEvent.referenceId()
+		);
+	}
+
+	public static AlertTemplate ofNotification(Notification notification) {
 		return new AlertTemplate(
 			notification.getType(),
 			notification.getSender().getUsername(),

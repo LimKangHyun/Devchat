@@ -21,19 +21,24 @@ public class NotificationEventListener {
 	@Async
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void handleFriendRequest(FriendEvent event) {
-		log.info("친구요청 이벤트 수신: {} => {}", event.senderUsername(), event.receiverUsername());
 
 		NotificationType type = event.type();
 
-		AlertTemplate alertTemplate = switch (type) {
-			case FRIEND_REQUESTED -> AlertTemplate.fromFriendEvent(event);
-			case FRIEND_ACCEPTED -> null;
-			case CODE_REVIEW -> null;
-		};
+		switch (type) {
+			case FRIEND_REQUESTED -> {
+				log.info("친구 요청 알림: {} → {}", event.senderUsername(), event.receiverUsername());
+			}
+			case FRIEND_ACCEPTED -> {
+				log.info("친구 수락 알림: {} → {}", event.senderUsername(), event.receiverUsername());
+			}
+			case CODE_REVIEW -> {
+				log.warn("CODE_REVIEW 알림은 아직 지원되지 않음: {} → {}", event.senderUsername(),
+					event.receiverUsername());
+			}
+		}
 
 		simpMessagingTemplate.convertAndSend("/topic/notifications/" + event.receiverUsername(),
-			alertTemplate);
+			event);
 	}
-
 
 }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import project.backend.domain.member.friend.dto.event.FriendEvent;
 import project.backend.domain.member.notification.app.NotificationService;
 import project.backend.domain.member.notification.dto.AlertTemplate;
 
@@ -21,7 +22,7 @@ public class NotificationsController {
 
 	@GetMapping
 	@ResponseStatus(HttpStatus.OK)
-	public Page<AlertTemplate> getNotifications(Authentication auth, Pageable pageable) {
+	public Page<FriendEvent> getNotifications(Authentication auth, Pageable pageable) {
 		return notificationService.getNotifications(auth, pageable);
 	}
 }

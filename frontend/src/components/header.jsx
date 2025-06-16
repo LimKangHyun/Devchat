@@ -75,18 +75,6 @@ export function HeaderWithNotifications() {
     }
   }
 
-  // Get notification message based on type
-  const getNotificationMessage = (notification) => {
-    switch (notification.type) {
-      case "FRIEND_REQUESTED":
-        return `${notification.sender}님이 친구 요청을 보냈습니다.`
-      case "CODE_REVIEW":
-        return `${notification.sender}님이 코드 리뷰를 요청했습니다.`
-      default:
-        return `${notification.sender}님으로부터 새 알림이 있습니다.`
-    }
-  }
-
   // Get notification type badge
   const getNotificationTypeBadge = (type) => {
     switch (type) {

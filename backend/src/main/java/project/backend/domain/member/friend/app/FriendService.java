@@ -70,31 +70,33 @@ public class FriendService {
 	public void acceptFriend(Authentication auth, Long friendId) {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 
-		Member receiver = MemberDetails.of(memberDetails);
-		Member sender = memberService.getMemberById(friendId);
+		Member acceptor = MemberDetails.of(memberDetails);
+		Member requester = memberService.getMemberById(friendId);
 
-		Notification notification = notificationService.getNotificationByType(receiver,
-			sender, NotificationType.FRIEND_REQUESTED);
+		Notification notification = notificationService.getNotificationByType(acceptor,
+			requester, NotificationType.FRIEND_REQUESTED);
 
 		notification.markAsRead();
 
-		checkAlreadyFriends(sender, receiver);
+		checkAlreadyFriends(requester, acceptor);
 
-		FriendRequest friendRequest = getFriendRequestBySenderAndReceiver(sender, receiver);
+		FriendRequest friendRequest = getFriendRequestBySenderAndReceiver(requester, acceptor);
 		friendRequest.accept();
 
 		FriendsList receiveSide = FriendsList.builder()
-			.owner(receiver)
-			.friend(sender)
+			.owner(acceptor)
+			.friend(requester)
 			.build();
 
 		FriendsList sendSide = FriendsList.builder()
-			.owner(sender)
-			.friend(receiver)
+			.owner(requester)
+			.friend(acceptor)
 			.build();
 
 		friendsListRepository.save(receiveSide);
 		friendsListRepository.save(sendSide);
+
+		eventPublisher.publishEvent(FriendEvent.ofFriendAcceptEvent(acceptor, requester));
 	}
 
 	private void checkAlreadyFriends(Member owner, Member friend) {
