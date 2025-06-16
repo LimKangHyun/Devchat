@@ -50,7 +50,8 @@ public class FriendService {
 			.build();
 
 		friendRequestRepository.save(friendRequest);
-		notificationService.saveNotification(Notification.of(friendRequest));
+		notificationService.saveNotification(
+			Notification.ofFriendRequest(friendRequest));
 
 		eventPublisher.publishEvent(FriendEvent.ofFriendRequest(sender, receiver));
 	}
@@ -82,6 +83,9 @@ public class FriendService {
 
 		FriendRequest friendRequest = getFriendRequestBySenderAndReceiver(requester, acceptor);
 		friendRequest.accept();
+
+		notificationService.saveNotification(
+			Notification.ofFriendAccept(friendRequest));
 
 		FriendsList receiveSide = FriendsList.builder()
 			.owner(acceptor)

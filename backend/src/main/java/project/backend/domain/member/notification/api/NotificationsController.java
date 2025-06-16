@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import project.backend.domain.member.friend.dto.event.FriendEvent;
 import project.backend.domain.member.notification.app.NotificationService;
-import project.backend.domain.member.notification.dto.AlertTemplate;
 
 @RestController
 @RequestMapping("/notification")

@@ -50,12 +50,22 @@ public class Notification {
 		this.isRead = true;
 	}
 
-	public static Notification of(FriendRequest friendRequest) {
+	public static Notification ofFriendRequest(FriendRequest friendRequest) {
 		return Notification.builder()
 			.receiver(friendRequest.getReceiver())
 			.sender(friendRequest.getSender())
 			.type(NotificationType.FRIEND_REQUESTED)
 			.referenceId(friendRequest.getSender().getId())
+			.createdAt(LocalDateTime.now())
+			.build();
+	}
+
+	public static Notification ofFriendAccept(FriendRequest friendRequest) {
+		return Notification.builder()
+			.receiver(friendRequest.getSender())
+			.sender(friendRequest.getReceiver())
+			.type(NotificationType.FRIEND_ACCEPTED)
+			.referenceId(friendRequest.getReceiver().getId())
 			.createdAt(LocalDateTime.now())
 			.build();
 	}

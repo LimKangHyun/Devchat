@@ -64,6 +64,10 @@ export function HeaderWithNotifications() {
   // Show immediate notification popup/toast
   const showImmediateNotification = (notification) => {
     const message = notification.content
+    if (!message) {
+      console.warn("❗ notification.content가 비어있음:", notification)
+      return
+  }
 
     if (Notification.permission === "granted") {
       new Notification("DevChat Notification", {
@@ -127,6 +131,7 @@ export function HeaderWithNotifications() {
         sender: notification.sender,
         senderImg: notification.senderImg,
         referenceId: notification.referenceId,
+        content: notification.content,
         timestamp: notification.createdAt || new Date().toISOString(),
         isNew: false, // API notifications are considered read
         isRealtime: false,

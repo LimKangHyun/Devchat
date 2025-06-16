@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import project.backend.domain.member.friend.dto.event.FriendEvent;
-import project.backend.domain.member.notification.dto.AlertTemplate;
 import project.backend.domain.member.notification.entity.NotificationType;
 
 @Slf4j

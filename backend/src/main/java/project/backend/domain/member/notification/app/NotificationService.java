@@ -11,7 +11,6 @@ import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.friend.dto.event.FriendEvent;
 import project.backend.domain.member.notification.dao.NotificationRepository;
-import project.backend.domain.member.notification.dto.AlertTemplate;
 import project.backend.domain.member.notification.entity.Notification;
 import project.backend.domain.member.notification.entity.NotificationType;
 import project.backend.global.exception.errorcode.NotificationErrorCode;
