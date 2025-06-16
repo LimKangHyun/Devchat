@@ -12,7 +12,9 @@ import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.friend.dao.FriendRequestRepository;
 import project.backend.domain.member.friend.entity.FriendRequest;
 import project.backend.domain.member.friend.dto.event.FriendRequestEvent;
+import project.backend.domain.member.notification.dao.NotificationRepository;
 import project.backend.domain.member.notification.dto.FriendRequestDto;
+import project.backend.domain.member.notification.entity.Notification;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.errorcode.FriendErrorCode;
 import project.backend.global.exception.ex.AuthException;
@@ -24,6 +26,7 @@ public class FriendService {
 
 	private final MemberService memberService;
 	private final FriendRequestRepository friendRequestRepository;
+	private final NotificationRepository notificationRepository;
 	private final ApplicationEventPublisher eventPublisher;
 
 	@Transactional
@@ -49,9 +52,7 @@ public class FriendService {
 			.build();
 
 		friendRequestRepository.save(friendRequest);
-
+		notificationRepository.save(Notification.of(friendRequest));
 		eventPublisher.publishEvent(FriendRequestEvent.from(sender, receiver));
-
 	}
-
 }
