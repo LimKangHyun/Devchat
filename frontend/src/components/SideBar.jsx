@@ -7,7 +7,7 @@ import JoinRoomModal from './modals/JoinRoomModal';
 import RoomInfoModal from './modals/RoomInfoModal';
 import Toast from './common/Toast';
 import axiosInstance from "./api/axiosInstance"
-import useWebSocket from './common/useWebSocket'; // useWebSocket 훅 import
+import useSideBarWebSocket from './common/useSideBarWebSocket'; // 사이드바 전용 웹소켓 훅 import
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -52,9 +52,7 @@ const Sidebar = () => {
   };
 
   // useWebSocket 훅 사용 - 사이드바용 구독만 활성화
-  const stompClientRef = useWebSocket({
-    roomId: null, // 메인 채팅방 구독은 비활성화
-    onMessageReceived: () => {}, // 메인 메시지 처리는 비활성화
+  const stompClientRef = useSideBarWebSocket({
     chatRooms, // 채팅방 목록 전달
     currentRoomId: roomId, // 현재 활성화된 채팅방 ID
     onSidebarMessage: handleSidebarMessage, // 사이드바 메시지 처리 콜백
@@ -76,12 +74,28 @@ const Sidebar = () => {
     }
   }, [roomId]);
 
+  // useEffect(() => {
+  //   if (inviteCode && chatRooms.length > 0) {
+  //     const currentRoom = chatRooms.find(room => room.inviteCode === inviteCode);
+  //     if (currentRoom) {
+  //       setRoomId(currentRoom.uniqueId);
+  //     }
+  //   }
+  // }, [inviteCode, chatRooms]);
+
   useEffect(() => {
-    if (inviteCode && chatRooms.length > 0) {
-      const currentRoom = chatRooms.find(room => room.inviteCode === inviteCode);
-      if (currentRoom) {
-        setRoomId(currentRoom.uniqueId);
-      }
+    if (!inviteCode) {
+      setRoomId(null);
+      return;
+    }
+
+    // chatRooms가 비어 있으면 기다렸다가 다시 실행 (최초 로딩 대응)
+    const foundRoom = chatRooms.find(room => room.inviteCode === inviteCode);
+
+    if (foundRoom) {
+      setRoomId(foundRoom.uniqueId);
+    } else {
+      setRoomId(null); // 또는 유지
     }
   }, [inviteCode, chatRooms]);
 

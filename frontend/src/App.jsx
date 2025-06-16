@@ -13,6 +13,24 @@ import ErrorPage from './pages/ErrorPage';
 import Layout from './Layout';
 
 function App() {
+  // const [chatRooms, setChatRooms] = useState([]);
+  // const [currentRoomId, setCurrentRoomId] = useState(null);
+  // const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // // ✅ 로그인 후 채팅방 목록 가져오기
+  // useEffect(() => {
+  //   const fetchChatRooms = async () => {
+  //     try {
+  //       const res = await getChatRooms();
+  //       setChatRooms(res);
+  //       setIsLoggedIn(true);
+  //     } catch (e) {
+  //       console.error('🚨 채팅방 목록 로딩 실패:', e);
+  //     }
+  //   };
+
+  // }, []);
+
   return (
     <BrowserRouter>
       <Routes>
