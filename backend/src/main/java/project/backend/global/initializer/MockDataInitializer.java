@@ -27,7 +27,7 @@ public class MockDataInitializer {
 
 	@PostConstruct
 	public void generateMockUsersForSearchTest() {
-		int totalMockUsers = 500; // 원하는 수만큼 생성
+		int totalMockUsers = 100; // 원하는 수만큼 생성
 		for (int i = 1; i <= totalMockUsers; i++) {
 			String username = "mockuser" + i;
 			String email = username + "@example.com";

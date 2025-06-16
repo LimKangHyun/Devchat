@@ -414,31 +414,41 @@ const FindUserModal = ({ onClose, onSendFriendRequest }) => {
     )
 
     const handleSendFriendRequest = useCallback(
-        async (user) => {
-            setSendingRequests((prev) => ({ ...prev, [user.username]: true }))
+    async (user) => {
+        setSendingRequests((prev) => ({ ...prev, [user.username]: true }));
 
-            try {
-                setTimeout(() => {
-                    setSearchResults((prev) =>
-                        prev.map((u) => (u.username === user.username ? { ...u, isFriend: true, requestSent: true } : u)),
-                    )
+        try {
+        // ✅ 실제 API 호출
+        await axioxInstance.post("/friend/request", {
+            targetUsername: user.username
+        });
 
-                    setSendingRequests((prev) => ({ ...prev, [user.username]: false }))
+        // ✅ UI 업데이트
+        setSearchResults((prev) =>
+            prev.map((u) =>
+            u.username === user.username
+                ? { ...u, isFriend: false, requestSent: true }
+                : u
+            )
+        );
 
-                    if (onSendFriendRequest) {
-                        onSendFriendRequest(user)
-                    }
+        // ✅ 요청 완료 상태 해제
+        setSendingRequests((prev) => ({ ...prev, [user.username]: false }));
 
-                    console.log(`Friend request sent to ${user.username}`)
-                }, 1000)
-            } catch (err) {
-                console.error("친구 요청 전송 오류:", err)
-                setSendingRequests((prev) => ({ ...prev, [user.username]: false }))
-                alert("친구 요청 전송에 실패했습니다.")
-            }
-        },
-        [onSendFriendRequest],
-    )
+        // ✅ 부모 콜백 호출
+        if (onSendFriendRequest) {
+            onSendFriendRequest(user);
+        }
+
+        console.log(`✅ Friend request sent to ${user.username}`);
+        } catch (err) {
+        console.error("❌ 친구 요청 전송 실패:", err);
+        setSendingRequests((prev) => ({ ...prev, [user.username]: false }));
+        alert("친구 요청에 실패했습니다.");
+        }
+    },
+    [onSendFriendRequest]
+    );
 
     // Stable handlers
     const handleSearchChange = useCallback((value) => {

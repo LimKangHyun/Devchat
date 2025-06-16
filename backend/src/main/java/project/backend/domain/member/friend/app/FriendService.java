@@ -1,5 +1,6 @@
 package project.backend.domain.member.friend.app;
 
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
@@ -11,6 +12,7 @@ import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.friend.dao.FriendRequestRepository;
 import project.backend.domain.member.friend.entity.FriendRequest;
 import project.backend.domain.member.friend.dto.event.FriendRequestEvent;
+import project.backend.domain.member.notification.dto.FriendRequestDto;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.errorcode.FriendErrorCode;
 import project.backend.global.exception.ex.AuthException;
@@ -20,12 +22,12 @@ import project.backend.global.exception.ex.FriendException;
 @RequiredArgsConstructor
 public class FriendService {
 
-	private MemberService memberService;
-	private FriendRequestRepository friendRequestRepository;
+	private final MemberService memberService;
+	private final FriendRequestRepository friendRequestRepository;
 	private final ApplicationEventPublisher eventPublisher;
 
 	@Transactional
-	public void requestFriend(Authentication auth, String username) {
+	public void requestFriend(Authentication auth, FriendRequestDto request) {
 		var memberDetails = (MemberDetails) auth.getPrincipal();
 
 		if (memberDetails == null) {
@@ -33,7 +35,7 @@ public class FriendService {
 		}
 
 		Member sender = MemberDetails.of(memberDetails);
-		Member receiver = memberService.getMemberByUsername(username);
+		Member receiver = memberService.getMemberByUsername(request.targetUsername());
 
 		boolean already = friendRequestRepository.existsBySenderAndReceiver(sender,
 			receiver);

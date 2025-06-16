@@ -33,10 +33,12 @@ public class FriendRequest {
 	@ManyToOne(fetch = FetchType.LAZY)
 	private Member receiver;
 
+	@Builder.Default
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private RequestStatus status = RequestStatus.PENDING;
 
+	@Builder.Default
 	@Column(nullable = false)
 	private LocalDateTime requestedAt = LocalDateTime.now();
 

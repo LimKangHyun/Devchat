@@ -7,10 +7,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import project.backend.domain.member.friend.app.FriendService;
 import project.backend.domain.member.friend.entity.FriendRequest;
+import project.backend.domain.member.notification.dto.FriendRequestDto;
 
 @Slf4j
 @RestController
@@ -22,7 +24,7 @@ public class FriendController {
 
 	@PostMapping("/request")
 	@ResponseStatus(HttpStatus.CREATED)
-	public void requestFriend(Authentication auth, String username) {
-		friendService.requestFriend(auth, username);
+	public void requestFriend(Authentication auth, @RequestBody FriendRequestDto friendRequestDto) {
+		friendService.requestFriend(auth, friendRequestDto);
 	}
 }

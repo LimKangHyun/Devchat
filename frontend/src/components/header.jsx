@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Bell, Check, X } from "lucide-react"
-import "./header.css"
+import { Bell, Check, X, User, Code } from "lucide-react"
+import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link } from "react-router-dom"
+import useWebSocketNotifications from "./common/useWebSocket"
 
 // Mock data for testing
 const mockFriendRequests = [
@@ -29,45 +30,174 @@ const mockFriendRequests = [
     senderProfileImg: "carol-profile.jpg",
     createdAt: "2024-01-13T09:20:00Z",
   },
-  
 ]
 
-export function Header() {
+export function HeaderWithNotifications() {
   const [profileImage, setProfileImage] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [username, setUsername] = useState("")
 
   // Notification states
   const [friendRequests, setFriendRequests] = useState([])
+  const [notifications, setNotifications] = useState([]) // New state for WebSocket notifications
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [isLoadingRequests, setIsLoadingRequests] = useState(false)
   const [processingRequestId, setProcessingRequestId] = useState(null)
 
+  // Add these new state variables after the existing state declarations
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
+  const [isShaking, setIsShaking] = useState(false)
+  const audioRef = useRef(null)
+
   const notificationRef = useRef(null)
 
+  // WebSocket notification handler
+  const handleNotificationReceived = (notification) => {
+    console.log("🔔 Processing new notification:", notification)
+
+    // Play notification sound
+    playNotificationSound()
+
+    // If it's a friend request, add it to friend requests instead of notifications
+    if (notification.type === "FRIEND_REQUESTED") {
+      const friendRequest = {
+        id: notification.id || `${Date.now()}-${Math.random()}`,
+        senderId: notification.referenceId?.toString() || "unknown",
+        senderName: notification.sender,
+        senderProfileImg: notification.senderImg,
+        createdAt: new Date().toISOString(),
+        isNew: true,
+      }
+
+      setFriendRequests((prev) => [friendRequest, ...prev])
+
+      // Mark as not new after 5 seconds
+      setTimeout(() => {
+        setFriendRequests((prev) => prev.map((req) => (req.id === friendRequest.id ? { ...req, isNew: false } : req)))
+      }, 5000)
+    } else {
+      // Handle other notification types
+      const newNotification = {
+        ...notification,
+        isNew: true,
+      }
+
+      setNotifications((prev) => [newNotification, ...prev])
+
+      // Mark as not new after 5 seconds
+      setTimeout(() => {
+        setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, isNew: false } : n)))
+      }, 5000)
+    }
+
+    // Show immediate notification
+    showImmediateNotification(notification)
+
+    // Trigger shake animation and set unread flag
+    triggerShakeAnimation()
+    setHasUnreadNotifications(true)
+  }
+
+  // Show immediate notification popup/toast
+  const showImmediateNotification = (notification) => {
+    const message = getNotificationMessage(notification)
+
+    // You can replace this with a proper toast library
+    if (Notification.permission === "granted") {
+      new Notification("DevChat Notification", {
+        body: message,
+        icon: notification.senderImg
+          ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
+          : "/images/not-found-profile.png",
+      })
+    }
+  }
+
+  // Get notification message based on type
+  const getNotificationMessage = (notification) => {
+    switch (notification.type) {
+      case "FRIEND_REQUESTED":
+        return `${notification.sender}님이 친구 요청을 보냈습니다.`
+      case "CODE_REVIEW":
+        return `${notification.sender}님이 코드 리뷰를 요청했습니다.`
+      default:
+        return `${notification.sender}님으로부터 새 알림이 있습니다.`
+    }
+  }
+
+  // Get notification icon based on type
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case "FRIEND_REQUESTED":
+        return <User size={16} className={styles.notificationTypeIcon} />
+      case "CODE_REVIEW":
+        return <Code size={16} className={styles.notificationTypeIcon} />
+      default:
+        return <Bell size={16} className={styles.notificationTypeIcon} />
+    }
+  }
+
+  // Play notification sound
+  const playNotificationSound = () => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0
+      audioRef.current.play().catch((error) => {
+        console.log("Could not play notification sound:", error)
+      })
+    }
+  }
+
+  // Trigger shake animation
+  const triggerShakeAnimation = () => {
+    setIsShaking(true)
+    setTimeout(() => setIsShaking(false), 1000) // Stop shaking after 1 second
+  }
+
+  // Check if there are any unread notifications
+  const hasUnreadItems = () => {
+    const unreadNotifications = notifications.some((n) => n.isNew)
+    const unreadFriendRequests = friendRequests.some((req) => req.isNew)
+    return unreadNotifications || unreadFriendRequests
+  }
+
+  // Initialize WebSocket connection
+  useWebSocketNotifications({
+    username: username,
+    onNotificationReceived: handleNotificationReceived,
+  })
+
   useEffect(() => {
-    const fetchProfileImage = async () => {
+    const fetchUserData = async () => {
       try {
         setIsLoading(true)
         const { data } = await axiosInstance.get("/user/details")
         setProfileImage(data.profileImg)
+        setUsername(data.username || data.email) // Adjust based on your API response
         setIsLoading(false)
       } catch (err) {
-        console.error("Error fetching profile image:", err)
+        console.error("Error fetching user data:", err)
         setError(err.message)
         setIsLoading(false)
       }
     }
 
-    fetchProfileImage()
+    fetchUserData()
 
     const handler = () => {
       console.log("🔥 Header 이벤트 수신됨")
-      fetchProfileImage()
+      fetchUserData()
     }
 
     window.addEventListener("profile-updated", handler)
     return () => window.removeEventListener("profile-updated", handler)
+  }, [])
+
+  // Request notification permission
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission()
+    }
   }, [])
 
   // Fetch friend requests
@@ -76,8 +206,7 @@ export function Header() {
       setIsLoadingRequests(true)
 
       // For testing - use mock data
-      // Comment out these lines and uncomment the API call when ready
-      await new Promise((resolve) => setTimeout(resolve, 500)) // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 500))
       setFriendRequests(mockFriendRequests)
 
       // Uncomment this for real API call:
@@ -96,10 +225,7 @@ export function Header() {
       setProcessingRequestId(requestId)
       await axiosInstance.post(`/friend-requests/${requestId}/accept`)
 
-      // Remove the accepted request from the list
       setFriendRequests((prev) => prev.filter((req) => req.id !== requestId))
-
-      // Dispatch custom event for other components that might need to know
       window.dispatchEvent(new CustomEvent("friend-request-accepted"))
     } catch (err) {
       console.error("Error accepting friend request:", err)
@@ -115,7 +241,6 @@ export function Header() {
       setProcessingRequestId(requestId)
       await axiosInstance.post(`/friend-requests/${requestId}/reject`)
 
-      // Remove the rejected request from the list
       setFriendRequests((prev) => prev.filter((req) => req.id !== requestId))
     } catch (err) {
       console.error("Error rejecting friend request:", err)
@@ -129,6 +254,8 @@ export function Header() {
   const toggleNotifications = () => {
     if (!isNotificationOpen) {
       fetchFriendRequests()
+      // Clear unread status when opening notifications
+      setHasUnreadNotifications(false)
     }
     setIsNotificationOpen(!isNotificationOpen)
   }
@@ -150,50 +277,91 @@ export function Header() {
     }
   }, [isNotificationOpen])
 
-  // Fetch friend requests on component mount
-  useEffect(() => {
-    fetchFriendRequests()
-  }, [])
+  // Calculate total notification count
+  const totalNotificationCount = friendRequests.length + notifications.length
 
   return (
-    <header className="header">
-      <div className="container">
+    <header className={styles.header}>
+      <div className={styles.container}>
         <Link to="/">
-          <img src="/images/devchat-logo.png" alt="DevChat Logo" className="header-logo-image" />
+          <img src="/images/devchat-logo.png" alt="DevChat Logo" className={styles.headerLogoImage} />
         </Link>
 
-        <div className="profile-container">
+        <div className={styles.profileContainer}>
           {/* Notification Bell */}
-          <div className="notification-container" ref={notificationRef}>
-            <button className="notification-bell" onClick={toggleNotifications} aria-label="알림">
+          <div className={styles.notificationContainer} ref={notificationRef}>
+            <button
+              className={`${styles.notificationBell} ${isShaking || hasUnreadItems() ? styles.shake : ""}`}
+              onClick={toggleNotifications}
+              aria-label="알림"
+            >
               <Bell size={20} />
-              {friendRequests.length > 0 && <span className="notification-badge">{friendRequests.length}</span>}
+              {totalNotificationCount > 0 && <span className={styles.notificationBadge}>{totalNotificationCount}</span>}
             </button>
 
             {/* Notification Dropdown */}
             {isNotificationOpen && (
-              <div className="notification-dropdown">
-                <div className="notification-header">
+              <div className={styles.notificationDropdown}>
+                <div className={styles.notificationHeader}>
                   <h3>Notifications</h3>
                 </div>
 
-                <div className="notification-content">
+                <div className={styles.notificationContent}>
                   {isLoadingRequests ? (
-                    <div className="notification-loading">
-                      <div className="loading-spinner"></div>
+                    <div className={styles.notificationLoading}>
+                      <div className={styles.loadingSpinner}></div>
                       <span>로딩 중...</span>
                     </div>
-                  ) : friendRequests.length === 0 ? (
-                    <div className="no-notifications">
-                      <div className="no-notifications-icon">🎉</div>
-                      <span className="no-notifications-title">All caught up!</span>
-                      <span className="no-notifications-subtitle">No notifications.</span>
+                  ) : totalNotificationCount === 0 ? (
+                    <div className={styles.noNotifications}>
+                      <div className={styles.noNotificationsIcon}>🎉</div>
+                      <span className={styles.noNotificationsTitle}>All caught up!</span>
+                      <span className={styles.noNotificationsSubtitle}>No notifications.</span>
                     </div>
                   ) : (
-                    <div className="friend-requests-list">
+                    <div className={styles.notificationsList}>
+                      {/* WebSocket Notifications */}
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className={`${styles.notificationItem} ${notification.isNew ? styles.notificationNew : ""}`}
+                        >
+                          <div className={styles.notificationContentWrapper}>
+                            <div className={styles.notificationUserInfo}>
+                              <img
+                                src={
+                                  notification.senderImg
+                                    ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
+                                    : "/images/not-found-profile.png"
+                                }
+                                alt={notification.sender}
+                                className={styles.notificationProfileImage}
+                                onError={(e) => {
+                                  e.currentTarget.src = "/images/not-found-profile.png"
+                                }}
+                              />
+                              <div className={styles.notificationDetails}>
+                                <div className={styles.notificationMessage}>
+                                  {getNotificationIcon(notification.type)}
+                                  <span>{getNotificationMessage(notification)}</span>
+                                </div>
+                                <span className={styles.notificationTime}>
+                                  {notification.timestamp && new Date(notification.timestamp).toLocaleString("ko-KR")}
+                                </span>
+                              </div>
+                            </div>
+                            {notification.isNew && <div className={styles.notificationNewIndicator}></div>}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Friend Requests */}
                       {friendRequests.map((request) => (
-                        <div key={request.id} className="friend-request-item">
-                          <div className="request-user-info">
+                        <div
+                          key={request.id}
+                          className={`${styles.friendRequestItem} ${request.isNew ? styles.friendRequestNew : ""}`}
+                        >
+                          <div className={styles.requestUserInfo}>
                             <img
                               src={
                                 request.senderProfileImg
@@ -201,36 +369,44 @@ export function Header() {
                                   : "/images/not-found-profile.png"
                               }
                               alt={request.senderName}
-                              className="request-profile-image"
+                              className={styles.requestProfileImage}
                               onError={(e) => {
                                 e.currentTarget.src = "/images/not-found-profile.png"
                               }}
                             />
-                            <div className="request-details">
-                              <span className="request-sender-name">{request.senderName}</span>
-                              <span className="request-time">
+                            <div className={styles.requestDetails}>
+                              <div className={styles.requestMessage}>
+                                <User size={16} className={styles.notificationTypeIcon} />
+                                <span className={styles.requestSenderName}>
+                                  {request.senderName}님이 친구 요청을 보냈습니다.
+                                </span>
+                              </div>
+                              <span className={styles.requestTime}>
                                 {new Date(request.createdAt).toLocaleDateString("ko-KR")}
                               </span>
                             </div>
                           </div>
 
-                          <div className="request-actions">
-                            <button
-                              className="accept-btn"
-                              onClick={() => handleAcceptRequest(request.id)}
-                              disabled={processingRequestId === request.id}
-                              aria-label="수락"
-                            >
-                              <Check size={16} />
-                            </button>
-                            <button
-                              className="reject-btn"
-                              onClick={() => handleRejectRequest(request.id)}
-                              disabled={processingRequestId === request.id}
-                              aria-label="거절"
-                            >
-                              <X size={16} />
-                            </button>
+                          <div className={styles.requestActionsWrapper}>
+                            {request.isNew && <div className={styles.notificationNewIndicator}></div>}
+                            <div className={styles.requestActions}>
+                              <button
+                                className={styles.acceptBtn}
+                                onClick={() => handleAcceptRequest(request.id)}
+                                disabled={processingRequestId === request.id}
+                                aria-label="수락"
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button
+                                className={styles.rejectBtn}
+                                onClick={() => handleRejectRequest(request.id)}
+                                disabled={processingRequestId === request.id}
+                                aria-label="거절"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -243,9 +419,9 @@ export function Header() {
 
           {/* Profile Section */}
           {isLoading ? (
-            <div className="profile-image-loading"></div>
+            <div className={styles.profileImageLoading}></div>
           ) : error ? (
-            <div className="profile-image-error">
+            <div className={styles.profileImageError}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="16"
@@ -267,7 +443,7 @@ export function Header() {
               <img
                 src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${profileImage}`}
                 alt="User profile"
-                className="profile-image"
+                className={styles.profileImage}
                 onError={(e) => {
                   e.currentTarget.src = "/images/not-found-profile.png"
                 }}
@@ -276,7 +452,7 @@ export function Header() {
           )}
 
           <button
-            className="logout-text"
+            className={styles.logoutText}
             style={{
               background: "none",
               border: "none",
@@ -304,8 +480,13 @@ export function Header() {
           </button>
         </div>
       </div>
+      {/* Add this audio element before the closing </header> tag */}
+      <audio ref={audioRef} preload="auto">
+        <source src="/sounds/notification.mp3" type="audio/mpeg" />
+        <source src="/sounds/notification.wav" type="audio/wav" />
+      </audio>
     </header>
   )
 }
 
-export default Header
+export default HeaderWithNotifications
