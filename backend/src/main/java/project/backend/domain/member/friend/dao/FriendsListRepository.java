@@ -7,9 +7,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.friend.dto.FriendResponse;
-import project.backend.domain.member.friend.entity.FriendsList;
+import project.backend.domain.member.friend.entity.Friends;
 
-public interface FriendsListRepository extends JpaRepository<FriendsList, Long> {
+public interface FriendsListRepository extends JpaRepository<Friends, Long> {
 
 	boolean existsByOwnerAndFriend(Member owner, Member friend);
 
@@ -20,8 +20,8 @@ public interface FriendsListRepository extends JpaRepository<FriendsList, Long> 
 		        "online",
 		        f.friend.profileImage
 		    )
-		    FROM FriendsList f
+		    FROM Friends f
 		    WHERE f.owner.id = :ownerId
 		""")
-	Page<FriendResponse> getFriends(@Param("ownerId") Long ownerId, Pageable pageable);
+	Page<FriendResponse> getFriendsDto(@Param("ownerId") Long ownerId, Pageable pageable);
 }

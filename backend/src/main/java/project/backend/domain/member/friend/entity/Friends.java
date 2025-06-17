@@ -21,11 +21,11 @@ import project.backend.domain.member.entity.Member;
 @Getter
 @NoArgsConstructor
 @Table(
-	name = "friends_list",
+	name = "friends",
 	indexes = @Index(name = "idx_owner_friend", columnList = "owner_id, friend_id"),
 	uniqueConstraints = @UniqueConstraint(columnNames = {"owner_id", "friend_id"})
 )
-public class FriendsList {
+public class Friends {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,9 +43,26 @@ public class FriendsList {
 	private LocalDateTime createdAt;
 
 	@Builder
-	public FriendsList(Member owner, Member friend) {
+	public Friends(Member owner, Member friend) {
 		this.owner = owner;
 		this.friend = friend;
 		this.createdAt = LocalDateTime.now();
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (!(o instanceof Friends)) {
+			return false;
+		}
+		Friends other = (Friends) o;
+		return id != null && id.equals(other.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return getClass().hashCode();
 	}
 }

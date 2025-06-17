@@ -1,5 +1,6 @@
 package project.backend.domain.member.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -22,6 +23,7 @@ import lombok.Setter;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.imagefile.ImageFile;
+import project.backend.domain.member.friend.entity.Friends;
 
 @Entity
 @Getter
@@ -57,6 +59,10 @@ public class Member {
 	@OneToMany(mappedBy = "participant")
 	private List<ChatParticipant> participants = new ArrayList<>();
 
+	@Builder.Default
+	@OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<Friends> friends = new ArrayList<>();
+
 	@Column(nullable = false)
 	private String profileImage;
 
@@ -78,5 +84,9 @@ public class Member {
 
 	public void updateProfileImage(String profileImage) {
 		this.profileImage = profileImage;
+	}
+
+	public void addFriend(Friends friend) {
+		this.friends.add(friend);
 	}
 }

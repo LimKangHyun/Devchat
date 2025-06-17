@@ -45,5 +45,6 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 		Pageable pageable
 	);
 
+	boolean existsByUsername(String username);
 }
 

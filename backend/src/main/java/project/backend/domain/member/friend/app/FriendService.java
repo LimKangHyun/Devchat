@@ -15,7 +15,7 @@ import project.backend.domain.member.friend.dao.FriendsListRepository;
 import project.backend.domain.member.friend.dto.FriendResponse;
 import project.backend.domain.member.friend.entity.FriendRequest;
 import project.backend.domain.member.friend.dto.event.FriendEvent;
-import project.backend.domain.member.friend.entity.FriendsList;
+import project.backend.domain.member.friend.entity.Friends;
 import project.backend.domain.member.notification.app.NotificationService;
 import project.backend.domain.member.notification.dto.FriendRequestDto;
 import project.backend.domain.member.notification.entity.Notification;
@@ -64,7 +64,7 @@ public class FriendService {
 	public Page<FriendResponse> getFriends(Authentication auth, Pageable pageable) {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 		Long id = memberDetails.getId();
-		return friendsListRepository.getFriends(id, pageable);
+		return friendsListRepository.getFriendsDto(id, pageable);
 	}
 
 	@Transactional
@@ -94,8 +94,12 @@ public class FriendService {
 			friendRequest.accept();
 
 			// 친구 테이블에 양방향 저장
-			FriendsList receiveSide = FriendsList.builder().owner(me).friend(requester).build();
-			FriendsList sendSide = FriendsList.builder().owner(requester).friend(me).build();
+			Friends receiveSide = Friends.builder().owner(me).friend(requester).build();
+			Friends sendSide = Friends.builder().owner(requester).friend(me).build();
+
+			me.addFriend(receiveSide);
+			requester.addFriend(sendSide);
+
 			friendsListRepository.save(receiveSide);
 			friendsListRepository.save(sendSide);
 		} else {

@@ -18,20 +18,22 @@ public class GitHubBotInitializer {
 	@Value("${github.username}")
 	private String githubUsername;
 
-	private final ImageFileRepository imageFileRepository;
 	private final MemberRepository memberRepository;
 
 	@PostConstruct
 	public void init() {
 
-		Member gitHubBot = Member.builder()
-			.username(githubUsername)
-			.nickname(githubUsername)
-			.profileImage(githubProfile)
-			.build();
+		if (!memberRepository.existsByUsername(githubUsername)) {
+			Member gitHubBot = Member.builder()
+				.username(githubUsername)
+				.nickname(githubUsername)
+				.profileImage(githubProfile)
+				.build();
 
-		memberRepository.save(gitHubBot);
-		memberRepository.flush();
+			memberRepository.save(gitHubBot);
+			memberRepository.flush();
+		}
+		
 	}
 
 }
