@@ -53,10 +53,10 @@ public class FriendService {
 			.build();
 
 		friendRequestRepository.save(friendRequest);
-		notificationService.saveNotification(
+		Notification notification = notificationService.saveNotification(
 			Notification.ofFriendRequest(friendRequest));
 
-		eventPublisher.publishEvent(NotificationResponse.ofFriendRequest(sender, receiver));
+		eventPublisher.publishEvent(NotificationResponse.ofNotification(notification));
 	}
 
 	@Transactional
@@ -73,16 +73,17 @@ public class FriendService {
 		friendsListRepository.save(receiveSide);
 		friendsListRepository.save(sendSide);
 
-		notificationService.saveNotification(
+		Notification AceeptNotification = notificationService.saveNotification(
 			Notification.ofFriendRequestByDecision(context.friendRequest,
 				NotificationType.FRIEND_ACCEPTED));
-		notificationService.saveNotification(
+
+		Notification BecomeFriendNotification = notificationService.saveNotification(
 			Notification.ofFriendshipEstablished(context.friendRequest));
 
 		eventPublisher.publishEvent(
-			NotificationResponse.ofFriendAcceptEvent(context.receiver, context.requester));
+			NotificationResponse.ofNotification(AceeptNotification));
 		eventPublisher.publishEvent(
-			NotificationResponse.ofFriendAcceptSelf(context.receiver, context.requester));
+			NotificationResponse.ofNotification(BecomeFriendNotification));
 	}
 
 	@Transactional
@@ -91,12 +92,12 @@ public class FriendService {
 
 		context.friendRequest.reject();
 
-		notificationService.saveNotification(
+		Notification RejectNotification = notificationService.saveNotification(
 			Notification.ofFriendRequestByDecision(context.friendRequest,
 				NotificationType.FRIEND_REJECTED));
-		
+
 		eventPublisher.publishEvent(
-			NotificationResponse.ofFriendRejectEvent(context.receiver, context.requester));
+			NotificationResponse.ofNotification(RejectNotification));
 	}
 
 	private FriendContext prepareFriendDecisionContext(Authentication auth, Long requesterId) {

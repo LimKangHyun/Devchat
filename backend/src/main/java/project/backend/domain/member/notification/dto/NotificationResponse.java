@@ -6,6 +6,7 @@ import project.backend.domain.member.notification.entity.Notification;
 import project.backend.domain.member.notification.entity.NotificationType;
 
 public record NotificationResponse(
+	boolean isRead,
 	NotificationType type,
 	String receiverUsername,
 	String senderUsername,
@@ -16,48 +17,10 @@ public record NotificationResponse(
 	LocalDateTime createdAt
 ) {
 
-	// 기본 메시지를 사용하는 팩토리
-	public static NotificationResponse create(
-		NotificationType type,
-		Member sender,
-		Member receiver,
-		Long referenceId
-	) {
-		return new NotificationResponse(
-			type,
-			receiver.getUsername(),
-			sender.getUsername(),
-			sender.getNickname(),
-			sender.getProfileImage(),
-			getContentByType(sender.getNickname(), type),
-			referenceId,
-			LocalDateTime.now()
-		);
-	}
-
-	// 요청
-	public static NotificationResponse ofFriendRequest(Member sender, Member receiver) {
-		return create(NotificationType.FRIEND_REQUESTED, sender, receiver, sender.getId());
-	}
-
-	// 수락 (상대방에게 알림)
-	public static NotificationResponse ofFriendAcceptEvent(Member acceptor, Member requester) {
-		return create(NotificationType.FRIEND_ACCEPTED, acceptor, requester, acceptor.getId());
-	}
-
-	// 거절 (상대방에게 알림)
-	public static NotificationResponse ofFriendRejectEvent(Member rejecter, Member requester) {
-		return create(NotificationType.FRIEND_REJECTED, rejecter, requester, rejecter.getId());
-	}
-
-	// 수락 (본인에게 알림) - 커스텀 메시지 사용
-	public static NotificationResponse ofFriendAcceptSelf(Member acceptor, Member requester) {
-		return create(NotificationType.WE_ARE_FRIEND_NOW, requester, acceptor, acceptor.getId());
-	}
-
 	// Notification 객체로부터 생성
 	public static NotificationResponse ofNotification(Notification notification) {
 		return new NotificationResponse(
+			false,
 			notification.getType(),
 			notification.getReceiver().getUsername(),
 			notification.getSender().getUsername(),

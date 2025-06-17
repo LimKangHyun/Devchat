@@ -46,8 +46,8 @@ public class NotificationService {
 		return notReadNotification.map(NotificationResponse::ofNotification);
 	}
 
-	public void saveNotification(Notification notification) {
-		notificationRepository.save(notification);
+	public Notification saveNotification(Notification notification) {
+		return notificationRepository.save(notification);
 	}
 
 	public Notification getNotificationByType(Member receiver, Member sender,

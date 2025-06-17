@@ -44,7 +44,8 @@ public class Notification {
 
 	private boolean isRead = false;
 
-	private LocalDateTime createdAt;
+	@Builder.Default
+	private LocalDateTime createdAt = LocalDateTime.now();
 
 	public void markAsRead() {
 		this.isRead = true;
