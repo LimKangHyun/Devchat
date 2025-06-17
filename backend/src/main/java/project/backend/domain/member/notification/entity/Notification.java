@@ -67,7 +67,6 @@ public class Notification {
 			.sender(friendRequest.getReceiver())
 			.type(type)
 			.referenceId(friendRequest.getReceiver().getId())
-			.isRead(true)
 			.createdAt(LocalDateTime.now())
 			.build();
 	}
