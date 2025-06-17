@@ -449,7 +449,6 @@ export function HeaderWithNotifications() {
     if (!isNotificationOpen) {
       // When opening inbox, fetch notifications based on current filter
       fetchNotifications(0, true)
-      setHasUnreadNotifications(false)
     }
     setIsNotificationOpen(!isNotificationOpen)
   }
