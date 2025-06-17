@@ -42,6 +42,8 @@ public class CodeReviewService {
 			throw new CodeReviewException(CodeReviewErrorCode.INVALID_MESSAGE_TYPE);
 		}
 
+		chatRoomService.validateParticipant(authorId, message.getChatRoom().getId());
+
 		CodeReview codeReview = codeReviewMapper.toEntity(request, message, author);
 
 		CodeReview savedReview = codeReviewRepository.save(codeReview);
@@ -68,12 +70,18 @@ public class CodeReviewService {
 	public void deleteReview(Long reviewId, Long authorId) {
 		CodeReview codeReview = validateReviewOwnership(reviewId, authorId);
 
+		chatRoomService.validateParticipant(authorId,
+			codeReview.getMessage().getChatRoom().getId());
+
 		codeReviewRepository.delete(codeReview);
 	}
 
 	@Transactional
 	public CodeReviewResponse editReview(Long reviewId, CodeReviewEditRequest request, Long authorId) {
 		CodeReview editCodeReview = validateReviewOwnership(reviewId, authorId);
+
+		chatRoomService.validateParticipant(authorId,
+			editCodeReview.getMessage().getChatRoom().getId());
 
 		editCodeReview.editReview(request.content());
 
