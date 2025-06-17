@@ -9,20 +9,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RoomInfoResponse {
-
-	private Long roomId;
+public class JoinRoomInfoResponse {
 
 	private String roomName;
 
-	private String repositoryUrl;
-
 	private String inviteCode;
-
-	private boolean alarmEnabled;
-
 }
-
-
-
-

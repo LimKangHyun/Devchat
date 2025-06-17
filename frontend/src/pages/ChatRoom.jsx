@@ -38,6 +38,7 @@ const ChatRoom = () => {
   const [isOwner, setIsOwner] = useState(false);
   const [roomData, setRoomData] = useState(null);
   const [deleteNotification, setDeleteNotification] = useState(null);
+  const [alarmEnabled, setAlarmEnabled] = useState(true);
 
   // 초기화 상태를 하나로 통합하고 단계별로 관리
   const [initState, setInitState] = useState({
@@ -64,7 +65,6 @@ const ChatRoom = () => {
     }
   }, []);
 
-
   // 1. 방 정보 불러오기
   const fetchRoomInfo = useCallback(async () => {
     try {
@@ -73,6 +73,7 @@ const ChatRoom = () => {
 
       setRoomId(roomData.roomId);
       setRoomName(roomData.roomName);
+      setAlarmEnabled(roomData.alarmEnabled);
       setRoomData(roomData);
       
       // 한 번에 상태 업데이트
@@ -209,6 +210,15 @@ const ChatRoom = () => {
       }));
     }
   }, []);
+
+  const toggleAlarm = async () => {
+    try {
+      const res = await axiosInstance.post(`/chat-rooms/alarm/toggle/${roomId}`);
+      setAlarmEnabled(res.data);
+    } catch (e) {
+      console.error("알림 설정 토글 실패", e);
+    }
+  };
 
   // 프로필 업데이트 처리 함수
   const handleProfileUpdate = useCallback((profileUpdateData) => {
@@ -680,7 +690,8 @@ const ChatRoom = () => {
             onLeaveRoom={handleLeaveRoom}
             onDeleteRoom={handleDeleteRoom}
             isOwner={isOwner}
-
+            toggleAlarm={toggleAlarm}
+            alarmEnabled={alarmEnabled}
           />
 
           <div

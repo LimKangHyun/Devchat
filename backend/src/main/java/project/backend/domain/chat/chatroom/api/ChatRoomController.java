@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
@@ -26,12 +27,10 @@ import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
 import project.backend.domain.chat.chatroom.dto.EntryRoomResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinRequest;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
+import project.backend.domain.chat.chatroom.dto.JoinRoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
-import project.backend.global.exception.errorcode.AuthErrorCode;
-import project.backend.global.exception.ex.AuthException;
-import project.backend.auth.dto.MemberDetails;
 
 @Slf4j
 @RestController
@@ -105,8 +104,14 @@ public class ChatRoomController {
 		return chatRoomService.getEntryInfo(inviteCode, memberDetails.getId());
 	}
 
+	@PostMapping("/alarm/toggle/{roomId}")
+	public boolean toggleAlarm(@PathVariable Long roomId,
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		return chatRoomService.toggleAlarm(roomId, memberDetails.getId());
+	}
+
 	@GetMapping("/info/{inviteCode}")
-	public RoomInfoResponse getChatRoomDetails(@PathVariable String inviteCode,
+	public JoinRoomInfoResponse getChatRoomDetails(@PathVariable String inviteCode,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		return chatRoomService.getRoomInfo(inviteCode, memberDetails.getId());
 	}

@@ -1,9 +1,9 @@
 package project.backend.domain.chat.chatroom.mapper;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
+import project.backend.domain.chat.chatmessage.dto.event.EventMessageResponse;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
@@ -12,24 +12,22 @@ import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
-import project.backend.domain.chat.chatmessage.dto.event.EventMessageResponse;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
-import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.member.entity.Member;
 
 @Component
 public class ChatRoomMapper {
 
-
-	public static RoomInfoResponse toListResponse(ChatRoom chatRoom) {
+	public static RoomInfoResponse toListResponse(ChatRoom chatRoom, boolean alarmEnabled) {
 		return RoomInfoResponse.builder()
 			.roomId(chatRoom.getId())
 			.roomName(chatRoom.getName())
 			.repositoryUrl(chatRoom.getRepositoryUrl())
 			.inviteCode(chatRoom.getInviteCode())
+			.alarmEnabled(alarmEnabled)
 			.build();
 	}
 
@@ -112,7 +110,8 @@ public class ChatRoomMapper {
 			.build();
 	}
 
-	public static EventMessageResponse toDeleteEventMessageResponse(DeleteChatRoomEvent deleteEvent) {
+	public static EventMessageResponse toDeleteEventMessageResponse(
+		DeleteChatRoomEvent deleteEvent) {
 		return EventMessageResponse.builder()
 			.type(MessageType.EVENT)
 			.roomId(deleteEvent.roomId())

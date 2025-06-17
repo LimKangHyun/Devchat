@@ -8,6 +8,7 @@ import RoomInfoModal from './modals/RoomInfoModal';
 import Toast from './common/Toast';
 import axiosInstance from "./api/axiosInstance"
 import useSideBarWebSocket from './common/useSideBarWebSocket'; // 사이드바 전용 웹소켓 훅 import
+import NewMessageAlert from './modals/NewMessageAlert';
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -39,8 +40,13 @@ const Sidebar = () => {
   const [unreadMessages, setUnreadMessages] = useState({});
   const [roomId, setRoomId] = useState(null);
 
+  const [newMessageAlert, setNewMessageAlert] = useState(null);
+
   // 사이드바 메시지 처리 콜백
   const handleSidebarMessage = (roomUniqueId, message) => {
+    const targetRoom = chatRooms.find(r => r.uniqueId === roomUniqueId);
+    if (!targetRoom || !targetRoom.alarmEnabled) return;
+
     // 현재 있는 채팅방이 아닌 경우에만 알림 표시
     if (Number(roomId) !== Number(roomUniqueId)) {
       setUnreadMessages(prev => ({
@@ -48,6 +54,13 @@ const Sidebar = () => {
         [roomUniqueId]: true
       }));
       console.log(`📨 New message in room ${roomUniqueId}`);
+
+      // 메시지 모달 표시
+      setNewMessageAlert({
+        roomName: chatRooms.find(r => r.uniqueId === roomUniqueId)?.roomName || `Room ${roomUniqueId}`,
+        content: message.content,
+        roomUniqueId,
+      });
     }
   };
 
@@ -73,15 +86,6 @@ const Sidebar = () => {
       });
     }
   }, [roomId]);
-
-  // useEffect(() => {
-  //   if (inviteCode && chatRooms.length > 0) {
-  //     const currentRoom = chatRooms.find(room => room.inviteCode === inviteCode);
-  //     if (currentRoom) {
-  //       setRoomId(currentRoom.uniqueId);
-  //     }
-  //   }
-  // }, [inviteCode, chatRooms]);
 
   useEffect(() => {
     if (!inviteCode) {
@@ -116,7 +120,7 @@ const Sidebar = () => {
 
       const validatedRooms = (data.content || []).map(room => {
         const id = room.roomId || room.id;
-        return { ...room, uniqueId: id };
+        return { ...room,uniqueId: id, alarmEnabled: room.alarmEnabled ?? true };
       }).filter(room => room.uniqueId);
 
       setChatRooms(validatedRooms);
@@ -655,6 +659,21 @@ const Sidebar = () => {
 
       {showToast && (
         <Toast message={toastMessage} />
+      )}
+
+      {newMessageAlert && (
+        <NewMessageAlert
+          roomName={newMessageAlert.roomName}
+          content={newMessageAlert.content}
+          onClose={() => setNewMessageAlert(null)}
+          onNavigate={() => {
+            const invite = chatRooms.find(r => r.uniqueId === newMessageAlert.roomUniqueId)?.inviteCode;
+            if (invite) {
+              navigate(`/chat/${invite}`);
+              setNewMessageAlert(null);
+            }
+          }}
+        />
       )}
 
       {/* CSS 애니메이션 추가 */}

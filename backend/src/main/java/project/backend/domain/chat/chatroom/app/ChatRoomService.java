@@ -3,6 +3,7 @@ package project.backend.domain.chat.chatroom.app;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -13,14 +14,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
+import project.backend.domain.chat.chatroom.dao.ChatRoomAlarmRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
 import project.backend.domain.chat.chatroom.dto.EntryRoomResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
+import project.backend.domain.chat.chatroom.dto.JoinRoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
@@ -28,6 +30,7 @@ import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
+import project.backend.domain.chat.chatroom.entity.ChatRoomAlarm;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
 import project.backend.domain.chat.github.app.GitMessageService;
 import project.backend.domain.member.app.MemberService;
@@ -47,7 +50,7 @@ public class ChatRoomService {
 	private final MemberService memberService;
 	private final GitMessageService gitMessageService;
 	private final ApplicationEventPublisher eventPublisher;
-	private final ChatMessageRepository chatMessageRepository;
+	private final ChatRoomAlarmRepository chatRoomAlarmRepository;
 
 	@Value("${github.username}")
 	private String githubUsername;
@@ -60,8 +63,9 @@ public class ChatRoomService {
 
 		ChatParticipant chatParticipant = ChatParticipant.createOwner(owner, chatRoom);
 		chatRoom.addParticipant(chatParticipant);
-
 		ChatRoom savedRoom = chatRoomRepository.save(chatRoom);
+
+		createAlarm(ownerId, chatRoom.getId());
 
 		if (!request.getRepositoryUrl().isBlank()) {
 			gitMessageService.registerWebhook(request.getRepositoryUrl(),
@@ -72,24 +76,15 @@ public class ChatRoomService {
 		return chatRoomMapper.toSimpleResponse(savedRoom, owner);
 	}
 
+	private void createAlarm(Long memberId, Long roomId) {
+		ChatRoomAlarm alarm = new ChatRoomAlarm(memberId, roomId);
+		chatRoomAlarmRepository.save(alarm);
+	}
+
 	private void joinGitHubBot(ChatRoom room) {
 		Member githubBot = memberService.getMemberByUsername(githubUsername);
 		ChatParticipant gitParticipant = ChatParticipant.of(githubBot, room);
 		room.addParticipant(gitParticipant);
-	}
-
-	@Transactional(readOnly = true)
-	public String getInviteCode(Long roomId) {
-		ChatRoom room = getRoomById(roomId);
-
-		return room.getInviteCode();
-	}
-
-	@Transactional(readOnly = true)
-	public Long getRoomIdByInviteCode(String inviteCode) {
-		ChatRoom room = getByInviteCode(inviteCode);
-
-		return room.getId();
 	}
 
 	@Transactional
@@ -98,6 +93,7 @@ public class ChatRoomService {
 		Member member = memberService.getMemberById(memberId);
 
 		handleParticipantJoin(room, member);
+		createAlarm(memberId, room.getId());
 
 		eventPublisher.publishEvent(
 			new JoinChatRoomEvent(room.getId(), memberId, member.getNickname(),
@@ -153,7 +149,19 @@ public class ChatRoomService {
 		Page<ChatRoom> chatRooms = chatRoomRepository.findChatRoomsByParticipantId(
 			memberId, pageable);
 
-		return chatRooms.map(ChatRoomMapper::toListResponse);
+		//알림 설정 가져오기
+		List<Long> roomIds = chatRooms.stream()
+			.map(ChatRoom::getId)
+			.toList();
+
+		Map<Long, Boolean> alarmEnabledMap = chatRoomAlarmRepository.findEnabledMap(memberId,
+			roomIds);
+
+//		return chatRooms.map(ChatRoomMapper::toListResponse);
+		return chatRooms.map(room -> {
+			boolean alarmEnabled = alarmEnabledMap.getOrDefault(room.getId(), true); // 기본값 true
+			return ChatRoomMapper.toListResponse(room, alarmEnabled);
+		});
 	}
 
 	// 채팅방의 참가자 목록 조회
@@ -197,14 +205,14 @@ public class ChatRoomService {
 		Member member = memberService.getMemberById(memberId);
 
 		Optional<ChatParticipant> mostRecentActiveRoom =
-			chatParticipantRepository.findTopByParticipantIdAndIsActiveTrueOrderByJoinAtDesc(memberId);
+			chatParticipantRepository.findTopByParticipantIdAndIsActiveTrueOrderByJoinAtDesc(
+				memberId);
 
 		if (mostRecentActiveRoom.isPresent()) {
 			member.setRecentRoomId(mostRecentActiveRoom.get().getChatRoom().getId());
 		} else {
 			member.setRecentRoomId(null);
 		}
-
 	}
 
 	private ChatRoom getByInviteCode(String inviteCode) {
@@ -227,7 +235,10 @@ public class ChatRoomService {
 
 		Long ownerId = findOwnerId(room.getId());
 
-		return new EntryRoomResponse(room.getId(), room.getName(), ownerId);
+		boolean alarmEnable = chatRoomAlarmRepository.findEnabledByMemberIdAndRoomId(
+			memberId, room.getId());
+
+		return new EntryRoomResponse(room.getId(), room.getName(), ownerId, alarmEnable);
 	}
 
 	private Long findOwnerId(Long roomId) {
@@ -237,9 +248,9 @@ public class ChatRoomService {
 	}
 
 	@Transactional(readOnly = true)
-	public RoomInfoResponse getRoomInfo(String inviteCode, Long memberId) {
+	public JoinRoomInfoResponse getRoomInfo(String inviteCode, Long memberId) {
 		ChatRoom room = getByInviteCode(inviteCode);
-		return ChatRoomMapper.toListResponse(room);
+		return new JoinRoomInfoResponse(room.getName(), room.getInviteCode());
 	}
 
 	public void validateNotParticipant(Long memberId, Long roomId) {
@@ -266,6 +277,18 @@ public class ChatRoomService {
 		);
 
 		chatRoomRepository.delete(room);
+	}
+
+	@Transactional
+	public boolean toggleAlarm(Long roomId, Long memberId) {
+		ChatRoomAlarm alarm = chatRoomAlarmRepository.findByIdMemberIdAndIdRoomId(memberId, roomId)
+			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.ALARM_NOT_FOUND));
+
+		System.out.println("Before toggle: " + alarm.isEnabled());
+		alarm.setEnabled(!alarm.isEnabled());
+		System.out.println("After toggle: " + alarm.isEnabled());
+
+		return alarm.isEnabled();
 	}
 }
 
