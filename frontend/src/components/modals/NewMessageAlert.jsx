@@ -1,6 +1,6 @@
 import React from 'react';
 
-const NewMessageAlert = ({ roomName, content, onClose, onNavigate }) => {
+const NewMessageAlert = ({ roomName, content, senderProfile, senderNickname, onClose, onNavigate }) => {
   return (
     <div style={{
       position: 'fixed',
@@ -31,7 +31,7 @@ const NewMessageAlert = ({ roomName, content, onClose, onNavigate }) => {
           style={{
             border: 'none',
             background: 'transparent',
-            fontSize: '16px',
+            fontSize: '25px',
             cursor: 'pointer',
             lineHeight: '1'
           }}
@@ -40,9 +40,32 @@ const NewMessageAlert = ({ roomName, content, onClose, onNavigate }) => {
           ×
         </button>
       </div>
-      <div style={{ marginBottom: '10px', whiteSpace: 'pre-wrap' }}>
-        {content}
+
+      {/* 발신자 */}
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', gap: '8px' }}>
+        <img
+          src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${senderProfile}`}
+          alt="sender profile"
+          style={{
+            width: '26px',
+            height: '26px',
+            borderRadius: '50%',
+            objectFit: 'cover'
+          }}
+        />
+        <span style={{ fontWeight: 600 }}>{senderNickname || '알 수 없음'}</span>
       </div>
+
+      <div style={{
+        marginBottom: '12px',
+        color: '#555',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      }}>
+        {content}        
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button
           onClick={onNavigate}

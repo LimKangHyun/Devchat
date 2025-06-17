@@ -66,10 +66,24 @@ const Sidebar = () => {
       setNewMessageAlert({
         roomName: chatRooms.find(r => r.uniqueId === roomUniqueId)?.roomName || `Room ${roomUniqueId}`,
         content: message.content,
+        senderNickname: message.senderName,
+        senderProfile: message.profileImageUrl,
         roomUniqueId,
       });
     }
   };
+
+  useEffect(() => {
+    if (newMessageAlert && inviteCode) {
+      const alertInviteCode = chatRooms.find(
+        room => room.uniqueId === newMessageAlert.roomUniqueId
+      )?.inviteCode;
+
+      if (alertInviteCode && alertInviteCode === inviteCode) {
+        setNewMessageAlert(null); // 현재 채팅방으로 이동한 경우 모달 닫기
+      }
+    }
+  }, [inviteCode, newMessageAlert, chatRooms]);
 
   useEffect(() => {
     fetchAllRooms();
@@ -692,6 +706,8 @@ const Sidebar = () => {
         <NewMessageAlert
           roomName={newMessageAlert.roomName}
           content={newMessageAlert.content}
+          senderNickname={newMessageAlert.senderNickname}
+          senderProfile={newMessageAlert.senderProfile}
           onClose={() => setNewMessageAlert(null)}
           onNavigate={() => {
             const invite = chatRooms.find(r => r.uniqueId === newMessageAlert.roomUniqueId)?.inviteCode;
