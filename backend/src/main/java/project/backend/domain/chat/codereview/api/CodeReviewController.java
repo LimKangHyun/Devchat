@@ -14,7 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.codereview.app.CodeReviewService;
-import project.backend.domain.chat.codereview.dto.CodeReviewRequest;
+import project.backend.domain.chat.codereview.dto.CodeReviewCreateRequest;
+import project.backend.domain.chat.codereview.dto.CodeReviewEditRequest;
 import project.backend.domain.chat.codereview.dto.CodeReviewResponse;
 
 @RestController
@@ -26,7 +27,7 @@ public class CodeReviewController {
 
 	@PostMapping
 	public CodeReviewResponse createReview(
-		@Valid @RequestBody CodeReviewRequest request,
+		@Valid @RequestBody CodeReviewCreateRequest request,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		return codeReviewService.createReview(request, memberDetails.getId());
 	}
@@ -45,7 +46,7 @@ public class CodeReviewController {
 
 	@PutMapping("/{reviewId}")
 	public CodeReviewResponse editReview(@PathVariable Long reviewId,
-		@Valid @RequestBody CodeReviewRequest request,
+		@Valid @RequestBody CodeReviewEditRequest request,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		return codeReviewService.editReview(reviewId, request, memberDetails.getId());
 	}

@@ -9,7 +9,8 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.codereview.dao.CodeReviewRepository;
-import project.backend.domain.chat.codereview.dto.CodeReviewRequest;
+import project.backend.domain.chat.codereview.dto.CodeReviewCreateRequest;
+import project.backend.domain.chat.codereview.dto.CodeReviewEditRequest;
 import project.backend.domain.chat.codereview.dto.CodeReviewResponse;
 import project.backend.domain.chat.codereview.entity.CodeReview;
 import project.backend.domain.chat.codereview.mapper.CodeReviewMapper;
@@ -31,7 +32,7 @@ public class CodeReviewService {
 	private final ChatRoomService chatRoomService;
 
 	@Transactional
-	public CodeReviewResponse createReview(CodeReviewRequest request, Long authorId) {
+	public CodeReviewResponse createReview(CodeReviewCreateRequest request, Long authorId) {
 		Member author = memberService.getMemberById(authorId);
 
 		ChatMessage message = chatMessageRepository.findById(request.messageId())
@@ -71,7 +72,7 @@ public class CodeReviewService {
 	}
 
 	@Transactional
-	public CodeReviewResponse editReview(Long reviewId, CodeReviewRequest request, Long authorId) {
+	public CodeReviewResponse editReview(Long reviewId, CodeReviewEditRequest request, Long authorId) {
 		CodeReview editCodeReview = validateReviewOwnership(reviewId, authorId);
 
 		editCodeReview.editReview(request.content());
