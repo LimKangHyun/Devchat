@@ -39,7 +39,6 @@ const ChatRoom = () => {
   const [isOwner, setIsOwner] = useState(false);
   const [roomData, setRoomData] = useState(null);
   const [deleteNotification, setDeleteNotification] = useState(null);
-  const [alarmEnabled, setAlarmEnabled] = useState(true);
 
   // 초기화 상태를 하나로 통합하고 단계별로 관리
   const [initState, setInitState] = useState({
@@ -74,8 +73,10 @@ const ChatRoom = () => {
 
       setRoomId(roomData.roomId);
       setRoomName(roomData.roomName);
-      setAlarmEnabled(roomData.alarmEnabled);
       setRoomData(roomData);
+
+      // ✅ Context 전역 상태도 함께 갱신
+      updateAlarm(roomData.roomId, roomData.alarmEnabled);
       
       // 한 번에 상태 업데이트
       setInitState(prev => ({
@@ -688,16 +689,18 @@ const ChatRoom = () => {
           transition: 'opacity 0.3s ease'
         }}>
 
-          <RoomHeader
-            roomName={roomName}
-            inviteCode={inviteCode}
-            onSearch={handleSearch} 
-            onLeaveRoom={handleLeaveRoom}
-            onDeleteRoom={handleDeleteRoom}
-            isOwner={isOwner}
-            toggleAlarm={toggleAlarm}
-            alarmEnabled={getAlarmStatus(roomId)}
-          />
+          {getAlarmStatus(roomId) !== undefined && (
+            <RoomHeader
+              roomName={roomName}
+              inviteCode={inviteCode}
+              onSearch={handleSearch} 
+              onLeaveRoom={handleLeaveRoom}
+              onDeleteRoom={handleDeleteRoom}
+              isOwner={isOwner}
+              toggleAlarm={toggleAlarm}
+              alarmEnabled={getAlarmStatus(roomId)}
+            />
+          )}
 
           <div
             ref={messageContainerRef}

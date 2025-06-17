@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomAlarmRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
+import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
@@ -149,19 +150,7 @@ public class ChatRoomService {
 		Page<ChatRoom> chatRooms = chatRoomRepository.findChatRoomsByParticipantId(
 			memberId, pageable);
 
-		//알림 설정 가져오기
-		List<Long> roomIds = chatRooms.stream()
-			.map(ChatRoom::getId)
-			.toList();
-
-		Map<Long, Boolean> alarmEnabledMap = chatRoomAlarmRepository.findEnabledMap(memberId,
-			roomIds);
-
-//		return chatRooms.map(ChatRoomMapper::toListResponse);
-		return chatRooms.map(room -> {
-			boolean alarmEnabled = alarmEnabledMap.getOrDefault(room.getId(), true); // 기본값 true
-			return ChatRoomMapper.toListResponse(room, alarmEnabled);
-		});
+		return chatRooms.map(ChatRoomMapper::toListResponse);
 	}
 
 	// 채팅방의 참가자 목록 조회
@@ -289,6 +278,26 @@ public class ChatRoomService {
 		System.out.println("After toggle: " + alarm.isEnabled());
 
 		return alarm.isEnabled();
+	}
+
+	@Transactional(readOnly = true)
+	public List<AllRoomsResponse> findAllRoomsByMemberId(Long memberId) {
+		List<ChatRoom> chatRooms = chatRoomRepository.findAllRoomsByParticipantId(
+			memberId);
+
+		//알림 설정 가져오기
+		List<Long> roomIds = chatRooms.stream()
+			.map(ChatRoom::getId)
+			.toList();
+
+		Map<Long, Boolean> alarmEnabledMap = chatRoomAlarmRepository.findEnabledMap(memberId,
+			roomIds);
+
+		return chatRooms.stream()
+			.map(room -> {
+				boolean alarmEnabled = alarmEnabledMap.getOrDefault(room.getId(), true); // 기본값 true
+				return new AllRoomsResponse(room.getId(), alarmEnabled);
+			}).toList();
 	}
 }
 

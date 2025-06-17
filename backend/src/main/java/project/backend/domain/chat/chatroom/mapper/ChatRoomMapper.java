@@ -21,13 +21,12 @@ import project.backend.domain.member.entity.Member;
 @Component
 public class ChatRoomMapper {
 
-	public static RoomInfoResponse toListResponse(ChatRoom chatRoom, boolean alarmEnabled) {
+	public static RoomInfoResponse toListResponse(ChatRoom chatRoom) {
 		return RoomInfoResponse.builder()
 			.roomId(chatRoom.getId())
 			.roomName(chatRoom.getName())
 			.repositoryUrl(chatRoom.getRepositoryUrl())
 			.inviteCode(chatRoom.getInviteCode())
-			.alarmEnabled(alarmEnabled)
 			.build();
 	}
 

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
+import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
@@ -120,5 +121,11 @@ public class ChatRoomController {
 	public void deleteChatRoom(@PathVariable Long roomId,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		chatRoomService.deleteChatRoom(roomId, memberDetails.getId());
+	}
+
+	@GetMapping("/all")
+	public List<AllRoomsResponse> getAllRooms(
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		return chatRoomService.findAllRoomsByMemberId(memberDetails.getId());
 	}
 }

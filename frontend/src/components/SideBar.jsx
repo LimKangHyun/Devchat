@@ -42,9 +42,8 @@ const Sidebar = () => {
   const [roomId, setRoomId] = useState(null);
 
   const [newMessageAlert, setNewMessageAlert] = useState(null);
-
-  // 전역 알림 상태 훅 사용
-  const { getAlarmStatus } = useAlarm();
+  const { getAlarmStatus, alarmStatusMap={} } = useAlarm(); // 전역 알림 상태 접근
+  const [alarmRooms, setAlarmRooms] = useState([]);
 
   // 사이드바 메시지 처리 콜백
   const handleSidebarMessage = (roomUniqueId, message) => {
@@ -72,19 +71,21 @@ const Sidebar = () => {
     }
   };
 
+  useEffect(() => {
+    fetchAllRooms();
+  },[alarmStatusMap]);
+
   // useWebSocket 훅 사용 - 사이드바용 구독만 활성화
   const stompClientRef = useSideBarWebSocket({
-    chatRooms, // 채팅방 목록 전달
+    chatRooms: alarmRooms, // 채팅방 목록 전달
     currentRoomId: roomId, // 현재 활성화된 채팅방 ID
     onSidebarMessage: handleSidebarMessage, // 사이드바 메시지 처리 콜백
   });
 
-  const { alarmStatusMap } = useAlarm(); // 전역 알림 상태 접근
-
   useEffect(() => {
     fetchChatRooms(currentPage);
     fetchCurrentUser();
-  }, [currentPage, inviteCode, alarmStatusMap]);
+  }, [currentPage, inviteCode]);
 
   // 현재 채팅방이 변경될 때 해당 방의 읽지 않은 메시지 상태 제거
   useEffect(() => {
@@ -140,6 +141,20 @@ const Sidebar = () => {
       console.error('채팅방 목록 로딩 오류:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllRooms = async () => {
+    try {
+      const res = await axiosInstance.get('/chat-rooms/all');
+      const rooms = res.data.map(room => ({
+        ...room,
+        uniqueId: room.roomId || room.id,
+        alarmEnabled: room.alarmEnabled ?? true,
+      }));
+      setAlarmRooms(rooms);
+    } catch (e) {
+      console.error('알림용 채팅방 목록 로딩 실패', e);
     }
   };
 
@@ -252,6 +267,7 @@ const Sidebar = () => {
       const created = res.data;
       setShowCreateModal(false);
       fetchChatRooms(0);
+      fetchAllRooms();
 
       // 응답에서 얻은 데이터로 채팅방 목록 직접 업데이트
       if (created) {
@@ -304,6 +320,7 @@ const Sidebar = () => {
       setShowJoinModal(false);
       setCurrentPage(0);
       fetchChatRooms(0);
+      fetchAllRooms();
 
       if (joined) {
         const newRoom = {

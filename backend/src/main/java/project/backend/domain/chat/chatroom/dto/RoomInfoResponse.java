@@ -19,8 +19,6 @@ public class RoomInfoResponse {
 
 	private String inviteCode;
 
-	private boolean alarmEnabled;
-
 }
 
 

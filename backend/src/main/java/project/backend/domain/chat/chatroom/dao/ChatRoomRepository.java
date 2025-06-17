@@ -1,5 +1,6 @@
 package project.backend.domain.chat.chatroom.dao;
 
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +30,14 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 		WHERE cp.participant.id = :ownerId AND cp.isOwner=true AND cp.isActive = true
 		""")
 	Page<ChatRoom> findAllRoomsByOwnerId(Long ownerId, Pageable pageable);
+
+	@Query("""
+		SELECT DISTINCT cr
+		FROM ChatRoom cr
+		JOIN cr.participants cp
+		WHERE cp.participant.id = :memberId AND cp.isActive = true
+		""")
+	List<ChatRoom> findAllRoomsByParticipantId(@Param("memberId") Long memberId);
 
 }
 
