@@ -1,4 +1,4 @@
-package project.backend.domain.member.notification.dto;
+package project.backend.domain.member.friend.dto;
 
 public record FriendRequestDto(
 	String targetUsername

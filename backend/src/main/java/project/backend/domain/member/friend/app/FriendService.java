@@ -14,10 +14,10 @@ import project.backend.domain.member.friend.dao.FriendRequestRepository;
 import project.backend.domain.member.friend.dao.FriendsListRepository;
 import project.backend.domain.member.friend.dto.FriendResponse;
 import project.backend.domain.member.friend.entity.FriendRequest;
-import project.backend.domain.member.friend.dto.event.FriendEvent;
+import project.backend.domain.member.notification.dto.NotificationResponse;
 import project.backend.domain.member.friend.entity.Friends;
 import project.backend.domain.member.notification.app.NotificationService;
-import project.backend.domain.member.notification.dto.FriendRequestDto;
+import project.backend.domain.member.friend.dto.FriendRequestDto;
 import project.backend.domain.member.notification.entity.Notification;
 import project.backend.domain.member.notification.entity.NotificationType;
 import project.backend.global.exception.errorcode.FriendErrorCode;
@@ -56,7 +56,7 @@ public class FriendService {
 		notificationService.saveNotification(
 			Notification.ofFriendRequest(friendRequest));
 
-		eventPublisher.publishEvent(FriendEvent.ofFriendRequest(sender, receiver));
+		eventPublisher.publishEvent(NotificationResponse.ofFriendRequest(sender, receiver));
 	}
 
 	@Transactional
@@ -80,9 +80,9 @@ public class FriendService {
 			Notification.ofFriendshipEstablished(context.friendRequest));
 
 		eventPublisher.publishEvent(
-			FriendEvent.ofFriendAcceptEvent(context.receiver, context.requester));
+			NotificationResponse.ofFriendAcceptEvent(context.receiver, context.requester));
 		eventPublisher.publishEvent(
-			FriendEvent.ofFriendAcceptSelf(context.receiver, context.requester));
+			NotificationResponse.ofFriendAcceptSelf(context.receiver, context.requester));
 	}
 
 	@Transactional
@@ -94,8 +94,9 @@ public class FriendService {
 		notificationService.saveNotification(
 			Notification.ofFriendRequestByDecision(context.friendRequest,
 				NotificationType.FRIEND_REJECTED));
+		
 		eventPublisher.publishEvent(
-			FriendEvent.ofFriendRejectEvent(context.receiver, context.requester));
+			NotificationResponse.ofFriendRejectEvent(context.receiver, context.requester));
 	}
 
 	private FriendContext prepareFriendDecisionContext(Authentication auth, Long requesterId) {

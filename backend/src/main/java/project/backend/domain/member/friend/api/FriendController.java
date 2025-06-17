@@ -15,8 +15,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import project.backend.domain.member.friend.app.FriendService;
 import project.backend.domain.member.friend.dto.FriendResponse;
-import project.backend.domain.member.notification.dto.FriendRequestDto;
-import project.backend.domain.member.notification.entity.NotificationType;
+import project.backend.domain.member.friend.dto.FriendRequestDto;
 
 @Slf4j
 @RestController

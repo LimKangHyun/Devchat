@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
-import project.backend.domain.member.friend.dto.event.FriendEvent;
+import project.backend.domain.member.notification.dto.NotificationResponse;
 import project.backend.domain.member.notification.dao.NotificationRepository;
 import project.backend.domain.member.notification.entity.Notification;
 import project.backend.domain.member.notification.entity.NotificationType;
@@ -24,25 +24,26 @@ public class NotificationService {
 	private final MemberService memberService;
 
 	@Transactional(readOnly = true)
-	public Page<FriendEvent> getNotifications(Authentication auth, Pageable pageable) {
+	public Page<NotificationResponse> getNotifications(Authentication auth, Pageable pageable) {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 
 		Member receiver = Member.of(memberDetails);
 		Page<Notification> notReadNotification = notificationRepository.getNotifications(
 			receiver.getId(), pageable);
 
-		return notReadNotification.map(FriendEvent::ofNotification);
+		return notReadNotification.map(NotificationResponse::ofNotification);
 	}
 
 	@Transactional(readOnly = true)
-	public Page<FriendEvent> getNotReadNotification(Authentication auth, Pageable pageable) {
+	public Page<NotificationResponse> getNotReadNotification(Authentication auth,
+		Pageable pageable) {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 
 		Member receiver = Member.of(memberDetails);
 		Page<Notification> notReadNotification = notificationRepository.getNotReadNotification(
 			receiver.getId(), pageable);
 
-		return notReadNotification.map(FriendEvent::ofNotification);
+		return notReadNotification.map(NotificationResponse::ofNotification);
 	}
 
 	public void saveNotification(Notification notification) {

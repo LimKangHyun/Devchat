@@ -1,11 +1,11 @@
-package project.backend.domain.member.friend.dto.event;
+package project.backend.domain.member.notification.dto;
 
 import java.time.LocalDateTime;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.notification.entity.Notification;
 import project.backend.domain.member.notification.entity.NotificationType;
 
-public record FriendEvent(
+public record NotificationResponse(
 	NotificationType type,
 	String receiverUsername,
 	String senderUsername,
@@ -17,13 +17,13 @@ public record FriendEvent(
 ) {
 
 	// 기본 메시지를 사용하는 팩토리
-	public static FriendEvent create(
+	public static NotificationResponse create(
 		NotificationType type,
 		Member sender,
 		Member receiver,
 		Long referenceId
 	) {
-		return new FriendEvent(
+		return new NotificationResponse(
 			type,
 			receiver.getUsername(),
 			sender.getUsername(),
@@ -36,28 +36,28 @@ public record FriendEvent(
 	}
 
 	// 요청
-	public static FriendEvent ofFriendRequest(Member sender, Member receiver) {
+	public static NotificationResponse ofFriendRequest(Member sender, Member receiver) {
 		return create(NotificationType.FRIEND_REQUESTED, sender, receiver, sender.getId());
 	}
 
 	// 수락 (상대방에게 알림)
-	public static FriendEvent ofFriendAcceptEvent(Member acceptor, Member requester) {
+	public static NotificationResponse ofFriendAcceptEvent(Member acceptor, Member requester) {
 		return create(NotificationType.FRIEND_ACCEPTED, acceptor, requester, acceptor.getId());
 	}
 
 	// 거절 (상대방에게 알림)
-	public static FriendEvent ofFriendRejectEvent(Member rejecter, Member requester) {
+	public static NotificationResponse ofFriendRejectEvent(Member rejecter, Member requester) {
 		return create(NotificationType.FRIEND_REJECTED, rejecter, requester, rejecter.getId());
 	}
 
 	// 수락 (본인에게 알림) - 커스텀 메시지 사용
-	public static FriendEvent ofFriendAcceptSelf(Member acceptor, Member requester) {
+	public static NotificationResponse ofFriendAcceptSelf(Member acceptor, Member requester) {
 		return create(NotificationType.WE_ARE_FRIEND_NOW, requester, acceptor, acceptor.getId());
 	}
 
 	// Notification 객체로부터 생성
-	public static FriendEvent ofNotification(Notification notification) {
-		return new FriendEvent(
+	public static NotificationResponse ofNotification(Notification notification) {
+		return new NotificationResponse(
 			notification.getType(),
 			notification.getReceiver().getUsername(),
 			notification.getSender().getUsername(),
