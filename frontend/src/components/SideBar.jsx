@@ -61,10 +61,14 @@ const Sidebar = () => {
         console.log(`🔕 알림 비활성화된 방(${roomUniqueId}) → 모달 알림 생략`);
         return;
       }
+      
+      const room=alarmRooms.find(r=> r.uniqueId===roomUniqueId);
 
       // 메시지 모달 표시
       setNewMessageAlert({
-        roomName: chatRooms.find(r => r.uniqueId === roomUniqueId)?.roomName || `Room ${roomUniqueId}`,
+        // roomName: chatRooms.find(r => r.uniqueId === roomUniqueId)?.roomName || `Room ${roomUniqueId}`,
+        roomName: room?.roomName || `Room ${roomUniqueId}`,
+        inviteCode: room?.inviteCode,
         content: message.content,
         senderNickname: message.senderName,
         senderProfile: message.profileImageUrl,
@@ -165,6 +169,8 @@ const Sidebar = () => {
         ...room,
         uniqueId: room.roomId || room.id,
         alarmEnabled: room.alarmEnabled ?? true,
+        roomName: room.roomName || `Room ${room.roomId || room.id}`,
+        inviteCode: room.inviteCode,
       }));
       setAlarmRooms(rooms);
     } catch (e) {
@@ -710,7 +716,8 @@ const Sidebar = () => {
           senderProfile={newMessageAlert.senderProfile}
           onClose={() => setNewMessageAlert(null)}
           onNavigate={() => {
-            const invite = chatRooms.find(r => r.uniqueId === newMessageAlert.roomUniqueId)?.inviteCode;
+            // const invite = chatRooms.find(r => r.uniqueId === newMessageAlert.roomUniqueId)?.inviteCode;
+            const invite=newMessageAlert.inviteCode;
             if (invite) {
               navigate(`/chat/${invite}`);
               setNewMessageAlert(null);

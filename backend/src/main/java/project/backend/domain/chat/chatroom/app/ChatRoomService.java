@@ -296,7 +296,8 @@ public class ChatRoomService {
 		return chatRooms.stream()
 			.map(room -> {
 				boolean alarmEnabled = alarmEnabledMap.getOrDefault(room.getId(), true); // 기본값 true
-				return new AllRoomsResponse(room.getId(), alarmEnabled);
+				return new AllRoomsResponse(room.getId(), room.getInviteCode(), room.getName(),
+					alarmEnabled);
 			}).toList();
 	}
 }

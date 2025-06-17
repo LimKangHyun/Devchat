@@ -8,6 +8,8 @@ import lombok.Getter;
 public class AllRoomsResponse {
 
 	private Long roomId;
+	private String inviteCode;
+	private String roomName;
 	private boolean alarmEnabled;
 
 }
