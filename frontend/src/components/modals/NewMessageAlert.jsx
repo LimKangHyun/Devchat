@@ -16,22 +16,34 @@ const NewMessageAlert = ({ roomName, content, senderProfile, senderNickname, onC
       transition: 'opacity 0.3s ease-in-out',
       fontSize: '14px'
     }}>
+
+     {/* 헤더: 닉네임 + 채팅방 이름 + 닫기 버튼 */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '8px'
+        marginBottom: '10px'
       }}>
-        <strong style={{ display: 'flex', alignItems: 'center', gap: '13px' }}>
-          {roomName}
-        </strong>
-
+        <div style={{ display: 'flex', gap: '12px'}}>
+          <img
+            src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${senderProfile}`}
+            alt="sender profile"
+            style={{
+              width: '26px',
+              height: '26px',
+              borderRadius: '50%',
+              objectFit: 'cover'
+            }}
+            />
+          <span style={{ fontWeight: 600 }}>{senderNickname || '알 수 없음'}</span>
+          <span style={{ fontSize: '13px', color: '#777' }}>({roomName})</span>
+        </div>
         <button
           onClick={onClose}
           style={{
             border: 'none',
             background: 'transparent',
-            fontSize: '25px',
+            fontSize: '22px',
             cursor: 'pointer',
             lineHeight: '1'
           }}
@@ -40,21 +52,7 @@ const NewMessageAlert = ({ roomName, content, senderProfile, senderNickname, onC
           ×
         </button>
       </div>
-
-      {/* 발신자 */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', gap: '8px' }}>
-        <img
-          src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${senderProfile}`}
-          alt="sender profile"
-          style={{
-            width: '26px',
-            height: '26px',
-            borderRadius: '50%',
-            objectFit: 'cover'
-          }}
-        />
-        <span style={{ fontWeight: 600 }}>{senderNickname || '알 수 없음'}</span>
-      </div>
+      
 
       <div style={{
         marginBottom: '12px',

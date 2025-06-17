@@ -19,11 +19,6 @@ const Sidebar = () => {
   const [chatRooms, setChatRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 페이지네이션 상태
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
-
   // 모달 상태
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -44,6 +39,7 @@ const Sidebar = () => {
   const [newMessageAlert, setNewMessageAlert] = useState(null);
   const { getAlarmStatus, alarmStatusMap={} } = useAlarm(); // 전역 알림 상태 접근
   const [alarmRooms, setAlarmRooms] = useState([]);
+  const [pinnedRoomId, setPinnedRoomId] = useState(null);
 
   // 사이드바 메시지 처리 콜백
   const handleSidebarMessage = (roomUniqueId, message) => {
@@ -54,15 +50,22 @@ const Sidebar = () => {
         ...prev,
         [roomUniqueId]: true
       }));
-      console.log(`📨 New message in room ${roomUniqueId}`);
+
+      const room=alarmRooms.find(r=> r.uniqueId===roomUniqueId);
+
+      // ✅ 알림 채팅방 최상단으로 올리기
+      if (room) {
+        setAlarmRooms(prev => {
+          const updated = prev.filter(r => r.uniqueId !== roomUniqueId);
+          return [room, ...updated];
+        });
+      }
 
       const isAlarmEnabled = getAlarmStatus(roomUniqueId);
       if (isAlarmEnabled === false) {
         console.log(`🔕 알림 비활성화된 방(${roomUniqueId}) → 모달 알림 생략`);
         return;
       }
-      
-      const room=alarmRooms.find(r=> r.uniqueId===roomUniqueId);
 
       // 메시지 모달 표시
       setNewMessageAlert({
@@ -77,21 +80,18 @@ const Sidebar = () => {
     }
   };
 
+  // 현재 채팅방으로 이동한 경우 모달 닫기
   useEffect(() => {
     if (newMessageAlert && inviteCode) {
-      const alertInviteCode = chatRooms.find(
+      const alertInviteCode = alarmRooms.find(
         room => room.uniqueId === newMessageAlert.roomUniqueId
       )?.inviteCode;
 
       if (alertInviteCode && alertInviteCode === inviteCode) {
-        setNewMessageAlert(null); // 현재 채팅방으로 이동한 경우 모달 닫기
+        setNewMessageAlert(null);
       }
     }
-  }, [inviteCode, newMessageAlert, chatRooms]);
-
-  useEffect(() => {
-    fetchAllRooms();
-  },[alarmStatusMap]);
+  }, [inviteCode, newMessageAlert, alarmRooms]);
 
   // useWebSocket 훅 사용 - 사이드바용 구독만 활성화
   const stompClientRef = useSideBarWebSocket({
@@ -101,9 +101,9 @@ const Sidebar = () => {
   });
 
   useEffect(() => {
-    fetchChatRooms(currentPage);
+    fetchAllRooms();
     fetchCurrentUser();
-  }, [currentPage, inviteCode]);
+  }, [inviteCode, alarmStatusMap]);
 
   // 현재 채팅방이 변경될 때 해당 방의 읽지 않은 메시지 상태 제거
   useEffect(() => {
@@ -123,14 +123,14 @@ const Sidebar = () => {
     }
 
     // chatRooms가 비어 있으면 기다렸다가 다시 실행 (최초 로딩 대응)
-    const foundRoom = chatRooms.find(room => room.inviteCode === inviteCode);
+    const foundRoom = alarmRooms.find(room => room.inviteCode === inviteCode);
 
     if (foundRoom) {
       setRoomId(foundRoom.uniqueId);
     } else {
       setRoomId(null); // 또는 유지
     }
-  }, [inviteCode, chatRooms, alarmStatusMap]);
+  }, [inviteCode, alarmRooms, alarmStatusMap]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -141,29 +141,9 @@ const Sidebar = () => {
     }
   };
 
-  const fetchChatRooms = async (page) => {
-    try {
-      setLoading(true);
-      const res = await axiosInstance.get(`/chat-rooms?page=${page}&size=10`);
-      const data = res.data;
-
-      const validatedRooms = (data.content || []).map(room => {
-        const id = room.roomId || room.id;
-        return { ...room,uniqueId: id, alarmEnabled: room.alarmEnabled ?? true };
-      }).filter(room => room.uniqueId);
-
-      setChatRooms(validatedRooms);
-      setTotalPages(data.totalPages);
-      setTotalElements(data.totalElements);
-    } catch (err) {
-      console.error('채팅방 목록 로딩 오류:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchAllRooms = async () => {
     try {
+      setLoading(true);
       const res = await axiosInstance.get('/chat-rooms/all');
       const rooms = res.data.map(room => ({
         ...room,
@@ -171,10 +151,13 @@ const Sidebar = () => {
         alarmEnabled: room.alarmEnabled ?? true,
         roomName: room.roomName || `Room ${room.roomId || room.id}`,
         inviteCode: room.inviteCode,
-      }));
+      })).filter(room => room.uniqueId);
+
       setAlarmRooms(rooms);
     } catch (e) {
       console.error('알림용 채팅방 목록 로딩 실패', e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -190,19 +173,12 @@ const Sidebar = () => {
     }
   };
 
-  // 페이지 변경 핸들러
-  const paginate = (pageNumber) => {
-    if (pageNumber >= 0 && pageNumber < totalPages) {
-      setCurrentPage(pageNumber);
-    }
-  };
-
   // 방 상세 정보 가져오기
   const fetchRoomDetails = async (roomId) => {
     try {
       // 방 상세 정보를 가져오는 API가 있다면 사용
       // 현재 예시에서는 이런 API가 명시되어 있지 않으므로 기존 목록에서 찾아서 사용
-      const existingRoom = chatRooms.find(room => Number(room.uniqueId) === Number(roomId));
+      const existingRoom = alarmRooms.find(room => Number(room.uniqueId) === Number(roomId));
 
       if (!existingRoom) return null;
 
@@ -264,7 +240,7 @@ const Sidebar = () => {
     setShowMembersModal(true);
 
     // 상태 업데이트 - 방 목록에 반영
-    setChatRooms(prev => prev.map(r =>
+    setAlarmRooms(prev => prev.map(r =>
       Number(r.uniqueId) === Number(enhancedRoom.uniqueId) ? enhancedRoom : r
     ));
   };
@@ -286,7 +262,7 @@ const Sidebar = () => {
 
       const created = res.data;
       setShowCreateModal(false);
-      fetchChatRooms(0);
+      // fetchChatRooms(0);
       fetchAllRooms();
 
       // 응답에서 얻은 데이터로 채팅방 목록 직접 업데이트
@@ -305,16 +281,9 @@ const Sidebar = () => {
           ]
         };
 
-        // 현재 페이지가 첫 페이지인 경우만 직접 목록에 추가
-        if (currentPage === 0) {
-          setChatRooms(prev => [newRoom, ...prev.slice(0, 9)]); // 최대 10개 유지
-          setTotalElements(prev => prev + 1);
-        } else {
+          setAlarmRooms(prev => [newRoom, ...prev.slice(0, 9)]); // 최대 10개 유지
           // 첫 페이지가 아니면 첫 페이지로 이동하고 목록 갱신
-          setCurrentPage(0);
-          setCurrentPage(0);
-          fetchChatRooms(0);
-        }
+          fetchAllRooms();
       }
 
       if (created?.id) {
@@ -338,8 +307,6 @@ const Sidebar = () => {
 
       const joined = await res.data;
       setShowJoinModal(false);
-      setCurrentPage(0);
-      fetchChatRooms(0);
       fetchAllRooms();
 
       if (joined) {
@@ -358,20 +325,6 @@ const Sidebar = () => {
             )
           ]
         };
-
-        if (currentPage === 0) {
-          setChatRooms(prev => {
-            const exists = prev.some(room => room.uniqueId === newRoom.uniqueId);
-            if (!exists) {
-              return [newRoom, ...prev.slice(0, 9)];
-            }
-            return prev;
-          });
-          setTotalElements(prev => prev + 1);
-        } else {
-          setCurrentPage(0);
-          fetchChatRooms(0);
-        }
       }
 
       if (joined?.id) {
@@ -382,10 +335,6 @@ const Sidebar = () => {
       throw err;
     }
   };
-
-  // 현재 페이지의 시작 항목과 끝 항목 계산
-  const startItem = currentPage * 10 + 1;
-  const endItem = Math.min((currentPage * 10) + chatRooms.length, totalElements);
 
   return (
     <>
@@ -410,19 +359,7 @@ const Sidebar = () => {
           background: 'linear-gradient(to bottom, rgba(0,0,0,0.1), transparent)'
         }}>
           <h3 style={{ margin: '0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '18px', fontWeight: '600' }}>Code Chat <br /> Rooms</span>
-            {totalElements > 0 && (
-              <span style={{
-                fontSize: '14px',
-                color: 'rgba(255,255,255,0.8)',
-                padding: '2px 8px',
-                backgroundColor: 'rgba(0,0,0,0.1)',
-                borderRadius: '12px',
-                whiteSpace: 'nowrap'
-              }}>
-                {startItem}-{endItem} / {totalElements}
-              </span>
-            )}
+            <span style={{ fontSize: '18px', fontWeight: '600' }}>DevChat <br /> Rooms</span>
           </h3>
         </div>
 
@@ -446,12 +383,12 @@ const Sidebar = () => {
             <div style={{ textAlign: 'center', padding: '20px', color: 'rgba(255,255,255,0.7)' }}>
               채팅방 불러오는 중...
             </div>
-          ) : chatRooms.length === 0 ? (
+          ) : alarmRooms.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '20px', color: 'rgba(255,255,255,0.7)' }}>
               참여중인 채팅방이 없습니다
             </div>
           ) : (
-            chatRooms.map((room) => {
+            alarmRooms.map((room) => {
               const roomUniqueId = room.uniqueId;
               const isCurrentRoom = roomId && Number(roomId) === Number(roomUniqueId);
               const isSelectedForModal = selectedRoom && Number(selectedRoom.uniqueId) === Number(roomUniqueId) && showMembersModal;
@@ -507,7 +444,7 @@ const Sidebar = () => {
                         position: 'relative'
                       }}>
                         <FaRegCommentDots size={14} />
-                        {/* 읽지 않은 메시지 알림 점 */}
+                        {/* 읽지 않은 메시지 알림 점 (빨간점)*/}
                         {hasUnreadMessage && (
                           <div style={{
                             position: 'absolute',
@@ -573,51 +510,6 @@ const Sidebar = () => {
               );
             })
           )}
-        </div>
-
-        {/* 페이지네이션 컨트롤 */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '12px 0',
-          borderTop: '1px solid rgba(255,255,255,0.15)',
-          borderBottom: '1px solid rgba(255,255,255,0.15)',
-          backgroundColor: 'rgba(0,0,0,0.05)'
-        }}>
-          <button
-            onClick={() => paginate(currentPage - 1)}
-            disabled={currentPage === 0}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: currentPage === 0 ? 'rgba(255,255,255,0.3)' : 'white',
-              cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
-              fontSize: '20px',
-              padding: '0 8px'
-            }}
-          >
-            <FaAngleLeft />
-          </button>
-
-          <div style={{ margin: '0 10px', fontSize: '14px', fontWeight: '500' }}>
-            {currentPage + 1} / {totalPages || 1}
-          </div>
-
-          <button
-            onClick={() => paginate(currentPage + 1)}
-            disabled={currentPage === totalPages - 1 || totalPages === 0}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: (currentPage === totalPages - 1 || totalPages === 0) ? 'rgba(255,255,255,0.3)' : 'white',
-              cursor: (currentPage === totalPages - 1 || totalPages === 0) ? 'not-allowed' : 'pointer',
-              fontSize: '20px',
-              padding: '0 8px'
-            }}
-          >
-            <FaAngleRight />
-          </button>
         </div>
 
         {/* 하단 버튼 */}

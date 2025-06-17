@@ -31,7 +31,6 @@ import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.JoinRoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
-import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
 
 @Slf4j
 @RestController
@@ -63,16 +62,6 @@ public class ChatRoomController {
 		String inviteCode = chatRoomService.getRecentRoomInviteCode(
 			memberDetails.getId());
 		return new RecentChatRoomResponse(inviteCode);
-	}
-
-	@GetMapping
-	public Page<RoomInfoResponse> getChatRooms(
-		@AuthenticationPrincipal MemberDetails memberDetails,
-		@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-
-		Long memberId = memberDetails.getId();
-		// 채팅방 목록 리스트로 가져오기
-		return chatRoomService.findChatRoomsByMemberId(memberId, pageable);
 	}
 
 	@GetMapping("/{roomId}/participants")

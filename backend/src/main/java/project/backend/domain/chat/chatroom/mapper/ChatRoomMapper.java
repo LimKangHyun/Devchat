@@ -10,7 +10,6 @@ import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
-import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
@@ -20,15 +19,6 @@ import project.backend.domain.member.entity.Member;
 
 @Component
 public class ChatRoomMapper {
-
-	public static RoomInfoResponse toListResponse(ChatRoom chatRoom) {
-		return RoomInfoResponse.builder()
-			.roomId(chatRoom.getId())
-			.roomName(chatRoom.getName())
-			.repositoryUrl(chatRoom.getRepositoryUrl())
-			.inviteCode(chatRoom.getInviteCode())
-			.build();
-	}
 
 	// 강현님: 참여자 응답 변환
 	public static ChatParticipantResponse toParticipantResponse(ChatParticipant p) {

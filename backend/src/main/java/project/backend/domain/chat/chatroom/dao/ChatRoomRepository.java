@@ -12,15 +12,6 @@ import project.backend.domain.chat.chatroom.entity.ChatRoom;
 
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
-	@Query("""
-		SELECT DISTINCT cr
-		FROM ChatRoom cr
-		JOIN cr.participants cp
-		WHERE cp.participant.id = :memberId AND cp.isActive = true
-		""")
-	Page<ChatRoom> findChatRoomsByParticipantId(@Param("memberId") Long memberId,
-		Pageable pageable);
-
 	Optional<ChatRoom> findByInviteCode(String inviteCode);
 
 	@Query("""
@@ -31,11 +22,20 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 		""")
 	Page<ChatRoom> findAllRoomsByOwnerId(Long ownerId, Pageable pageable);
 
+	//	@Query("""
+//		SELECT DISTINCT cr
+//		FROM ChatRoom cr
+//		JOIN cr.participants cp
+//		WHERE cp.participant.id = :memberId AND cp.isActive = true
+//		""")
 	@Query("""
-		SELECT DISTINCT cr
-		FROM ChatRoom cr
-		JOIN cr.participants cp
-		WHERE cp.participant.id = :memberId AND cp.isActive = true
+			SELECT cr
+			FROM ChatRoom cr
+			JOIN cr.participants cp
+			LEFT JOIN cr.messages m
+			WHERE cp.participant.id = :memberId AND cp.isActive = true
+			GROUP BY cr
+			ORDER BY MAX(m.sendAt) DESC NULLS LAST
 		""")
 	List<ChatRoom> findAllRoomsByParticipantId(@Param("memberId") Long memberId);
 

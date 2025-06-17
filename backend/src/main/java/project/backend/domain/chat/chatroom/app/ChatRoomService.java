@@ -25,7 +25,6 @@ import project.backend.domain.chat.chatroom.dto.EntryRoomResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.JoinRoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
-import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
@@ -141,16 +140,6 @@ public class ChatRoomService {
 			pageable);
 
 		return allRoomsByOwnerId.map(ChatRoomMapper::toProfileResponse);
-	}
-
-
-	@Transactional(readOnly = true)
-	public Page<RoomInfoResponse> findChatRoomsByMemberId(Long memberId, Pageable pageable) {
-
-		Page<ChatRoom> chatRooms = chatRoomRepository.findChatRoomsByParticipantId(
-			memberId, pageable);
-
-		return chatRooms.map(ChatRoomMapper::toListResponse);
 	}
 
 	// 채팅방의 참가자 목록 조회
@@ -282,14 +271,15 @@ public class ChatRoomService {
 
 	@Transactional(readOnly = true)
 	public List<AllRoomsResponse> findAllRoomsByMemberId(Long memberId) {
+		//참여 중인 방 id 목록 조회
 		List<ChatRoom> chatRooms = chatRoomRepository.findAllRoomsByParticipantId(
 			memberId);
 
-		//알림 설정 가져오기
 		List<Long> roomIds = chatRooms.stream()
 			.map(ChatRoom::getId)
 			.toList();
 
+		//알림 상태 map
 		Map<Long, Boolean> alarmEnabledMap = chatRoomAlarmRepository.findEnabledMap(memberId,
 			roomIds);
 
