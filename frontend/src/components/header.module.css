@@ -3,6 +3,7 @@
   background-color: #ffffff;
   border-bottom: 1px solid #e1e5e9;
   backdrop-filter: blur(10px);
+  z-index: 9999;
 }
 
 .container {
@@ -155,7 +156,6 @@
   background: white;
   border-radius: 16px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
-  z-index: 50;
   overflow: hidden;
   backdrop-filter: blur(10px);
 }
