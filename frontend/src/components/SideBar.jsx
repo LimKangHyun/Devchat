@@ -9,6 +9,7 @@ import Toast from './common/Toast';
 import axiosInstance from "./api/axiosInstance"
 import useSideBarWebSocket from './common/useSideBarWebSocket'; // 사이드바 전용 웹소켓 훅 import
 import NewMessageAlert from './modals/NewMessageAlert';
+import { useAlarm } from '../context/AlarmContext';
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -42,10 +43,11 @@ const Sidebar = () => {
 
   const [newMessageAlert, setNewMessageAlert] = useState(null);
 
+  // 전역 알림 상태 훅 사용
+  const { getAlarmStatus } = useAlarm();
+
   // 사이드바 메시지 처리 콜백
   const handleSidebarMessage = (roomUniqueId, message) => {
-    const targetRoom = chatRooms.find(r => r.uniqueId === roomUniqueId);
-    if (!targetRoom || !targetRoom.alarmEnabled) return;
 
     // 현재 있는 채팅방이 아닌 경우에만 알림 표시
     if (Number(roomId) !== Number(roomUniqueId)) {
@@ -54,6 +56,12 @@ const Sidebar = () => {
         [roomUniqueId]: true
       }));
       console.log(`📨 New message in room ${roomUniqueId}`);
+
+      const isAlarmEnabled = getAlarmStatus(roomUniqueId);
+      if (isAlarmEnabled === false) {
+        console.log(`🔕 알림 비활성화된 방(${roomUniqueId}) → 모달 알림 생략`);
+        return;
+      }
 
       // 메시지 모달 표시
       setNewMessageAlert({
@@ -71,10 +79,12 @@ const Sidebar = () => {
     onSidebarMessage: handleSidebarMessage, // 사이드바 메시지 처리 콜백
   });
 
+  const { alarmStatusMap } = useAlarm(); // 전역 알림 상태 접근
+
   useEffect(() => {
     fetchChatRooms(currentPage);
     fetchCurrentUser();
-  }, [currentPage, inviteCode]);
+  }, [currentPage, inviteCode, alarmStatusMap]);
 
   // 현재 채팅방이 변경될 때 해당 방의 읽지 않은 메시지 상태 제거
   useEffect(() => {
@@ -85,7 +95,7 @@ const Sidebar = () => {
         return updated;
       });
     }
-  }, [roomId]);
+  }, [roomId, alarmStatusMap]);
 
   useEffect(() => {
     if (!inviteCode) {
@@ -101,7 +111,7 @@ const Sidebar = () => {
     } else {
       setRoomId(null); // 또는 유지
     }
-  }, [inviteCode, chatRooms]);
+  }, [inviteCode, chatRooms, alarmStatusMap]);
 
   const fetchCurrentUser = async () => {
     try {

@@ -7,6 +7,7 @@ import MessageList from '../components/chatroom/MessageList';
 import useWebSocket from '../components/common/useWebSocket';
 import RoomHeader from '../components/chatroom/RoomHeader';
 import RoomDeletedModal from '../components/modals/RoomDeletedModal';
+import { useAlarm } from '../context/AlarmContext';
 
 const ChatRoom = () => {
   const { inviteCode } = useParams();
@@ -211,10 +212,14 @@ const ChatRoom = () => {
     }
   }, []);
 
+  const { getAlarmStatus, updateAlarm } = useAlarm();
+
+  //채팅방 알림 수신 여부 핸들러
   const toggleAlarm = async () => {
     try {
       const res = await axiosInstance.post(`/chat-rooms/alarm/toggle/${roomId}`);
-      setAlarmEnabled(res.data);
+      // setAlarmEnabled(res.data);
+      updateAlarm(roomId, res.data);
     } catch (e) {
       console.error("알림 설정 토글 실패", e);
     }
@@ -691,7 +696,7 @@ const ChatRoom = () => {
             onDeleteRoom={handleDeleteRoom}
             isOwner={isOwner}
             toggleAlarm={toggleAlarm}
-            alarmEnabled={alarmEnabled}
+            alarmEnabled={getAlarmStatus(roomId)}
           />
 
           <div
