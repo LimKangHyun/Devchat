@@ -7,6 +7,9 @@ import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link } from "react-router-dom"
 import useWebSocketNotifications from "./common/useWebSocket"
+import { FriendsListModal } from "./chat/friends-list-modal"
+import { ChatModal } from "./chat/chat-modal"
+import { ChatButton } from "./chat/chat-button"
 
 export function HeaderWithNotifications() {
   const [profileImage, setProfileImage] = useState(null)
@@ -15,22 +18,27 @@ export function HeaderWithNotifications() {
   const [username, setUsername] = useState("")
 
   // Notification states
-  const [apiNotifications, setApiNotifications] = useState([]) // Current notifications from API
+  const [apiNotifications, setApiNotifications] = useState([])
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
   const [processingRequestId, setProcessingRequestId] = useState(null)
 
   // Filter states
-  const [notificationFilter, setNotificationFilter] = useState("all") // "all" or "unread"
+  const [notificationFilter, setNotificationFilter] = useState("all")
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(0)
   const [hasMoreNotifications, setHasMoreNotifications] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
-  // Count states - ONLY track unread count as the main indicator
+  // Count states
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [realtimeNotificationCount, setRealtimeNotificationCount] = useState(0)
+
+  // Chat states
+  const [isFriendsListOpen, setIsFriendsListOpen] = useState(false)
+  const [openChats, setOpenChats] = useState([])
+  const [currentUser, setCurrentUser] = useState(null)
 
   // UI states
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
@@ -46,7 +54,6 @@ export function HeaderWithNotifications() {
     playNotificationSound()
     triggerShakeAnimation()
 
-    // Increment real-time count
     flushSync(() => {
       setRealtimeNotificationCount((prev) => prev + 1)
     })
@@ -55,7 +62,7 @@ export function HeaderWithNotifications() {
     setHasUnreadNotifications(true)
   }, [])
 
-  // Fetch ONLY unread count - this is the main count we show
+  // Fetch ONLY unread count
   const fetchUnreadCount = async () => {
     try {
       console.log("📊 Fetching unread notification count...")
@@ -75,7 +82,7 @@ export function HeaderWithNotifications() {
   useEffect(() => {
     if (username) {
       console.log("🔌 Initializing for user:", username)
-      fetchUnreadCount() // Fetch initial unread count
+      fetchUnreadCount()
     }
   }, [username])
 
@@ -162,7 +169,7 @@ export function HeaderWithNotifications() {
     return hasUnreadNotifications || unreadNotificationCount > 0 || realtimeNotificationCount > 0
   }
 
-  // Fetch notifications based on current filter - FIXED TO USE CORRECT ENDPOINT
+  // Fetch notifications based on current filter
   const fetchNotifications = async (page = 0, reset = false, filter = notificationFilter) => {
     try {
       if (reset) {
@@ -171,16 +178,13 @@ export function HeaderWithNotifications() {
         setIsLoadingMore(true)
       }
 
-      // 💡 의도적으로 500ms 대기
       await delay(200)
 
       const endpoint =
-        filter === "unread"
-          ? `/notification/unread?page=${page}&size=10`
-          : `/notification?page=${page}&size=10`
+        filter === "unread" ? `/notification/unread?page=${page}&size=10` : `/notification?page=${page}&size=10`
 
       console.log(`🔄 Fetching notifications from: ${endpoint} (filter: ${filter})`)
-      
+
       const response = await axiosInstance.get(endpoint)
       const { content, totalElements, last } = response.data
 
@@ -244,10 +248,8 @@ export function HeaderWithNotifications() {
       const requestId = notification.referenceId
       await axiosInstance.post(`/friend/request/${requestId}/accept`)
 
-      // Remove the notification from list and update unread count
       flushSync(() => {
         setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
-        // Always decrement unread count for friend requests (they're always unread when actionable)
         setUnreadNotificationCount((prev) => Math.max(0, prev - 1))
       })
 
@@ -269,10 +271,8 @@ export function HeaderWithNotifications() {
       const requestId = notification.referenceId
       await axiosInstance.post(`/friend/request/${requestId}/reject`)
 
-      // Remove the notification from list and update unread count
       flushSync(() => {
         setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
-        // Always decrement unread count for friend requests (they're always unread when actionable)
         setUnreadNotificationCount((prev) => Math.max(0, prev - 1))
       })
     } catch (err) {
@@ -290,12 +290,35 @@ export function HeaderWithNotifications() {
         window.location.href = `/code-review/${notification.referenceId}`
         break
       case "MESSAGE":
-        window.location.href = `/chat/${notification.referenceId}`
+        // Open chat modal with the sender
+        const friend = {
+          username: notification.sender,
+          nickname: notification.sender,
+          status: "online",
+          avatar: notification.senderImg,
+        }
+        openChatModal(friend)
         break
       default:
         console.log("Navigation not implemented for type:", notification.type)
     }
     setIsNotificationOpen(false)
+  }
+
+  // Chat functions
+  const openChatModal = (friend) => {
+    const existingChat = openChats.find((chat) => chat.friend.username === friend.username)
+    if (!existingChat) {
+      setOpenChats((prev) => [...prev, { id: Date.now(), friend }])
+    }
+  }
+
+  const closeChatModal = (chatId) => {
+    setOpenChats((prev) => prev.filter((chat) => chat.id !== chatId))
+  }
+
+  const handleStartChat = (friend) => {
+    openChatModal(friend)
   }
 
   // Format relative time
@@ -447,20 +470,19 @@ export function HeaderWithNotifications() {
   // Toggle notification dropdown
   const toggleNotifications = () => {
     if (!isNotificationOpen) {
-      // When opening inbox, fetch notifications based on current filter
       fetchNotifications(0, true)
     }
     setIsNotificationOpen(!isNotificationOpen)
   }
 
-  // Handle filter change - FIXED to be stable
+  // Handle filter change
   const handleFilterChange = () => {
     const newFilter = notificationFilter === "all" ? "unread" : "all"
     setNotificationFilter(newFilter)
-    fetchNotifications(0, true, newFilter) // 여기서 명시적으로 넘겨줌
+    fetchNotifications(0, true, newFilter)
   }
 
-  // Calculate display count - unread count + any real-time additions
+  // Calculate display count
   const getDisplayCount = () => {
     return unreadNotificationCount + realtimeNotificationCount
   }
@@ -480,7 +502,7 @@ export function HeaderWithNotifications() {
     apiNotifications.length,
   )
 
-  // Rest of the useEffect hooks remain the same...
+  // Rest of the useEffect hooks
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -488,6 +510,7 @@ export function HeaderWithNotifications() {
         const { data } = await axiosInstance.get("/user/details")
         setProfileImage(data.profileImg)
         setUsername(data.username || data.email)
+        setCurrentUser(data)
         setIsLoading(false)
       } catch (err) {
         console.error("Error fetching user data:", err)
@@ -538,160 +561,181 @@ export function HeaderWithNotifications() {
   }, [isNotificationOpen, handleScroll])
 
   return (
-    <header className={styles.header}>
-      <div className={styles.container}>
-        <Link to="/">
-          <img src="/images/devchat-logo.png" alt="DevChat Logo" className={styles.headerLogoImage} />
-        </Link>
+    <>
+      <header className={styles.header}>
+        <div className={styles.container}>
+          <Link to="/">
+            <img src="/images/devchat-logo.png" alt="DevChat Logo" className={styles.headerLogoImage} />
+          </Link>
 
-        <div className={styles.profileContainer}>
-          {/* Notification Bell */}
-          <div className={styles.notificationContainer} ref={notificationRef}>
-            <button
-              className={`${styles.notificationBell} ${isShaking || hasUnreadItems() ? styles.shake : ""}`}
-              onClick={toggleNotifications}
-              aria-label="알림"
-            >
-              <Bell size={20} />
-              {displayCount > 0 && (
-                <span key={`count-${displayCount}`} className={styles.notificationCount}>
-                  {displayCount > 99 ? "99+" : displayCount}
-                </span>
-              )}
-            </button>
+          <div className={styles.profileContainer}>
+            {/* Chat Button */}
+            <ChatButton onClick={() => setIsFriendsListOpen(true)} />
 
-            {/* Notification Dropdown */}
-            {isNotificationOpen && (
-              <div className={styles.notificationDropdown}>
-                <div className={styles.notificationDropdownHeader}>
-                  <div className={styles.headerLeft}>
-                    <h3>Notifications</h3>
-                    {apiNotifications.length > 0 && (
-                      <span className={styles.totalCount}>{apiNotifications.length}</span>
+            {/* Notification Bell */}
+            <div className={styles.notificationContainer} ref={notificationRef}>
+              <button
+                className={`${styles.notificationBell} ${isShaking || hasUnreadItems() ? styles.shake : ""}`}
+                onClick={toggleNotifications}
+                aria-label="알림"
+              >
+                <Bell size={20} />
+                {displayCount > 0 && (
+                  <span key={`count-${displayCount}`} className={styles.notificationCount}>
+                    {displayCount > 99 ? "99+" : displayCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Dropdown */}
+              {isNotificationOpen && (
+                <div className={styles.notificationDropdown}>
+                  <div className={styles.notificationDropdownHeader}>
+                    <div className={styles.headerLeft}>
+                      <h3>Notifications</h3>
+                      {apiNotifications.length > 0 && (
+                        <span className={styles.totalCount}>{apiNotifications.length}</span>
+                      )}
+                    </div>
+                    <div className={styles.toggleContainer}>
+                      <span className={styles.toggleLabel}>Unread only</span>
+                      <button
+                        className={`${styles.toggleSwitch} ${notificationFilter === "unread" ? styles.toggleSwitchActive : ""}`}
+                        onClick={handleFilterChange}
+                        aria-label={`Switch to ${notificationFilter === "all" ? "unread only" : "view all"} notifications`}
+                      >
+                        <span className={styles.toggleSlider}></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={styles.notificationList} ref={notificationContentRef}>
+                    {isLoadingNotifications ? (
+                      <div className={styles.loadingState}>
+                        <div className={styles.loadingSpinner}></div>
+                        <span>Loading notifications...</span>
+                      </div>
+                    ) : apiNotifications.length === 0 ? (
+                      <div className={styles.emptyState}>
+                        <Bell size={48} className={styles.emptyIcon} />
+                        <h4>{notificationFilter === "unread" ? "No unread notifications!" : "All caught up!"}</h4>
+                        <p>
+                          {notificationFilter === "unread"
+                            ? "You have no unread notifications"
+                            : "You have no new notifications"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className={styles.notificationsList}>
+                        {apiNotifications.map(renderNotificationItem)}
+
+                        {isLoadingMore && (
+                          <div className={styles.loadingMore}>
+                            <div className={styles.loadingSpinner}></div>
+                            <span>Loading more...</span>
+                          </div>
+                        )}
+
+                        {!hasMoreNotifications && apiNotifications.length > 0 && (
+                          <div className={styles.endMessage}>
+                            <span>You're all caught up!</span>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
-                  {/* Compact Toggle Switch */}
-                  <div className={styles.toggleContainer}>
-                    <span className={styles.toggleLabel}>Unread only</span>
-                    <button
-                      className={`${styles.toggleSwitch} ${notificationFilter === "unread" ? styles.toggleSwitchActive : ""}`}
-                      onClick={handleFilterChange}
-                      aria-label={`Switch to ${notificationFilter === "all" ? "unread only" : "view all"} notifications`}
-                    >
-                      <span className={styles.toggleSlider}></span>
-                    </button>
-                  </div>
                 </div>
-
-                <div className={styles.notificationList} ref={notificationContentRef}>
-                  {isLoadingNotifications ? (
-                    <div className={styles.loadingState}>
-                      <div className={styles.loadingSpinner}></div>
-                      <span>Loading notifications...</span>
-                    </div>
-                  ) : apiNotifications.length === 0 ? (
-                    <div className={styles.emptyState}>
-                      <Bell size={48} className={styles.emptyIcon} />
-                      <h4>{notificationFilter === "unread" ? "No unread notifications!" : "All caught up!"}</h4>
-                      <p>
-                        {notificationFilter === "unread"
-                          ? "You have no unread notifications"
-                          : "You have no new notifications"}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className={styles.notificationsList}>
-                      {apiNotifications.map(renderNotificationItem)}
-
-                      {/* Loading more indicator */}
-                      {isLoadingMore && (
-                        <div className={styles.loadingMore}>
-                          <div className={styles.loadingSpinner}></div>
-                          <span>Loading more...</span>
-                        </div>
-                      )}
-
-                      {/* End indicator */}
-                      {!hasMoreNotifications && apiNotifications.length > 0 && (
-                        <div className={styles.endMessage}>
-                          <span>You're all caught up!</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Profile Section */}
-          {isLoading ? (
-            <div className={styles.profileImageLoading}></div>
-          ) : error ? (
-            <div className={styles.profileImageError}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
+              )}
             </div>
-          ) : (
-            <Link to="/myprofile">
-              <img
-                src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${profileImage}`}
-                alt="User profile"
-                className={styles.profileImage}
-                onError={(e) => {
-                  e.currentTarget.src = "/images/not-found-profile.png"
-                }}
-              />
-            </Link>
-          )}
 
-          <button
-            className={styles.logoutButton}
-            style={{
-              background: "none",
-              border: "none",
-              padding: 0,
-              margin: 0,
-              cursor: "pointer",
-              fontWeight: 500,
-            }}
-            onClick={async () => {
-              try {
-                const response = await axiosInstance.post("/logout", {})
-                if (response.status === 204) {
-                  alert("로그아웃 되었습니다.")
-                  window.location.href = "/login"
-                } else {
-                  alert("로그아웃 실패")
+            {/* Profile Section */}
+            {isLoading ? (
+              <div className={styles.profileImageLoading}></div>
+            ) : error ? (
+              <div className={styles.profileImageError}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+            ) : (
+              <Link to="/myprofile">
+                <img
+                  src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${profileImage}`}
+                  alt="User profile"
+                  className={styles.profileImage}
+                  onError={(e) => {
+                    e.currentTarget.src = "/images/not-found-profile.png"
+                  }}
+                />
+              </Link>
+            )}
+
+            <button
+              className={styles.logoutButton}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                margin: 0,
+                cursor: "pointer",
+                fontWeight: 500,
+              }}
+              onClick={async () => {
+                try {
+                  const response = await axiosInstance.post("/logout", {})
+                  if (response.status === 204) {
+                    alert("로그아웃 되었습니다.")
+                    window.location.href = "/login"
+                  } else {
+                    alert("로그아웃 실패")
+                  }
+                } catch (error) {
+                  console.error("로그아웃 요청 실패:", error)
+                  alert("서버 오류로 로그아웃 실패")
                 }
-              } catch (error) {
-                console.error("로그아웃 요청 실패:", error)
-                alert("서버 오류로 로그아웃 실패")
-              }
-            }}
-          >
-            Log Out
-          </button>
+              }}
+            >
+              Log Out
+            </button>
+          </div>
         </div>
-      </div>
-      <audio ref={audioRef} preload="auto">
-        <source src="/sounds/notification.mp3" type="audio/mpeg" />
-        <source src="/sounds/notification.wav" type="audio/wav" />
-      </audio>
-    </header>
+        <audio ref={audioRef} preload="auto">
+          <source src="/sounds/notification.mp3" type="audio/mpeg" />
+          <source src="/sounds/notification.wav" type="audio/wav" />
+        </audio>
+      </header>
+
+      {/* Friends List Modal */}
+      <FriendsListModal
+        isOpen={isFriendsListOpen}
+        onClose={() => setIsFriendsListOpen(false)}
+        onStartChat={handleStartChat}
+        currentUser={currentUser}
+      />
+
+      {/* Chat Modals */}
+      {openChats.map((chat) => (
+        <ChatModal
+          key={chat.id}
+          isOpen={true}
+          onClose={() => closeChatModal(chat.id)}
+          friend={chat.friend}
+          currentUser={currentUser}
+        />
+      ))}
+    </>
   )
 }
 
