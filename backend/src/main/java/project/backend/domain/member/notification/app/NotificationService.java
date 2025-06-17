@@ -27,8 +27,19 @@ public class NotificationService {
 	public Page<FriendEvent> getNotifications(Authentication auth, Pageable pageable) {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 
-		Member receiver = MemberDetails.of(memberDetails);
-		Page<Notification> notReadNotification = notificationRepository.getNotificationsAndReadNot(
+		Member receiver = Member.of(memberDetails);
+		Page<Notification> notReadNotification = notificationRepository.getNotifications(
+			receiver.getId(), pageable);
+
+		return notReadNotification.map(FriendEvent::ofNotification);
+	}
+
+	@Transactional(readOnly = true)
+	public Page<FriendEvent> getNotReadNotification(Authentication auth, Pageable pageable) {
+		MemberDetails memberDetails = memberService.checkAuthentication(auth);
+
+		Member receiver = Member.of(memberDetails);
+		Page<Notification> notReadNotification = notificationRepository.getNotReadNotification(
 			receiver.getId(), pageable);
 
 		return notReadNotification.map(FriendEvent::ofNotification);

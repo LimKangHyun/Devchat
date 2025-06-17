@@ -35,13 +35,13 @@ public class FriendController {
 	@PostMapping("/request/{friendId}/accept")
 	@ResponseStatus(HttpStatus.OK)
 	public void acceptFriend(Authentication auth, @PathVariable Long friendId) {
-		friendService.handleFriendRequestDecision(auth, friendId, NotificationType.FRIEND_ACCEPTED);
+		friendService.acceptFriendRequest(auth, friendId);
 	}
 
 	@PostMapping("/request/{friendId}/reject")
 	@ResponseStatus(HttpStatus.OK)
 	public void rejectFriend(Authentication auth, @PathVariable Long friendId) {
-		friendService.handleFriendRequestDecision(auth, friendId, NotificationType.FRIEND_REJECTED);
+		friendService.rejectFriendRequest(auth, friendId);
 	}
 
 	@GetMapping

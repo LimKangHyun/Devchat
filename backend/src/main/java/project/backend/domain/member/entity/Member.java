@@ -5,12 +5,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -21,8 +18,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
-import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.member.friend.entity.Friends;
 
 @Entity
@@ -68,6 +65,18 @@ public class Member {
 
 	@Setter
 	private Long recentRoomId;
+
+	public static Member of(MemberDetails memberDetails) {
+		return Member.builder()
+			.id(memberDetails.getId())
+			.username(memberDetails.getUsername())
+			.email(memberDetails.getEmail())
+			.password(memberDetails.getPassword())
+			.nickname(memberDetails.getNickname())
+			.provider(memberDetails.getProvider())
+			.profileImage(memberDetails.getProfileImg())
+			.build();
+	}
 
 	public void updateNickname(String nickname) {
 		this.nickname = nickname;

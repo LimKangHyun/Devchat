@@ -24,4 +24,10 @@ public class NotificationsController {
 	public Page<FriendEvent> getNotifications(Authentication auth, Pageable pageable) {
 		return notificationService.getNotifications(auth, pageable);
 	}
+
+	@GetMapping("/unread")
+	@ResponseStatus(HttpStatus.OK)
+	public Page<FriendEvent> getUnreadNotifications(Authentication auth, Pageable pageable) {
+		return notificationService.getNotReadNotification(auth, pageable);
+	}
 }

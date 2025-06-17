@@ -16,9 +16,17 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 			SELECT n
 			FROM Notification n
 			WHERE n.receiver.id = :receiverId
+		""")
+	Page<Notification> getNotifications(@Param("receiverId") Long receiverId,
+		Pageable pageable);
+
+	@Query("""
+			SELECT n
+			FROM Notification n
+			WHERE n.receiver.id = :receiverId
 			AND n.isRead = false
 		""")
-	Page<Notification> getNotificationsAndReadNot(@Param("receiverId") Long receiverId,
+	Page<Notification> getNotReadNotification(@Param("receiverId") Long receiverId,
 		Pageable pageable);
 
 
