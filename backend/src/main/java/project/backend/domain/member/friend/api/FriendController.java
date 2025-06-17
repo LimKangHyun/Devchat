@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import project.backend.domain.member.friend.app.FriendService;
 import project.backend.domain.member.friend.dto.FriendResponse;
 import project.backend.domain.member.notification.dto.FriendRequestDto;
+import project.backend.domain.member.notification.entity.NotificationType;
 
 @Slf4j
 @RestController
@@ -34,13 +35,13 @@ public class FriendController {
 	@PostMapping("/request/{friendId}/accept")
 	@ResponseStatus(HttpStatus.OK)
 	public void acceptFriend(Authentication auth, @PathVariable Long friendId) {
-		friendService.acceptFriendRequest(auth, friendId);
+		friendService.handleFriendRequestDecision(auth, friendId, NotificationType.FRIEND_ACCEPTED);
 	}
 
 	@PostMapping("/request/{friendId}/reject")
 	@ResponseStatus(HttpStatus.OK)
 	public void rejectFriend(Authentication auth, @PathVariable Long friendId) {
-		friendService.rejectFriendRequest(auth, friendId);
+		friendService.handleFriendRequestDecision(auth, friendId, NotificationType.FRIEND_REJECTED);
 	}
 
 	@GetMapping

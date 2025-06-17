@@ -21,6 +21,9 @@ export function HeaderWithNotifications() {
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
   const [processingRequestId, setProcessingRequestId] = useState(null)
 
+  // Filter states
+  const [notificationFilter, setNotificationFilter] = useState("all") // "all" or "unread"
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(0)
   const [hasMoreNotifications, setHasMoreNotifications] = useState(true)
@@ -46,6 +49,11 @@ export function HeaderWithNotifications() {
   const isDuplicateNotification = (newNotification, existingNotifications) => {
     const newKey = getNotificationKey(newNotification)
     return existingNotifications.some((existing) => getNotificationKey(existing) === newKey)
+  }
+
+  // Helper function to determine if a notification is unread
+  const isNotificationUnread = (notification) => {
+    return notification.isNew || notification.isRealtime
   }
 
   // WebSocket notification handler - only for real-time notifications
@@ -284,7 +292,7 @@ export function HeaderWithNotifications() {
     try {
       setProcessingRequestId(notification.id)
 
-      const requestId = notification.referenceId || notification.senderId
+      const requestId = notification.referenceId
       await axiosInstance.post(`/friend/request/${requestId}/reject`)
 
       // Use flushSync to force immediate UI update
@@ -483,6 +491,17 @@ export function HeaderWithNotifications() {
   // Combine notifications for display
   const allNotifications = [...realtimeNotifications, ...apiNotifications]
 
+  // Filter notifications based on selected filter
+  const filteredNotifications = allNotifications.filter((notification) => {
+    if (notificationFilter === "unread") {
+      return isNotificationUnread(notification)
+    }
+    return true // Show all notifications
+  })
+
+  // Count unread notifications
+  const unreadCount = allNotifications.filter(isNotificationUnread).length
+
   console.log(
     "🔄 Count Logic - Realtime count:",
     realtimeNotificationCount,
@@ -578,8 +597,21 @@ export function HeaderWithNotifications() {
             {isNotificationOpen && (
               <div className={styles.notificationDropdown}>
                 <div className={styles.notificationDropdownHeader}>
-                  <h3>Notifications</h3>
-                  {totalNotificationCount > 0 && <span className={styles.totalCount}>{totalNotificationCount}</span>}
+                  <div className={styles.headerLeft}>
+                    <h3>Notifications</h3>
+                    {totalNotificationCount > 0 && <span className={styles.totalCount}>{totalNotificationCount}</span>}
+                  </div>
+                  {/* Compact Toggle Switch */}
+                  <div className={styles.toggleContainer}>
+                    <span className={styles.toggleLabel}>Unread only</span>
+                    <button
+                      className={`${styles.toggleSwitch} ${notificationFilter === "unread" ? styles.toggleSwitchActive : ""}`}
+                      onClick={() => setNotificationFilter(notificationFilter === "all" ? "unread" : "all")}
+                      aria-label={`Switch to ${notificationFilter === "all" ? "unread only" : "view all"} notifications`}
+                    >
+                      <span className={styles.toggleSlider}></span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className={styles.notificationList} ref={notificationContentRef}>
@@ -588,15 +620,19 @@ export function HeaderWithNotifications() {
                       <div className={styles.loadingSpinner}></div>
                       <span>Loading notifications...</span>
                     </div>
-                  ) : allNotifications.length === 0 ? (
+                  ) : filteredNotifications.length === 0 ? (
                     <div className={styles.emptyState}>
                       <Bell size={48} className={styles.emptyIcon} />
-                      <h4>All caught up!</h4>
-                      <p>You have no new notifications</p>
+                      <h4>{notificationFilter === "unread" ? "No unread notifications!" : "All caught up!"}</h4>
+                      <p>
+                        {notificationFilter === "unread"
+                          ? "You have no unread notifications"
+                          : "You have no new notifications"}
+                      </p>
                     </div>
                   ) : (
                     <div className={styles.notificationsList}>
-                      {allNotifications.map(renderNotificationItem)}
+                      {filteredNotifications.map(renderNotificationItem)}
 
                       {/* Loading more indicator */}
                       {isLoadingMore && (
@@ -607,7 +643,7 @@ export function HeaderWithNotifications() {
                       )}
 
                       {/* End indicator */}
-                      {!hasMoreNotifications && allNotifications.length > 0 && (
+                      {!hasMoreNotifications && filteredNotifications.length > 0 && (
                         <div className={styles.endMessage}>
                           <span>You're all caught up!</span>
                         </div>

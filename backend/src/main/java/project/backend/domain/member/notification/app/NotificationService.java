@@ -45,7 +45,5 @@ public class NotificationService {
 				() -> new NotificationException(NotificationErrorCode.NOT_FOUND_NOTIFICATION));
 	}
 
-	public void deleteNotification(Notification notification) {
-		notificationRepository.delete(notification);
-	}
+
 }

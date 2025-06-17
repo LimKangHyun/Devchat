@@ -106,6 +106,24 @@
   border: 2px solid white;
 }
 
+/* Shake animation */
+.shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
 /* Notification Dropdown */
 .notificationDropdown {
   position: absolute;
@@ -130,6 +148,12 @@
   justify-content: space-between;
 }
 
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .notificationDropdownHeader h3 {
   margin: 0;
   font-size: 20px;
@@ -148,6 +172,63 @@
   min-width: 28px;
   text-align: center;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+}
+
+/* Compact Toggle Switch */
+.toggleContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggleLabel {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.toggleSwitch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #e5e7eb;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  outline: none;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggleSwitch:hover {
+  background: #d1d5db;
+}
+
+.toggleSwitchActive {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.toggleSwitchActive:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+.toggleSlider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggleSwitchActive .toggleSlider {
+  transform: translateX(20px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .notificationList {
@@ -460,6 +541,28 @@
 
   .notificationDropdownHeader {
     padding: 20px 24px 16px;
+  }
+
+  .headerLeft {
+    gap: 8px;
+  }
+
+  .toggleLabel {
+    font-size: 12px;
+  }
+
+  .toggleSwitch {
+    width: 40px;
+    height: 22px;
+  }
+
+  .toggleSlider {
+    width: 18px;
+    height: 18px;
+  }
+
+  .toggleSwitchActive .toggleSlider {
+    transform: translateX(18px);
   }
 
   .notificationHeader {

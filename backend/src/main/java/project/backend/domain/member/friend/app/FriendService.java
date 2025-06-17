@@ -68,65 +68,54 @@ public class FriendService {
 	}
 
 	@Transactional
-	public void acceptFriendRequest(Authentication auth, Long requesterId) {
-		MemberDetails memberDetails = memberService.checkAuthentication(auth);
+	public void handleFriendRequestDecision(
+		Authentication auth,
+		Long requesterId,
+		NotificationType decisionType
+	) {
+		if (decisionType != NotificationType.FRIEND_ACCEPTED
+			&& decisionType != NotificationType.FRIEND_REJECTED) {
+			throw new IllegalArgumentException("Invalid decision type: " + decisionType);
+		}
 
-		Member acceptor = MemberDetails.of(memberDetails);
+		MemberDetails memberDetails = memberService.checkAuthentication(auth);
+		Member me = MemberDetails.of(memberDetails);
 		Member requester = memberService.getMemberById(requesterId);
 
-		Notification notification = notificationService.getNotificationByType(acceptor,
-			requester, NotificationType.FRIEND_REQUESTED);
-
+		Notification notification = notificationService.getNotificationByType(me, requester,
+			NotificationType.FRIEND_REQUESTED);
 		notification.markAsRead();
 
-		checkAlreadyFriends(requester, acceptor);
+		checkAlreadyFriends(requester, me);
 
-		FriendRequest friendRequest = getFriendRequestBySenderAndReceiver(requester, acceptor);
-		friendRequest.accept();
+		FriendRequest friendRequest = getFriendRequestBySenderAndReceiver(requester, me);
 
-		notificationService.saveNotification(
-			Notification.ofFriendRequestByDecision(friendRequest,
-				NotificationType.FRIEND_ACCEPTED));
+		if (decisionType == NotificationType.FRIEND_ACCEPTED) {
+			friendRequest.accept();
 
-		FriendsList receiveSide = FriendsList.builder()
-			.owner(acceptor)
-			.friend(requester)
-			.build();
-
-		FriendsList sendSide = FriendsList.builder()
-			.owner(requester)
-			.friend(acceptor)
-			.build();
-
-		friendsListRepository.save(receiveSide);
-		friendsListRepository.save(sendSide);
-
-		eventPublisher.publishEvent(FriendEvent.ofFriendAcceptEvent(acceptor, requester));
-		eventPublisher.publishEvent(FriendEvent.ofFriendAcceptSelf(acceptor, requester));
-	}
-
-	@Transactional
-	public void rejectFriendRequest(Authentication auth, Long requesterId) {
-		MemberDetails memberDetails = memberService.checkAuthentication(auth);
-
-		Member rejecter = MemberDetails.of(memberDetails);
-		Member requester = memberService.getMemberById(requesterId);
-
-		Notification notification = notificationService.getNotificationByType(rejecter,
-			requester, NotificationType.FRIEND_REQUESTED);
-
-		notification.markAsRead();
-
-		checkAlreadyFriends(requester, rejecter);
-
-		FriendRequest friendRequest = getFriendRequestBySenderAndReceiver(requester, rejecter);
-		friendRequest.reject();
+			// 친구 테이블에 양방향 저장
+			FriendsList receiveSide = FriendsList.builder().owner(me).friend(requester).build();
+			FriendsList sendSide = FriendsList.builder().owner(requester).friend(me).build();
+			friendsListRepository.save(receiveSide);
+			friendsListRepository.save(sendSide);
+		} else {
+			friendRequest.reject();
+		}
 
 		notificationService.saveNotification(
-			Notification.ofFriendRequestByDecision(friendRequest,
-				NotificationType.FRIEND_REJECTED));
+			Notification.ofFriendRequestByDecision(friendRequest, decisionType));
 
-		eventPublisher.publishEvent(FriendEvent.ofFriendRejectEvent(rejecter, requester));
+		notificationService.saveNotification(
+			Notification.ofFriendshipEstablished(friendRequest)
+		);
+
+		// 이벤트 발행
+		if (decisionType == NotificationType.FRIEND_ACCEPTED) {
+			eventPublisher.publishEvent(FriendEvent.ofFriendAcceptEvent(me, requester));
+			eventPublisher.publishEvent(FriendEvent.ofFriendAcceptSelf(me, requester));
+		} else {
+			eventPublisher.publishEvent(FriendEvent.ofFriendRejectEvent(me, requester));
+		}
 	}
 
 

@@ -71,4 +71,15 @@ public class Notification {
 			.createdAt(LocalDateTime.now())
 			.build();
 	}
+
+	// 수락한 본인에게 보내는 알림 (읽음 처리된 상태)
+	public static Notification ofFriendshipEstablished(FriendRequest friendRequest) {
+		return Notification.builder()
+			.receiver(friendRequest.getReceiver())  // 수락한 본인
+			.sender(friendRequest.getSender())      // 요청자
+			.type(NotificationType.WE_ARE_FRIEND_NOW)
+			.referenceId(friendRequest.getSender().getId()) // 친구가 된 사람 ID
+			.createdAt(LocalDateTime.now())
+			.build();
+	}
 }

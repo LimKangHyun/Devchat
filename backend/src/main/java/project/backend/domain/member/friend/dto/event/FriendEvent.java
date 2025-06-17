@@ -21,8 +21,7 @@ public record FriendEvent(
 		NotificationType type,
 		Member sender,
 		Member receiver,
-		Long referenceId,
-		LocalDateTime time
+		Long referenceId
 	) {
 		return new FriendEvent(
 			type,
@@ -32,60 +31,28 @@ public record FriendEvent(
 			sender.getProfileImage(),
 			getContentByType(sender.getNickname(), type),
 			referenceId,
-			time
-		);
-	}
-
-	// 커스텀 메시지를 사용하는 팩토리
-	public static FriendEvent create(
-		NotificationType type,
-		Member sender,
-		Member receiver,
-		String content,
-		Long referenceId,
-		LocalDateTime time
-	) {
-		return new FriendEvent(
-			type,
-			receiver.getUsername(),
-			sender.getUsername(),
-			sender.getNickname(),
-			sender.getProfileImage(),
-			content,
-			referenceId,
-			time
+			LocalDateTime.now()
 		);
 	}
 
 	// 요청
 	public static FriendEvent ofFriendRequest(Member sender, Member receiver) {
-		return create(NotificationType.FRIEND_REQUESTED, sender, receiver, sender.getId(),
-			LocalDateTime.now());
+		return create(NotificationType.FRIEND_REQUESTED, sender, receiver, sender.getId());
 	}
 
 	// 수락 (상대방에게 알림)
 	public static FriendEvent ofFriendAcceptEvent(Member acceptor, Member requester) {
-		return create(NotificationType.FRIEND_ACCEPTED, acceptor, requester, acceptor.getId(),
-			LocalDateTime.now());
+		return create(NotificationType.FRIEND_ACCEPTED, acceptor, requester, acceptor.getId());
 	}
 
 	// 거절 (상대방에게 알림)
 	public static FriendEvent ofFriendRejectEvent(Member rejecter, Member requester) {
-		return create(NotificationType.FRIEND_REJECTED, rejecter, requester, rejecter.getId(),
-			LocalDateTime.now());
+		return create(NotificationType.FRIEND_REJECTED, rejecter, requester, rejecter.getId());
 	}
 
 	// 수락 (본인에게 알림) - 커스텀 메시지 사용
 	public static FriendEvent ofFriendAcceptSelf(Member acceptor, Member requester) {
-		String content = requester.getNickname() + "님과 친구가 되었습니다.";
-		return create(
-			NotificationType.FRIEND_ACCEPTED,
-			requester,
-			acceptor,
-			content,
-			requester.getId(),
-			LocalDateTime.now()
-		);
+		return create(NotificationType.WE_ARE_FRIEND_NOW, requester, acceptor, acceptor.getId());
 	}
 
 	// Notification 객체로부터 생성
@@ -98,7 +65,7 @@ public record FriendEvent(
 			notification.getSender().getProfileImage(),
 			getContentByType(notification.getSender().getNickname(), notification.getType()),
 			notification.getReferenceId(),
-			LocalDateTime.now()
+			notification.getCreatedAt()
 		);
 	}
 
@@ -108,6 +75,7 @@ public record FriendEvent(
 			case FRIEND_REQUESTED -> senderNickname + "님이 친구요청을 보냈습니다.";
 			case FRIEND_ACCEPTED -> senderNickname + "님이 친구요청을 수락했습니다.";
 			case FRIEND_REJECTED -> senderNickname + "님이 친구요청을 거절했습니다.";
+			case WE_ARE_FRIEND_NOW -> senderNickname + "님과 친구가 되었습니다.";
 			case CODE_REVIEW -> senderNickname + "님이 코드 리뷰를 추가했습니다.";
 		};
 	}
