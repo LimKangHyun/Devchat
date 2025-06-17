@@ -27,10 +27,10 @@ export function HeaderWithNotifications() {
   const [currentPage, setCurrentPage] = useState(0)
   const [hasMoreNotifications, setHasMoreNotifications] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [totalApiNotificationCount, setTotalApiNotificationCount] = useState(0)
 
-  // Count states
-  const [realtimeNotificationCount, setRealtimeNotificationCount] = useState(0) // Count of real-time notifications received
+  // Count states - ONLY track unread count as the main indicator
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
+  const [realtimeNotificationCount, setRealtimeNotificationCount] = useState(0)
 
   // UI states
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
@@ -39,30 +39,14 @@ export function HeaderWithNotifications() {
   const notificationRef = useRef(null)
   const notificationContentRef = useRef(null)
 
-  // Helper function to create a unique key for notifications to detect duplicates
-  const getNotificationKey = (notification) => {
-    return `${notification.type}-${notification.sender}-${notification.referenceId || "no-ref"}`
-  }
-
-  // Helper function to check if a notification already exists
-  const isDuplicateNotification = (newNotification, existingNotifications) => {
-    const newKey = getNotificationKey(newNotification)
-    return existingNotifications.some((existing) => getNotificationKey(existing) === newKey)
-  }
-
-  // Helper function to determine if a notification is unread
-  const isNotificationUnread = (notification) => {
-    return notification.isNew || notification.isRealtime
-  }
-
-  // WebSocket notification handler - only for count and immediate display, NOT for inbox
+  // WebSocket notification handler
   const handleNotificationReceived = useCallback((notification) => {
     console.log("🔔 Processing new real-time notification:", notification)
 
     playNotificationSound()
     triggerShakeAnimation()
 
-    // Only increment the real-time count, don't add to any notification arrays
+    // Increment real-time count
     flushSync(() => {
       setRealtimeNotificationCount((prev) => prev + 1)
     })
@@ -71,11 +55,27 @@ export function HeaderWithNotifications() {
     setHasUnreadNotifications(true)
   }, [])
 
-  // Initialize WebSocket connection only once when username is available
+  // Fetch ONLY unread count - this is the main count we show
+  const fetchUnreadCount = async () => {
+    try {
+      console.log("📊 Fetching unread notification count...")
+      const response = await axiosInstance.get("/notification/unread?page=0&size=1")
+      const unreadCount = response.data.totalElements
+
+      setUnreadNotificationCount(unreadCount)
+      console.log("📊 Unread count updated:", unreadCount)
+    } catch (err) {
+      console.error("Error fetching unread count:", err)
+    }
+  }
+
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+  // Initialize unread count when username is available
   useEffect(() => {
     if (username) {
-      console.log("🔌 Initializing WebSocket for user:", username)
-      // Don't fetch notifications on initialization, only when inbox is opened
+      console.log("🔌 Initializing for user:", username)
+      fetchUnreadCount() // Fetch initial unread count
     }
   }, [username])
 
@@ -147,23 +147,23 @@ export function HeaderWithNotifications() {
     }
   }
 
-  // Trigger shake animation
+  // Enhanced shake animation with more intensity
   const triggerShakeAnimation = () => {
-    console.log("🔔 Triggering shake animation")
+    console.log("🔔 Triggering enhanced shake animation")
     setIsShaking(true)
     setTimeout(() => {
       setIsShaking(false)
-      console.log("🔔 Shake animation ended")
-    }, 1000)
+      console.log("🔔 Enhanced shake animation ended")
+    }, 1500)
   }
 
   // Check if there are any unread notifications
   const hasUnreadItems = () => {
-    return hasUnreadNotifications
+    return hasUnreadNotifications || unreadNotificationCount > 0 || realtimeNotificationCount > 0
   }
 
-  // Fetch notifications based on current filter
-  const fetchNotifications = async (page = 0, reset = false) => {
+  // Fetch notifications based on current filter - FIXED TO USE CORRECT ENDPOINT
+  const fetchNotifications = async (page = 0, reset = false, filter = notificationFilter) => {
     try {
       if (reset) {
         setIsLoadingNotifications(true)
@@ -171,43 +171,43 @@ export function HeaderWithNotifications() {
         setIsLoadingMore(true)
       }
 
-      // Choose endpoint based on filter
-      const endpoint =
-        notificationFilter === "unread"
-          ? `/notification?page=${page}&size=10`
-          : `/notification/unread?page=${page}&size=10`
+      // 💡 의도적으로 500ms 대기
+      await delay(200)
 
+      const endpoint =
+        filter === "unread"
+          ? `/notification/unread?page=${page}&size=10`
+          : `/notification?page=${page}&size=10`
+
+      console.log(`🔄 Fetching notifications from: ${endpoint} (filter: ${filter})`)
+      
       const response = await axiosInstance.get(endpoint)
       const { content, totalElements, last } = response.data
 
-      // Transform API response and sort by latest first
       const transformedNotifications = content
         .map((notification, index) => ({
-          id: `api-${notificationFilter}-${page}-${index}-${notification.referenceId || "no-ref"}`,
+          id: `api-${filter}-${page}-${index}-${notification.referenceId || "no-ref"}-${Date.now()}`,
           type: notification.type,
-          sender: notification.sender,
+          sender: notification.senderNickname || notification.senderUsername,
           senderImg: notification.senderImg,
           referenceId: notification.referenceId,
           content: notification.content,
           timestamp: notification.createdAt || new Date().toISOString(),
-          isNew: false, // Don't show blue circles by default
+          isNew: !notification.isRead,
+          isRead: notification.isRead,
           isRealtime: false,
         }))
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Latest first
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
 
       if (reset) {
         setApiNotifications(transformedNotifications)
         setCurrentPage(0)
-        // Clear real-time count since we now have fresh API data
         setRealtimeNotificationCount(0)
-        console.log(`🔄 Reset: Fetched ${notificationFilter} notifications:`, totalElements)
       } else {
-        // When loading more, append to existing data
         setApiNotifications((prev) => [...prev, ...transformedNotifications])
       }
 
       setHasMoreNotifications(!last)
-      setTotalApiNotificationCount(totalElements)
       setCurrentPage(page)
     } catch (err) {
       console.error("Error fetching notifications:", err)
@@ -244,10 +244,11 @@ export function HeaderWithNotifications() {
       const requestId = notification.referenceId
       await axiosInstance.post(`/friend/request/${requestId}/accept`)
 
-      // Remove the notification completely from the list
+      // Remove the notification from list and update unread count
       flushSync(() => {
         setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
-        setTotalApiNotificationCount((prev) => Math.max(0, prev - 1))
+        // Always decrement unread count for friend requests (they're always unread when actionable)
+        setUnreadNotificationCount((prev) => Math.max(0, prev - 1))
       })
 
       window.dispatchEvent(new CustomEvent("friend-request-accepted"))
@@ -268,10 +269,11 @@ export function HeaderWithNotifications() {
       const requestId = notification.referenceId
       await axiosInstance.post(`/friend/request/${requestId}/reject`)
 
-      // Remove the notification completely from the list
+      // Remove the notification from list and update unread count
       flushSync(() => {
         setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
-        setTotalApiNotificationCount((prev) => Math.max(0, prev - 1))
+        // Always decrement unread count for friend requests (they're always unread when actionable)
+        setUnreadNotificationCount((prev) => Math.max(0, prev - 1))
       })
     } catch (err) {
       console.error("Error rejecting friend request:", err)
@@ -285,11 +287,9 @@ export function HeaderWithNotifications() {
   const handleNotificationNavigation = (notification) => {
     switch (notification.type) {
       case "CODE_REVIEW":
-        // Navigate to code review page
         window.location.href = `/code-review/${notification.referenceId}`
         break
       case "MESSAGE":
-        // Navigate to chat
         window.location.href = `/chat/${notification.referenceId}`
         break
       default:
@@ -314,6 +314,7 @@ export function HeaderWithNotifications() {
   const renderNotificationItem = (notification) => {
     const isFriendRequest = notification.type === "FRIEND_REQUESTED"
     const typeInfo = getNotificationTypeInfo(notification.type)
+    const showActionButtons = isFriendRequest && !notification.isRead
 
     if (isFriendRequest) {
       return (
@@ -332,7 +333,6 @@ export function HeaderWithNotifications() {
                   e.currentTarget.src = "/images/not-found-profile.png"
                 }}
               />
-              {/* Show blue circle only when "Unread only" toggle is active */}
               {notificationFilter === "unread" && <div className={styles.newIndicator}></div>}
             </div>
 
@@ -362,30 +362,32 @@ export function HeaderWithNotifications() {
               </div>
             </div>
 
-            <div className={styles.notificationActions}>
-              <button
-                className={`${styles.actionButton} ${styles.acceptButton}`}
-                onClick={() => handleAcceptRequest(notification)}
-                disabled={processingRequestId === notification.id}
-              >
-                {processingRequestId === notification.id ? (
-                  <div className={styles.buttonSpinner}></div>
-                ) : (
-                  <Check size={16} />
-                )}
-              </button>
-              <button
-                className={`${styles.actionButton} ${styles.rejectButton}`}
-                onClick={() => handleRejectRequest(notification)}
-                disabled={processingRequestId === notification.id}
-              >
-                {processingRequestId === notification.id ? (
-                  <div className={styles.buttonSpinner}></div>
-                ) : (
-                  <X size={16} />
-                )}
-              </button>
-            </div>
+            {showActionButtons && (
+              <div className={styles.notificationActions}>
+                <button
+                  className={`${styles.actionButton} ${styles.acceptButton}`}
+                  onClick={() => handleAcceptRequest(notification)}
+                  disabled={processingRequestId === notification.id}
+                >
+                  {processingRequestId === notification.id ? (
+                    <div className={styles.buttonSpinner}></div>
+                  ) : (
+                    <Check size={16} />
+                  )}
+                </button>
+                <button
+                  className={`${styles.actionButton} ${styles.rejectButton}`}
+                  onClick={() => handleRejectRequest(notification)}
+                  disabled={processingRequestId === notification.id}
+                >
+                  {processingRequestId === notification.id ? (
+                    <div className={styles.buttonSpinner}></div>
+                  ) : (
+                    <X size={16} />
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )
@@ -408,7 +410,6 @@ export function HeaderWithNotifications() {
                 e.currentTarget.src = "/images/not-found-profile.png"
               }}
             />
-            {/* Show blue circle only when "Unread only" toggle is active */}
             {notificationFilter === "unread" && <div className={styles.newIndicator}></div>}
           </div>
 
@@ -446,44 +447,38 @@ export function HeaderWithNotifications() {
   // Toggle notification dropdown
   const toggleNotifications = () => {
     if (!isNotificationOpen) {
-      fetchNotifications(0, true) // Fetch notifications based on current filter
+      // When opening inbox, fetch notifications based on current filter
+      fetchNotifications(0, true)
       setHasUnreadNotifications(false)
     }
     setIsNotificationOpen(!isNotificationOpen)
   }
 
-  // Handle filter change
+  // Handle filter change - FIXED to be stable
   const handleFilterChange = () => {
     const newFilter = notificationFilter === "all" ? "unread" : "all"
     setNotificationFilter(newFilter)
-    // Immediately fetch new data for the new filter
-    fetchNotifications(0, true)
+    fetchNotifications(0, true, newFilter) // 여기서 명시적으로 넘겨줌
   }
 
-  // Use apiNotifications directly since they're already filtered by the API call
-  const filteredNotifications = apiNotifications
+  // Calculate display count - unread count + any real-time additions
+  const getDisplayCount = () => {
+    return unreadNotificationCount + realtimeNotificationCount
+  }
 
-  // Calculate total notification count
-  // If inbox is closed and we have real-time notifications, show real-time count
-  // If inbox is open, show API count
-  const totalNotificationCount = isNotificationOpen
-    ? totalApiNotificationCount
-    : realtimeNotificationCount > 0
-      ? realtimeNotificationCount
-      : totalApiNotificationCount
+  const displayCount = getDisplayCount()
 
   console.log(
-    "🔄 Count Logic - Realtime count:",
+    "🔄 State Debug - Unread:",
+    unreadNotificationCount,
+    "Realtime:",
     realtimeNotificationCount,
-    "All API count:",
-    totalApiNotificationCount,
-    "Unread count:",
-    "Display count:",
-    totalNotificationCount,
-    "Inbox open:",
-    isNotificationOpen,
+    "Display:",
+    displayCount,
     "Filter:",
     notificationFilter,
+    "Notifications:",
+    apiNotifications.length,
   )
 
   // Rest of the useEffect hooks remain the same...
@@ -559,9 +554,9 @@ export function HeaderWithNotifications() {
               aria-label="알림"
             >
               <Bell size={20} />
-              {totalNotificationCount > 0 && (
-                <span key={`count-${totalNotificationCount}`} className={styles.notificationCount}>
-                  {totalNotificationCount > 99 ? "99+" : totalNotificationCount}
+              {displayCount > 0 && (
+                <span key={`count-${displayCount}`} className={styles.notificationCount}>
+                  {displayCount > 99 ? "99+" : displayCount}
                 </span>
               )}
             </button>
@@ -572,7 +567,9 @@ export function HeaderWithNotifications() {
                 <div className={styles.notificationDropdownHeader}>
                   <div className={styles.headerLeft}>
                     <h3>Notifications</h3>
-                    {totalNotificationCount > 0 && <span className={styles.totalCount}>{totalNotificationCount}</span>}
+                    {apiNotifications.length > 0 && (
+                      <span className={styles.totalCount}>{apiNotifications.length}</span>
+                    )}
                   </div>
                   {/* Compact Toggle Switch */}
                   <div className={styles.toggleContainer}>
@@ -593,7 +590,7 @@ export function HeaderWithNotifications() {
                       <div className={styles.loadingSpinner}></div>
                       <span>Loading notifications...</span>
                     </div>
-                  ) : filteredNotifications.length === 0 ? (
+                  ) : apiNotifications.length === 0 ? (
                     <div className={styles.emptyState}>
                       <Bell size={48} className={styles.emptyIcon} />
                       <h4>{notificationFilter === "unread" ? "No unread notifications!" : "All caught up!"}</h4>
@@ -605,7 +602,7 @@ export function HeaderWithNotifications() {
                     </div>
                   ) : (
                     <div className={styles.notificationsList}>
-                      {filteredNotifications.map(renderNotificationItem)}
+                      {apiNotifications.map(renderNotificationItem)}
 
                       {/* Loading more indicator */}
                       {isLoadingMore && (
@@ -616,7 +613,7 @@ export function HeaderWithNotifications() {
                       )}
 
                       {/* End indicator */}
-                      {!hasMoreNotifications && filteredNotifications.length > 0 && (
+                      {!hasMoreNotifications && apiNotifications.length > 0 && (
                         <div className={styles.endMessage}>
                           <span>You're all caught up!</span>
                         </div>

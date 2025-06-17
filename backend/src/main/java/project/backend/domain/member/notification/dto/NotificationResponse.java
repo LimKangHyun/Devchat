@@ -20,7 +20,7 @@ public record NotificationResponse(
 	// Notification 객체로부터 생성
 	public static NotificationResponse ofNotification(Notification notification) {
 		return new NotificationResponse(
-			false,
+			notification.isRead(),
 			notification.getType(),
 			notification.getReceiver().getUsername(),
 			notification.getSender().getUsername(),
