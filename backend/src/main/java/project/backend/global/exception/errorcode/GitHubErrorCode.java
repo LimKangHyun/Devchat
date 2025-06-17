@@ -18,6 +18,8 @@ public enum GitHubErrorCode implements ErrorCode {
     UNEXPECTED_RESPONSE("GE-006", "요청한 리포지토리의 permissions에 관한 정보가 없습니다.",
         HttpStatus.INTERNAL_SERVER_ERROR),
     WEBHOOK_REGISTER_FAILED("GE-007", "웹훅 등록 중 예상치 못한 예외가 발생했습니다.",
+        HttpStatus.INTERNAL_SERVER_ERROR),
+    WEBHOOK_DELETE_FAILED("GE-008", "웹훅 삭제 중 예상치 못한 예외가 발생했습니다.",
         HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String code;
