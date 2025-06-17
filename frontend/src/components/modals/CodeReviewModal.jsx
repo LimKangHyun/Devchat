@@ -13,8 +13,8 @@ const CodeReviewModal = ({ message, onClose }) => {
   const [reviewText, setReviewText] = useState('');
   const [hoveredLine, setHoveredLine] = useState(null);
   const [loading, setLoading] = useState(false); // 이것도 추가
-  const [editingReviewId, setEditingReviewsId] = useState(null);
-  const [editReviewText, setEditReviewsText] = useState('');
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [editReviewText, setEditReviewText] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
 
   const HighlightedCode = ({ content, language }) => {
@@ -291,8 +291,8 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   // 댓글 수정 시작
   const handleEditReview = (review) => {
-    setEditingReviewsId(review.id);
-    setEditReviewsText(review.content);
+    setEditingReviewId(review.id);
+    setEditReviewText(review.content);
   };
 
   // 댓글 수정 저장
@@ -314,8 +314,8 @@ const CodeReviewModal = ({ message, onClose }) => {
         )
       }));
 
-      setEditingReviewsId(null);
-      setEditReviewsText('');
+      setEditingReviewId(null);
+      setEditReviewText('');
 
     } catch (error) {
       console.error('댓글 수정 실패:', error);
@@ -327,8 +327,8 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   // 댓글 수정 취소
   const handleCancelEdit = () => {
-    setEditingReviewsId(null);
-    setEditReviewsText('');
+    setEditingReviewId(null);
+    setEditReviewText('');
   };
 
   return (
@@ -735,7 +735,7 @@ const CodeReviewModal = ({ message, onClose }) => {
                               <div>
                                 <textarea
                                   value={editReviewText}
-                                  onChange={(e) => setEditReviewsText(e.target.value)}
+                                  onChange={(e) => setEditReviewText(e.target.value)}
                                   style={{
                                     width: '100%',
                                     minHeight: '60px',
