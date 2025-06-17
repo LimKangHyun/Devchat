@@ -42,7 +42,6 @@ public class GitMessageService {
 	private String githubUsername;
 	private final GitHubClient gitHubClient;
 	private final TokenRedisRepository tokenRedisRepository;
-	private final ChatParticipantRepository chatParticipantRepository;
 
 	@Transactional
 	public void handleEvent(Long roomId, String eventType, Map<String, Object> payload) {
