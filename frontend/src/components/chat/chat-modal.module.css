@@ -9,8 +9,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: all 0.3s ease;
   border: 1px solid #e5e7eb;
+  will-change: transform;
 }
 
 .modal.minimized {
@@ -19,7 +19,8 @@
 
 .modal.dragging {
   user-select: none;
-  cursor: grabbing;
+  box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.35);
+  transform-origin: center;
 }
 
 .header {
@@ -29,12 +30,12 @@
   padding: 12px 16px;
   background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
-  cursor: grab;
   user-select: none;
+  transition: background 0.2s ease;
 }
 
-.header:active {
-  cursor: grabbing;
+.header:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
 }
 
 .headerLeft {
@@ -109,6 +110,7 @@
 
 .actionButton:hover {
   background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
 }
 
 .closeButton {
@@ -126,6 +128,7 @@
 
 .closeButton:hover {
   background: rgba(239, 68, 68, 0.4);
+  transform: scale(1.05);
 }
 
 .messagesContainer {
@@ -136,6 +139,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  scroll-behavior: smooth;
 }
 
 .messagesContainer::-webkit-scrollbar {
@@ -155,6 +159,7 @@
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  animation: messageSlideIn 0.3s ease-out;
 }
 
 .message.ownMessage {
@@ -235,7 +240,7 @@
 
 .sendButton:hover:not(:disabled) {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.05);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
@@ -264,14 +269,15 @@
   animation: spin 1s linear infinite;
 }
 
-.resizeHandle {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  right: 0;
-  bottom: 0;
-  cursor: se-resize;
-  background: transparent;
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes spin {
@@ -298,4 +304,3 @@
     width: 300px;
   }
 }
-

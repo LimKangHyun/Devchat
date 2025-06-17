@@ -12,7 +12,7 @@ import FriendsSidebar from "./FriendsSidebar" // Import the new component
 import axiosInstance from "./api/axiosInstance"
 import useWebSocket from "./common/useWebSocket"
 
-const Sidebar = () => {
+const Sidebar = ({ onStartChat }) => {
   const navigate = useNavigate()
   const { inviteCode } = useParams()
   const sidebarRef = useRef(null)
@@ -338,8 +338,8 @@ const Sidebar = () => {
   // ADD THIS FUNCTION - Render tab content
   const renderTabContent = () => {
     if (activeTab === "friends") {
-      return <FriendsSidebar />
-    }
+      return <FriendsSidebar onStartChat={onStartChat} /> // 👈 중요!!
+  }
 
     // Original chat room content
     return (

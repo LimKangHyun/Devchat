@@ -7,9 +7,6 @@ import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link } from "react-router-dom"
 import useWebSocketNotifications from "./common/useWebSocket"
-import { FriendsListModal } from "./chat/friends-list-modal"
-import { ChatModal } from "./chat/chat-modal"
-import { ChatButton } from "./chat/chat-button"
 
 export function HeaderWithNotifications() {
   const [profileImage, setProfileImage] = useState(null)
@@ -36,8 +33,6 @@ export function HeaderWithNotifications() {
   const [realtimeNotificationCount, setRealtimeNotificationCount] = useState(0)
 
   // Chat states
-  const [isFriendsListOpen, setIsFriendsListOpen] = useState(false)
-  const [openChats, setOpenChats] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
 
   // UI states
@@ -290,35 +285,23 @@ export function HeaderWithNotifications() {
         window.location.href = `/code-review/${notification.referenceId}`
         break
       case "MESSAGE":
-        // Open chat modal with the sender
-        const friend = {
-          username: notification.sender,
-          nickname: notification.sender,
-          status: "online",
-          avatar: notification.senderImg,
-        }
-        openChatModal(friend)
+        console.log(
+          "Header: 'MESSAGE' notification clicked for",
+          notification.sender,
+          "- chat opening should be handled by ChatManager now.",
+        )
+        // If you need to open chat from here, you'll need a way to call
+        // the openChatModal function provided by ChatManager context/props.
+        // For example, if ChatManager's openChatModal was passed as a prop to Header:
+        // if (props.openChatFromHeader) {
+        //   const friend = { /* ... */ };
+        //   props.openChatFromHeader(friend);
+        // }
         break
       default:
         console.log("Navigation not implemented for type:", notification.type)
     }
     setIsNotificationOpen(false)
-  }
-
-  // Chat functions
-  const openChatModal = (friend) => {
-    const existingChat = openChats.find((chat) => chat.friend.username === friend.username)
-    if (!existingChat) {
-      setOpenChats((prev) => [...prev, { id: Date.now(), friend }])
-    }
-  }
-
-  const closeChatModal = (chatId) => {
-    setOpenChats((prev) => prev.filter((chat) => chat.id !== chatId))
-  }
-
-  const handleStartChat = (friend) => {
-    openChatModal(friend)
   }
 
   // Format relative time
@@ -569,9 +552,6 @@ export function HeaderWithNotifications() {
           </Link>
 
           <div className={styles.profileContainer}>
-            {/* Chat Button */}
-            <ChatButton onClick={() => setIsFriendsListOpen(true)} />
-
             {/* Notification Bell */}
             <div className={styles.notificationContainer} ref={notificationRef}>
               <button
@@ -716,25 +696,6 @@ export function HeaderWithNotifications() {
           <source src="/sounds/notification.wav" type="audio/wav" />
         </audio>
       </header>
-
-      {/* Friends List Modal */}
-      <FriendsListModal
-        isOpen={isFriendsListOpen}
-        onClose={() => setIsFriendsListOpen(false)}
-        onStartChat={handleStartChat}
-        currentUser={currentUser}
-      />
-
-      {/* Chat Modals */}
-      {openChats.map((chat) => (
-        <ChatModal
-          key={chat.id}
-          isOpen={true}
-          onClose={() => closeChatModal(chat.id)}
-          friend={chat.friend}
-          currentUser={currentUser}
-        />
-      ))}
     </>
   )
 }
