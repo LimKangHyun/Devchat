@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { flushSync } from "react-dom"
 import { Bell, Check, X, ArrowRight, User, Code, MessageSquare, Clock } from "lucide-react"
 import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
@@ -14,7 +15,7 @@ export function HeaderWithNotifications() {
   const [username, setUsername] = useState("")
 
   // Notification states
-  const [realtimeNotifications, setRealtimeNotifications] = useState([]) // WebSocket notifications (real-time only)
+  const [realtimeNotifications, setRealtimeNotifications] = useState([]) // WebSocket notifications (temporary, until API fetch)
   const [apiNotifications, setApiNotifications] = useState([]) // API notifications (paginated)
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
@@ -26,6 +27,9 @@ export function HeaderWithNotifications() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [totalApiNotificationCount, setTotalApiNotificationCount] = useState(0)
 
+  // Count states
+  const [realtimeNotificationCount, setRealtimeNotificationCount] = useState(0) // Count of real-time notifications received
+
   // UI states
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
   const [isShaking, setIsShaking] = useState(false)
@@ -33,17 +37,54 @@ export function HeaderWithNotifications() {
   const notificationRef = useRef(null)
   const notificationContentRef = useRef(null)
 
+  // Helper function to create a unique key for notifications to detect duplicates
+  const getNotificationKey = (notification) => {
+    return `${notification.type}-${notification.sender}-${notification.referenceId || "no-ref"}`
+  }
+
+  // Helper function to check if a notification already exists
+  const isDuplicateNotification = (newNotification, existingNotifications) => {
+    const newKey = getNotificationKey(newNotification)
+    return existingNotifications.some((existing) => getNotificationKey(existing) === newKey)
+  }
+
   // WebSocket notification handler - only for real-time notifications
-  const handleNotificationReceived = useCallback((notification) => {
-    console.log("🔔 Processing new real-time notification:", notification)
+  const handleNotificationReceived = useCallback(
+    (notification) => {
+      console.log("🔔 Processing new real-time notification:", notification)
 
-    playNotificationSound()
+      // Check if this notification already exists in either array
+      const isDuplicateInRealtime = isDuplicateNotification(notification, realtimeNotifications)
+      const isDuplicateInApi = isDuplicateNotification(notification, apiNotifications)
 
-    setTotalApiNotificationCount((prev) => prev + 1)
-    showImmediateNotification(notification)
-    triggerShakeAnimation()
-    setHasUnreadNotifications(true)
-  }, [])
+      if (isDuplicateInRealtime || isDuplicateInApi) {
+        console.log("🚫 Duplicate notification detected, skipping:", notification)
+        return
+      }
+
+      playNotificationSound()
+      triggerShakeAnimation()
+
+      // Add the real-time notification to the temporary array
+      const realtimeNotification = {
+        ...notification,
+        id: `realtime-${Date.now()}-${Math.random()}`,
+        isNew: true,
+        isRealtime: true,
+        timestamp: new Date().toISOString(),
+      }
+
+      // Use flushSync to force immediate update
+      flushSync(() => {
+        setRealtimeNotifications((prev) => [realtimeNotification, ...prev])
+        setRealtimeNotificationCount((prev) => prev + 1)
+      })
+
+      showImmediateNotification(notification)
+      setHasUnreadNotifications(true)
+    },
+    [realtimeNotifications, apiNotifications],
+  )
 
   // Initialize WebSocket connection only once when username is available
   useEffect(() => {
@@ -123,8 +164,12 @@ export function HeaderWithNotifications() {
 
   // Trigger shake animation
   const triggerShakeAnimation = () => {
+    console.log("🔔 Triggering shake animation")
     setIsShaking(true)
-    setTimeout(() => setIsShaking(false), 1000)
+    setTimeout(() => {
+      setIsShaking(false)
+      console.log("🔔 Shake animation ended")
+    }, 1000)
   }
 
   // Check if there are any unread notifications
@@ -158,10 +203,21 @@ export function HeaderWithNotifications() {
       }))
 
       if (reset) {
+        // When resetting (opening inbox), use API as source of truth
         setApiNotifications(transformedNotifications)
         setCurrentPage(0)
+        // Clear real-time notifications since they should now be included in API response
+        setRealtimeNotifications([])
+        setRealtimeNotificationCount(0)
+        console.log("🔄 Reset: API count is now source of truth:", totalElements)
       } else {
-        setApiNotifications((prev) => [...prev, ...transformedNotifications])
+        // Filter out duplicates when loading more
+        setApiNotifications((prev) => {
+          const newNotifications = transformedNotifications.filter(
+            (apiNotification) => !isDuplicateNotification(apiNotification, prev),
+          )
+          return [...prev, ...newNotifications]
+        })
       }
 
       setHasMoreNotifications(!last)
@@ -202,12 +258,16 @@ export function HeaderWithNotifications() {
       const requestId = notification.referenceId
       await axiosInstance.post(`/friend/request/${requestId}/accept`)
 
-      if (notification.isRealtime) {
-        setRealtimeNotifications((prev) => prev.filter((n) => n.id !== notification.id))
-      } else {
-        setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
-        setTotalApiNotificationCount((prev) => prev - 1)
-      }
+      // Use flushSync to force immediate UI update
+      flushSync(() => {
+        if (notification.isRealtime) {
+          setRealtimeNotifications((prev) => prev.filter((n) => n.id !== notification.id))
+          setRealtimeNotificationCount((prev) => Math.max(0, prev - 1))
+        } else {
+          setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
+          setTotalApiNotificationCount((prev) => Math.max(0, prev - 1))
+        }
+      })
 
       window.dispatchEvent(new CustomEvent("friend-request-accepted"))
     } catch (err) {
@@ -225,14 +285,18 @@ export function HeaderWithNotifications() {
       setProcessingRequestId(notification.id)
 
       const requestId = notification.referenceId || notification.senderId
-      await axiosInstance.post(`/friend-requests/${requestId}/reject`)
+      await axiosInstance.post(`/friend/request/${requestId}/reject`)
 
-      if (notification.isRealtime) {
-        setRealtimeNotifications((prev) => prev.filter((n) => n.id !== notification.id))
-      } else {
-        setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
-        setTotalApiNotificationCount((prev) => prev - 1)
-      }
+      // Use flushSync to force immediate UI update
+      flushSync(() => {
+        if (notification.isRealtime) {
+          setRealtimeNotifications((prev) => prev.filter((n) => n.id !== notification.id))
+          setRealtimeNotificationCount((prev) => Math.max(0, prev - 1))
+        } else {
+          setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
+          setTotalApiNotificationCount((prev) => Math.max(0, prev - 1))
+        }
+      })
     } catch (err) {
       console.error("Error rejecting friend request:", err)
       alert("친구 요청 거절에 실패했습니다.")
@@ -404,15 +468,31 @@ export function HeaderWithNotifications() {
   // Toggle notification dropdown
   const toggleNotifications = () => {
     if (!isNotificationOpen) {
-      fetchApiNotifications(0, true)
+      fetchApiNotifications(0, true) // This will reset and use API as source of truth
       setHasUnreadNotifications(false)
     }
     setIsNotificationOpen(!isNotificationOpen)
   }
 
-  // Combine and sort all notifications
+  // Calculate total notification count
+  // If inbox is closed and we have real-time notifications, show real-time count
+  // If inbox is open or we've fetched from API, show API count
+  const totalNotificationCount =
+    isNotificationOpen || totalApiNotificationCount > 0 ? totalApiNotificationCount : realtimeNotificationCount
+
+  // Combine notifications for display
   const allNotifications = [...realtimeNotifications, ...apiNotifications]
-  const totalNotificationCount = realtimeNotifications.length + totalApiNotificationCount
+
+  console.log(
+    "🔄 Count Logic - Realtime count:",
+    realtimeNotificationCount,
+    "API count:",
+    totalApiNotificationCount,
+    "Display count:",
+    totalNotificationCount,
+    "Inbox open:",
+    isNotificationOpen,
+  )
 
   // Rest of the useEffect hooks remain the same...
   useEffect(() => {
@@ -488,7 +568,7 @@ export function HeaderWithNotifications() {
             >
               <Bell size={20} />
               {totalNotificationCount > 0 && (
-                <span className={styles.notificationCount}>
+                <span key={`count-${totalNotificationCount}`} className={styles.notificationCount}>
                   {totalNotificationCount > 99 ? "99+" : totalNotificationCount}
                 </span>
               )}

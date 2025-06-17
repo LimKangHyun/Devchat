@@ -60,12 +60,14 @@ public class Notification {
 			.build();
 	}
 
-	public static Notification ofFriendAccept(FriendRequest friendRequest) {
+	public static Notification ofFriendRequestByDecision(FriendRequest friendRequest,
+		NotificationType type) {
 		return Notification.builder()
 			.receiver(friendRequest.getSender())
 			.sender(friendRequest.getReceiver())
-			.type(NotificationType.FRIEND_ACCEPTED)
+			.type(type)
 			.referenceId(friendRequest.getReceiver().getId())
+			.isRead(true)
 			.createdAt(LocalDateTime.now())
 			.build();
 	}

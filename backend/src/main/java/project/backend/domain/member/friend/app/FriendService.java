@@ -68,11 +68,11 @@ public class FriendService {
 	}
 
 	@Transactional
-	public void acceptFriend(Authentication auth, Long friendId) {
+	public void acceptFriendRequest(Authentication auth, Long requesterId) {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 
 		Member acceptor = MemberDetails.of(memberDetails);
-		Member requester = memberService.getMemberById(friendId);
+		Member requester = memberService.getMemberById(requesterId);
 
 		Notification notification = notificationService.getNotificationByType(acceptor,
 			requester, NotificationType.FRIEND_REQUESTED);
@@ -85,7 +85,8 @@ public class FriendService {
 		friendRequest.accept();
 
 		notificationService.saveNotification(
-			Notification.ofFriendAccept(friendRequest));
+			Notification.ofFriendRequestByDecision(friendRequest,
+				NotificationType.FRIEND_ACCEPTED));
 
 		FriendsList receiveSide = FriendsList.builder()
 			.owner(acceptor)
@@ -103,6 +104,31 @@ public class FriendService {
 		eventPublisher.publishEvent(FriendEvent.ofFriendAcceptEvent(acceptor, requester));
 		eventPublisher.publishEvent(FriendEvent.ofFriendAcceptSelf(acceptor, requester));
 	}
+
+	@Transactional
+	public void rejectFriendRequest(Authentication auth, Long requesterId) {
+		MemberDetails memberDetails = memberService.checkAuthentication(auth);
+
+		Member rejecter = MemberDetails.of(memberDetails);
+		Member requester = memberService.getMemberById(requesterId);
+
+		Notification notification = notificationService.getNotificationByType(rejecter,
+			requester, NotificationType.FRIEND_REQUESTED);
+
+		notification.markAsRead();
+
+		checkAlreadyFriends(requester, rejecter);
+
+		FriendRequest friendRequest = getFriendRequestBySenderAndReceiver(requester, rejecter);
+		friendRequest.reject();
+
+		notificationService.saveNotification(
+			Notification.ofFriendRequestByDecision(friendRequest,
+				NotificationType.FRIEND_REJECTED));
+
+		eventPublisher.publishEvent(FriendEvent.ofFriendRejectEvent(rejecter, requester));
+	}
+
 
 	private void checkAlreadyFriends(Member owner, Member friend) {
 		boolean exists = friendsListRepository.existsByOwnerAndFriend(owner, friend);

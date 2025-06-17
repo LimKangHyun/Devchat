@@ -11,12 +11,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import project.backend.domain.member.friend.app.FriendService;
 import project.backend.domain.member.friend.dto.FriendResponse;
-import project.backend.domain.member.friend.entity.FriendRequest;
 import project.backend.domain.member.notification.dto.FriendRequestDto;
 
 @Slf4j
@@ -36,7 +34,13 @@ public class FriendController {
 	@PostMapping("/request/{friendId}/accept")
 	@ResponseStatus(HttpStatus.OK)
 	public void acceptFriend(Authentication auth, @PathVariable Long friendId) {
-		friendService.acceptFriend(auth, friendId);
+		friendService.acceptFriendRequest(auth, friendId);
+	}
+
+	@PostMapping("/request/{friendId}/reject")
+	@ResponseStatus(HttpStatus.OK)
+	public void rejectFriend(Authentication auth, @PathVariable Long friendId) {
+		friendService.rejectFriendRequest(auth, friendId);
 	}
 
 	@GetMapping
