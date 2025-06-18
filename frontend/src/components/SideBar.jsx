@@ -7,16 +7,14 @@ import JoinRoomModal from './modals/JoinRoomModal';
 import RoomInfoModal from './modals/RoomInfoModal';
 import Toast from './common/Toast';
 import axiosInstance from "./api/axiosInstance"
-import useSideBarWebSocket from './common/useSideBarWebSocket'; // 사이드바 전용 웹소켓 훅 import
 import NewMessageAlert from './modals/NewMessageAlert';
 import { useAlarm } from '../context/AlarmContext';
+import useWebSocket from './common/useWebSocket';
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const { inviteCode } = useParams();
   const sidebarRef = useRef(null);
-
-  const [chatRooms, setChatRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // 모달 상태
@@ -94,10 +92,12 @@ const Sidebar = () => {
   }, [inviteCode, newMessageAlert, alarmRooms]);
 
   // useWebSocket 훅 사용 - 사이드바용 구독만 활성화
-  const stompClientRef = useSideBarWebSocket({
+  const stompClientRef = useWebSocket({
     chatRooms: alarmRooms, // 채팅방 목록 전달
     currentRoomId: roomId, // 현재 활성화된 채팅방 ID
     onSidebarMessage: handleSidebarMessage, // 사이드바 메시지 처리 콜백
+    onMessageReceived: () => {}, // 메인 메시지 처리는 비활성화
+    roomId: null,
   });
 
   useEffect(() => {

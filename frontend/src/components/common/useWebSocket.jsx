@@ -11,7 +11,6 @@ const useWebSocket = ({
     onSidebarMessage, // 사이드바 메시지 처리 콜백
     onProfileUpdate,
     onRoomDeleted
-
 }) => {
     const stompClientRef = useRef(null);
     const subscriptionRef = useRef(null);
@@ -41,6 +40,7 @@ const useWebSocket = ({
                 console.log("🔁 Previous subscription cleared.");
             }
 
+            // 들어가 있는 채팅방 구독
             if(roomId){
                 subscriptionRef.current = client.subscribe(`/topic/chat/${roomId}`, (message) => {
                     try {
@@ -48,56 +48,55 @@ const useWebSocket = ({
                         received.sendAt = received.sendAt || new Date().toISOString();
                         onMessageReceived(received)
                     } catch (e) {
-                    console.error("📛 Failed to parse incoming message", e);
+                        console.error("📛 Failed to parse incoming message", e);
                     }
                 });
             }
 
-            // 모든 채팅방에 대해 구독 설정
-            if (chatRooms.length > 0 && onSidebarMessage) {
-
+            // 사이드바 채팅방 구독
+            if (chatRooms.length > 0) {
                 chatRooms.forEach(room => {
                     const roomUniqueId = room.uniqueId;
                     if (roomUniqueId) {
-                    const subscription = client.subscribe(`/topic/chat/${roomUniqueId}`, (message) => {
-                        try {
-                        const received = JSON.parse(message.body);
-                        
-                        // 현재 있는 채팅방이 아닌 경우에만 사이드바 알림 처리
-                        if (Number(currentRoomId) !== Number(roomUniqueId)) {
-                            onSidebarMessage(roomUniqueId, received);
-                            console.log(`📨 New message in room ${roomUniqueId}`);
-                        }
-                        } catch (e) {
-                        console.error("📛 Failed to parse sidebar message", e);
-                        }
-                    });
+                        const subscription = client.subscribe(`/topic/chat/${roomUniqueId}`, (message) => {
+                            try {
+                                const received = JSON.parse(message.body);
+                                
+                                // 현재 있는 채팅방이 아닌 경우에만 사이드바 알림 처리
+                                if (Number(currentRoomId) !== Number(roomUniqueId) && received.type !== 'EVENT') {
+                                    onSidebarMessage(roomUniqueId, received);
+                                    console.log(`📨 New message in room ${roomUniqueId}`);
+                                }
+                            } catch (e) {
+                                console.error("📛 Failed to parse sidebar message", e);
+                            }
+                        });
                     
-                    sidebarSubscriptionsRef.current.set(roomUniqueId, subscription);
-                    console.log(`📡 Subscribed to sidebar room: ${roomUniqueId}`);
+                        sidebarSubscriptionsRef.current.set(roomUniqueId, subscription);
+                        console.log(`📡 Subscribed to sidebar room: ${roomUniqueId}`);
                     }
                 });
             }
 
             // 프로필 업데이트 구독
             if (onProfileUpdate) {
-            if (profileSubscriptionRef.current) {
-                profileSubscriptionRef.current.unsubscribe();
-                console.log("🔁 Previous profile subscription cleared.");
-            }
-            
-            profileSubscriptionRef.current = client.subscribe('/topic/profile-update', (message) => {
-                try {
-                const profileUpdate = JSON.parse(message.body);
-                console.log('🔥 프로필 업데이트 수신:', profileUpdate);
-                onProfileUpdate(profileUpdate);
-                } catch (e) {
-                console.error("📛 Failed to parse profile update message", e);
+                if (profileSubscriptionRef.current) {
+                    profileSubscriptionRef.current.unsubscribe();
+                    console.log("🔁 Previous profile subscription cleared.");
                 }
-            });
-            
-            console.log('👤 프로필 업데이트 구독 완료');
+                
+                profileSubscriptionRef.current = client.subscribe('/topic/profile-update', (message) => {
+                    try {
+                    const profileUpdate = JSON.parse(message.body);
+                    console.log('🔥 프로필 업데이트 수신:', profileUpdate);
+                    onProfileUpdate(profileUpdate);
+                    } catch (e) {
+                    console.error("📛 Failed to parse profile update message", e);
+                    }
+                });
+                console.log('👤 프로필 업데이트 구독 완료');
             }
+
             // 방 삭제 구독 추가
             deleteSubscriptionRef.current = client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
                 try {
@@ -117,11 +116,11 @@ const useWebSocket = ({
 
             keepAliveIntervalRef.current = setInterval(() => {
                 if (client && client.connected) {
-                client.publish({
-                    destination: '/app/ping',
-                    body: 'p'
-                });
-                console.log("📡 Sent keep-alive ping");
+                    client.publish({
+                        destination: '/app/ping',
+                        body: 'p'
+                    });
+                    console.log("📡 Sent keep-alive ping");
                 }
             }, 15000);
             },
@@ -134,7 +133,6 @@ const useWebSocket = ({
                     console.error('❌ 토큰 갱신 실패 → 로그인 페이지로 이동');
                     navigate('/login');
                 }
-                
             },
             
             onStompError: (frame) => {
