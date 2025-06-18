@@ -55,6 +55,13 @@ const useWebSocket = ({
 
             // 사이드바 채팅방 구독
             if (chatRooms.length > 0) {
+                // 기존 사이드바 구독들 정리
+                sidebarSubscriptionsRef.current.forEach((subscription, roomId) => {
+                    subscription.unsubscribe();
+                    console.log(`🔁 Previous sidebar subscription for room ${roomId} cleared.`);
+                });
+                sidebarSubscriptionsRef.current.clear();
+
                 chatRooms.forEach(room => {
                     const roomUniqueId = room.uniqueId;
                     if (roomUniqueId) {
