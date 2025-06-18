@@ -5,5 +5,6 @@ public enum NotificationType {
 	FRIEND_ACCEPTED,
 	FRIEND_REJECTED,
 	WE_ARE_FRIEND_NOW,
+	NEW_DM,
 	CODE_REVIEW
 }

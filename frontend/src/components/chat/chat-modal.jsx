@@ -252,6 +252,27 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
     }
   }, [isOpen, initialPosition])
 
+  // Effect to broadcast modal status (open/closed) for other components to listen to.
+  useEffect(() => {
+    if (isOpen && friend?.username) {
+      // Announce that this chat modal is open
+      window.dispatchEvent(
+        new CustomEvent("chat-modal-status", {
+          detail: { action: "open", username: friend.username },
+        }),
+      )
+
+      // Return a cleanup function that runs when the modal closes or the friend changes
+      return () => {
+        window.dispatchEvent(
+          new CustomEvent("chat-modal-status", {
+            detail: { action: "close", username: friend.username },
+          }),
+        )
+      }
+    }
+  }, [isOpen, friend?.username])
+
   // 채팅방 초기화 - 한 번만 실행되도록 수정
   useEffect(() => {
     // If the modal is not open, or friend/user details are missing, do nothing.
@@ -411,6 +432,7 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
       stompClientRef.current.publish({
         destination: `/dm/send/${chatRoomId}`,
         body: JSON.stringify({
+          receiverUsername: friend.username,
           content: messageContent,
           type: "TEXT",
         }),

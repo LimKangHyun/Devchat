@@ -16,6 +16,7 @@ import project.backend.domain.member.dmRoom.dmMessage.dto.DmMessageResponse;
 import project.backend.domain.member.dmRoom.dmMessage.entity.DmMessage;
 import project.backend.domain.member.dmRoom.entity.DmRoom;
 import project.backend.domain.member.entity.Member;
+import project.backend.domain.member.notification.dto.NotificationDto;
 
 @Service
 @RequiredArgsConstructor
@@ -35,9 +36,15 @@ public class DmMessageService {
 
 		DmMessage dmMessage = new DmMessage(room, sender, request.content(), request.type());
 
+		NotificationDto notificationDto = NotificationDto.ofDmMessage(dmMessage,
+			request.receiverUsername());
+
 		DmMessageResponse response = DmMessageResponse.from(dmMessageRepository.save(dmMessage));
 		messagingTemplate.convertAndSend("/topic/dm/" + roomId, response);
 
+		messagingTemplate.convertAndSend(
+			"/topic/notifications/" + notificationDto.receiverUsername(),
+			notificationDto);
 		return response;
 	}
 

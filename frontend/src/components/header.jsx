@@ -35,6 +35,8 @@ export function HeaderWithNotifications() {
 
   // Chat states
   const [currentUser, setCurrentUser] = useState(null)
+  const [openChatUsernames, setOpenChatUsernames] = useState(new Set())
+  const openChatUsernamesRef = useRef(new Set()) // Add this ref
 
   // UI states
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
@@ -44,19 +46,43 @@ export function HeaderWithNotifications() {
   const notificationContentRef = useRef(null)
 
   // WebSocket notification handler
-  const handleNotificationReceived = useCallback((notification) => {
-    console.log("🔔 Processing new real-time notification:", notification)
+  const handleNotificationReceived = useCallback(
+    (notification) => {
+      console.log("🔔 Processing new real-time notification:", notification)
 
-    playNotificationSound()
-    triggerShakeAnimation()
+      if (notification.type === "NEW_DM") {
+        const senderUsername = notification.senderUsername
+        // Use the ref for a synchronous, up-to-date check
+        if (openChatUsernamesRef.current.has(senderUsername)) {
+          console.log(`📨 NEW_DM from ${senderUsername} received, but chat is open. Suppressing alert.`)
+          return
+        }
 
-    flushSync(() => {
-      setRealtimeNotificationCount((prev) => prev + 1)
-    })
+        console.log(`📨 NEW_DM from ${senderUsername} received, chat is closed. Showing alert.`)
+        playNotificationSound()
+        showImmediateNotification(notification)
+        setHasUnreadNotifications(true)
 
-    showImmediateNotification(notification)
-    setHasUnreadNotifications(true)
-  }, [])
+        window.dispatchEvent(
+          new CustomEvent("new-dm-for-sidebar", {
+            detail: { senderUsername: senderUsername },
+          }),
+        )
+        return
+      }
+
+      playNotificationSound()
+      triggerShakeAnimation()
+
+      flushSync(() => {
+        setRealtimeNotificationCount((prev) => prev + 1)
+      })
+
+      showImmediateNotification(notification)
+      setHasUnreadNotifications(true)
+    },
+    [], // The dependency array is now empty, making the function stable.
+  )
 
   // Fetch ONLY unread count
   const fetchUnreadCount = async () => {
@@ -88,7 +114,6 @@ export function HeaderWithNotifications() {
     onNotificationReceived: handleNotificationReceived,
   })
 
-  // Show immediate notification popup/toast
   const showImmediateNotification = (notification) => {
     const message = notification.content
     if (!message) {
@@ -96,8 +121,27 @@ export function HeaderWithNotifications() {
       return
     }
 
+    const getTitleByType = (type) => {
+      switch (type) {
+        case "FRIEND_REQUESTED":
+          return "👋 새로운 친구 요청이 도착했습니다!"
+        case "FRIEND_ACCEPTED":
+          return "✅ 친구 요청이 수락되었습니다!"
+        case "FRIEND_REJECTED":
+          return "❌ 친구 요청이 거절되었습니다."
+        case "WE_ARE_FRIEND_NOW":
+          return "🎉 친구가 되었습니다!"
+        case "NEW_DM":
+          return `💬 ${notification.senderNickname}`
+        case "CODE_REVIEW":
+          return "🧪 코드 리뷰 알림이 있습니다."
+        default:
+          return "🔔 DevChat 알림"
+      }
+    }
+
     if (Notification.permission === "granted") {
-      new Notification("DevChat Notification", {
+      new Notification(getTitleByType(notification.type), {
         body: message,
         icon: notification.senderImg
           ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
@@ -105,7 +149,6 @@ export function HeaderWithNotifications() {
       })
     }
   }
-
   // Get notification type info
   const getNotificationTypeInfo = (type) => {
     switch (type) {
@@ -523,6 +566,26 @@ export function HeaderWithNotifications() {
   )
 
   // Rest of the useEffect hooks
+  useEffect(() => {
+    const handleChatModalStatus = (event) => {
+      const { action, username } = event.detail
+      setOpenChatUsernames((prev) => {
+        const newSet = new Set(prev)
+        if (action === "open") {
+          newSet.add(username)
+        } else {
+          newSet.delete(username)
+        }
+        // Also update the ref synchronously
+        openChatUsernamesRef.current = newSet
+        return newSet
+      })
+    }
+
+    window.addEventListener("chat-modal-status", handleChatModalStatus)
+    return () => window.removeEventListener("chat-modal-status", handleChatModalStatus)
+  }, [])
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {

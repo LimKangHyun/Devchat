@@ -1,12 +1,13 @@
 package project.backend.domain.member.notification.dto;
 
 import java.time.LocalDateTime;
+import project.backend.domain.member.dmRoom.dmMessage.entity.DmMessage;
 import project.backend.domain.member.notification.entity.Notification;
 import project.backend.domain.member.notification.entity.NotificationType;
 
 public record NotificationDto(
 	Long notificationId,
-	boolean isRead,
+	Boolean isRead,
 	NotificationType type,
 	String receiverUsername,
 	String senderUsername,
@@ -33,6 +34,21 @@ public record NotificationDto(
 		);
 	}
 
+	public static NotificationDto ofDmMessage(DmMessage dmMessage, String receiverUsername) {
+		return new NotificationDto(
+			null,
+			null,
+			NotificationType.NEW_DM,
+			receiverUsername,
+			dmMessage.getSender().getUsername(),
+			dmMessage.getSender().getNickname(),
+			dmMessage.getSender().getProfileImage(),
+			dmMessage.getContent(),
+			dmMessage.getSender().getId(),
+			dmMessage.getSentAt()
+		);
+	}
+
 	// 콘텐츠 메시지 생성
 	private static String getContentByType(String senderNickname, NotificationType type) {
 		return switch (type) {
@@ -41,6 +57,7 @@ public record NotificationDto(
 			case FRIEND_REJECTED -> senderNickname + "님이 친구요청을 거절했습니다.";
 			case WE_ARE_FRIEND_NOW -> senderNickname + "님과 친구가 되었습니다.";
 			case CODE_REVIEW -> senderNickname + "님이 코드 리뷰를 추가했습니다.";
+			default -> "딩동";
 		};
 	}
 }

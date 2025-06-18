@@ -23,6 +23,7 @@ const FriendsSidebar = ({ onStartChat }) => {
   const [hasMoreFriends, setHasMoreFriends] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [totalFriendsCount, setTotalFriendsCount] = useState(0)
+  const [friendsWithNewMessages, setFriendsWithNewMessages] = useState(new Set())
   const friendsContainerRef = useRef(null)
 
   const handleFriendNotification = useCallback((notification) => {
@@ -68,6 +69,19 @@ const FriendsSidebar = ({ onStartChat }) => {
     onNotificationReceived: handleFriendNotification,
     // other props...
   })
+
+  // Listen for new DM notifications from the header to apply visual effects.
+  useEffect(() => {
+    const handleNewDmForSidebar = (event) => {
+      const { senderUsername } = event.detail
+      if (senderUsername) {
+        setFriendsWithNewMessages((prev) => new Set(prev).add(senderUsername))
+      }
+    }
+
+    window.addEventListener("new-dm-for-sidebar", handleNewDmForSidebar)
+    return () => window.removeEventListener("new-dm-for-sidebar", handleNewDmForSidebar)
+  }, [])
 
   useEffect(() => {
     const handleFriendRequestAccepted = () => fetchFriends(0, true)
@@ -147,6 +161,14 @@ const FriendsSidebar = ({ onStartChat }) => {
   const handleStartChatClick = (e, friend) => {
     e.stopPropagation() // Prevent any other click events on the row
     console.log(`Chat icon clicked for ${friend.username}.`)
+
+    // When a chat is opened, remove the new message indicator for that friend.
+    setFriendsWithNewMessages((prev) => {
+      const newSet = new Set(prev)
+      newSet.delete(friend.username)
+      return newSet
+    })
+
     if (typeof onStartChat === "function") {
       onStartChat(friend) // This calls the function from ChatManager
     } else {
@@ -157,146 +179,160 @@ const FriendsSidebar = ({ onStartChat }) => {
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case "online":
-        return "#4CAF50"
+        return "#4CAF50" // Green
       case "away":
-        return "#FF9800"
+        return "#FF9800" // Orange
       default:
-        return "#9E9E9E"
+        return "#9E9E9E" // Grey
     }
   }
 
-  const renderFriendItem = (friend) => (
-    <div key={friend.username} style={{ padding: "5px 10px" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          backgroundColor: "transparent",
-          padding: "10px 12px",
-          borderRadius: "8px",
-          transition: "all 0.2s ease",
-          position: "relative",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"
-          const chatIcon = e.currentTarget.querySelector(".chat-icon")
-          if (chatIcon) chatIcon.style.opacity = "1"
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = "transparent"
-          const chatIcon = e.currentTarget.querySelector(".chat-icon")
-          if (chatIcon) chatIcon.style.opacity = "0"
-        }}
-      >
-        {/* User avatar and name section (no changes) */}
-        <div style={{ display: "flex", alignItems: "center", flex: 1, overflow: "hidden" }}>
-          <div style={{ position: "relative", marginRight: "10px", flexShrink: 0 }}>
-            {friend.avatar ? (
-              <img
-                src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${friend.avatar}`}
-                alt={friend.nickname || friend.username}
-                style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }}
-                onError={(e) => {
-                  e.currentTarget.style.display = "none"
-                  if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "flex"
+  const renderFriendItem = (friend) => {
+    const hasNewMessage = friendsWithNewMessages.has(friend.username)
+
+    const friendItemStyle = {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: "transparent", // Base background
+      padding: "10px 12px",
+      borderRadius: "8px",
+      transition: "background-color 0.3s ease, box-shadow 0.3s ease", // Smooth transition for hover and glow
+      position: "relative",
+      animation: hasNewMessage ? "glow-effect 2s infinite ease-in-out" : "none",
+    }
+
+    return (
+      <div key={friend.username} style={{ padding: "5px 10px" }}>
+        <div
+          style={friendItemStyle}
+          onMouseEnter={(e) => {
+            if (!hasNewMessage) {
+              // Only apply hover if no new message glow
+              e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"
+            }
+            const chatIcon = e.currentTarget.querySelector(".chat-icon")
+            if (chatIcon) chatIcon.style.opacity = "1"
+          }}
+          onMouseLeave={(e) => {
+            if (!hasNewMessage) {
+              e.currentTarget.style.backgroundColor = "transparent"
+            }
+            const chatIcon = e.currentTarget.querySelector(".chat-icon")
+            if (chatIcon) chatIcon.style.opacity = "0"
+          }}
+        >
+          {/* User avatar and name section */}
+          <div style={{ display: "flex", alignItems: "center", flex: 1, overflow: "hidden" }}>
+            <div style={{ position: "relative", marginRight: "10px", flexShrink: 0 }}>
+              {friend.avatar ? (
+                <img
+                  src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${friend.avatar}`}
+                  alt={friend.nickname || friend.username}
+                  style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }}
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none"
+                    if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "flex"
+                  }}
+                />
+              ) : null}
+              <div
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.7)",
+                  color: "#2588F1",
+                  borderRadius: "50%",
+                  width: "28px",
+                  height: "28px",
+                  display: friend.avatar ? "none" : "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <FaUsers size={14} />
+              </div>
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "-2px",
+                  right: "-2px",
+                  width: "10px",
+                  height: "10px",
+                  backgroundColor: getStatusColor(friend.status),
+                  borderRadius: "50%",
+                  border: "2px solid #2588F1",
                 }}
               />
-            ) : null}
+            </div>
+            <div style={{ flex: 1, overflow: "hidden" }}>
+              <div
+                style={{
+                  fontWeight: hasNewMessage ? "700" : "600",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  fontSize: "14px",
+                  color: hasNewMessage ? "#E0E7FF" : "inherit",
+                }}
+              >
+                {friend.nickname || friend.username}
+              </div>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "rgba(224, 231, 255, 0.7)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                @{friend.username}
+              </div>
+            </div>
+          </div>
+
+          {/* Status, New Badge, and Chat Icon Section */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {" "}
+            {/* Adjusted gap */}
             <div
               style={{
-                backgroundColor: "rgba(255,255,255,0.7)",
-                color: "#2588F1",
-                borderRadius: "50%",
-                width: "28px",
-                height: "28px",
-                display: friend.avatar ? "none" : "flex",
+                fontSize: "11px",
+                color: getStatusColor(friend.status),
+                fontWeight: "500",
+                textTransform: "capitalize",
+                minWidth: "40px", // Adjusted minWidth
+                textAlign: "right",
+              }}
+            >
+              {friend.status}
+            </div>
+            {hasNewMessage && <span className="new-message-badge-v2">NEW</span>}
+            <button
+              className="chat-icon"
+              onClick={(e) => handleStartChatClick(e, friend)}
+              aria-label={`Chat with ${friend.nickname}`}
+              style={{
+                opacity: 0,
+                transition: "all 0.3s ease",
+                background: "linear-gradient(135deg, #10b981, #059669)",
+                borderRadius: "8px",
+                padding: "6px",
+                color: "white",
+                display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+                border: "none",
+                cursor: "pointer",
               }}
             >
-              <FaUsers size={14} />
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-2px",
-                right: "-2px",
-                width: "10px",
-                height: "10px",
-                backgroundColor: getStatusColor(friend.status),
-                borderRadius: "50%",
-                border: "2px solid #2588F1",
-              }}
-            />
+              <MessageCircle size={14} />
+            </button>
           </div>
-          <div style={{ flex: 1, overflow: "hidden" }}>
-            <div
-              style={{
-                fontWeight: "600",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                fontSize: "14px",
-              }}
-            >
-              {friend.nickname || friend.username}
-            </div>
-            <div
-              style={{
-                fontSize: "12px",
-                color: "rgba(255,255,255,0.7)",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              @{friend.username}
-            </div>
-          </div>
-        </div>
-
-        {/* Status and Chat Icon Section */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <div
-            style={{
-              fontSize: "11px",
-              color: getStatusColor(friend.status),
-              fontWeight: "500",
-              textTransform: "capitalize",
-              minWidth: "50px",
-              textAlign: "right",
-            }}
-          >
-            {friend.status}
-          </div>
-
-          {/* MODIFICATION: The chat icon is now a clickable button */}
-          <button
-            className="chat-icon"
-            onClick={(e) => handleStartChatClick(e, friend)}
-            aria-label={`Chat with ${friend.nickname}`}
-            style={{
-              opacity: 0, // Initially hidden, shown on hover via parent
-              transition: "all 0.3s ease",
-              background: "linear-gradient(135deg, #10b981, #059669)",
-              borderRadius: "8px",
-              padding: "6px",
-              color: "white",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            <MessageCircle size={14} />
-          </button>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <>
@@ -340,8 +376,43 @@ const FriendsSidebar = ({ onStartChat }) => {
         <FindUserModal onClose={() => setShowFindUserModal(false)} onSendFriendRequest={handleSendFriendRequest} />
       )}
       <style jsx>{`
-        .friends-container::-webkit-scrollbar { display: none; }
-      `}</style>
+      .friends-container::-webkit-scrollbar {
+        display: none;
+      }
+      .new-message-badge-v2 {
+        background: linear-gradient(45deg, #c026d3, #a21caf); /* Fuchsia/Purple gradient for badge */
+        color: white;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 3px 7px;
+        border-radius: 4px; 
+        animation: pop-in-badge 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        text-transform: uppercase;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        margin-left: 6px; /* Added margin for spacing from status */
+      }
+      @keyframes pop-in-badge {
+        from {
+          transform: translateY(5px) scale(0.8);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0) scale(1);
+          opacity: 1;
+        }
+      }
+      @keyframes glow-effect { 
+        0%, 100% {
+          background-color: rgba(168, 85, 247, 0.15); /* Slightly more intense base for glow */
+          box-shadow: 0 0 6px rgba(168, 85, 247, 0.25), inset 0 0 4px rgba(192, 132, 252, 0.15);
+        }
+        50% {
+          background-color: rgba(168, 85, 247, 0.25); /* More intense purple tint for glow peak */
+          box-shadow: 0 0 14px rgba(168, 85, 247, 0.45), inset 0 0 7px rgba(192, 132, 252, 0.25);
+        }
+      }
+    `}</style>
     </>
   )
 }
