@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Client } from "@stomp/stompjs"
 import { useNavigate } from "react-router-dom"
 import { safeRefreshToken } from "../api/refreshManager"
 
-const useWebSocketNotifications = ({
+const useWebSocket = ({
   roomId,
   username,
   onMessageReceived,
@@ -15,15 +15,18 @@ const useWebSocketNotifications = ({
   onSidebarMessage,
   onProfileUpdate,
   onRoomDeleted,
+  dmRoomId,
+  onDmMessageReceived,
 }) => {
   const stompClientRef = useRef(null)
   const subscriptionRef = useRef(null)
-  const notificationSubscriptionRef = useRef(null) // New ref for notification subscription
+  const notificationSubscriptionRef = useRef(null)
   const profileSubscriptionRef = useRef(null)
   const hasConnectedRef = useRef(false)
   const sidebarSubscriptionsRef = useRef(new Map())
   const keepAliveIntervalRef = useRef(null)
   const deleteSubscriptionRef = useRef(null)
+  const [connected, setConnected] = useState(false)
 
   const navigate = useNavigate()
 
@@ -63,7 +66,7 @@ const useWebSocketNotifications = ({
           })
         }
 
-        // Notification subscription (new functionality)
+        // Notification subscription
         if (username && onNotificationReceived) {
           if (notificationSubscriptionRef.current) {
             notificationSubscriptionRef.current.unsubscribe()
@@ -117,7 +120,7 @@ const useWebSocketNotifications = ({
           })
         }
 
-        // Profile update subscription (existing functionality)
+        // Profile update subscription
         if (onProfileUpdate) {
           if (profileSubscriptionRef.current) {
             profileSubscriptionRef.current.unsubscribe()
@@ -137,7 +140,7 @@ const useWebSocketNotifications = ({
           console.log("👤 프로필 업데이트 구독 완료")
         }
 
-        // Room deletion subscription (existing functionality)
+        // Room deletion subscription
         if (roomId && onRoomDeleted) {
           deleteSubscriptionRef.current = client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
             try {
@@ -153,7 +156,7 @@ const useWebSocketNotifications = ({
           })
         }
 
-        // Keep alive (existing functionality)
+        // Keep alive
         if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current)
 
         keepAliveIntervalRef.current = setInterval(() => {
@@ -178,6 +181,7 @@ const useWebSocketNotifications = ({
       },
 
       onStompError: (frame) => {
+        setConnected(false) 
         console.error("💥 STOMP error:", frame.headers["message"])
       },
     })
@@ -231,7 +235,35 @@ const useWebSocketNotifications = ({
     }
   }, [currentRoomId, navigate, onProfileUpdate, roomId, username, onNotificationReceived])
 
-  return stompClientRef
-}
+  useEffect(() => {
+    const client = stompClientRef.current
+    if (!client?.connected || !dmRoomId || !onDmMessageReceived) return
 
-export default useWebSocketNotifications
+    const destination = `/topic/dm/${dmRoomId}`
+
+    const subscription = client.subscribe(destination, (message) => {
+      try {
+        const parsed = JSON.parse(message.body)
+        onDmMessageReceived(parsed)
+      } catch (e) {
+        console.error("📛 Failed to parse DM message:", e)
+      }
+    })
+
+    console.log(`📡 Subscribed to ${destination}`)
+
+    return () => {
+      console.log(`🔌 Unsubscribing from ${destination}`)
+      subscription.unsubscribe()
+    }
+  }, [dmRoomId, onDmMessageReceived, stompClientRef.current?.connected])
+
+
+    return {stompClientRef, connected}
+  }
+
+export default useWebSocket
+
+
+
+
