@@ -18,6 +18,7 @@ export function HeaderWithNotifications() {
   const [apiNotifications, setApiNotifications] = useState([])
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
+  const [markingAsReadId, setMarkingAsReadId] = useState(null)
   const [processingRequestId, setProcessingRequestId] = useState(null)
 
   // Filter states
@@ -129,7 +130,14 @@ export function HeaderWithNotifications() {
           color: "#8b5cf6",
           bgColor: "#f3e8ff",
         }
-      default:
+      case "WE_ARE_FRIEND_NOW": // Added based on new server format
+        return {
+          label: "New Friend",
+          icon: <User size={14} />,
+          color: "#10b981", // Same as friend request for consistency, or choose a new one
+          bgColor: "#ecfdf5",
+        }
+      default: // This will catch 'NOTIFICATION' or any other types
         return {
           label: "Notification",
           icon: <Bell size={14} />,
@@ -184,12 +192,13 @@ export function HeaderWithNotifications() {
       const { content, totalElements, last } = response.data
 
       const transformedNotifications = content
-        .map((notification, index) => ({
-          id: `api-${filter}-${page}-${index}-${notification.referenceId || "no-ref"}-${Date.now()}`,
+        .map((notification) => ({
+          // Removed index from map as notificationId should be unique
+          id: notification.notificationId, // Use server's notificationId as the primary client-side ID
           type: notification.type,
           sender: notification.senderNickname || notification.senderUsername,
           senderImg: notification.senderImg,
-          referenceId: notification.referenceId,
+          referenceId: notification.referenceId, // This is used for specific actions like friend requests or navigating to a code review
           content: notification.content,
           timestamp: notification.createdAt || new Date().toISOString(),
           isNew: !notification.isRead,
@@ -238,10 +247,11 @@ export function HeaderWithNotifications() {
   // Handle accept friend request
   const handleAcceptRequest = async (notification) => {
     try {
-      setProcessingRequestId(notification.id)
+      setProcessingRequestId(notification.id) // notification.id here is notificationId from server
 
-      const requestId = notification.referenceId
-      await axiosInstance.post(`/friend/request/${requestId}/accept`)
+      // For friend requests, referenceId is the ID of the friend request itself
+      const friendRequestId = notification.referenceId
+      await axiosInstance.post(`/friend/request/${friendRequestId}/accept`)
 
       flushSync(() => {
         setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
@@ -261,10 +271,10 @@ export function HeaderWithNotifications() {
   // Handle reject friend request
   const handleRejectRequest = async (notification) => {
     try {
-      setProcessingRequestId(notification.id)
+      setProcessingRequestId(notification.id) // notification.id here is notificationId from server
 
-      const requestId = notification.referenceId
-      await axiosInstance.post(`/friend/request/${requestId}/reject`)
+      const friendRequestId = notification.referenceId
+      await axiosInstance.post(`/friend/request/${friendRequestId}/reject`)
 
       flushSync(() => {
         setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
@@ -280,30 +290,62 @@ export function HeaderWithNotifications() {
 
   // Handle navigation for non-friend-request notifications
   const handleNotificationNavigation = (notification) => {
+    // For these types, referenceId usually points to the entity (e.g., code review ID, chat ID)
+    const entityId = notification.referenceId
     switch (notification.type) {
       case "CODE_REVIEW":
-        window.location.href = `/code-review/${notification.referenceId}`
+        window.location.href = `/code-review/${entityId}`
         break
       case "MESSAGE":
         console.log(
           "Header: 'MESSAGE' notification clicked for",
           notification.sender,
+          "with referenceId (chat/user ID):",
+          entityId,
           "- chat opening should be handled by ChatManager now.",
         )
-        // If you need to open chat from here, you'll need a way to call
-        // the openChatModal function provided by ChatManager context/props.
-        // For example, if ChatManager's openChatModal was passed as a prop to Header:
-        // if (props.openChatFromHeader) {
-        //   const friend = { /* ... */ };
-        //   props.openChatFromHeader(friend);
-        // }
+        // Example: if (props.openChatFromHeader) { props.openChatFromHeader(entityId); }
         break
       default:
-        console.log("Navigation not implemented for type:", notification.type)
+        console.log("Navigation not implemented for type:", notification.type, "or no referenceId for navigation.")
     }
     setIsNotificationOpen(false)
   }
 
+  // Handle mark notification as read
+  const handleMarkAsRead = async (notification) => {
+    // For marking a notification as read, we use its own ID (notification.id, which is notificationId from server)
+    if (!notification.id) {
+      // Check if notification.id (notificationId from server) exists
+      console.error("Cannot mark notification as read: missing valid notification.id", notification)
+      alert("Error: This notification cannot be marked as read due to missing information.")
+      return
+    }
+    try {
+      setMarkingAsReadId(notification.id)
+      // API endpoint uses the notification's own ID
+      await axiosInstance.post(`/notification/read/${notification.id}`)
+
+      flushSync(() => {
+        setApiNotifications((prev) =>
+          prev.map((n) => (n.id === notification.id ? { ...n, isRead: true, isNew: false } : n)),
+        )
+        if (!notification.isRead) {
+          // if it was unread before this action
+          setUnreadNotificationCount((prev) => Math.max(0, prev - 1))
+        }
+        if (notificationFilter === "unread") {
+          // If on "unread" tab, remove it after marking as read
+          setApiNotifications((prev) => prev.filter((n) => n.id !== notification.id))
+        }
+      })
+    } catch (err) {
+      console.error("Error marking notification as read:", err)
+      alert("Failed to mark notification as read.")
+    } finally {
+      setMarkingAsReadId(null)
+    }
+  }
   // Format relative time
   const formatRelativeTime = (timestamp) => {
     const now = new Date()
@@ -320,86 +362,89 @@ export function HeaderWithNotifications() {
   const renderNotificationItem = (notification) => {
     const isFriendRequest = notification.type === "FRIEND_REQUESTED"
     const typeInfo = getNotificationTypeInfo(notification.type)
-    const showActionButtons = isFriendRequest && !notification.isRead
+    const showActionButtonsForFriendRequest = isFriendRequest && !notification.isRead
 
-    if (isFriendRequest) {
-      return (
-        <div key={notification.id} className={styles.notificationItem}>
-          <div className={styles.notificationContent}>
-            <div className={styles.notificationAvatar}>
-              <img
-                src={
-                  notification.senderImg
-                    ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
-                    : "/images/not-found-profile.png"
-                }
-                alt={notification.sender}
-                className={styles.avatarImage}
-                onError={(e) => {
-                  e.currentTarget.src = "/images/not-found-profile.png"
-                }}
-              />
-              {notificationFilter === "unread" && <div className={styles.newIndicator}></div>}
-            </div>
+    // Determine if this notification type should have a "mark as read" button
+    // These types typically have direct navigation or specific actions rather than just "mark as read"
+    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", "CODE_REVIEW", "MESSAGE"]
+    const canMarkAsRead = !typesWithoutMarkAsReadButton.includes(notification.type) && !notification.isRead
 
-            <div className={styles.notificationBody}>
-              <div className={styles.notificationHeader}>
-                <div className={styles.badgeContainer}>
-                  <span
-                    className={styles.notificationBadge}
-                    style={{
-                      color: typeInfo.color,
-                      backgroundColor: typeInfo.bgColor,
-                    }}
-                  >
-                    {typeInfo.icon}
-                    {typeInfo.label}
-                  </span>
-                </div>
-                <div className={styles.timestampContainer}>
-                  <Clock size={12} />
-                  <span className={styles.notificationTime}>{formatRelativeTime(notification.timestamp)}</span>
-                </div>
-              </div>
+    let actionElement = null
 
-              <div className={styles.notificationMessage}>
-                <strong className={styles.senderName}>{notification.sender}</strong>
-                <div className={styles.messageText}>{notification.content}</div>
-              </div>
-            </div>
-
-            {showActionButtons && (
-              <div className={styles.notificationActions}>
-                <button
-                  className={`${styles.actionButton} ${styles.acceptButton}`}
-                  onClick={() => handleAcceptRequest(notification)}
-                  disabled={processingRequestId === notification.id}
-                >
-                  {processingRequestId === notification.id ? (
-                    <div className={styles.buttonSpinner}></div>
-                  ) : (
-                    <Check size={16} />
-                  )}
-                </button>
-                <button
-                  className={`${styles.actionButton} ${styles.rejectButton}`}
-                  onClick={() => handleRejectRequest(notification)}
-                  disabled={processingRequestId === notification.id}
-                >
-                  {processingRequestId === notification.id ? (
-                    <div className={styles.buttonSpinner}></div>
-                  ) : (
-                    <X size={16} />
-                  )}
-                </button>
-              </div>
+    if (showActionButtonsForFriendRequest) {
+      actionElement = (
+        <div className={styles.notificationActions}>
+          <button
+            className={`${styles.actionButton} ${styles.acceptButton}`}
+            onClick={() => handleAcceptRequest(notification)}
+            disabled={processingRequestId === notification.id}
+            aria-label="Accept friend request"
+          >
+            {processingRequestId === notification.id ? (
+              <div className={styles.buttonSpinner}></div>
+            ) : (
+              <Check size={16} />
             )}
-          </div>
+          </button>
+          <button
+            className={`${styles.actionButton} ${styles.rejectButton}`}
+            onClick={() => handleRejectRequest(notification)}
+            disabled={processingRequestId === notification.id}
+            aria-label="Reject friend request"
+          >
+            {processingRequestId === notification.id ? <div className={styles.buttonSpinner}></div> : <X size={16} />}
+          </button>
         </div>
+      )
+    } else if (canMarkAsRead) {
+      actionElement = (
+        <button
+          className={`${styles.actionButton} ${styles.markAsReadButton}`}
+          onClick={() => handleMarkAsRead(notification)}
+          disabled={markingAsReadId === notification.id}
+          aria-label="Mark as read"
+        >
+          {markingAsReadId === notification.id ? <div className={styles.buttonSpinner}></div> : <Check size={16} />}
+        </button>
+      )
+    } else if (notification.type === "CODE_REVIEW" || notification.type === "MESSAGE") {
+      // Navigation for specific types if not a friend request and not eligible for mark as read
+      actionElement = (
+        <button
+          className={styles.navigationButton}
+          onClick={() => handleNotificationNavigation(notification)}
+          aria-label={`Navigate to ${typeInfo.label}`}
+        >
+          <ArrowRight size={16} />
+        </button>
+      )
+    } else if (!notification.isRead && !typesWithoutMarkAsReadButton.includes(notification.type)) {
+      // Fallback for other unread notifications that might need a mark as read button
+      // This handles types like "WE_ARE_FRIEND_NOW" or generic "NOTIFICATION"
+      actionElement = (
+        <button
+          className={`${styles.actionButton} ${styles.markAsReadButton}`}
+          onClick={() => handleMarkAsRead(notification)}
+          disabled={markingAsReadId === notification.id}
+          aria-label="Mark as read"
+        >
+          {markingAsReadId === notification.id ? <div className={styles.buttonSpinner}></div> : <Check size={16} />}
+        </button>
+      )
+    } else if (notification.isRead && !typesWithoutMarkAsReadButton.includes(notification.type)) {
+      // Already read, show a disabled/confirmed checkmark for generic types
+      actionElement = (
+        <button
+          className={`${styles.actionButton} ${styles.markAsReadButton}`}
+          disabled={true}
+          aria-label="Marked as read"
+          style={{ opacity: 0.6, cursor: "default" }}
+        >
+          <Check size={16} />
+        </button>
       )
     }
 
-    // Regular notification with navigation
     return (
       <div key={notification.id} className={styles.notificationItem}>
         <div className={styles.notificationContent}>
@@ -407,7 +452,7 @@ export function HeaderWithNotifications() {
             <img
               src={
                 notification.senderImg
-                  ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
+                  ? `${process.env.REACT_APP_PROFILE_IMAGE_URL || "/placeholder.svg"}/${notification.senderImg}`
                   : "/images/not-found-profile.png"
               }
               alt={notification.sender}
@@ -416,7 +461,7 @@ export function HeaderWithNotifications() {
                 e.currentTarget.src = "/images/not-found-profile.png"
               }}
             />
-            {notificationFilter === "unread" && <div className={styles.newIndicator}></div>}
+            {notificationFilter === "unread" && !notification.isRead && <div className={styles.newIndicator}></div>}
           </div>
 
           <div className={styles.notificationBody}>
@@ -424,32 +469,24 @@ export function HeaderWithNotifications() {
               <div className={styles.badgeContainer}>
                 <span
                   className={styles.notificationBadge}
-                  style={{
-                    color: typeInfo.color,
-                    backgroundColor: typeInfo.bgColor,
-                  }}
+                  style={{ color: typeInfo.color, backgroundColor: typeInfo.bgColor }}
                 >
                   {typeInfo.icon}
-                  {typeInfo.label}
+                  <span className={styles.badgeText}>{typeInfo.label}</span>
                 </span>
               </div>
               <div className={styles.timestampContainer}>
-                <Clock size={12} />
+                <Clock size={12} className={styles.clockIcon} />
                 <span className={styles.notificationTime}>{formatRelativeTime(notification.timestamp)}</span>
               </div>
             </div>
-
             <div className={styles.notificationMessage}>{notification.content}</div>
           </div>
-
-          <button className={styles.navigationButton} onClick={() => handleNotificationNavigation(notification)}>
-            <ArrowRight size={16} />
-          </button>
+          {actionElement}
         </div>
       </div>
     )
   }
-
   // Toggle notification dropdown
   const toggleNotifications = () => {
     if (!isNotificationOpen) {
@@ -692,8 +729,7 @@ export function HeaderWithNotifications() {
           </div>
         </div>
         <audio ref={audioRef} preload="auto">
-          <source src="/sounds/notification.mp3" type="audio/mpeg" />
-          <source src="/sounds/notification.wav" type="audio/wav" />
+          <source src="/sounds/notification2.mp3" type="audio/mpeg" />
         </audio>
       </header>
     </>

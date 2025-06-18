@@ -5,6 +5,7 @@ import project.backend.domain.member.notification.entity.Notification;
 import project.backend.domain.member.notification.entity.NotificationType;
 
 public record NotificationDto(
+	Long notificationId,
 	boolean isRead,
 	NotificationType type,
 	String receiverUsername,
@@ -19,6 +20,7 @@ public record NotificationDto(
 	// Notification 객체로부터 생성
 	public static NotificationDto ofNotification(Notification notification) {
 		return new NotificationDto(
+			notification.getId(),
 			notification.isRead(),
 			notification.getType(),
 			notification.getReceiver().getUsername(),

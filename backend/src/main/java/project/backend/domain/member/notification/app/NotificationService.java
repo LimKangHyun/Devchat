@@ -57,5 +57,17 @@ public class NotificationService {
 				() -> new NotificationException(NotificationErrorCode.NOT_FOUND_NOTIFICATION));
 	}
 
+	private Notification getNotificationById(Long notificationId) {
+		return notificationRepository.findById(notificationId)
+			.orElseThrow(
+				() -> new NotificationException(NotificationErrorCode.NOT_FOUND_NOTIFICATION));
+	}
 
+	@Transactional
+	public void readNotification(Long notificationId, Authentication auth) {
+		memberService.checkAuthentication(auth);
+
+		Notification notification = getNotificationById(notificationId);
+		notification.markAsRead();
+	}
 }

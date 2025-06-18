@@ -446,8 +446,8 @@
   display: flex;
   gap: 8px;
   flex-shrink: 0;
-  align-items: flex-start;
-  padding-top: 2px;
+  align-items: center;
+  justify-content: center;
 }
 
 .actionButton {
@@ -485,6 +485,16 @@
   background: linear-gradient(135deg, #dc2626, #b91c1c);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.markAsReadButton {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.markAsReadButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .actionButton:active:not(:disabled) {

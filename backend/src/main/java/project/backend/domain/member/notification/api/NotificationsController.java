@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,5 +32,11 @@ public class NotificationsController {
 	public Page<NotificationDto> getUnreadNotifications(Authentication auth,
 		Pageable pageable) {
 		return notificationService.getNotReadNotification(auth, pageable);
+	}
+
+	@PostMapping("/read/{notificationId}")
+	@ResponseStatus(HttpStatus.OK)
+	public void readNotification(@PathVariable Long notificationId, Authentication auth) {
+		notificationService.readNotification(notificationId, auth);
 	}
 }
