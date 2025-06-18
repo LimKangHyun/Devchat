@@ -29,8 +29,8 @@ const FriendsSidebar = ({ onStartChat }) => {
     switch (notification.type) {
       case "FRIEND_ACCEPTED":
         const newFriend = {
-          username: notification.sender,
-          nickname: notification.senderNickname || notification.sender,
+          username: notification.senderUsername,
+          nickname: notification.senderNickname,
           status: "online",
           avatar: notification.senderImg,
         }
