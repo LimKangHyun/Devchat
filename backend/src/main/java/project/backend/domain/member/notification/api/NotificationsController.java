@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import project.backend.domain.member.notification.dto.NotificationResponse;
+import project.backend.domain.member.notification.dto.NotificationDto;
 import project.backend.domain.member.notification.app.NotificationService;
 
 @RestController
@@ -21,13 +21,13 @@ public class NotificationsController {
 
 	@GetMapping
 	@ResponseStatus(HttpStatus.OK)
-	public Page<NotificationResponse> getNotifications(Authentication auth, Pageable pageable) {
+	public Page<NotificationDto> getNotifications(Authentication auth, Pageable pageable) {
 		return notificationService.getNotifications(auth, pageable);
 	}
 
 	@GetMapping("/unread")
 	@ResponseStatus(HttpStatus.OK)
-	public Page<NotificationResponse> getUnreadNotifications(Authentication auth,
+	public Page<NotificationDto> getUnreadNotifications(Authentication auth,
 		Pageable pageable) {
 		return notificationService.getNotReadNotification(auth, pageable);
 	}

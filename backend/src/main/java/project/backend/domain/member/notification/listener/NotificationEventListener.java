@@ -7,7 +7,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import project.backend.domain.member.notification.dto.NotificationResponse;
+import project.backend.domain.member.notification.dto.NotificationDto;
 import project.backend.domain.member.notification.entity.NotificationType;
 
 @Slf4j
@@ -19,7 +19,7 @@ public class NotificationEventListener {
 
 	@Async
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-	public void handleFriendRequest(NotificationResponse event) {
+	public void handleFriendRequest(NotificationDto event) {
 
 		NotificationType type = event.type();
 

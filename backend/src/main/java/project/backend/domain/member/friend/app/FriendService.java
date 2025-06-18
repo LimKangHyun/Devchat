@@ -9,12 +9,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.member.app.MemberService;
+import project.backend.domain.member.dmRoom.app.DmRoomService;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.friend.dao.FriendRequestRepository;
 import project.backend.domain.member.friend.dao.FriendsListRepository;
 import project.backend.domain.member.friend.dto.FriendResponse;
 import project.backend.domain.member.friend.entity.FriendRequest;
-import project.backend.domain.member.notification.dto.NotificationResponse;
+import project.backend.domain.member.notification.dto.NotificationDto;
 import project.backend.domain.member.friend.entity.Friends;
 import project.backend.domain.member.notification.app.NotificationService;
 import project.backend.domain.member.friend.dto.FriendRequestDto;
@@ -32,6 +33,7 @@ public class FriendService {
 	private final FriendsListRepository friendsListRepository;
 	private final NotificationService notificationService;
 	private final ApplicationEventPublisher eventPublisher;
+	private final DmRoomService dmRoomService;
 
 	private record FriendContext(Member receiver, Member requester, FriendRequest friendRequest) {
 
@@ -56,7 +58,7 @@ public class FriendService {
 		Notification notification = notificationService.saveNotification(
 			Notification.ofFriendRequest(friendRequest));
 
-		eventPublisher.publishEvent(NotificationResponse.ofNotification(notification));
+		eventPublisher.publishEvent(NotificationDto.ofNotification(notification));
 	}
 
 	@Transactional
@@ -77,13 +79,15 @@ public class FriendService {
 			Notification.ofFriendRequestByDecision(context.friendRequest,
 				NotificationType.FRIEND_ACCEPTED));
 
+		dmRoomService.creatDmRoom(context.requester, context.receiver);
+
 		Notification BecomeFriendNotification = notificationService.saveNotification(
 			Notification.ofFriendshipEstablished(context.friendRequest));
 
 		eventPublisher.publishEvent(
-			NotificationResponse.ofNotification(AceeptNotification));
+			NotificationDto.ofNotification(AceeptNotification));
 		eventPublisher.publishEvent(
-			NotificationResponse.ofNotification(BecomeFriendNotification));
+			NotificationDto.ofNotification(BecomeFriendNotification));
 	}
 
 	@Transactional
@@ -97,7 +101,7 @@ public class FriendService {
 				NotificationType.FRIEND_REJECTED));
 
 		eventPublisher.publishEvent(
-			NotificationResponse.ofNotification(RejectNotification));
+			NotificationDto.ofNotification(RejectNotification));
 	}
 
 	private FriendContext prepareFriendDecisionContext(Authentication auth, Long requesterId) {

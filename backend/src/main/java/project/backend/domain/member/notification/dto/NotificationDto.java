@@ -1,11 +1,10 @@
 package project.backend.domain.member.notification.dto;
 
 import java.time.LocalDateTime;
-import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.notification.entity.Notification;
 import project.backend.domain.member.notification.entity.NotificationType;
 
-public record NotificationResponse(
+public record NotificationDto(
 	boolean isRead,
 	NotificationType type,
 	String receiverUsername,
@@ -18,8 +17,8 @@ public record NotificationResponse(
 ) {
 
 	// Notification 객체로부터 생성
-	public static NotificationResponse ofNotification(Notification notification) {
-		return new NotificationResponse(
+	public static NotificationDto ofNotification(Notification notification) {
+		return new NotificationDto(
 			notification.isRead(),
 			notification.getType(),
 			notification.getReceiver().getUsername(),
