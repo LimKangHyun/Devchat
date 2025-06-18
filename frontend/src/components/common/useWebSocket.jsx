@@ -46,6 +46,7 @@ const useWebSocket = ({
 
       onConnect: () => {
         console.log("✅ Connected to WebSocket")
+        setConnected(true) // Add this line
         hasConnectedRef.current = true
 
         // Chat room subscription (existing functionality)
@@ -80,7 +81,7 @@ const useWebSocket = ({
               notification.id = `${Date.now()}-${Math.random()}`
 
               console.log("🔔 New notification received:", notification)
-                
+
               onNotificationReceived(notification)
             } catch (e) {
               console.error("📛 Failed to parse notification message", e)
@@ -181,7 +182,7 @@ const useWebSocket = ({
       },
 
       onStompError: (frame) => {
-        setConnected(false) 
+        setConnected(false)
         console.error("💥 STOMP error:", frame.headers["message"])
       },
     })
@@ -191,6 +192,7 @@ const useWebSocket = ({
 
     return () => {
       console.log("🧹 Cleaning up WebSocket...")
+      setConnected(false) // Add this line for explicit state update on cleanup
 
       if (keepAliveIntervalRef.current) {
         clearInterval(keepAliveIntervalRef.current)
@@ -258,12 +260,7 @@ const useWebSocket = ({
     }
   }, [dmRoomId, onDmMessageReceived, stompClientRef.current?.connected])
 
-
-    return {stompClientRef, connected}
-  }
+  return { stompClientRef, connected }
+}
 
 export default useWebSocket
-
-
-
-
