@@ -36,7 +36,7 @@ import project.backend.auth.dto.MemberDetails;
 @RequiredArgsConstructor
 public class JwtProvider {
 
-	public static final Long TOKEN_VALIDATION_SECOND = 10L;
+	public static final Long TOKEN_VALIDATION_SECOND = 10L * 60L;
 	public static final Long REFRESH_TOKEN_VALIDATION_SECOND = 7 * 24 * 60 * 60L;
 
 	private final TokenRedisRepository tokenRedisRepository;
@@ -53,13 +53,14 @@ public class JwtProvider {
 	}
 
 	public Token generateTokenPair(MemberDetails memberDetails) {
-
+		log.info("[JWT] 토큰 생성 시작 for username={}", memberDetails.getUsername());
 		Map<String, String> payload = Map.of(
 			"username", memberDetails.getUsername()
 		);
 
 		String accessToken = generateAccessToken(payload);
 		String refreshToken = generateRefreshToken(payload);
+		log.info("[JWT] 토큰 생성 완료 for username={}", memberDetails.getUsername());
 
 		return new Token(accessToken, refreshToken);
 	}

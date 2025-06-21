@@ -8,7 +8,7 @@ export const safeRefreshToken = async () => {
   if (isRefreshing) return refreshPromise;
 
   isRefreshing = true;
-  refreshPromise = axios.get(`${process.env.REACT_APP_API_URL}/token/refresh`, {
+  refreshPromise = axios.get(`${process.env.REACT_APP_BASE_API_URL}/token/refresh`, {
     withCredentials: true,
   })
     .catch((err) => {

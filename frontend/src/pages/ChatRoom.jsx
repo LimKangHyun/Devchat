@@ -181,17 +181,10 @@ const ChatRoom = () => {
   // 3. 로그인 유저 정보 가져오기
   const fetchCurrentUser = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:8080/user/details', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+      const res = await axiosInstance.get('/user/details', {
       });
 
-      if (!res.ok) {
-        throw new Error('로그인 정보를 가져오지 못했습니다.');
-      }
-
-      const user = await res.json();
+      const user = await res.data;
       console.log("현재 사용자 정보:", user);
       setCurrentUser(user);
 

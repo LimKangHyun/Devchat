@@ -1,12 +1,21 @@
+server:
+  address: 0.0.0.0
+  port: 443
+  ssl:
+    key-store: classpath:keystore.p12
+    key-store-password: ^^lkh0218
+    key-store-type: PKCS12
+    key-alias: spring
+
 spring:
   session:
     store-type: none
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${MYSQL_USERNAME}
-    password: ${MYSQL_PASSWORD}
-    url: jdbc:mysql://localhost:3306/FLYING_TRUCK_PROJECT
+    username: ${RDS_USERNAME}
+    password: ${RDS_PASSWORD}
+    url: jdbc:mysql://${RDS_ENDPOINT}:3306/FLYING_TRUCK_PROJECT
 
   flyway:
     enabled: false
@@ -18,13 +27,10 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
-  profiles:
-    active: prod
-
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
 
   security:
     oauth2:
@@ -33,6 +39,7 @@ spring:
           github:
             client-id: ${GITHUB_CLIENT_ID}
             client-secret: ${GITHUB_SECRET}
+            redirect-uri: https://52.79.249.87/login/oauth2/code/github
             scope:
               - repo
               - admin:repo_hook
@@ -61,7 +68,9 @@ github:
   username: GitHubBot
 
 url:
-  ngrok: ${NGROK_URL}
+  spring-url: ${SPRING_URL}
+  react-url: ${REACT_URL}
+  image-url: ${IMAGE_URL}
 
 cloud:
   aws:
@@ -71,13 +80,17 @@ cloud:
     region:
       static: ap-northeast-2
     s3:
-      bucket: devchat-images
+      bucket: devchatimage
 
 
 jwt:
   redirection:
-    base: http://localhost:3000/
+    base: ${REACT_URL}
 
   info:
     issuer: "대한민국26세 달성 배씨 배문성의 허가가 있는 토큰이올시다."
     secret: 36b2294c1079470409d860ac57402fc152524d134a75b7cb223d92644b63adba980d90dcefd0d53c02a5cbb43c2678d49128dae2299f652f5f71033fee640686
+
+logging:
+  level:
+    org.springframework.security: DEBUG
