@@ -69,7 +69,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 			@Override
 			public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-				log.info("✅ WebSocket connected - sessionId={}, principal={}",
+				log.info("✅ WebSocket connected! - sessionId={}, principal={}",
 					session.getId(),
 					session.getPrincipal() != null ? session.getPrincipal().getName()
 						: "anonymous");
@@ -80,7 +80,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 			@Override
 			public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus)
 				throws Exception {
-				log.warn("🔌 WebSocket closed - sessionId={}, reason={}", session.getId(),
+				log.warn("🔌 WebSocket closed! - sessionId={}, reason={}", session.getId(),
 					closeStatus);
 
 				super.afterConnectionClosed(session, closeStatus);
