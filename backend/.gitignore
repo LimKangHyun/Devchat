@@ -41,3 +41,6 @@ out/
 *.p12
 *.jks
 /src/main/resources/keystore.p12
+
+# Spring Boot #
+/src/main/resources/application-prod.yml

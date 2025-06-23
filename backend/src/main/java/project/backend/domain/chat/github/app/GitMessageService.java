@@ -36,8 +36,8 @@ public class GitMessageService {
 	private final SimpMessagingTemplate messagingTemplate;
 	private final MemberService memberService;
 
-	@Value("${url.spring-url}")
-	private String springUrl;
+	@Value("${url.webhook-url}")
+	private String webhookUrl;
 	@Value("${github.username}")
 	private String githubUsername;
 	private final GitHubClient gitHubClient;
@@ -97,7 +97,7 @@ public class GitMessageService {
 	}
 
 	private String makeWebhookUrl(Long roomId) {
-		return springUrl + "/github/" + roomId;
+		return webhookUrl + "/github/" + roomId;
 	}
 
 }

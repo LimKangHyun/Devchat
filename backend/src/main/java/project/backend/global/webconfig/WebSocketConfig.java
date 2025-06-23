@@ -27,15 +27,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	private final WebSocketHandShakeInterceptor handShakeInterceptor;
 	private final WebSocketChannelInterceptor channelInterceptor;
 
-	@Value("${url.react-url}")
-	private String reactUrl;
+	@Value("${url.domain-url}")
+	private String domainUrl;
 
 	//클라이언트가 연결할 웹소켓 엔드포인트 지정
 	//해당 주소로 접속 시 웹소켓 핸드셰이크 커넥션 생성
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
-		registry.addEndpoint("/wss")
-			.setAllowedOriginPatterns(reactUrl)
+		registry.addEndpoint("/ws")
+			.setAllowedOriginPatterns(domainUrl)
 			.addInterceptors(handShakeInterceptor);
 	}
 

@@ -23,6 +23,9 @@ jobs:
       - run: chmod +x ./gradlew
       - run: ./gradlew clean build -x test
 
+      - name: Docker build
+        run: docker build -t 
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

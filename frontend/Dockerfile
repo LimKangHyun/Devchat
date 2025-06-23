@@ -3,6 +3,9 @@ FROM node:22-alpine AS build-stage
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
+
+COPY .env.production .env
+
 COPY . .
 RUN npm run build
 
