@@ -167,7 +167,7 @@ const useWebSocket = ({
             if (subscriptionRef.current) {
                 subscriptionRef.current.unsubscribe();
                 subscriptionRef.current = null;
-                console.log("🔌 Subscription unsubscribed.");
+                console.log("🔌 Subscription unsubscribed!");
             }
              if (deleteSubscriptionRef.current) {
                 deleteSubscriptionRef.current.unsubscribe();
@@ -176,7 +176,7 @@ const useWebSocket = ({
             }
             if (client && client.active) {
                 client.deactivate().then(() => {
-                    console.log("🛑 Disconnected from WebSocket");
+                    console.log("🛑 Disconnected from WebSocket!");
                 });
             }
         };
