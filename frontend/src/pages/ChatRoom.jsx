@@ -38,7 +38,6 @@ const ChatRoom = () => {
   const [isOwner, setIsOwner] = useState(false);
   const [roomData, setRoomData] = useState(null);
   const [deleteNotification, setDeleteNotification] = useState(null);
-  const MAX_MESSAGES = 200;
 
   // 초기화 상태를 하나로 통합하고 단계별로 관리
   const [initState, setInitState] = useState({
@@ -226,6 +225,7 @@ const ChatRoom = () => {
   const stompClientRef = useWebSocket({
     roomId: initState.isRoomValidated ? roomId : null,
     onMessageReceived: (received) => {
+      // 서버에서 받은 메시지만을 로컬 상태에 추가/업데이트
       setMessages(prev => {
         // 동일한 messageId를 가진 메시지가 이미 존재하면 업데이트하고, 없으면 추가
         const updated = prev.some(m => m.messageId === received.messageId)
@@ -234,22 +234,17 @@ const ChatRoom = () => {
 
         const sorted = [...updated].sort((a, b) => new Date(a.sendAt).getTime() - new Date(b.sendAt).getTime());
 
-        // 메시지 개수 제한 (최신 메시지들만 유지)
-        const limitedMessages = sorted.length > MAX_MESSAGES 
-          ? sorted.slice(-MAX_MESSAGES) // 마지막 MAX_MESSAGES개만 유지
-          : sorted;
-
-        // 기존 스크롤 로직
+        // 새 메시지가 추가되었을 때만 맨 아래로 스크롤
+        // 현재 스크롤 위치가 거의 맨 아래에 있다면 스크롤, 아니면 유지
         if (messageContainerRef.current) {
           const { scrollTop, clientHeight, scrollHeight } = messageContainerRef.current;
-          const isNearBottom = (scrollTop + clientHeight) >= (scrollHeight - 100);
-          
+          const isNearBottom = (scrollTop + clientHeight) >= (scrollHeight - 100); // 100px 여유
+          // 새 메시지가 나(currentUser)의 메시지이거나, 스크롤이 거의 맨 아래에 있을 때만 스크롤
           if (isNearBottom || received.senderId === currentUser?.userId) {
             scrollToBottom();
           }
         }
-        
-        return limitedMessages;
+        return sorted;
       });
     },
     onProfileUpdate: handleProfileUpdate,
