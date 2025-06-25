@@ -1,5 +1,5 @@
 # ===== 1단계: 빌드 스테이지 =====
-FROM gradle:8.5-jdk21 AS build
+FROM gradle:8.13-jdk21 AS build
 
 WORKDIR /app
 
