@@ -31,7 +31,6 @@ const ChatRoom = () => {
   const messagesStartRef = useRef(null);
   const messageContainerRef = useRef(null);
   const prevScrollHeightRef = useRef(0); // 이전 스크롤 높이 저장
-  const topElementRef = useRef(null);
   const navigate = useNavigate();
 
   const [roomName, setRoomName] = useState("로딩 중...");
@@ -688,30 +687,7 @@ const ChatRoom = () => {
               position: 'relative'
             }}>
 
-            {/* 가상 패딩 - 더 로드할 메시지가 있을 때만 표시 */}
-            {hasMoreMessages && (
-              <div style={{
-                height: '100px', // 또는 원하는 패딩 높이
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#999',
-                fontSize: '13px',
-                marginBottom: '16px'
-              }}>
-                ⬆️ 이전 메시지 더보기
-              </div>
-            )}
-
-            {/* Intersection Observer 대상 요소 */}
-            <div ref={topElementRef} style={{ 
-              height: '1px', 
-              visibility: 'hidden',
-              position: 'absolute',
-              top: hasMoreMessages ? '120px' : '0px' // 패딩 고려
-            }} />
-
-            {/* 초기 로딩 상태 표시 */}
+            {/* 초기 로딩 상태 표시 (깜빡임 없이) */}
             {!isFullyLoaded && (
               <div style={{
                 position: 'absolute',
@@ -739,7 +715,7 @@ const ChatRoom = () => {
             {isLoadingMessages && hasMoreMessages && (
               <div style={{
                 position: 'sticky',
-                top: hasMoreMessages ? '120px' : '0px', // 패딩 고려
+                top: 0,
                 textAlign: 'center',
                 padding: '8px 16px',
                 color: '#666',
@@ -749,8 +725,7 @@ const ChatRoom = () => {
                 margin: '0 auto 16px auto',
                 width: 'fit-content',
                 border: '1px solid #e9ecef',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                zIndex: 5
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
               }}>
                 ⏳ 메시지 로딩 중...
               </div>
@@ -774,7 +749,7 @@ const ChatRoom = () => {
 
             <div ref={messagesStartRef} />
 
-            {/* 메시지 목록 */}
+            {/* 메시지 목록은 항상 렌더링 (비어있어도) */}
             <MessageList
               messages={messages}
               currentUser={currentUser}
@@ -787,7 +762,6 @@ const ChatRoom = () => {
               editContent={editContent}
               handleEditMessage={handleEditMessage}
             />
-
             <div ref={messagesEndRef} />
           </div>
 
