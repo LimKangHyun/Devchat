@@ -11,6 +11,8 @@ services:
       - TZ=Asia/Seoul
     depends_on:
       - prometheus
+    networks:
+      - dev-chat-network
 
   dev-chat-frontend:
     image: limkanghyun/dev-chat-frontend
@@ -19,6 +21,8 @@ services:
       - "3000:80"
     depends_on:
       - dev-chat-backend
+    networks:
+      - dev-chat-network
 
   nginx_proxy:
     image: nginx:latest
@@ -33,6 +37,8 @@ services:
     depends_on:
       - dev-chat-frontend
       - dev-chat-backend
+    networks:
+      - dev-chat-network
 
   prometheus:
     image: prom/prometheus:latest
@@ -42,6 +48,8 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ./prometheus-data:/prometheus
+    networks:
+      - dev-chat-network
 
   grafana:
     image: grafana/grafana:latest
@@ -52,3 +60,9 @@ services:
       - ./grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
+    networks:
+      - dev-chat-network
+
+networks:
+  dev-chat-network:
+    driver: bridge
