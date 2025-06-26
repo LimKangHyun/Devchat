@@ -1,5 +1,6 @@
 package project.backend.domain.member.friend.app;
 
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -73,9 +74,8 @@ public class FriendService {
 		Friends sendSide = Friends.builder().owner(context.requester).friend(context.receiver)
 			.build();
 
-		friendsListRepository.save(receiveSide);
-		friendsListRepository.save(sendSide);
-
+		friendsListRepository.saveAll(List.of(receiveSide, sendSide));
+git
 		Notification acceptNotification = notificationService.saveNotification(
 			Notification.ofFriendRequestByDecision(context.friendRequest,
 				NotificationType.FRIEND_ACCEPTED));
