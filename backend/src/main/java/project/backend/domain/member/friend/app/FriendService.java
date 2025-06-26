@@ -49,10 +49,7 @@ public class FriendService {
 		checkAvailableRequest(sender, receiver);
 		checkAlreadyFriends(receiver, sender);
 
-		FriendRequest friendRequest = FriendRequest.builder()
-			.sender(sender)
-			.receiver(receiver)
-			.build();
+		FriendRequest friendRequest = new FriendRequest(receiver, sender);
 
 		friendRequestRepository.save(friendRequest);
 		Notification notification = notificationService.saveNotification(

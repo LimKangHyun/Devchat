@@ -14,7 +14,6 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import project.backend.domain.member.entity.Member;
@@ -59,13 +58,11 @@ public class FriendRequest {
 		this.responseAt = LocalDateTime.now();
 	}
 
-	@Builder
 	public FriendRequest(Member receiver, Member sender) {
 		this.receiver = receiver;
 		this.sender = sender;
 		this.status = RequestStatus.PENDING;
 		this.requestedAt = LocalDateTime.now();
-
 	}
 
 }
