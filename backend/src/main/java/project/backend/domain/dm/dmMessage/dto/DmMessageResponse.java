@@ -1,7 +1,7 @@
 package project.backend.domain.dm.dmMessage.dto;
 
 import java.time.LocalDateTime;
-import project.backend.domain.chat.chatmessage.entity.MessageType;
+import project.backend.domain.dm.dmMessage.DmMessageType;
 import project.backend.domain.dm.dmMessage.entity.DmMessage;
 
 public record DmMessageResponse(
@@ -9,7 +9,7 @@ public record DmMessageResponse(
 	Long senderId,
 	String content,
 	String senderNickName,
-	MessageType type,
+	DmMessageType type,
 	Long messageId,
 	LocalDateTime sendAt
 ) {

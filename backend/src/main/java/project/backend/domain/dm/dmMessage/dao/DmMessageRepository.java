@@ -11,7 +11,7 @@ import project.backend.domain.dm.dmMessage.entity.DmMessage;
 
 public interface DmMessageRepository extends JpaRepository<DmMessage, Long> {
 
-	@Query("SELECT new project.backend.domain.member.dmRoom.dmMessage.dto.DmMessageResponse(" +
+	@Query("SELECT new project.backend.domain.dm.dmMessage.dto.DmMessageResponse(" +
 		"m.room.id, m.sender.id, m.content, m.sender.nickname, m.type, m.id, m.sentAt) " +
 		"FROM DmMessage m " +
 		"WHERE m.room.id = :roomId " +

@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import project.backend.domain.chat.chatmessage.entity.MessageType;
+import project.backend.domain.dm.dmMessage.DmMessageType;
 import project.backend.domain.dm.dmRoom.entity.DmRoom;
 import project.backend.domain.member.entity.Member;
 
@@ -39,13 +39,13 @@ public class DmMessage {
 	private String content;
 
 	@Enumerated(EnumType.STRING)
-	private MessageType type;
+	private DmMessageType type;
 
 	@Column(name = "sent_at", nullable = false, updatable = false)
 	private LocalDateTime sentAt = LocalDateTime.now();
 
 	public DmMessage(DmRoom room, Member sender, String content,
-		MessageType type) {
+		DmMessageType type) {
 		this.room = room;
 		this.sender = sender;
 		this.content = content;

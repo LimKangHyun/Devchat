@@ -3,6 +3,7 @@ package project.backend.domain.dm.dmRoom.app;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.dm.dmRoom.dao.DmRoomRepository;
@@ -12,6 +13,7 @@ import project.backend.global.exception.errorcode.DmErrorCode;
 import project.backend.global.exception.ex.DmException;
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class DmRoomService {
 

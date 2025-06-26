@@ -58,7 +58,8 @@ public class DmMessageService {
 		DmMessage save = dmMessageRepository.save(dmMessage);
 		return DmMessageResponse.from(save);
 	}
-
+	
+	@Transactional(readOnly = true)
 	public Page<DmMessageResponse> getDmMessages(Long roomId, Pageable pageable,
 		Authentication auth) {
 

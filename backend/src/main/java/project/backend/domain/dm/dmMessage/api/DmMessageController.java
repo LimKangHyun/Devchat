@@ -27,7 +27,6 @@ public class DmMessageController {
 	@MessageMapping("/send/{roomId}")
 	public DmMessageResponse sendMessage(@DestinationVariable Long roomId,
 		@Payload DmMessageRequest request, Authentication authentication) {
-		log.info("메시지 도착꾸요잇");
 		return dmMessageService.save(roomId, request, authentication);
 	}
 

@@ -20,9 +20,7 @@ import project.backend.domain.member.entity.Member;
 @RequiredArgsConstructor
 public class MockDataInitializer {
 
-	private final ImageFileRepository imageFileRepository;
 	private final MemberService memberService;
-	private final ChatRoomRepository chatRoomRepository;
 	private final MemberRepository memberRepository;
 
 	@PostConstruct
