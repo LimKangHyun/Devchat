@@ -15,6 +15,7 @@ import project.backend.domain.member.friend.dao.FriendRequestRepository;
 import project.backend.domain.member.friend.dao.FriendsListRepository;
 import project.backend.domain.member.friend.dto.FriendResponse;
 import project.backend.domain.member.friend.entity.FriendRequest;
+import project.backend.domain.member.friend.entity.RequestStatus;
 import project.backend.domain.notification.dto.NotificationDto;
 import project.backend.domain.member.friend.entity.Friends;
 import project.backend.domain.notification.app.NotificationService;
@@ -39,6 +40,7 @@ public class FriendService {
 
 	}
 
+	//거절된 요청 찾아서 횟수제한을 두어 일정 횟수 도달시 요청 불가?
 	@Transactional
 	public void requestFriend(Authentication auth, FriendRequestDto request) {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
@@ -46,7 +48,9 @@ public class FriendService {
 		Member sender = Member.of(memberDetails);
 		Member receiver = memberService.getMemberByUsername(request.targetUsername());
 
+		//진행중인(pending)요청이 있는지 검사
 		checkAvailableRequest(sender, receiver);
+
 		checkAlreadyFriends(receiver, sender);
 
 		FriendRequest friendRequest = new FriendRequest(receiver, sender);
@@ -72,7 +76,7 @@ public class FriendService {
 		friendsListRepository.save(receiveSide);
 		friendsListRepository.save(sendSide);
 
-		Notification AceeptNotification = notificationService.saveNotification(
+		Notification acceptNotification = notificationService.saveNotification(
 			Notification.ofFriendRequestByDecision(context.friendRequest,
 				NotificationType.FRIEND_ACCEPTED));
 
@@ -82,7 +86,7 @@ public class FriendService {
 			Notification.ofFriendshipEstablished(context.friendRequest));
 
 		eventPublisher.publishEvent(
-			NotificationDto.ofNotification(AceeptNotification));
+			NotificationDto.ofNotification(acceptNotification));
 		eventPublisher.publishEvent(
 			NotificationDto.ofNotification(BecomeFriendNotification));
 	}
@@ -130,14 +134,16 @@ public class FriendService {
 	private void checkAlreadyFriends(Member owner, Member friend) {
 		boolean exists = friendsListRepository.existsByOwnerAndFriend(owner, friend);
 		if (exists) {
-			throw new FriendException(FriendErrorCode.ALREADY_REQUESTED_FRIEND);
+			throw new FriendException(FriendErrorCode.ALREADY_FRIEND);
 		}
 	}
 
 	private void checkAvailableRequest(Member sender, Member receiver) {
-		boolean exists = friendRequestRepository.existsBySenderAndReceiver(sender, receiver);
+		boolean exists = friendRequestRepository.existsBySenderAndReceiverAndStatus(sender,
+			receiver,
+			RequestStatus.PENDING);
 		if (exists) {
-			throw new FriendException(FriendErrorCode.ALREADY_REQUESTED_FRIEND);
+			throw new FriendException(FriendErrorCode.PENDING_FRIEND_REQUEST);
 		}
 	}
 }
