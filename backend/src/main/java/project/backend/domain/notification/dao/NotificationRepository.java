@@ -1,0 +1,46 @@
+package project.backend.domain.notification.dao;
+
+import io.lettuce.core.dynamic.annotation.Param;
+import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import project.backend.domain.member.entity.Member;
+import project.backend.domain.notification.entity.Notification;
+import project.backend.domain.notification.entity.NotificationType;
+
+public interface NotificationRepository extends JpaRepository<Notification, Long> {
+
+	@Query("""
+			SELECT n
+			FROM Notification n
+			WHERE n.receiver.id = :receiverId
+		""")
+	Page<Notification> getNotifications(@Param("receiverId") Long receiverId,
+		Pageable pageable);
+
+	@Query("""
+			SELECT n
+			FROM Notification n
+			WHERE n.receiver.id = :receiverId
+			AND n.isRead = false
+		""")
+	Page<Notification> getNotReadNotification(@Param("receiverId") Long receiverId,
+		Pageable pageable);
+
+
+	@Query("""
+			SELECT n FROM Notification n
+			WHERE n.receiver = :receiver
+			  AND n.sender = :sender
+			  AND n.type = :type
+		""")
+	Optional<Notification> getNotificationByType(
+		@Param("receiver") Member receiver,
+		@Param("sender") Member sender,
+		@Param("type") NotificationType type
+	);
+
+
+}
