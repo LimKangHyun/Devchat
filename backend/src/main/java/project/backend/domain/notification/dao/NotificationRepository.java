@@ -29,12 +29,13 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 	Page<Notification> getNotReadNotification(@Param("receiverId") Long receiverId,
 		Pageable pageable);
 
-
+	// 수정 or 거절시 읽음 처리 되므로 거절시 읽지 않은 친구요청은 하나만 존재할 수 있다.
 	@Query("""
 			SELECT n FROM Notification n
 			WHERE n.receiver = :receiver
 			  AND n.sender = :sender
 			  AND n.type = :type
+			  AND n.isRead = false
 		""")
 	Optional<Notification> getNotificationByType(
 		@Param("receiver") Member receiver,

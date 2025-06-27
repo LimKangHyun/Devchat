@@ -44,6 +44,9 @@ public class FriendRequest {
 	private RequestStatus status = RequestStatus.PENDING;
 
 	@Column(nullable = false)
+	private int rejectedCount = 0;
+
+	@Column(nullable = false)
 	private LocalDateTime requestedAt = LocalDateTime.now();
 
 	private LocalDateTime responseAt;
@@ -55,7 +58,12 @@ public class FriendRequest {
 
 	public void reject() {
 		this.status = RequestStatus.REJECTED;
+		this.rejectedCount++;
 		this.responseAt = LocalDateTime.now();
+	}
+
+	public void retryRequest() {
+		this.status = RequestStatus.PENDING;
 	}
 
 	public FriendRequest(Member receiver, Member sender) {

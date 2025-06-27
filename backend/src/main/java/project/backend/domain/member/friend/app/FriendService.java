@@ -50,13 +50,12 @@ public class FriendService {
 		Member receiver = memberService.getMemberByUsername(request.targetUsername());
 
 		//진행중인(pending)요청이 있는지 검사
-		checkAvailableRequest(sender, receiver);
+		checkPendingRequest(sender, receiver);
 
 		checkAlreadyFriends(receiver, sender);
 
-		FriendRequest friendRequest = new FriendRequest(receiver, sender);
+		FriendRequest friendRequest = prepareFriendRequest(sender, receiver);
 
-		friendRequestRepository.save(friendRequest);
 		Notification notification = notificationService.saveNotification(
 			Notification.ofFriendRequest(friendRequest));
 
@@ -75,7 +74,7 @@ public class FriendService {
 			.build();
 
 		friendsListRepository.saveAll(List.of(receiveSide, sendSide));
-git
+
 		Notification acceptNotification = notificationService.saveNotification(
 			Notification.ofFriendRequestByDecision(context.friendRequest,
 				NotificationType.FRIEND_ACCEPTED));
@@ -138,11 +137,31 @@ git
 		}
 	}
 
-	private void checkAvailableRequest(Member sender, Member receiver) {
-		boolean exists = friendRequestRepository.existsBySenderAndReceiverAndStatus(sender,
+	private FriendRequest prepareFriendRequest(Member sender, Member receiver) {
+		boolean rejectedRequestExists = friendRequestRepository.existsBySenderAndReceiverAndStatus(
+			sender, receiver, RequestStatus.REJECTED);
+
+		FriendRequest request = null;
+
+		if (rejectedRequestExists) {
+			request = getFriendRequestBySenderAndReceiver(sender, receiver);
+			if (request.getRejectedCount() >= 3) {
+				throw new FriendException(FriendErrorCode.FRIEND_REQUEST_REJECTED_LIMIT_EXCEEDED);
+			}
+			request.retryRequest();
+		} else {
+			request = new FriendRequest(receiver, sender);
+			friendRequestRepository.save(request);
+		}
+		return request;
+	}
+
+	private void checkPendingRequest(Member sender, Member receiver) {
+		boolean pendingRequestExists = friendRequestRepository.existsBySenderAndReceiverAndStatus(
+			sender,
 			receiver,
 			RequestStatus.PENDING);
-		if (exists) {
+		if (pendingRequestExists) {
 			throw new FriendException(FriendErrorCode.PENDING_FRIEND_REQUEST);
 		}
 	}
