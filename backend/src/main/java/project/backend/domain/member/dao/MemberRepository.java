@@ -5,11 +5,9 @@ import jakarta.annotation.Nonnull;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Repository;
 import project.backend.domain.member.dto.MemberSearchResponse;
 import project.backend.domain.member.entity.Member;
@@ -34,13 +32,13 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 			)
 			FROM Member m
 			LEFT JOIN FriendRequest fr ON fr.sender.id = :ownerId AND fr.receiver.id = m.id
-			WHERE LOWER(m.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
-			  AND m.username <> :excludeUsername
-			  AND m.username <> 'GitHubBot'
+			WHERE LOWER(m.nickname) LIKE LOWER(CONCAT('%', :keyword, '%'))
+			  AND m.nickname <> :excludeNickname
+			  AND m.nickname <> 'GitHubBot'
 		""")
-	Page<MemberSearchResponse> searchByUsernameExcludeSelf(
+	Page<MemberSearchResponse> searchByNicknameExcludeSelf(
 		@Param("keyword") String keyword,
-		@Param("excludeUsername") String excludeUsername,
+		@Param("excludeNickname") String excludeNickname,
 		@Param("ownerId") Long ownerId,
 		Pageable pageable
 	);

@@ -144,7 +144,7 @@ public class MemberService {
 		Pageable pageable) {
 		var memberDetails = checkAuthentication(auth);
 
-		return memberRepository.searchByUsernameExcludeSelf(keyword, memberDetails.getUsername(),
+		return memberRepository.searchByNicknameExcludeSelf(keyword, memberDetails.getNickname(),
 			memberDetails.getId(),
 			pageable);
 	}

@@ -43,13 +43,13 @@ public class MemberController {
 		memberService.updatePassword(authentication, request);
 	}
 
-	@GetMapping("/username")
+	@GetMapping("/search")
 	public Page<MemberSearchResponse> searchUsers(
 		Authentication auth,
-		@RequestParam String username,
+		@RequestParam String nickname,
 		Pageable pageable
 	) {
-		return memberService.searchMembers(auth, username, pageable);
+		return memberService.searchMembers(auth, nickname, pageable);
 	}
 
 }
