@@ -43,7 +43,7 @@ if [ "$STATUS" == "" ]; then
     docker-compose stop dev-chat-backend-$NEW_COLOR
     docker-compose stop dev-chat-frontend-$NEW_COLOR
     exit 1
-done
+fi
 
 # 프론트엔드 헬스체크
 echo "새로운 프론트엔드 컨테이너 헬스체크 중..."

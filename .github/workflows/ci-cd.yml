@@ -63,24 +63,35 @@ jobs:
         run: docker push limkanghyun/dev-chat-frontend
 
   deploy:
-    runs-on: ubuntu-latest
-    needs: [ backend, frontend]
+  runs-on: ubuntu-latest
+  needs: [ backend, frontend]
 
-    steps:
-      - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
-          # 배포 무중단 (blue-green 스위칭 전략)
-          script: |
-            cd ~/NBE5-7-2-TEAM08/deployment
-            chmod +x ./deploy.sh
-            ./deploy.sh
-          # 중단방식
-          # script: |
-          #   cd ~/NBE5-7-2-TEAM08
-          #   docker-compose pull
-          #   docker-compose down
-          #   docker-compose up -d --build
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Copy deployment files to EC2
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        source: "deployment/*"
+        target: "~/NBE5-7-2-TEAM08/deployment"
+
+    - name: Deploy to EC2 via SSH
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        script: |
+          cd ~/NBE5-7-2-TEAM08/deployment
+          chmod +x ./deploy.sh
+          ./deploy.sh
+        # 중단방식
+        # script: |
+        #   cd ~/NBE5-7-2-TEAM08
+        #   docker-compose pull
+        #   docker-compose down
+        #   docker-compose up -d --build
