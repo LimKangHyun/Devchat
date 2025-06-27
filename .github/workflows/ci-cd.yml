@@ -76,7 +76,7 @@ jobs:
           # 배포 무중단 (blue-green 스위칭 전략)
           script: |
             cd ~/NBE5-7-2-TEAM08/workflows/deployment
-            chmod +x ./workflows/deployment/deploy.sh
+            chmod +x ./deploy.sh
             ./deploy.sh
           # 중단방식
           # script: |
