@@ -40,7 +40,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		throws ServletException, IOException {
 
 		String requestURI = request.getRequestURI();
+		log.debug("[JWT Filter] 요청 URI: {}", requestURI);
 		if (requestURI.startsWith("/github/") || WHITE_LIST.contains(request.getRequestURI())) {
+			log.debug("[JWT Filter] 화이트리스트 경로 요청 - 필터 스킵: {}", requestURI);
 			filterChain.doFilter(request, response); // JWT 검사 건너뜀
 			return;
 		}
