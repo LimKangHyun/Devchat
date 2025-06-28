@@ -48,7 +48,7 @@ services:
     image: nginx:latest
     container_name: nginx_proxy
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx_proxy/nginx.conf:/etc/nginx/nginx.conf
       - /etc/letsencrypt/archive/thedevchat.duckdns.org/fullchain1.pem:/etc/letsencrypt/live/thedevchat.duckdns.org/fullchain.pem:ro
       - /etc/letsencrypt/archive/thedevchat.duckdns.org/privkey1.pem:/etc/letsencrypt/live/thedevchat.duckdns.org/privkey.pem:ro
     ports:
