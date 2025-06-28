@@ -1,4 +1,9 @@
 #!/bin/bash
+echo "deploy.sh 시작 - NEW_COLOR: $NEW_COLOR"
+
+echo "기존 이미지 제거 중..."
+docker rmi limkanghyun/dev-chat-backend:$NEW_COLOR 2>/dev/null || true
+docker rmi limkanghyun/dev-chat-frontend:$NEW_COLOR 2>/dev/null || true
 
 # 최신 도커 이미지 내려받기 (pull)
 echo "Start docker-compose pull..."
@@ -14,12 +19,13 @@ fi
 
 ACTIVE_COLOR=$(cat "$ACTIVE_COLOR_FILE")
 
-if [ "$ACTIVE_COLOR" == "blue" ]; then
-    NEW_BACKEND_PORT=8082
-    NEW_FRONTEND_PORT=3001
-else 
+# 포트 할당을 NEW_COLOR 기준으로 변경
+if [ "$NEW_COLOR" == "blue" ]; then
     NEW_BACKEND_PORT=8081
     NEW_FRONTEND_PORT=3000
+else 
+    NEW_BACKEND_PORT=8082
+    NEW_FRONTEND_PORT=3001
 fi
 
 # 새롭게 띄울 컨테이너 실행
