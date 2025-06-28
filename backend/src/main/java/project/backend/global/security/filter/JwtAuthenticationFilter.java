@@ -31,7 +31,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		"/signup",
 		"/login",
 		"/token/refresh",
-		"/health"
+		"/api/health"
 	);
 
 	@Override
@@ -42,7 +42,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		String requestURI = request.getRequestURI();
 		log.debug("[JWT Filter] 요청 URI: {}", requestURI);
 		if (requestURI.startsWith("/github/") || WHITE_LIST.contains(request.getRequestURI())) {
-			log.debug("[JWT Filter] 화이트리스트 경로 요청 - 필터 스킵: {}", requestURI);
+			log.debug("[JWT Filter] request.getRequestURI() = {}", request.getRequestURI());
+			log.debug("[JWT Filter] request.getServletPath() = {}", request.getServletPath());
+			log.debug("[JWT Filter] request.getRequestURL() = {}", request.getRequestURL());
+			log.debug("[JWT Filter] request.getContextPath() = {}", request.getContextPath());
 			filterChain.doFilter(request, response); // JWT 검사 건너뜀
 			return;
 		}
