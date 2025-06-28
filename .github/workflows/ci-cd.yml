@@ -73,7 +73,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Docker build image (backend)
-        run: docker build --platform linux/amd64 -t limkanghyun/dev-chat-backend:${NEW_COLOR} .
+        run: docker build --platform linux/amd64 --no-cache -t limkanghyun/dev-chat-backend:${NEW_COLOR} .
       - name: Docker push backend image
         run: docker push limkanghyun/dev-chat-backend:${NEW_COLOR}
 
