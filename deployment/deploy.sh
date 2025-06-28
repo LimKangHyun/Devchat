@@ -54,11 +54,11 @@ if [ "$HTTP_CODE" != "200" ]; then
 fi
 
 # 새롭게 띄운 dev-chat-backend-$NEW_COLOR 컨테이너의 헬스체크 (정상작동 확인)
-echo "새로운 컨테이너 헬스체크 중..."
+echo "새로운 백엔드 컨테이너 헬스체크 중..."
 for i in {1..60}; do
     STATUS=$(curl -s http://localhost:$NEW_BACKEND_PORT/actuator/health | grep "UP")
     if [ "$STATUS" != "" ]; then
-        echo "[$NEW_COLOR] 컨테이너 헬스 체크 통과!"
+        echo "[$NEW_COLOR] 백엔드 헬스 체크 통과!"
         break;
     fi
     echo -n "."
@@ -72,13 +72,11 @@ if [ "$STATUS" == "" ]; then
     exit 1
 fi
 
+# nginx.conf 생성 (템플릿에서 ACTIVE_COLOR 바꿔서)
+export ACTIVE_COLOR=$NEW_COLOR
+envsubst '${ACTIVE_COLOR}' < ./nginx_proxy/nginx.conf.template > ./nginx_proxy/nginx.conf
 
-
-# nginx upstream 설정 파일 변경 (green -> blue / blue -> green)
-sed -i "s/dev-chat-backend-$ACTIVE_COLOR/dev-chat-backend-$NEW_COLOR/g" ./nginx_proxy/nginx.conf
-sed -i "s/dev-chat-frontend-$ACTIVE_COLOR/dev-chat-frontend-$NEW_COLOR/g" ./nginx_proxy/nginx.conf
-
-# nginx reload
+# nginx 재시작
 docker exec nginx_proxy nginx -s reload
 
 # 기존 컨테이너 종료
@@ -86,6 +84,6 @@ docker-compose stop dev-chat-backend-$ACTIVE_COLOR
 docker-compose stop dev-chat-frontend-$ACTIVE_COLOR
 
 # active_color.txt 업데이트
-echo $NEW_COLOR > "$(dirname "$0")/active_color.txt"
+echo "$NEW_COLOR" > "$ACTIVE_COLOR_FILE"
 
 echo "배포 완료: 현재 활성화된 서비스는 $NEW_COLOR 입니다."
