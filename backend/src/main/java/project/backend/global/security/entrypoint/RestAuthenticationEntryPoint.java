@@ -18,7 +18,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 	@Override
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 		AuthenticationException authException) throws IOException {
-		log.warn("인증되지 않은 사용자 접근!: {} - {}", request.getRequestURI(), authException.getMessage());
+		log.warn("인증되지 않은 사용자 접근: {} - {}", request.getRequestURI(), authException.getMessage());
 
 		response.setContentType("application/json; charset=utf-8");
 
