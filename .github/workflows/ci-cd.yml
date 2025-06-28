@@ -76,8 +76,8 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          source: "deployment/*"
-          target: "~/NBE5-7-2-TEAM08/deployment"
+          source: "active_color.txt, deploy.sh"
+          target: "~/NBE5-7-2-TEAM08"
 
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1
@@ -86,7 +86,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-            cd ~/NBE5-7-2-TEAM08/deployment
+            cd ~/NBE5-7-2-TEAM08
             chmod +x ./deploy.sh
             ./deploy.sh
           # 중단방식
