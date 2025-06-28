@@ -34,6 +34,25 @@ fi
 docker-compose up -d --build dev-chat-backend-$NEW_COLOR
 docker-compose up -d --build dev-chat-frontend-$NEW_COLOR
 
+# 프론트엔드 헬스체크
+echo "새로운 프론트엔드 컨테이너 헬스체크 중..."
+for i in {1..60}; do
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$NEW_FRONTEND_PORT/index.html)
+    if [ "$HTTP_CODE" == "200" ]; then
+        echo "[$NEW_COLOR] 프론트엔드 헬스 체크 통과!"
+        break
+    fi
+    echo -n "."
+    sleep 2
+done
+
+if [ "$HTTP_CODE" != "200" ]; then
+    echo "[$NEW_COLOR] 프론트엔드 헬스 체크 실패! 롤백합니다..."
+    docker-compose stop dev-chat-backend-$NEW_COLOR
+    docker-compose stop dev-chat-frontend-$NEW_COLOR
+    exit 1
+fi
+
 # 새롭게 띄운 dev-chat-backend-$NEW_COLOR 컨테이너의 헬스체크 (정상작동 확인)
 echo "새로운 컨테이너 헬스체크 중..."
 for i in {1..60}; do
@@ -53,24 +72,7 @@ if [ "$STATUS" == "" ]; then
     exit 1
 fi
 
-# 프론트엔드 헬스체크
-echo "새로운 프론트엔드 컨테이너 헬스체크 중..."
-for i in {1..60}; do
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$NEW_FRONTEND_PORT/index.html)
-    if [ "$HTTP_CODE" == "200" ]; then
-        echo "[$NEW_COLOR] 프론트엔드 헬스 체크 통과!"
-        break
-    fi
-    echo -n "."
-    sleep 2
-done
 
-if [ "$HTTP_CODE" != "200" ]; then
-    echo "[$NEW_COLOR] 프론트엔드 헬스 체크 실패! 롤백합니다..."
-    docker-compose stop dev-chat-backend-$NEW_COLOR
-    docker-compose stop dev-chat-frontend-$NEW_COLOR
-    exit 1
-fi
 
 # nginx upstream 설정 파일 변경 (green -> blue / blue -> green)
 sed -i "s/dev-chat-backend-$ACTIVE_COLOR/dev-chat-backend-$NEW_COLOR/g" ./nginx.conf
