@@ -30,7 +30,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	private static final List<String> WHITE_LIST = List.of(
 		"/signup",
 		"/login",
-		"/token/refresh"
+		"/token/refresh",
+		"/health"
 	);
 
 	@Override
