@@ -31,7 +31,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		"/signup",
 		"/login",
 		"/token/refresh",
-		"/health"
+		"/actuator/health"
 	);
 
 	@Override
