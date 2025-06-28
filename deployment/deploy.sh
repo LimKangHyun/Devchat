@@ -14,11 +14,9 @@ fi
 ACTIVE_COLOR=$(cat "$ACTIVE_COLOR_FILE")
 
 if [ "$ACTIVE_COLOR" == "blue" ]; then
-    NEW_COLOR="green"
     NEW_BACKEND_PORT=8082
     NEW_FRONTEND_PORT=3001
 else 
-    NEW_COLOR="blue"
     NEW_BACKEND_PORT=8081
     NEW_FRONTEND_PORT=3000
 fi
