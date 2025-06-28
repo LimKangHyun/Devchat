@@ -56,7 +56,7 @@ fi
 # 새롭게 띄운 dev-chat-backend-$NEW_COLOR 컨테이너의 헬스체크 (정상작동 확인)
 echo "새로운 컨테이너 헬스체크 중..."
 for i in {1..60}; do
-    STATUS=$(curl -s http://localhost:$NEW_BACKEND_PORT/health | grep "OK")
+    STATUS=$(curl -s http://localhost:$NEW_BACKEND_PORT/actuator/health | grep "UP")
     if [ "$STATUS" != "" ]; then
         echo "[$NEW_COLOR] 컨테이너 헬스 체크 통과!"
         break;
