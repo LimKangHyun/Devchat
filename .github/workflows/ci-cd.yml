@@ -31,7 +31,9 @@ jobs:
       - name: Get current active color from EC2
         id: get_color
         run: |
-          COLOR=$(ssh -o StrictHostKeyChecking=no -i <(echo '${{ secrets.EC2_PRIVATE_KEY }}') ubuntu@${{ secrets.EC2_HOST }} 'cat ~/NBE5-7-2-TEAM08/deployment/active_color.txt 2>/dev/null || echo blue')
+          echo "${{ secrets.EC2_PRIVATE_KEY }}" > ./private_key.pem
+          chmod 600 ./private_key.pem
+          COLOR=$(ssh -o StrictHostKeyChecking=no -i ./private_key.pem ubuntu@${{ secrets.EC2_HOST }} 'cat ~/NBE5-7-2-TEAM08/deployment/active_color.txt 2>/dev/null || echo blue')
           echo "CURRENT_COLOR=$COLOR"
           echo "CURRENT_COLOR=$COLOR" >> $GITHUB_OUTPUT
 
@@ -44,6 +46,7 @@ jobs:
             echo "NEW_COLOR=blue" >> $GITHUB_OUTPUT
           fi
       
+
   backend:
     runs-on: ubuntu-latest
     needs: get-active-color
