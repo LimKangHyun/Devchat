@@ -1,0 +1,78 @@
+events { }
+
+http {
+  upstream frontend {
+    server dev-chat-frontend-${ACTIVE_COLOR}:80;  # React 컨테이너
+  }
+
+  upstream backend {
+    server dev-chat-backend-${ACTIVE_COLOR}:8080; # Spring Boot 컨테이너
+  }
+
+  server {
+    listen 80;
+    server_name thedevchat.duckdns.org;
+
+    # HTTP -> HTTPS 리다이렉트
+    return 301 https://$host$request_uri;
+  }
+
+  server {
+    listen 443 ssl;
+    server_name thedevchat.duckdns.org;
+
+    ssl_certificate /etc/letsencrypt/live/thedevchat.duckdns.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/thedevchat.duckdns.org/privkey.pem;
+    
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # React 프론트엔드 프록시
+    location / {
+      proxy_pass http://frontend;
+      proxy_http_version 1.1;
+
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+
+      # SPA 라우팅을 위한 fallback 설정
+      proxy_intercept_errors on;
+      error_page 404 = /index.html;
+    }
+
+    # API 요청은 백엔드로 프록시
+    location /api/ {
+      proxy_pass http://backend/;
+      proxy_http_version 1.1;
+
+      proxy_set_header Host thedevchat.duckdns.org;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+
+      proxy_cache_bypass $http_upgrade;
+    }
+
+    # WebSocket 프록시
+    location /ws {
+      proxy_pass http://backend;
+      proxy_http_version 1.1;
+
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "Upgrade";
+
+      proxy_set_header Host thedevchat.duckdns.org;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_cache_bypass $http_upgrade;
+    }
+
+    # index.html 직접 서빙용 (에러 발생시 대응)
+    location = /index.html {
+      proxy_pass http://frontend/index.html;
+    }
+  }
+}

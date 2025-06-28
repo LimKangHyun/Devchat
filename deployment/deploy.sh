@@ -13,7 +13,7 @@ echo "Start docker-compose pull..."
 docker-compose pull dev-chat-backend-$NEW_COLOR
 docker-compose pull dev-chat-frontend-$NEW_COLOR
 
-ACTIVE_COLOR_FILE="$(dirname "$0")/../active_color.txt"
+ACTIVE_COLOR_FILE="$(dirname "$0")/active_color.txt"
 
 # active_color.txt 없으면 초기값 blue 생성
 if [ ! -f "$ACTIVE_COLOR_FILE" ]; then
@@ -75,8 +75,8 @@ fi
 
 
 # nginx upstream 설정 파일 변경 (green -> blue / blue -> green)
-sed -i "s/dev-chat-backend-$ACTIVE_COLOR/dev-chat-backend-$NEW_COLOR/g" ./nginx.conf
-sed -i "s/dev-chat-frontend-$ACTIVE_COLOR/dev-chat-frontend-$NEW_COLOR/g" ./nginx.conf
+sed -i "s/dev-chat-backend-$ACTIVE_COLOR/dev-chat-backend-$NEW_COLOR/g" ./nginx_proxy/nginx.conf
+sed -i "s/dev-chat-frontend-$ACTIVE_COLOR/dev-chat-frontend-$NEW_COLOR/g" ./nginx_proxy/nginx.conf
 
 # nginx reload
 docker exec nginx_proxy nginx -s reload
@@ -86,6 +86,6 @@ docker-compose stop dev-chat-backend-$ACTIVE_COLOR
 docker-compose stop dev-chat-frontend-$ACTIVE_COLOR
 
 # active_color.txt 업데이트
-echo $NEW_COLOR > "$(dirname "$0")/../active_color.txt"
+echo $NEW_COLOR > "$(dirname "$0")/active_color.txt"
 
 echo "배포 완료: 현재 활성화된 서비스는 $NEW_COLOR 입니다."
