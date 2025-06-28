@@ -76,7 +76,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          source: "active_color.txt, deploy.sh"
+          source: "deployment"
           target: "~/NBE5-7-2-TEAM08"
 
       - name: Deploy to EC2 via SSH
