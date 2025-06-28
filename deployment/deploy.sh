@@ -2,13 +2,14 @@
 echo "deploy.sh 시작 - NEW_COLOR: $NEW_COLOR"
 
 echo "기존 이미지 제거 중..."
-docker rmi limkanghyun/dev-chat-backend:$NEW_COLOR 2>/dev/null || true
 docker rmi limkanghyun/dev-chat-frontend:$NEW_COLOR 2>/dev/null || true
+docker rmi limkanghyun/dev-chat-backend:$NEW_COLOR 2>/dev/null || true
+
 
 # 최신 도커 이미지 내려받기 (pull)
 echo "Start docker-compose pull..."
-docker-compose pull dev-chat-backend-$NEW_COLOR 
 docker-compose pull dev-chat-frontend-$NEW_COLOR
+docker-compose pull dev-chat-backend-$NEW_COLOR 
 
 ACTIVE_COLOR_FILE="$(dirname "$0")/../active_color.txt"
 
