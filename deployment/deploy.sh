@@ -20,7 +20,7 @@ if [ ! -f "$ACTIVE_COLOR_FILE" ]; then
   echo "blue" > "$ACTIVE_COLOR_FILE"
 fi
 
-ACTIVE_COLOR=$(cat "$ACTIVE_COLOR_FILE")
+OLD_COLOR=$(cat "$ACTIVE_COLOR_FILE")
 
 # 포트 할당을 NEW_COLOR 기준으로 변경
 if [ "$NEW_COLOR" == "blue" ]; then
@@ -80,8 +80,8 @@ envsubst '${ACTIVE_COLOR}' < ./nginx_proxy/nginx.conf.template > ./nginx_proxy/n
 docker exec nginx_proxy nginx -s reload
 
 # 기존 컨테이너 종료
-docker-compose stop dev-chat-backend-$ACTIVE_COLOR
-docker-compose stop dev-chat-frontend-$ACTIVE_COLOR
+docker-compose stop dev-chat-backend-$OLD_COLOR
+docker-compose stop dev-chat-frontend-$OLD_COLOR
 
 # active_color.txt 업데이트
 echo "$NEW_COLOR" > "$ACTIVE_COLOR_FILE"
