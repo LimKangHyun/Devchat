@@ -31,8 +31,8 @@ else
     NEW_FRONTEND_PORT=3001
 fi
 
-docker-compose up -d --force-recreate dev-chat-backend-$NEW_COLOR
-docker-compose up -d --force-recreate dev-chat-frontend-$NEW_COLOR
+docker-compose up -d --build dev-chat-backend-$NEW_COLOR
+docker-compose up -d --build dev-chat-frontend-$NEW_COLOR
 
 # 새롭게 띄운 dev-chat-backend-$NEW_COLOR 컨테이너의 헬스체크 (정상작동 확인)
 echo "새로운 컨테이너 헬스체크 중..."
