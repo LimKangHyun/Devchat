@@ -37,173 +37,175 @@ import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.errorcode.ChatMessageErrorCode;
 import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.ChatMessageException;
+import project.backend.global.metric.TimeTrace;
 
 @Service
 @RequiredArgsConstructor
 public class ChatMessageService {
 
-	private final ChatMessageRepository chatMessageRepository;
-	private final ChatRoomService chatRoomService;
-	private final MemberService memberService;
-	private final ImageFileService imageFileService;
-	private final ChatRoomRepository chatRoomRepository;
-	private final ChatMessageSearchRepository chatMessageSearchRepository;
-	private final ChatParticipantRepository chatParticipantRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final ChatRoomService chatRoomService;
+    private final MemberService memberService;
+    private final ImageFileService imageFileService;
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatMessageSearchRepository chatMessageSearchRepository;
+    private final ChatParticipantRepository chatParticipantRepository;
 
-	private final ChatMessageMapper messageMapper;
+    private final ChatMessageMapper messageMapper;
 
-	@Transactional
-	public ChatMessageResponse save(Long roomId, ChatMessageRequest request, String username) {
+    @Transactional
+    public ChatMessageResponse save(Long roomId, ChatMessageRequest request, String username) {
 
-		Member sender = memberService.getMemberByUsername(username);
+        Member sender = memberService.getMemberByUsername(username);
 
-		ChatRoom room = chatRoomService.getRoomById(roomId);
+        ChatRoom room = chatRoomService.getRoomById(roomId);
 
-		chatRoomService.validateNotParticipant(sender.getId(), roomId);
+        chatRoomService.validateNotParticipant(sender.getId(), roomId);
 
-		ChatMessage message;
+        ChatMessage message;
 
-		switch (request.getType()) {
-			case IMAGE -> {
-				ImageFile findImage = imageFileService.getImageById(request.getImageFileId());
-				message = messageMapper.toEntityWithImage(room, sender, findImage);
-			}
-			case TEXT -> message = messageMapper.toEntityWithText(room, sender, request);
-			case CODE -> message = messageMapper.toEntityWithCode(room, sender, request);
-			default -> throw new ChatMessageException(ChatMessageErrorCode.INVALID_ROUTE);
-		}
+        switch (request.getType()) {
+            case IMAGE -> {
+                ImageFile findImage = imageFileService.getImageById(request.getImageFileId());
+                message = messageMapper.toEntityWithImage(room, sender, findImage);
+            }
+            case TEXT -> message = messageMapper.toEntityWithText(room, sender, request);
+            case CODE -> message = messageMapper.toEntityWithCode(room, sender, request);
+            default -> throw new ChatMessageException(ChatMessageErrorCode.INVALID_ROUTE);
+        }
 
-		chatMessageRepository.save(message);
+        chatMessageRepository.save(message);
 
-		// 검색용 테이블에도 저장된 메시지의 id(pk), roomId, content를 다시 뽑아서 저장
-		if (isSearchable(message)) {
-			ChatMessageSearch searchMessage = messageMapper.toSearchEntity(message);
-			chatMessageSearchRepository.save(searchMessage);
-		}
+        // 검색용 테이블에도 저장된 메시지의 id(pk), roomId, content를 다시 뽑아서 저장
+        if (isSearchable(message)) {
+            ChatMessageSearch searchMessage = messageMapper.toSearchEntity(message);
+            chatMessageSearchRepository.save(searchMessage);
+        }
 
-		return messageMapper.toResponse(message);
-	}
+        return messageMapper.toResponse(message);
+    }
 
-	private boolean isSearchable(ChatMessage message) {
-		return message.getType() != MessageType.IMAGE;
-	}
+    private boolean isSearchable(ChatMessage message) {
+        return message.getType() != MessageType.IMAGE;
+    }
 
-	@Transactional(readOnly = true)
-	public Page<ChatMessageSearchResponse> searchMessages(Long memberId, Long roomId,
-		@Valid ChatMessageSearchRequest request) {
+    @Transactional(readOnly = true)
+    public Page<ChatMessageSearchResponse> searchMessages(Long memberId, Long roomId,
+        @Valid ChatMessageSearchRequest request) {
 
-		String keyword = request.getKeyword();
-		int page = request.getPage();
-		int size = request.getPageSize();
-		int offset = page * size;
+        String keyword = request.getKeyword();
+        int page = request.getPage();
+        int size = request.getPageSize();
+        int offset = page * size;
 
-		chatRoomService.validateNotParticipant(memberId, roomId);
-		// messageIds는 DESC 정렬 보장
-		List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomId(keyword,
-			roomId, size, offset);
+        chatRoomService.validateNotParticipant(memberId, roomId);
+        // messageIds는 DESC 정렬 보장
+        List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomId(keyword,
+            roomId, size, offset);
 
-		long totalCount = chatMessageSearchRepository.countByKeywordAndRoomId(keyword, roomId);
+        long totalCount = chatMessageSearchRepository.countByKeywordAndRoomId(keyword, roomId);
 
-		// findByIdIn은 정렬 보장이 안되므로, chatMessages에 대한 정렬 필요
-		List<ChatMessage> chatMessages = chatMessageRepository.findByIdIn(
-			messageIds);
+        // findByIdIn은 정렬 보장이 안되므로, chatMessages에 대한 정렬 필요
+        List<ChatMessage> chatMessages = chatMessageRepository.findByIdIn(
+            messageIds);
 
-		// chatMessage의 빠른 정렬 수행을 위해 Map으로 변환
-		Map<Long, ChatMessage> messageMap = chatMessages.stream()
-			.collect(Collectors.toMap(ChatMessage::getId, Function.identity()));
+        // chatMessage의 빠른 정렬 수행을 위해 Map으로 변환
+        Map<Long, ChatMessage> messageMap = chatMessages.stream()
+            .collect(Collectors.toMap(ChatMessage::getId, Function.identity()));
 
-		// messageIds의 정렬순서에 맞춰서 chatMessages 정렬 수행
-		List<ChatMessageSearchResponse> resultList = messageIds.stream()
-			.map(messageMap::get)
-			.filter(Objects::nonNull)
-			.map(messageMapper::toSearchResponse)
-			.collect(Collectors.toList());
+        // messageIds의 정렬순서에 맞춰서 chatMessages 정렬 수행
+        List<ChatMessageSearchResponse> resultList = messageIds.stream()
+            .map(messageMap::get)
+            .filter(Objects::nonNull)
+            .map(messageMapper::toSearchResponse)
+            .collect(Collectors.toList());
 
-		// PageImpl 구체 클래스로 담아서 반환
-		return new PageImpl<>(resultList, PageRequest.of(page, size), totalCount);
-	}
+        // PageImpl 구체 클래스로 담아서 반환
+        return new PageImpl<>(resultList, PageRequest.of(page, size), totalCount);
+    }
 
-	@Transactional
-	public ChatMessageResponse editMessage(Long roomId, ChatMessageEditRequest request,
-		String username) {
+    @Transactional
+    public ChatMessageResponse editMessage(Long roomId, ChatMessageEditRequest request,
+        String username) {
 
-		//유효성 확인
-		memberService.getMemberByUsername(username);
-		chatRoomService.getRoomById(roomId);
+        //유효성 확인
+        memberService.getMemberByUsername(username);
+        chatRoomService.getRoomById(roomId);
 
-		ChatMessage message = chatMessageRepository.findById(request.messageId())
-			.orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
+        ChatMessage message = chatMessageRepository.findById(request.messageId())
+            .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-		if (!message.getSender().getUsername().equals(username)) {
-			throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_EDIT);
-		}
+        if (!message.getSender().getUsername().equals(username)) {
+            throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_EDIT);
+        }
 
-		message.updateContent(request.content());
+        message.updateContent(request.content());
 
-		//현재 코드 언어 변경은 받지 않고 있음 (확장성 고려)
-		if (message.getType().equals(MessageType.CODE)) {
-			message.updateLanguage(request.language());
-		}
+        //현재 코드 언어 변경은 받지 않고 있음 (확장성 고려)
+        if (message.getType().equals(MessageType.CODE)) {
+            message.updateLanguage(request.language());
+        }
 
-		if (isSearchable(message)) {
-			chatMessageSearchRepository.findById(message.getId())
-				.ifPresent(searchEntity -> {
-					searchEntity.updateContent(message.getContent());
-				});
-		}
+        if (isSearchable(message)) {
+            chatMessageSearchRepository.findById(message.getId())
+                .ifPresent(searchEntity -> {
+                    searchEntity.updateContent(message.getContent());
+                });
+        }
 
-		return messageMapper.toResponse(message);
-	}
+        return messageMapper.toResponse(message);
+    }
 
-	@Transactional
-	public ChatMessageResponse deleteMessage(Long roomId, Long messageId, String username) {
+    @Transactional
+    public ChatMessageResponse deleteMessage(Long roomId, Long messageId, String username) {
 
-		//유효성 확인
-		memberService.getMemberByUsername(username);
-		chatRoomService.getRoomById(roomId);
+        //유효성 확인
+        memberService.getMemberByUsername(username);
+        chatRoomService.getRoomById(roomId);
 
-		ChatMessage message = chatMessageRepository.findById(messageId)
-			.orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
+        ChatMessage message = chatMessageRepository.findById(messageId)
+            .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-		if (!message.getSender().getUsername().equals(username)) {
-			throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_DELETE);
-		}
+        if (!message.getSender().getUsername().equals(username)) {
+            throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_DELETE);
+        }
 
-		message.delete();
+        message.delete();
 
-		if (isSearchable(message)) {
-			chatMessageSearchRepository.findById(message.getId())
-				.ifPresent(ChatMessageSearch::deleteContent);
-		}
+        if (isSearchable(message)) {
+            chatMessageSearchRepository.findById(message.getId())
+                .ifPresent(ChatMessageSearch::deleteContent);
+        }
 
-		return messageMapper.toResponse(message);
-	}
+        return messageMapper.toResponse(message);
+    }
 
-	// 예외 처리
-	@Transactional(readOnly = true)
-	public ChatScrollResponse getMessagesByRoomId(Long memberId, Long roomId, Long cursor,
-		int size) {
-		chatRoomService.getRoomById(roomId);
-		chatRoomService.validateNotParticipant(memberId, roomId);
+    // 예외 처리
+    @TimeTrace
+    @Transactional(readOnly = true)
+    public ChatScrollResponse getMessagesByRoomId(Long memberId, Long roomId, Long cursor,
+        int size) {
+        chatRoomService.getRoomById(roomId);
+        chatRoomService.validateNotParticipant(memberId, roomId);
 
-		PageRequest pageRequest = PageRequest.of(0, size + 1);
-		List<ChatMessage> result;
+        PageRequest pageRequest = PageRequest.of(0, size + 1);
+        List<ChatMessage> result;
 
-		if (cursor == null) {
-			result = chatMessageRepository.findByChatRoom_IdOrderByIdDesc(
-				roomId, pageRequest);
-		} else {
-			result = chatMessageRepository.findByChatRoom_IdAndIdLessThanOrderByIdDesc(
-				roomId, cursor, pageRequest);
-		}
-		ScrollPaginationCollection<ChatMessage> scroll = ScrollPaginationCollection.of(result,
-			size);
+        if (cursor == null) {
+            result = chatMessageRepository.findByChatRoom_IdOrderByIdDesc(
+                roomId, pageRequest);
+        } else {
+            result = chatMessageRepository.findByChatRoom_IdAndIdLessThanOrderByIdDesc(
+                roomId, cursor, pageRequest);
+        }
+        ScrollPaginationCollection<ChatMessage> scroll = ScrollPaginationCollection.of(result,
+            size);
 
-		List<ChatMessageResponse> responses = scroll.getCurrentScrollItems().stream()
-			.map(messageMapper::toResponse).toList();
+        List<ChatMessageResponse> responses = scroll.getCurrentScrollItems().stream()
+            .map(messageMapper::toResponse).toList();
 
-		Long nextCursor = scroll.isLastScroll() ? null : scroll.getNextCursor().getId();
+        Long nextCursor = scroll.isLastScroll() ? null : scroll.getNextCursor().getId();
 
-		return new ChatScrollResponse(responses, nextCursor);
-	}
+        return new ChatScrollResponse(responses, nextCursor);
+    }
 }
