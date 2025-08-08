@@ -36,6 +36,7 @@ import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.ex.ChatRoomException;
+import project.backend.global.metric.TimeTrace;
 
 @Slf4j
 @Service
@@ -95,6 +96,7 @@ public class ChatRoomService {
         return room.getId();
     }
 
+    @TimeTrace
     @Transactional
     public InviteJoinResponse joinChatRoom(String inviteCode, Long memberId) {
         ChatRoom room = getByInviteCode(inviteCode);
