@@ -44,7 +44,6 @@ public class ChatRoomEventListener {
         EventMessageResponse eventMessageResponse = ChatRoomMapper.toJoinEventMessageResponse(
             joinEvent);
 
-        // 입장 메시지 전송
         simpMessagingTemplate.convertAndSend("/topic/chat/" + joinEvent.roomId(),
             eventMessageResponse);
     }
