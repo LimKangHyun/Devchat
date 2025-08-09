@@ -3,6 +3,7 @@ package project.backend.domain.chat.chatroom.listener;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -37,8 +38,9 @@ public class ChatRoomEventListener {
     private final MemberService memberService;
     private final MeterRegistry meterRegistry;
 
-    @Async("chatRoomEventExecutor")
-    @TransactionalEventListener(phase = AFTER_COMMIT)
+    //    @Async("chatRoomEventExecutor")
+//    @TransactionalEventListener(phase = AFTER_COMMIT)
+    @EventListener
     public void handleMemberJoin(JoinChatRoomEvent joinEvent) {
 
         EventMessageResponse eventMessageResponse = ChatRoomMapper.toJoinEventMessageResponse(
