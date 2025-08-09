@@ -99,6 +99,7 @@ public class ChatRoomService {
     @TimeTrace
     @Transactional
     public InviteJoinResponse joinChatRoom(String inviteCode, Long memberId) {
+        log.info("timetrace 적용");
         ChatRoom room = getByInviteCode(inviteCode);
         Member member = memberService.getMemberById(memberId);
 
