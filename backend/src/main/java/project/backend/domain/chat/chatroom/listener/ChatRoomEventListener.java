@@ -70,7 +70,6 @@ public class ChatRoomEventListener {
         EventMessageResponse eventMessageResponse = ChatRoomMapper.toLeaveEventMessageResponse(
             leaveEvent, savedMessage.getId());
 
-        // 퇴장 메시지 전송
         simpMessagingTemplate.convertAndSend("/topic/chat/" + leaveEvent.roomId(),
             eventMessageResponse);
 
