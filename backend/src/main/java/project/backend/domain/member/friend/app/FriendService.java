@@ -124,6 +124,7 @@ public class FriendService {
 			.orElseThrow(() -> new FriendException(FriendErrorCode.NOT_FOUNT_FRIEND_REQUEST));
 	}
 
+	@Transactional(readOnly = true)
 	public Page<FriendResponse> getFriends(Authentication auth, Pageable pageable) {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 		Long id = memberDetails.getId();
