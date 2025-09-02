@@ -97,7 +97,7 @@ public class GitMessageService {
 		ChatRoom room = chatRoomRepository.findById(roomId)
 			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 
-		room.setWebhookId(webhookId);
+		room.updateWebhookId(webhookId);
 	}
 
 	private String makeWebhookUrl(Long roomId) {

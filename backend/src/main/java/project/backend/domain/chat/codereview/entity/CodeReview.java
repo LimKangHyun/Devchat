@@ -24,7 +24,6 @@ import project.backend.domain.member.entity.Member;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 @Builder
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class CodeReview {
 
 	@Id

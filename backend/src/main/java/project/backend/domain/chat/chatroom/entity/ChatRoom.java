@@ -38,7 +38,6 @@ public class ChatRoom {
 
 	private String inviteCode;
 
-	@Setter
 	private Long webhookId;
 
 	@OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -71,5 +70,9 @@ public class ChatRoom {
 		return (int) participants.stream()
 			.filter(ChatParticipant::isActive)
 			.count();
+	}
+
+	public void updateWebhookId(Long webhookId) {
+		this.webhookId = webhookId;
 	}
 }
