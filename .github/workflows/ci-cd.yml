@@ -137,21 +137,36 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           envs: |
-            NEW_COLOR=${{ needs.get-active-color.outputs.new_color }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            RDS_USERNAME=${{ secrets.RDS_USERNAME }}
-            RDS_PASSWORD=${{ secrets.RDS_PASSWORD }}
-            RDS_ENDPOINT=${{ secrets.RDS_ENDPOINT }}
-            REDIS_HOST=${{ secrets.REDIS_HOST }}
-            REDIS_PORT=${{ secrets.REDIS_PORT }}
-            OAUTH_GITHUB_CLIENT_ID=${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
-            OAUTH_GITHUB_SECRET=${{ secrets.OAUTH_GITHUB_SECRET }}
-            DOMAIN_URL=${{ secrets.DOMAIN_URL }}
-            IMAGE_URL=${{ secrets.IMAGE_URL }}
-            WEBHOOK_URL=${{ secrets.WEBHOOK_URL }}
-            AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }}
-            AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }}
+            NEW_COLOR
+            JWT_SECRET
+            RDS_USERNAME
+            RDS_PASSWORD
+            RDS_ENDPOINT
+            REDIS_HOST
+            REDIS_PORT
+            OAUTH_GITHUB_CLIENT_ID
+            OAUTH_GITHUB_SECRET
+            DOMAIN_URL
+            IMAGE_URL
+            WEBHOOK_URL
+            AWS_ACCESS_KEY
+            AWS_SECRET_KEY
           script: |
+            export NEW_COLOR="${{ needs.get-active-color.outputs.new_color }}"
+            export JWT_SECRET="${{ secrets.JWT_SECRET }}"
+            export RDS_USERNAME="${{ secrets.RDS_USERNAME }}"
+            export RDS_PASSWORD="${{ secrets.RDS_PASSWORD }}"
+            export RDS_ENDPOINT="${{ secrets.RDS_ENDPOINT }}"
+            export REDIS_HOST="${{ secrets.REDIS_HOST }}"
+            export REDIS_PORT="${{ secrets.REDIS_PORT }}"
+            export OAUTH_GITHUB_CLIENT_ID="${{ secrets.OAUTH_GITHUB_CLIENT_ID }}"
+            export OAUTH_GITHUB_SECRET="${{ secrets.OAUTH_GITHUB_SECRET }}"
+            export DOMAIN_URL="${{ secrets.DOMAIN_URL }}"
+            export IMAGE_URL="${{ secrets.IMAGE_URL }}"
+            export WEBHOOK_URL="${{ secrets.WEBHOOK_URL }}"
+            export AWS_ACCESS_KEY="${{ secrets.AWS_ACCESS_KEY }}"
+            export AWS_SECRET_KEY="${{ secrets.AWS_SECRET_KEY }}"
+
             cd ~/NBE5-7-2-TEAM08/deployment
             chmod +x ./deploy.sh
             ./deploy.sh
