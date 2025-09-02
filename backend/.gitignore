@@ -44,3 +44,6 @@ out/
 
 # Spring Boot #
 /src/main/resources/application-prod.yml
+
+# 그라파나 데이터
+grafana-data/
