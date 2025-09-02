@@ -136,7 +136,21 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          envs: NEW_COLOR
+          envs: |
+            NEW_COLOR
+            JWT_SECRET
+            RDS_USERNAME
+            RDS_PASSWORD
+            RDS_ENDPOINT
+            REDIS_HOST
+            REDIS_PORT
+            OAUTH_GITHUB_CLIENT_ID
+            OAUTH_GITHUB_SECRET
+            DOMAIN_URL
+            IMAGE_URL
+            WEBHOOK_URL
+            AWS_ACCESS_KEY
+            AWS_SECRET_KEY
           script: |
             cd ~/NBE5-7-2-TEAM08/deployment
             chmod +x ./deploy.sh
