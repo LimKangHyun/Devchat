@@ -369,9 +369,9 @@ const FindUserModal = ({ onClose, onSendFriendRequest }) => {
                 // 최소 로딩 시간 보장: 500ms
                 const delay = new Promise((res) => setTimeout(res, 500))
                 const response = await Promise.all([
-                    axioxInstance.get("/user/username", {
+                    axioxInstance.get("/user/search", {
                         params: {
-                            username: trimmedQuery,
+                            nickname: trimmedQuery,
                             page: targetPage,
                             size: 10,
                         },
