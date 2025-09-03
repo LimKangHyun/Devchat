@@ -23,7 +23,6 @@ import project.backend.domain.member.entity.Member;
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
-@Builder
 public class CodeReview {
 
 	@Id
@@ -52,4 +51,11 @@ public class CodeReview {
 		this.content = content;
 	}
 
+	@Builder
+	public CodeReview(ChatMessage message, Member author, Integer lineNumber, String content) {
+		this.message = message;
+		this.author = author;
+		this.lineNumber = lineNumber;
+		this.content = content;
+	}
 }
