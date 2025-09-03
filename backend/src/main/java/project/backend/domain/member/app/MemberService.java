@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.member.dao.MemberRepository;
+import project.backend.domain.member.dto.MemberSearchResponse;
 import project.backend.domain.member.dto.PasswordChangeRequest;
 import project.backend.domain.member.dto.event.ProfileUpdateEvent;
 import project.backend.auth.dto.MemberDetails;
@@ -60,8 +63,7 @@ public class MemberService {
 
 	public MemberResponse updateMemberInfo(Authentication auth, MemberInfoUpdateRequest request,
 		MultipartFile file) {
-
-		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
+		MemberDetails memberDetails = checkAuthentication(auth);
 		Member targetMember = getMemberById(memberDetails.getId());
 
 		doUpdateMemberInfo(targetMember, request, file);
@@ -88,7 +90,7 @@ public class MemberService {
 	}
 
 	public void updatePassword(Authentication auth, PasswordChangeRequest request) {
-		MemberDetails memberDetails = (MemberDetails) auth.getPrincipal();
+		MemberDetails memberDetails = checkAuthentication(auth);
 		Member targetMember = getMemberById(memberDetails.getId());
 
 		if (targetMember.getProvider() != ProviderType.LOCAL) {
@@ -133,9 +135,17 @@ public class MemberService {
 	public MemberResponse getMemberDetails(Authentication auth) {
 		MemberDetails loginMember = (MemberDetails) auth.getPrincipal();
 		Long memberId = loginMember.getId();
-		log.info("memberId = {}", memberId);
 		Member member = getMemberById(memberId);
 		return MemberMapper.toResponse(member);
+	}
+
+	public Page<MemberSearchResponse> searchMembers(Authentication auth, String keyword,
+		Pageable pageable) {
+		var memberDetails = checkAuthentication(auth);
+
+		return memberRepository.searchByNicknameExcludeSelf(keyword, memberDetails.getNickname(),
+			memberDetails.getId(),
+			pageable);
 	}
 
 	private boolean checkUsernameAlreadyExists(String username) {
@@ -144,6 +154,15 @@ public class MemberService {
 
 	private boolean checkEmailAlreadyExists(String email) {
 		return memberRepository.findByEmail(email).isPresent();
+	}
+
+	public MemberDetails checkAuthentication(Authentication auth) {
+		var memberDetails = (MemberDetails) auth.getPrincipal();
+		if (memberDetails == null) {
+			throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
+		}
+
+		return memberDetails;
 	}
 
 }
