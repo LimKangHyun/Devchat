@@ -70,7 +70,7 @@ public class GitHubClient {
 		return true;
 	}
 
-	public void registerWebhook(String accessToken, String owner, String repo, String webhookUrl) {
+	public Long registerWebhook(String accessToken, String owner, String repo, String webhookUrl) {
 		String apiUrl = "https://api.github.com/repos/" + owner + "/" + repo + "/hooks";
 
 		Map<String, Object> requestBody = Map.of(
@@ -85,61 +85,39 @@ public class GitHubClient {
 		);
 
 		try {
-			webClientBuilder.build()
+			Map<String, Object> response = webClientBuilder.build()
 				.post()
 				.uri(apiUrl)
 				.header("Authorization", "Bearer " + accessToken)
 				.header("Accept", "application/vnd.github.v3+json")
 				.bodyValue(requestBody)
 				.retrieve()
-				.toBodilessEntity()
+				.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
 				.block();
+
+			Number idNumber = (Number) response.get("id");
+			return idNumber.longValue();
 		} catch (Exception e) {
-			log.error("웹훅 등록 중 예외 예상치 못한 발생", e);
 			throw new GitHubException(GitHubErrorCode.WEBHOOK_REGISTER_FAILED);
 		}
 	}
 
-	private WebClient getWebClient(String gitHubAccessToken) {
-		return WebClient.builder()
-			.baseUrl("https://api.github.com")
-			.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + gitHubAccessToken)
-			.defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
-			.build();
-	}
+	public void deleteWebhook(String accessToken, String owner, String repo, Long webhookId) {
+		String apiUrl =
+			"https://api.github.com/repos/" + owner + "/" + repo + "/hooks/" + webhookId;
 
-	public String getPrivateEmail(String gitHubAccessToken) {
-
-		WebClient webClient = getWebClient(gitHubAccessToken);
-
-		List<Map<String, Object>> emailList = webClient.get()
-			.uri("/user/emails")
-			.retrieve()
-			.bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
-			})
-			.block();
-
-		if (emailList == null || emailList.isEmpty()) {
-			throw new IllegalStateException("GitHub 이메일 정보를 불러올 수 없습니다.");
+		try {
+			webClientBuilder.build()
+				.delete()
+				.uri(apiUrl)
+				.header("Authorization", "Bearer " + accessToken)
+				.header("Accept", "application/vnd.github.v3+json")
+				.retrieve()
+				.toBodilessEntity()
+				.block();
+		} catch (Exception e) {
+			throw new GitHubException(GitHubErrorCode.WEBHOOK_DELETE_FAILED);
 		}
-
-		String privateEmail = null;
-
-		for (Map<String, Object> email : emailList) {
-			System.out.println(email.get("email"));
-			System.out.println("primary = " + email.get("primary"));
-
-			if (Boolean.TRUE.equals(email.get("primary"))) {
-				privateEmail = (String) email.get("email");
-				break;
-			}
-		}
-
-		if (privateEmail == null) {
-			privateEmail = emailList.getFirst().get("email").toString();
-		}
-
-		return privateEmail;
-
 	}
 }
+

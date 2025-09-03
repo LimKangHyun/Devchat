@@ -7,6 +7,7 @@ import MessageList from '../components/chatroom/MessageList';
 import useWebSocket from '../components/common/useWebSocket';
 import RoomHeader from '../components/chatroom/RoomHeader';
 import RoomDeletedModal from '../components/modals/RoomDeletedModal';
+import CodeReviewModal from '../components/modals/CodeReviewModal.jsx';
 
 const ChatRoom = () => {
   const { inviteCode } = useParams();
@@ -38,6 +39,13 @@ const ChatRoom = () => {
   const [isOwner, setIsOwner] = useState(false);
   const [roomData, setRoomData] = useState(null);
   const [deleteNotification, setDeleteNotification] = useState(null);
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [selectedCodeMessage, setSelectedCodeMessage] = useState(null);
+
+  const handleCodeClick = (message) => {
+    setSelectedCodeMessage(message);
+    setShowCodeModal(true);
+  };
 
   // 초기화 상태를 하나로 통합하고 단계별로 관리
   const [initState, setInitState] = useState({
@@ -74,7 +82,7 @@ const ChatRoom = () => {
       setRoomId(roomData.roomId);
       setRoomName(roomData.roomName);
       setRoomData(roomData);
-      
+
       // 한 번에 상태 업데이트
       setInitState(prev => ({
         ...prev,
@@ -676,7 +684,7 @@ const ChatRoom = () => {
           <RoomHeader
             roomName={roomName}
             inviteCode={inviteCode}
-            onSearch={handleSearch} 
+            onSearch={handleSearch}
             onLeaveRoom={handleLeaveRoom}
             onDeleteRoom={handleDeleteRoom}
             isOwner={isOwner}
@@ -768,6 +776,7 @@ const ChatRoom = () => {
               editMessageId={editMessageId}
               editContent={editContent}
               handleEditMessage={handleEditMessage}
+              onCodeClick={handleCodeClick}
             />
             <div ref={messagesEndRef} />
           </div>
@@ -810,6 +819,19 @@ const ChatRoom = () => {
             onClose={() => setShowSearchSidebar(false)}
             onPageChange={(page) => handleSearch(searchKeyword, page)}
             onMessageClick={scrollToMessage}
+          />
+        )}
+
+        {/* 코드 리뷰 모달 */}
+        {showCodeModal && selectedCodeMessage && (
+          <CodeReviewModal
+            message={selectedCodeMessage}
+            roomId={roomId}
+            currentUser={currentUser}
+            onClose={() => {
+              setShowCodeModal(false);
+              setSelectedCodeMessage(null);
+            }}
           />
         )}
 
