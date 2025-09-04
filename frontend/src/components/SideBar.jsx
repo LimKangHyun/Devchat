@@ -59,7 +59,7 @@ const Sidebar = ({ onStartChat }) => {
 
   // useWebSocket 훅 사용 - 사이드바용 구독만 활성화
   const stompClientRef = useWebSocket({
-    roomId: null, // 메인 채팅방 구독은 비활성화
+    roomId: roomId, // 메인 채팅방 구독은 비활성화
     onMessageReceived: () => {}, // 메인 메시지 처리는 비활성화
     chatRooms, // 채팅방 목록 전달
     currentRoomId: roomId, // 현재 활성화된 채팅방 ID
