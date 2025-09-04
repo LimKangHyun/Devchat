@@ -6,9 +6,9 @@ import { FaCopy, FaTrashAlt, FaUserPlus, FaClock } from 'react-icons/fa';
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
   });
 };
 
@@ -41,18 +41,59 @@ const renderWithLink = (text) => {
   );
 };
 
-const HighlightedCode = ({ content, language }) => {
+const HighlightedCode = ({ content, language, onClick }) => {
   return (
-    <Highlight className={language}>{content}</Highlight>
+    <div
+      onClick={(e) => {
+        console.log('🖱️ 코드 블록 클릭됨!'); // 디버깅용
+        console.log('onClick prop:', onClick); // onClick이 제대로 전달되었는지 확인
+        if (onClick) {
+          onClick(e);
+        } else {
+          console.log('❌ onClick prop이 없음!');
+        }
+      }}
+
+
+
+      style={{
+        cursor: 'pointer',
+        position: 'relative',
+        transition: 'all 0.2s ease'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'scale(1.01)';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'scale(1)';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
+    >
+      <Highlight className={language}>{content}</Highlight>
+      <div style={{
+        position: 'absolute',
+        top: '8px',
+        right: '12px',
+        background: 'rgba(0,0,0,0.7)',
+        color: 'white',
+        padding: '4px 8px',
+        borderRadius: '4px',
+        fontSize: '12px',
+        opacity: 0.8
+      }}>
+        클릭하여 자세히 보기
+      </div>
+    </div>
   );
 };
 
 // 프로필 이미지, 날짜, 수정 삭제 메뉴
-const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEditMessageId, setEditContent, handleEditMessage, handleDeleteMessage, editMessageId, editContent }) => {
+const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEditMessageId, setEditContent, handleEditMessage, handleDeleteMessage, editMessageId, editContent, onCodeClick }) => {
 
   // 이벤트 타입은 메시지만 렌더링 (원래 로직 유지)
-  if(msg.type === 'EVENT'){
-    return(
+  if (msg.type === 'EVENT') {
+    return (
       <MessageContent
         msg={msg}
         editMessageId={editMessageId}
@@ -66,7 +107,7 @@ const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEdi
 
   return (
     <div
-      id= {`message-${msg.messageId}`} // 추가
+      id={`message-${msg.messageId}`} // 추가
       style={{ marginBottom: '18px', display: 'flex', alignItems: 'flex-start' }}>
       {/* 프로필 이미지 */}
       <img
@@ -87,7 +128,7 @@ const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEdi
         }}
       />
 
-      <div style={{ flex: 1}}>
+      <div style={{ flex: 1 }}>
         <div style={{
           display: 'flex',
           marginBottom: '6px',
@@ -210,16 +251,17 @@ const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEdi
           setEditContent={setEditContent}
           handleEditMessage={handleEditMessage}
           setEditMessageId={setEditMessageId}
+          onCodeClick={onCodeClick}
         />
       </div>
     </div>
   );
 };
 
-const MessageContent = ({msg, editMessageId, editContent, setEditContent, handleEditMessage, setEditMessageId}) => {
+const MessageContent = ({ msg, editMessageId, editContent, setEditContent, handleEditMessage, setEditMessageId, onCodeClick }) => {
 
   // 수정 중인 메시지는 textarea 렌더
-  if(editMessageId === msg.messageId) {
+  if (editMessageId === msg.messageId) {
     return (
       <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
         <textarea
@@ -283,7 +325,7 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
     </div>;
   }
 
-  if(msg.type === 'GIT'){
+  if (msg.type === 'GIT') {
     return (
       <div style={{
         backgroundColor: '#f6f8fa',
@@ -300,7 +342,7 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
         }} />
         <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', padding: '10px' }}>
           {msg.content.split('\n').map((line, i) => (
-             <div key={i}>
+            <div key={i}>
               {i === 0 ? (
                 <strong>{line}</strong>
               ) : (
@@ -313,7 +355,8 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
     );
   }
 
-  if(msg.type === 'CODE') {
+  if (msg.type === 'CODE') {
+    console.log('🔍 CODE 메시지 렌더링, onCodeClick:', onCodeClick); // 디버깅용
     return (
       <div style={{
         borderRadius: '6px',
@@ -322,7 +365,8 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
       }}>
         <HighlightedCode
           content={msg.content}
-          language={msg.language || 'java'} //java가 디폴트 언어
+          language={msg.language || 'java'}
+          onClick={() => onCodeClick && onCodeClick(msg)} // 새로 추가
         />
         {msg.status === "EDITED" && (
           <span style={{
@@ -338,8 +382,8 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
     );
   }
 
-  if(msg.type === 'IMAGE'){
-     return (
+  if (msg.type === 'IMAGE') {
+    return (
       <div style={{
         maxWidth: '30%',
         backgroundColor: '#f8fafc',
@@ -387,10 +431,10 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
         }}>
           {/* 유저 아이콘 */}
           <FaUserPlus size={12} style={{ flexShrink: 0 }} />
-          
+
           {/* 메인 메시지 */}
           <span>{msg.content}</span>
-          
+
           {/* 입장 시간 표시 (구분선과 함께) */}
           <div style={{
             display: 'flex',
@@ -403,7 +447,7 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
             marginLeft: '4px'
           }}>
             <FaClock size={10} />
-            {formatTime(msg.sendAt||msg.joinAt)}
+            {formatTime(msg.sendAt || msg.joinAt)}
           </div>
         </div>
       </div>
@@ -433,27 +477,29 @@ const MessageContent = ({msg, editMessageId, editContent, setEditContent, handle
   )
 }
 
-const MessageList = ({ messages, currentUser, contextMenuId, setContextMenuId, setEditMessageId, setEditContent, editMessageId, editContent, handleEditMessage, handleDeleteMessage }) => {
+const MessageList = ({ messages, currentUser, contextMenuId, setContextMenuId, setEditMessageId, setEditContent,
+  editMessageId, editContent, handleEditMessage, handleDeleteMessage, onCodeClick }) => {
   if (!messages.length) return null;
   const result = [];
   let currentDate = null;
 
   // 메시지를 순회하며 날짜별로 구분
   messages.forEach((msg, index) => {
-    const messageDate = formatDate(msg.sendAt||msg.joinAt);
+    const messageDate = formatDate(msg.sendAt || msg.joinAt);
 
     // 날짜가 바뀌었다면 구분선 추가
     if (messageDate !== currentDate) {
       currentDate = messageDate;
       result.push(
         <div key={`date-${index}`}
-          style={{ display: 'flex',
-              alignItems: 'center',
-              margin: '24px 0',
-              color: '#64748b',
-              fontSize: '14px',
-              fontWeight: '500'
-        }}>
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            margin: '24px 0',
+            color: '#64748b',
+            fontSize: '14px',
+            fontWeight: '500'
+          }}>
           <div style={{
             flex: '1',
             height: '1px',
@@ -472,7 +518,7 @@ const MessageList = ({ messages, currentUser, contextMenuId, setContextMenuId, s
             flex: '1',
             height: '1px',
             backgroundColor: '#e2e8f0'
-          }}/>
+          }} />
         </div>
       );
     }
@@ -480,17 +526,18 @@ const MessageList = ({ messages, currentUser, contextMenuId, setContextMenuId, s
     // 메시지 추가
     result.push(
       <MessageItem
-      key={`msg-${msg.messageId}`} // messageId가 없는 경우를 대비해 index 사용
-      msg={msg}
-      currentUser={currentUser}
-      contextMenuId={contextMenuId}
-      setContextMenuId={setContextMenuId}
-      setEditMessageId={setEditMessageId}
-      setEditContent={setEditContent}
-      handleDeleteMessage={handleDeleteMessage}
-      editMessageId={editMessageId}
-      editContent={editContent}
-      handleEditMessage={handleEditMessage}
+        key={`msg-${msg.messageId}`} // messageId가 없는 경우를 대비해 index 사용
+        msg={msg}
+        currentUser={currentUser}
+        contextMenuId={contextMenuId}
+        setContextMenuId={setContextMenuId}
+        setEditMessageId={setEditMessageId}
+        setEditContent={setEditContent}
+        handleDeleteMessage={handleDeleteMessage}
+        editMessageId={editMessageId}
+        editContent={editContent}
+        handleEditMessage={handleEditMessage}
+        onCodeClick={onCodeClick}
       />
     );
   });

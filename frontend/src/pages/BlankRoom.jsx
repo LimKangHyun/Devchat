@@ -70,7 +70,7 @@ const BlankRoom = () => {
   };
 
   return (
-    <div style={{ backgroundColor: '#e0e0e0', height: '100vh', display: 'flex', flexDirection: 'column', boxSizing: 'border-box'}}>
+    <div style={{ backgroundColor: '#e0e0e0', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box'}}>
       {/* 본문 영역 */}
       <div style={{ flex:1, display: 'flex', overflow: 'hidden' }}>
       

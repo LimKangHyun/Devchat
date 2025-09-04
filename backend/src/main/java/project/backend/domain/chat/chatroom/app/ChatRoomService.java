@@ -272,9 +272,11 @@ public class ChatRoomService {
             throw new ChatRoomException(ChatRoomErrorCode.OWNER_PERMISSION_REQUIRED);
         }
 
-        eventPublisher.publishEvent(
-            new DeleteChatRoomEvent(roomId, room.getName())
-        );
+		gitMessageService.deleteWebhook(room, memberId);
+
+		eventPublisher.publishEvent(
+			new DeleteChatRoomEvent(roomId, room.getName())
+		);
 
         chatRoomRepository.delete(room);
     }

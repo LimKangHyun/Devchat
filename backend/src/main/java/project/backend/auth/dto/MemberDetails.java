@@ -53,4 +53,5 @@ public class MemberDetails implements UserDetails {
 			.build();
 	}
 
+
 }

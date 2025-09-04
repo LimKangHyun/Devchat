@@ -42,7 +42,6 @@ public class GitMessageService {
 	private String githubUsername;
 	private final GitHubClient gitHubClient;
 	private final TokenRedisRepository tokenRedisRepository;
-	private final ChatParticipantRepository chatParticipantRepository;
 
 	@Transactional
 	public void handleEvent(Long roomId, String eventType, Map<String, Object> payload) {
@@ -92,12 +91,36 @@ public class GitMessageService {
 			gitRepoDto.ownerName(), gitRepoDto.repoName());
 
 		//있으면 다음 단계로 넘어감
-		gitHubClient.registerWebhook(tokenRedis.getGithubAccess(),
+		Long webhookId = gitHubClient.registerWebhook(tokenRedis.getGithubAccess(),
 			gitRepoDto.ownerName(), gitRepoDto.repoName(), webhookUrl);
+
+		ChatRoom room = chatRoomRepository.findById(roomId)
+			.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+
+		room.updateWebhookId(webhookId);
 	}
 
 	private String makeWebhookUrl(Long roomId) {
 		return webhookUrl + "/github/" + roomId;
+	}
+
+	public void deleteWebhook(ChatRoom room, Long ownerId) {
+		if (room.getRepositoryUrl() == null || room.getWebhookId() == null) {
+			log.info("GitHub 연동이 없는 채팅방입니다. 웹훅 삭제 스킵: roomId={}", room.getId());
+			return;
+		}
+
+		GitRepoDto gitRepoDto = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
+
+		TokenRedis tokenRedis = tokenRedisRepository.findById(ownerId)
+			.orElseThrow(() -> new RuntimeException("토큰이 존재하지 않습니다."));
+
+		gitHubClient.deleteWebhook(
+			tokenRedis.getGithubAccess(),
+			gitRepoDto.ownerName(),
+			gitRepoDto.repoName(),
+			room.getWebhookId()
+		);
 	}
 
 }
