@@ -31,6 +31,7 @@ const useWebSocket = ({
   const navigate = useNavigate()
 
   useEffect(() => {
+    console.log("roomId:", roomId, "username:", username);
     if (!roomId && !username) {
       console.log("⏳ roomId와 username이 없어서 웹소켓 연결을 대기합니다.")
       return
