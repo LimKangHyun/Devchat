@@ -172,7 +172,7 @@ public class ChatRoomService {
         ChatRoom chatRoom = chatRoomRepository.findById(roomId)
             .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 
-        validateNotParticipant(memberId, roomId);
+        validateParticipant(memberId, roomId);
 
         List<ChatParticipant> participants = chatParticipantRepository.findByChatRoom(chatRoom);
 
@@ -232,7 +232,7 @@ public class ChatRoomService {
     @Transactional
     public EntryRoomResponse getEntryInfo(String inviteCode, Long memberId) {
         ChatRoom room = getByInviteCode(inviteCode);
-        validateNotParticipant(memberId, room.getId());
+        validateParticipant(memberId, room.getId());
 
         memberService.getMemberById(memberId).setRecentRoomId(room.getId()); //recentRoomId 업데이트
 
@@ -253,7 +253,7 @@ public class ChatRoomService {
         return ChatRoomMapper.toListResponse(room);
     }
 
-    public void validateNotParticipant(Long memberId, Long roomId) {
+    public void validateParticipant(Long memberId, Long roomId) {
         if (!chatParticipantRepository.
             existsByParticipantIdAndChatRoomIdAndIsActiveTrue(memberId, roomId)) {
             throw new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT);
@@ -272,11 +272,11 @@ public class ChatRoomService {
             throw new ChatRoomException(ChatRoomErrorCode.OWNER_PERMISSION_REQUIRED);
         }
 
-		gitMessageService.deleteWebhook(room, memberId);
+        gitMessageService.deleteWebhook(room, memberId);
 
-		eventPublisher.publishEvent(
-			new DeleteChatRoomEvent(roomId, room.getName())
-		);
+        eventPublisher.publishEvent(
+            new DeleteChatRoomEvent(roomId, room.getName())
+        );
 
         chatRoomRepository.delete(room);
     }
