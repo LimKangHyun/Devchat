@@ -59,7 +59,7 @@ const Sidebar = ({ onStartChat }) => {
 
   // useWebSocket 훅 사용 - 사이드바용 구독만 활성화
   const stompClientRef = useWebSocket({
-    roomId: roomId, // 메인 채팅방 구독은 비활성화
+    roomId: null, // 메인 채팅방 구독은 비활성화
     onMessageReceived: () => {}, // 메인 메시지 처리는 비활성화
     chatRooms, // 채팅방 목록 전달
     currentRoomId: roomId, // 현재 활성화된 채팅방 ID
@@ -249,7 +249,7 @@ const Sidebar = ({ onStartChat }) => {
           participants: [
             {
               ...(currentUser || {}),
-              owner: true,
+              owner: true, 
               nickname: currentUser?.nickname || currentUser?.username || "나",
             },
           ],
@@ -355,11 +355,7 @@ const Sidebar = ({ onStartChat }) => {
             msOverflowStyle: "none", // IE/Edge
           }}
         >
-          {loading ? (
-            <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.7)" }}>
-              채팅방 불러오는 중...
-            </div>
-          ) : chatRooms.length === 0 ? (
+          { chatRooms.length === 0 ? (
             <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.7)" }}>
               참여중인 채팅방이 없습니다
             </div>
