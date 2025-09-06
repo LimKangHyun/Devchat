@@ -125,6 +125,7 @@ jobs:
     needs: [ backend, frontend, get-active-color ]
     env:
       NEW_COLOR: ${{ needs.get-active-color.outputs.new_color }}
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
 
     steps:
       - name: Checkout repository
