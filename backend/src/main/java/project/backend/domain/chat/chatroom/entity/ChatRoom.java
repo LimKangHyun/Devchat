@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 
 @Entity
@@ -37,6 +38,8 @@ public class ChatRoom {
 
 	private String inviteCode;
 
+	private Long webhookId;
+
 	@OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<ChatMessage> messages = new ArrayList<>();
 
@@ -45,11 +48,12 @@ public class ChatRoom {
 
 	@Builder
 	public ChatRoom(String name, LocalDateTime createdAt, String repositoryUrl, String inviteCode,
-		List<ChatMessage> messages, List<ChatParticipant> participants) {
+		Long webhookId, List<ChatMessage> messages, List<ChatParticipant> participants) {
 		this.name = name;
 		this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
 		this.repositoryUrl = repositoryUrl;
 		this.inviteCode = inviteCode;
+		this.webhookId = webhookId;
 		if (messages != null) {
 			this.messages = messages;
 		}
@@ -66,5 +70,9 @@ public class ChatRoom {
 		return (int) participants.stream()
 			.filter(ChatParticipant::isActive)
 			.count();
+	}
+
+	public void updateWebhookId(Long webhookId) {
+		this.webhookId = webhookId;
 	}
 }

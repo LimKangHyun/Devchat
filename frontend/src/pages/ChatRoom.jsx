@@ -7,14 +7,15 @@ import MessageList from '../components/chatroom/MessageList';
 import useWebSocket from '../components/common/useWebSocket';
 import RoomHeader from '../components/chatroom/RoomHeader';
 import RoomDeletedModal from '../components/modals/RoomDeletedModal';
+import CodeReviewModal from '../components/modals/CodeReviewModal.jsx';
 import { useAlarm } from '../context/AlarmContext';
 
 const ChatRoom = () => {
-  const { inviteCode } = useParams();
-  const [messages, setMessages] = useState([]);
-  const [content, setContent] = useState("");
-  const [inputMode, setInputMode] = useState("TEXT");
-  const [language, setLanguage] = useState("java");
+  const { inviteCode } = useParams()
+  const [messages, setMessages] = useState([])
+  const [content, setContent] = useState("")
+  const [inputMode, setInputMode] = useState("TEXT")
+  const [language, setLanguage] = useState("java")
 
   const [currentUser, setCurrentUser] = useState(null);
   const [contextMenuId, setContextMenuId] = useState(null);
@@ -23,22 +24,29 @@ const ChatRoom = () => {
   const [editContent, setEditContent] = useState("");
 
   // 무한 스크롤 관련 상태
-  const [cursor, setCursor] = useState(null);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true); // 초기 로딩 상태
+  const [cursor, setCursor] = useState(null)
+  const [hasMoreMessages, setHasMoreMessages] = useState(true)
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true) // 초기 로딩 상태
 
-  const messagesEndRef = useRef(null);
-  const messagesStartRef = useRef(null);
-  const messageContainerRef = useRef(null);
-  const prevScrollHeightRef = useRef(0); // 이전 스크롤 높이 저장
-  const navigate = useNavigate();
+  const messagesEndRef = useRef(null)
+  const messagesStartRef = useRef(null)
+  const messageContainerRef = useRef(null)
+  const prevScrollHeightRef = useRef(0) // 이전 스크롤 높이 저장
+  const navigate = useNavigate()
 
   const [roomName, setRoomName] = useState("로딩 중...");
   const [roomId, setRoomId] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
   const [roomData, setRoomData] = useState(null);
   const [deleteNotification, setDeleteNotification] = useState(null);
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [selectedCodeMessage, setSelectedCodeMessage] = useState(null);
+
+  const handleCodeClick = (message) => {
+    setSelectedCodeMessage(message);
+    setShowCodeModal(true);
+  };
 
   // 초기화 상태를 하나로 통합하고 단계별로 관리
   const [initState, setInitState] = useState({
@@ -50,9 +58,7 @@ const ChatRoom = () => {
   });
 
   // 전체 로딩 상태를 계산으로 처리
-  const isFullyLoaded = initState.isRoomValidated &&
-    initState.isUserLoaded &&
-    initState.isMessagesLoaded;
+  const isFullyLoaded = initState.isRoomValidated && initState.isUserLoaded && initState.isMessagesLoaded
 
   // 맨 아래로 스크롤하는 함수 (새 메시지 수신용 및 초기 로드 완료 시 사용)
   const scrollToBottom = useCallback(() => {
@@ -97,8 +103,9 @@ const ChatRoom = () => {
   }, [inviteCode]);
 
   // 2. 메시지 목록 불러오기 (커서 기반)
-  const fetchMessages = useCallback(async (cursorValue = null, isLoadMore = false) => {
-    console.log('🔍 fetchMessages 호출:', { cursorValue, isLoadMore });
+  const fetchMessages = useCallback(
+    async (cursorValue = null, isLoadMore = false) => {
+      console.log("🔍 fetchMessages 호출:", { cursorValue, isLoadMore });
 
     setIsLoadingMessages(prev => {
       if (prev) {
@@ -184,26 +191,16 @@ const ChatRoom = () => {
   // 3. 로그인 유저 정보 가져오기
   const fetchCurrentUser = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:8080/user/details', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        throw new Error('로그인 정보를 가져오지 못했습니다.');
-      }
-
-      const user = await res.json();
-      console.log("현재 사용자 정보:", user);
-      setCurrentUser(user);
+      const res = await axiosInstance.get("/user/details", {})
+      const user = await res.data
+      console.log("현재 사용자 정보:", user)
+      setCurrentUser(user)
 
       // 사용자 정보 로드 완료 상태 업데이트
-      setInitState(prev => ({
+      setInitState((prev) => ({
         ...prev,
-        isUserLoaded: true
-      }));
-
+        isUserLoaded: true,
+      }))
     } catch (error) {
       console.error('사용자 정보 요청 실패:', error);
       setInitState(prev => ({
@@ -245,23 +242,23 @@ const ChatRoom = () => {
   }, []);
 
   // 웹소켓 연결
-  const stompClientRef = useWebSocket({
+  const { stompClientRef, connected: isWebSocketConnected } = useWebSocket({
     roomId: initState.isRoomValidated ? roomId : null,
     onMessageReceived: (received) => {
       // 서버에서 받은 메시지만을 로컬 상태에 추가/업데이트
-      setMessages(prev => {
+      setMessages((prev) => {
         // 동일한 messageId를 가진 메시지가 이미 존재하면 업데이트하고, 없으면 추가
-        const updated = prev.some(m => m.messageId === received.messageId)
-          ? prev.map(m => m.messageId === received.messageId ? received : m)
-          : [...prev, received];
+        const updated = prev.some((m) => m.messageId === received.messageId)
+          ? prev.map((m) => (m.messageId === received.messageId ? received : m))
+          : [...prev, received]
 
-        const sorted = [...updated].sort((a, b) => new Date(a.sendAt).getTime() - new Date(b.sendAt).getTime());
+        const sorted = [...updated].sort((a, b) => new Date(a.sendAt).getTime() - new Date(b.sendAt).getTime())
 
         // 새 메시지가 추가되었을 때만 맨 아래로 스크롤
         // 현재 스크롤 위치가 거의 맨 아래에 있다면 스크롤, 아니면 유지
         if (messageContainerRef.current) {
-          const { scrollTop, clientHeight, scrollHeight } = messageContainerRef.current;
-          const isNearBottom = (scrollTop + clientHeight) >= (scrollHeight - 100); // 100px 여유
+          const { scrollTop, clientHeight, scrollHeight } = messageContainerRef.current
+          const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100 // 100px 여유
           // 새 메시지가 나(currentUser)의 메시지이거나, 스크롤이 거의 맨 아래에 있을 때만 스크롤
           if (isNearBottom || received.senderId === currentUser?.userId) {
             scrollToBottom();
@@ -272,11 +269,11 @@ const ChatRoom = () => {
     },
     onProfileUpdate: handleProfileUpdate,
 
-    onRoomDeleted: (eventMessage) => {  // 새로 추가
-      setDeleteNotification(eventMessage.content);
-    }
-
-  });
+    onRoomDeleted: (eventMessage) => {
+      // 새로 추가
+      setDeleteNotification(eventMessage.content)
+    },
+  })
 
   // 스크롤 위치 복원 함수 (무한 스크롤 시 사용)
   const restoreScrollPosition = useCallback(() => {
@@ -706,13 +703,13 @@ const ChatRoom = () => {
             ref={messageContainerRef}
             style={{
               flex: 1,
-              overflowY: 'auto',
-              padding: '20px 24px',
-              backgroundColor: '#fff',
+              overflowY: "auto",
+              padding: "20px 24px",
+              backgroundColor: "#fff",
               minHeight: 0,
-              position: 'relative'
-            }}>
-
+              position: "relative",
+            }}
+          >
             {/* 초기 로딩 상태 표시 (깜빡임 없이) */}
             {!isFullyLoaded && (
               <div style={{
@@ -787,6 +784,7 @@ const ChatRoom = () => {
               editMessageId={editMessageId}
               editContent={editContent}
               handleEditMessage={handleEditMessage}
+              onCodeClick={handleCodeClick}
             />
             <div ref={messagesEndRef} />
           </div>
@@ -832,12 +830,24 @@ const ChatRoom = () => {
           />
         )}
 
+        {/* 코드 리뷰 모달 */}
+        {showCodeModal && selectedCodeMessage && (
+          <CodeReviewModal
+            message={selectedCodeMessage}
+            roomId={roomId}
+            currentUser={currentUser}
+            onClose={() => {
+              setShowCodeModal(false);
+              setSelectedCodeMessage(null);
+            }}
+          />
+        )}
+
         <RoomDeletedModal
           isOpen={!!deleteNotification}
           message={deleteNotification}
           onClose={() => setDeleteNotification(null)}
         />
-
       </div>
     </div>
   );

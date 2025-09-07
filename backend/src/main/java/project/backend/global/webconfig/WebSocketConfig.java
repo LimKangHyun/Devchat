@@ -31,14 +31,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	//해당 주소로 접속 시 웹소켓 핸드셰이크 커넥션 생성
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
-		registry.addEndpoint("/ws")
+		registry.addEndpoint("/wss")
 			.setAllowedOriginPatterns("http://localhost:3000")
 			.addInterceptors(handShakeInterceptor);
 	}
 
 	@Override
 	public void configureMessageBroker(MessageBrokerRegistry registry) {
-		registry.setApplicationDestinationPrefixes("/chat"); //클라이언트 -> 서버, 클라이언트에서 SEND 요청을 처리
+		registry.setApplicationDestinationPrefixes("/chat",
+			"/dm"); //클라이언트 -> 서버, 클라이언트에서 SEND 요청을 처리
 		//서버 -> 클라이언트, 해당 경로를 SUBSCRIBE하는 클라이언트에게 메세지를 전달
 		registry.enableSimpleBroker("/topic")
 			.setHeartbeatValue(new long[]{10000, 20000})
