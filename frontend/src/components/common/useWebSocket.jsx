@@ -31,11 +31,6 @@ const useWebSocket = ({
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!roomId && !username) {
-      console.log("⏳ roomId와 username이 없어서 웹소켓 연결을 대기합니다.")
-      return
-    }
-
     const client = new Client({
       webSocketFactory: () => new WebSocket(process.env.REACT_APP_WEB_SOCKET_URL),
       reconnectDelay: 1000,
@@ -50,7 +45,7 @@ const useWebSocket = ({
         hasConnectedRef.current = true
 
         // 들어가 있는 채팅방 구독
-        if(roomId && onMessageReceived){ //onMessageReceived는 왜 있는거??
+        if(roomId && onMessageReceived){ 
           if (subscriptionRef.current) {
             subscriptionRef.current.unsubscribe()
             console.log("🔁 Previous chat subscription cleared.")

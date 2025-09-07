@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { FaRegCommentDots, FaInfoCircle, FaAngleLeft, FaAngleRight, FaComments, FaPlus, FaUsers } from "react-icons/fa"
+import { FaRegCommentDots, FaInfoCircle, FaComments, FaPlus, FaUsers } from "react-icons/fa"
 
 import CreateRoomModal from "./modals/CreateRoomModal"
 import JoinRoomModal from "./modals/JoinRoomModal"
@@ -295,7 +295,6 @@ const Sidebar = ({ onStartChat }) => {
         }
 
           setAlarmRooms(prev => [newRoom, ...prev.slice(0, 9)]); // 최대 10개 유지
-          // 첫 페이지가 아니면 첫 페이지로 이동하고 목록 갱신
           fetchAllRooms();
       }
 
@@ -609,7 +608,7 @@ const Sidebar = ({ onStartChat }) => {
             </span>
           
             {/* Show different counters based on active tab */}
-            {activeTab === "chat" && totalElements > 0 && (
+            {activeTab === "chat" && (
               <span
                 style={{
                   fontSize: "14px",
@@ -620,7 +619,6 @@ const Sidebar = ({ onStartChat }) => {
                   whiteSpace: "nowrap",
                 }}
               >
-                {startItem}-{endItem} / {totalElements}
               </span>
             )}
           </h3>
