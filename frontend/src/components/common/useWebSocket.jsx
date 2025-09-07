@@ -31,6 +31,7 @@ const useWebSocket = ({
   const navigate = useNavigate()
 
   useEffect(() => {
+    console.log("roomId:", roomId, "username:", username);
     if (!roomId && !username) {
       console.log("⏳ roomId와 username이 없어서 웹소켓 연결을 대기합니다.")
       return
@@ -94,29 +95,27 @@ const useWebSocket = ({
         // Sidebar subscriptions (existing functionality)
         if (chatRooms.length > 0 && onSidebarMessage) {
           sidebarSubscriptionsRef.current.forEach((subscription, roomId) => {
-            subscription.unsubscribe()
+            // subscription.unsubscribe()
             console.log(`🔁 Previous sidebar subscription for room ${roomId} cleared.`)
           })
           sidebarSubscriptionsRef.current.clear()
 
           chatRooms.forEach((room) => {
             const roomUniqueId = room.uniqueId
-            if (roomUniqueId) {
+            if (roomUniqueId && !sidebarSubscriptionsRef.current.has(roomUniqueId)) {
               const subscription = client.subscribe(`/topic/chat/${roomUniqueId}`, (message) => {
                 try {
                   const received = JSON.parse(message.body)
-
                   if (Number(currentRoomId) !== Number(roomUniqueId)) {
                     onSidebarMessage(roomUniqueId, received)
-                    console.log(`📨 New message in room ${roomUniqueId}`)
                   }
                 } catch (e) {
-                  console.error("📛 Failed to parse sidebar message", e)
+                  console.error("Failed to parse sidebar message", e)
                 }
               })
 
               sidebarSubscriptionsRef.current.set(roomUniqueId, subscription)
-              console.log(`📡 Subscribed to sidebar room: ${roomUniqueId}`)
+              console.log(`Subscribed to sidebar room: ${roomUniqueId}`)
             }
           })
         }
@@ -227,7 +226,7 @@ const useWebSocket = ({
       sidebarSubscriptionsRef.current.forEach((subscription) => {
         subscription.unsubscribe()
       })
-      sidebarSubscriptionsRef.current.clear()
+      // sidebarSubscriptionsRef.current.clear()
 
       if (client && client.active) {
         client.deactivate().then(() => {

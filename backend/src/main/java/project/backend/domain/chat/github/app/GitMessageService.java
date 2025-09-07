@@ -36,8 +36,8 @@ public class GitMessageService {
 	private final SimpMessagingTemplate messagingTemplate;
 	private final MemberService memberService;
 
-	@Value("${url.ngrok}")
-	private String ngrokUrl;
+	@Value("${url.webhook-url}")
+	private String webhookUrl;
 	@Value("${github.username}")
 	private String githubUsername;
 	private final GitHubClient gitHubClient;
@@ -101,7 +101,7 @@ public class GitMessageService {
 	}
 
 	private String makeWebhookUrl(Long roomId) {
-		return ngrokUrl + "/github/" + roomId;
+		return webhookUrl + "/github/" + roomId;
 	}
 
 	public void deleteWebhook(ChatRoom room, Long ownerId) {

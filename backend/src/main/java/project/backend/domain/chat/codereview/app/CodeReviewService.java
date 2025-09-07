@@ -25,77 +25,78 @@ import project.backend.global.exception.ex.CodeReviewException;
 @RequiredArgsConstructor
 public class CodeReviewService {
 
-	private final CodeReviewRepository codeReviewRepository;
-	private final ChatMessageRepository chatMessageRepository;
-	private final MemberService memberService;
-	private final CodeReviewMapper codeReviewMapper;
-	private final ChatRoomService chatRoomService;
+    private final CodeReviewRepository codeReviewRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final MemberService memberService;
+    private final CodeReviewMapper codeReviewMapper;
+    private final ChatRoomService chatRoomService;
 
-	@Transactional
-	public CodeReviewResponse createReview(CodeReviewCreateRequest request, Long authorId) {
-		Member author = memberService.getMemberById(authorId);
+    @Transactional
+    public CodeReviewResponse createReview(CodeReviewCreateRequest request, Long authorId) {
+        Member author = memberService.getMemberById(authorId);
 
-		ChatMessage message = chatMessageRepository.findById(request.messageId())
-			.orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
+        ChatMessage message = chatMessageRepository.findById(request.messageId())
+            .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-		if (message.getType() != MessageType.CODE) {
-			throw new CodeReviewException(CodeReviewErrorCode.INVALID_MESSAGE_TYPE);
-		}
+        if (message.getType() != MessageType.CODE) {
+            throw new CodeReviewException(CodeReviewErrorCode.INVALID_MESSAGE_TYPE);
+        }
 
-		chatRoomService.validateParticipant(authorId, message.getChatRoom().getId());
+        chatRoomService.validateParticipant(authorId, message.getChatRoom().getId());
 
-		CodeReview codeReview = codeReviewMapper.toEntity(request, message, author);
+        CodeReview codeReview = codeReviewMapper.toEntity(request, message, author);
 
-		CodeReview savedReview = codeReviewRepository.save(codeReview);
+        CodeReview savedReview = codeReviewRepository.save(codeReview);
 
-		return codeReviewMapper.toResponse(savedReview);
-	}
+        return codeReviewMapper.toResponse(savedReview);
+    }
 
-	@Transactional(readOnly = true)
-	public List<CodeReviewResponse> getReviewsByMessageId(Long messageId, Long memberId) {
-		ChatMessage message = chatMessageRepository.findById(messageId)
-			.orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
+    @Transactional(readOnly = true)
+    public List<CodeReviewResponse> getReviewsByMessageId(Long messageId, Long memberId) {
+        ChatMessage message = chatMessageRepository.findById(messageId)
+            .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-		chatRoomService.validateParticipant(memberId,message.getChatRoom().getId());
+        chatRoomService.validateParticipant(memberId, message.getChatRoom().getId());
 
-		List<CodeReview> reviews = codeReviewRepository
-			.findByMessageIdOrderByLineNumberAscCreatedAtAsc(messageId);
+        List<CodeReview> reviews = codeReviewRepository
+            .findByMessageIdOrderByLineNumberAscCreatedAtAsc(messageId);
 
-		return reviews.stream()
-			.map(codeReviewMapper::toResponse)
-			.toList();
-	}
+        return reviews.stream()
+            .map(codeReviewMapper::toResponse)
+            .toList();
+    }
 
-	@Transactional
-	public void deleteReview(Long reviewId, Long authorId) {
-		CodeReview codeReview = validateReviewOwnership(reviewId, authorId);
+    @Transactional
+    public void deleteReview(Long reviewId, Long authorId) {
+        CodeReview codeReview = validateReviewOwnership(reviewId, authorId);
 
-		chatRoomService.validateParticipant(authorId,
-			codeReview.getMessage().getChatRoom().getId());
+        chatRoomService.validateParticipant(authorId,
+            codeReview.getMessage().getChatRoom().getId());
 
-		codeReviewRepository.delete(codeReview);
-	}
+        codeReviewRepository.delete(codeReview);
+    }
 
-	@Transactional
-	public CodeReviewResponse editReview(Long reviewId, CodeReviewEditRequest request, Long authorId) {
-		CodeReview editCodeReview = validateReviewOwnership(reviewId, authorId);
+    @Transactional
+    public CodeReviewResponse editReview(Long reviewId, CodeReviewEditRequest request,
+        Long authorId) {
+        CodeReview editCodeReview = validateReviewOwnership(reviewId, authorId);
 
-		chatRoomService.validateParticipant(authorId,
-			editCodeReview.getMessage().getChatRoom().getId());
+        chatRoomService.validateParticipant(authorId,
+            editCodeReview.getMessage().getChatRoom().getId());
 
-		editCodeReview.editReview(request.content());
+        editCodeReview.editReview(request.content());
 
-		return codeReviewMapper.toResponse(editCodeReview);
-	}
+        return codeReviewMapper.toResponse(editCodeReview);
+    }
 
-	private CodeReview validateReviewOwnership(Long reviewId, Long authorId) {
-		CodeReview codeReview = codeReviewRepository.findById(reviewId)
-			.orElseThrow(() -> new CodeReviewException(CodeReviewErrorCode.REVIEW_NOT_FOUND));
+    private CodeReview validateReviewOwnership(Long reviewId, Long authorId) {
+        CodeReview codeReview = codeReviewRepository.findById(reviewId)
+            .orElseThrow(() -> new CodeReviewException(CodeReviewErrorCode.REVIEW_NOT_FOUND));
 
-		if (!codeReview.getAuthor().getId().equals(authorId)) {
-			throw new CodeReviewException(CodeReviewErrorCode.UNAUTHORIZED_ACCESS);
-		}
+        if (!codeReview.getAuthor().getId().equals(authorId)) {
+            throw new CodeReviewException(CodeReviewErrorCode.UNAUTHORIZED_ACCESS);
+        }
 
-		return codeReview;
-	}
+        return codeReview;
+    }
 }

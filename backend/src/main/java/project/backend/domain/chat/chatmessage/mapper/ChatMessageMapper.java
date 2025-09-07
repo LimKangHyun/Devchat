@@ -20,125 +20,125 @@ import project.backend.domain.member.entity.Member;
 @Component
 public class ChatMessageMapper {
 
-	public ChatMessage toEntityWithText(ChatRoom room, Member sender,
-		ChatMessageRequest request) {
-		return ChatMessage.builder()
-			.chatRoom(room)
-			.sender(sender)
-			.content(request.getContent())
-			.type(MessageType.TEXT)
-			.sendAt(LocalDateTime.now())
-			.build();
-	}
+    public ChatMessage toEntityWithText(ChatRoom room, Member sender,
+        ChatMessageRequest request) {
+        return ChatMessage.builder()
+            .chatRoom(room)
+            .sender(sender)
+            .content(request.getContent())
+            .type(MessageType.TEXT)
+            .sendAt(LocalDateTime.now())
+            .build();
+    }
 
-	public ChatMessage toEntityWithCode(ChatRoom room, Member sender,
-		ChatMessageRequest request) {
-		return ChatMessage.builder()
-			.chatRoom(room)
-			.sender(sender)
-			.content(request.getContent())
-			.type(MessageType.CODE)
-			.sendAt(LocalDateTime.now())
-			.codeLanguage(request.getLanguage())
-			.build();
-	}
+    public ChatMessage toEntityWithCode(ChatRoom room, Member sender,
+        ChatMessageRequest request) {
+        return ChatMessage.builder()
+            .chatRoom(room)
+            .sender(sender)
+            .content(request.getContent())
+            .type(MessageType.CODE)
+            .sendAt(LocalDateTime.now())
+            .codeLanguage(request.getLanguage())
+            .build();
+    }
 
-	public ChatMessage toEntityWithImage(ChatRoom room, Member sender,
-		ImageFile chatImage) {
-		return ChatMessage.builder()
-			.chatRoom(room)
-			.sender(sender)
-			.type(MessageType.IMAGE)
-			.sendAt(LocalDateTime.now())
-			.chatImage(chatImage)
-			.build();
-	}
+    public ChatMessage toEntityWithImage(ChatRoom room, Member sender,
+        ImageFile chatImage) {
+        return ChatMessage.builder()
+            .chatRoom(room)
+            .sender(sender)
+            .type(MessageType.IMAGE)
+            .sendAt(LocalDateTime.now())
+            .chatImage(chatImage)
+            .build();
+    }
 
-	public ChatMessage toEntityWithGit(GitMessageDto gitMessage, Member githubBot) {
-		return ChatMessage.builder()
-			.chatRoom(gitMessage.getRoom())
-			.type(MessageType.GIT)
-			.content(gitMessage.getContent())
-			.sendAt(LocalDateTime.now())
-			.sender(githubBot)
-			.build();
-	}
+    public ChatMessage toEntityWithGit(GitMessageDto gitMessage, Member githubBot) {
+        return ChatMessage.builder()
+            .chatRoom(gitMessage.getRoom())
+            .type(MessageType.GIT)
+            .content(gitMessage.getContent())
+            .sendAt(LocalDateTime.now())
+            .sender(githubBot)
+            .build();
+    }
 
-	public ChatMessage toEntityWithJoinEvent(ChatRoom room, Member sender,
-		JoinChatRoomEvent joinEvent) {
-		return ChatMessage.builder()
-			.chatRoom(room)
-			.sender(sender)
-			.content(joinEvent.nickname() + "님이 입장했습니다.")
-			.type(MessageType.EVENT)
-			.sendAt(joinEvent.joinAt())
-			.build();
-	}
+    public ChatMessage toEntityWithJoinEvent(ChatRoom room, Member sender,
+        LocalDateTime now) {
+        return ChatMessage.builder()
+            .chatRoom(room)
+            .sender(sender)
+            .content(sender.getNickname() + "님이 입장했습니다.")
+            .type(MessageType.EVENT)
+            .sendAt(now)
+            .build();
+    }
 
-	public ChatMessage toEntityWithLeaveEvent(ChatRoom room, Member sender,
-		LeaveChatRoomEvent leaveEvent) {
-		return ChatMessage.builder()
-			.chatRoom(room)
-			.sender(sender)
-			.content(leaveEvent.nickname() + "님이 나갔습니다.")
-			.type(MessageType.EVENT)
-			.sendAt(leaveEvent.leaveAt())
-			.build();
-	}
+    public ChatMessage toEntityWithLeaveEvent(ChatRoom room, Member sender,
+        LeaveChatRoomEvent leaveEvent) {
+        return ChatMessage.builder()
+            .chatRoom(room)
+            .sender(sender)
+            .content(leaveEvent.nickname() + "님이 나갔습니다.")
+            .type(MessageType.EVENT)
+            .sendAt(leaveEvent.leaveAt())
+            .build();
+    }
 
-	// 저장된 메시지에서 ID, roomId, content만 꺼내서 저장하므로 ChatMessage 사용
-	public ChatMessageSearch toSearchEntity(ChatMessage message) {
-		return ChatMessageSearch.builder()
-			.id(message.getId())
-			.roomId(message.getChatRoom().getId())
-			.content(message.getContent())
-			.build();
-	}
+    // 저장된 메시지에서 ID, roomId, content만 꺼내서 저장하므로 ChatMessage 사용
+    public ChatMessageSearch toSearchEntity(ChatMessage message) {
+        return ChatMessageSearch.builder()
+            .id(message.getId())
+            .roomId(message.getChatRoom().getId())
+            .content(message.getContent())
+            .build();
+    }
 
-	public ChatMessageResponse toResponse(ChatMessage message) {
-		String senderName = message.getSender().getNickname();
+    public ChatMessageResponse toResponse(ChatMessage message) {
+        String senderName = message.getSender().getNickname();
 
-		return ChatMessageResponse.builder()
-			.senderName(senderName)
-			.content(message.getContent())
-			.type(message.getType())
-			.sendAt(message.getSendAt())
-			.language(message.getCodeLanguage())
-			.profileImageUrl(message.getSender().getProfileImage())
-			.chatImageUrl(
-				Optional.ofNullable(message.getChatImage())
-					.map(ImageFile::getStoreFileName)
-					.orElse(null)
-			)
-			.senderId(message.getSender().getId())
-			.messageId(message.getId())
-			.status(message.getStatus())
-			.build();
-	}
+        return ChatMessageResponse.builder()
+            .senderName(senderName)
+            .content(message.getContent())
+            .type(message.getType())
+            .sendAt(message.getSendAt())
+            .language(message.getCodeLanguage())
+            .profileImageUrl(message.getSender().getProfileImage())
+            .chatImageUrl(
+                Optional.ofNullable(message.getChatImage())
+                    .map(ImageFile::getStoreFileName)
+                    .orElse(null)
+            )
+            .senderId(message.getSender().getId())
+            .messageId(message.getId())
+            .status(message.getStatus())
+            .build();
+    }
 
-	public ChatMessageSearchResponse toSearchResponse(ChatMessage message) {
-		return ChatMessageSearchResponse.builder()
-			.messageId(message.getId())
-			.content(message.getContent())
-			.senderName(message.getSender().getNickname())
-			.profileImageUrl(message.getSender().getProfileImage())
-			.sendAt(message.getSendAt())
-			.type(message.getType())
-			.build();
-	}
+    public ChatMessageSearchResponse toSearchResponse(ChatMessage message) {
+        return ChatMessageSearchResponse.builder()
+            .messageId(message.getId())
+            .content(message.getContent())
+            .senderName(message.getSender().getNickname())
+            .profileImageUrl(message.getSender().getProfileImage())
+            .sendAt(message.getSendAt())
+            .type(message.getType())
+            .build();
+    }
 
-	@Value("${file.images.profile.github}")
-	private String githubProfile;
+    @Value("${file.images.profile.github}")
+    private String githubProfile;
 
-	public ChatMessageResponse toGitResponse(ChatMessage message) {
-		return ChatMessageResponse.builder()
-			.senderName("깃허브봇")
-			.content(message.getContent())
-			.type(message.getType())
-			.sendAt(message.getSendAt())
-			.messageId(message.getId())
-			.profileImageUrl(githubProfile)
-			.build();
-	}
+    public ChatMessageResponse toGitResponse(ChatMessage message) {
+        return ChatMessageResponse.builder()
+            .senderName("깃허브봇")
+            .content(message.getContent())
+            .type(message.getType())
+            .sendAt(message.getSendAt())
+            .messageId(message.getId())
+            .profileImageUrl(githubProfile)
+            .build();
+    }
 
 }

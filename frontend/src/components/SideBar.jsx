@@ -249,7 +249,7 @@ const Sidebar = ({ onStartChat }) => {
           participants: [
             {
               ...(currentUser || {}),
-              owner: true,
+              owner: true, 
               nickname: currentUser?.nickname || currentUser?.username || "나",
             },
           ],
@@ -355,11 +355,7 @@ const Sidebar = ({ onStartChat }) => {
             msOverflowStyle: "none", // IE/Edge
           }}
         >
-          {loading ? (
-            <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.7)" }}>
-              채팅방 불러오는 중...
-            </div>
-          ) : chatRooms.length === 0 ? (
+          { chatRooms.length === 0 ? (
             <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.7)" }}>
               참여중인 채팅방이 없습니다
             </div>

@@ -1,11 +1,11 @@
 package project.backend.domain.chat.chatroom.listener;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
@@ -22,75 +22,70 @@ import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.dto.event.ProfileUpdateEvent;
 import project.backend.domain.member.entity.Member;
 
+import static org.springframework.transaction.event.TransactionPhase.AFTER_COMMIT;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ChatRoomEventListener {
 
-	private final SimpMessagingTemplate simpMessagingTemplate;
-	private final ChatMessageRepository chatMessageRepository;
-	private final ChatParticipantRepository chatParticipantRepository;
-	private final ChatRoomService chatRoomService;
-	private final ChatMessageMapper chatMessageMapper;
-	private final MemberService memberService;
+    private final SimpMessagingTemplate simpMessagingTemplate;
+    private final ChatMessageRepository chatMessageRepository;
+    private final ChatParticipantRepository chatParticipantRepository;
+    private final ChatRoomService chatRoomService;
+    private final ChatMessageMapper chatMessageMapper;
+    private final MemberService memberService;
 
-	@Async
-	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-	public void handleMemberJoin(JoinChatRoomEvent joinEvent) {
-		ChatRoom chatRoom = chatRoomService.getRoomById(joinEvent.roomId());
-		Member member = memberService.getMemberById(joinEvent.memberId());
+    @Async("chatRoomEventExecutor")
+    @TransactionalEventListener(phase = AFTER_COMMIT)
+    public void handleMemberJoin(JoinChatRoomEvent joinEvent) {
 
-		ChatMessage message = chatMessageMapper.toEntityWithJoinEvent(chatRoom, member, joinEvent);
-		ChatMessage savedMessage = chatMessageRepository.save(message);
+        EventMessageResponse eventMessageResponse = ChatRoomMapper.toJoinEventMessageResponse(
+            joinEvent);
 
-		EventMessageResponse eventMessageResponse = ChatRoomMapper.toJoinEventMessageResponse(
-			joinEvent, savedMessage.getId());
+        simpMessagingTemplate.convertAndSend("/topic/chat/" + joinEvent.roomId(),
+            eventMessageResponse);
+    }
 
-		// 입장 메시지 전송
-		simpMessagingTemplate.convertAndSend("/topic/chat/" + joinEvent.roomId(),
-			eventMessageResponse);
-	}
+    @Async("chatRoomEventExecutor")
+    @TransactionalEventListener(phase = AFTER_COMMIT)
+    public void handleProfileUpdate(ProfileUpdateEvent updateEvent) {
+        log.debug("🔥 프로필 업데이트 이벤트 수신: userId={}, nickname={}",
+            updateEvent.userId(), updateEvent.nickname());
 
-	@Async
-	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-	public void handleProfileUpdate(ProfileUpdateEvent updateEvent) {
-		log.debug("🔥 프로필 업데이트 이벤트 수신: userId={}, nickname={}",
-			updateEvent.userId(), updateEvent.nickname());
+        simpMessagingTemplate.convertAndSend("/topic/profile-update", updateEvent);
+    }
 
-		simpMessagingTemplate.convertAndSend("/topic/profile-update", updateEvent);
-	}
+    @Async("chatRoomEventExecutor")
+    @TransactionalEventListener(phase = AFTER_COMMIT)
+    public void handleMemberLeave(LeaveChatRoomEvent leaveEvent) {
+        ChatRoom chatRoom = chatRoomService.getRoomById(leaveEvent.roomId());
+        Member member = memberService.getMemberById(leaveEvent.memberId());
 
-	@Async
-	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-	public void handleMemberLeave(LeaveChatRoomEvent leaveEvent) {
-		ChatRoom chatRoom = chatRoomService.getRoomById(leaveEvent.roomId());
-		Member member = memberService.getMemberById(leaveEvent.memberId());
+        ChatMessage message = chatMessageMapper.toEntityWithLeaveEvent(chatRoom, member,
+            leaveEvent);
+        ChatMessage savedMessage = chatMessageRepository.save(message);
 
-		ChatMessage message = chatMessageMapper.toEntityWithLeaveEvent(chatRoom, member,
-			leaveEvent);
-		ChatMessage savedMessage = chatMessageRepository.save(message);
+        EventMessageResponse eventMessageResponse = ChatRoomMapper.toLeaveEventMessageResponse(
+            leaveEvent, savedMessage.getId());
 
-		EventMessageResponse eventMessageResponse = ChatRoomMapper.toLeaveEventMessageResponse(
-			leaveEvent, savedMessage.getId());
+        simpMessagingTemplate.convertAndSend("/topic/chat/" + leaveEvent.roomId(),
+            eventMessageResponse);
 
-		// 퇴장 메시지 전송
-		simpMessagingTemplate.convertAndSend("/topic/chat/" + leaveEvent.roomId(),
-			eventMessageResponse);
+        // 채팅방 인원 갱신 트리거 전송
+        simpMessagingTemplate.convertAndSend("/topic/chat/" + leaveEvent.roomId() + "/refresh",
+            leaveEvent.roomId());
+    }
 
-		// 채팅방 인원 갱신 트리거 전송
-		simpMessagingTemplate.convertAndSend("/topic/chat/" + leaveEvent.roomId() + "/refresh",
-			leaveEvent.roomId());
-	}
+    @Async("chatRoomEventExecutor")
+    @TransactionalEventListener(phase = AFTER_COMMIT)
+    public void handleRoomDelete(DeleteChatRoomEvent deleteEvent) {
 
-	@Async
-	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-	public void handleRoomDelete(DeleteChatRoomEvent deleteEvent) {
+        EventMessageResponse eventMessageResponse = ChatRoomMapper.toDeleteEventMessageResponse(
+            deleteEvent
+        );
 
-		EventMessageResponse eventMessageResponse = ChatRoomMapper.toDeleteEventMessageResponse(
-			deleteEvent
-		);
-
-		simpMessagingTemplate.convertAndSend("/topic/chat/" + deleteEvent.roomId() + "/deleted",
-			eventMessageResponse);
-	}
+        simpMessagingTemplate.convertAndSend("/topic/chat/" + deleteEvent.roomId() + "/deleted",
+            eventMessageResponse);
+    }
 }

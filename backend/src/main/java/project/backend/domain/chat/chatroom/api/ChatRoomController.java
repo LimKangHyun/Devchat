@@ -29,8 +29,6 @@ import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
-import project.backend.global.exception.errorcode.AuthErrorCode;
-import project.backend.global.exception.ex.AuthException;
 import project.backend.auth.dto.MemberDetails;
 
 @Slf4j

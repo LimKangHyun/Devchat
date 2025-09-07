@@ -13,7 +13,7 @@ function App() {
     params.append("username", username)
     params.append("password", password)
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/login`, {
+      const response = await fetch(`${process.env.REACT_APP_BASE_API_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -42,7 +42,7 @@ function App() {
   }
   /* 추가: GitHub OAuth 로그인 핸들러 */
 const handleGithubLogin = () => {
-  window.location.href = `${process.env.REACT_APP_API_URL}/oauth2/authorization/github`;
+  window.location.href = `${process.env.REACT_APP_BASE_API_URL}/oauth2/authorization/github`;
 }
   return (
     <div className="app-container">
