@@ -64,37 +64,49 @@ const Sidebar = ({ onStartChat }) => {
         });
       }
 
+      // 알림 허용 상태 체크
       const isAlarmEnabled = getAlarmStatus(roomUniqueId);
       if (isAlarmEnabled === false) {
         console.log(`🔕 알림 비활성화된 방(${roomUniqueId}) → 모달 알림 생략`);
         return;
       }
 
-      // 메시지 모달 표시
-      setNewMessageAlert({
-        // roomName: chatRooms.find(r => r.uniqueId === roomUniqueId)?.roomName || `Room ${roomUniqueId}`,
-        roomName: room?.roomName || `Room ${roomUniqueId}`,
-        inviteCode: room?.inviteCode,
-        content: message.content,
-        senderNickname: message.senderName,
-        senderProfile: message.profileImageUrl,
-        roomUniqueId,
-      });
+      // setNewMessageAlert({
+      //   // roomName: chatRooms.find(r => r.uniqueId === roomUniqueId)?.roomName || `Room ${roomUniqueId}`,
+      //   roomName: room?.roomName || `Room ${roomUniqueId}`,
+      //   inviteCode: room?.inviteCode,
+      //   content: message.content,
+      //   senderNickname: message.senderName,
+      //   senderProfile: message.profileImageUrl,
+      //   roomUniqueId,
+      // });
+
+      // header.jsx에게 "브라우저 알림 요청" 전역 이벤트 발행
+      // const senderNickname = message.senderName;
+      // const senderImg = message.profileImageUrl
+      //     ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${message.profileImageUrl}`
+      //     : "/images/not-found-profile.png";
+
+      console.log(`notification 이벤트 발생`);
+
+      window.dispatchEvent(
+        new CustomEvent("chat:notify", {
+          detail: {
+            senderNickname: message.senderName,
+            body: message.content,
+            senderImg: message.profileImageUrl,
+            url: room?.inviteCode ? `/chat/${room.inviteCode}` : undefined, // 클릭 시 해당 채팅방으로 이동
+            tag: `room-${roomUniqueId}`, // 같은 방 알림은 덮어쓰기 가능
+            silent: false,               // 소리 재생
+            roomName: room?.roomName || `Room ${roomUniqueId}`
+          },
+        })
+      );
+
+
+
     }
   };
-
-  // 현재 채팅방으로 이동한 경우 모달 닫기
-  useEffect(() => {
-    if (newMessageAlert && inviteCode) {
-      const alertInviteCode = alarmRooms.find(
-        room => room.uniqueId === newMessageAlert.roomUniqueId
-      )?.inviteCode;
-
-      if (alertInviteCode && alertInviteCode === inviteCode) {
-        setNewMessageAlert(null);
-      }
-    }
-  }, [inviteCode, newMessageAlert, alarmRooms]);
 
   // useWebSocket 훅 사용 - 사이드바용 구독만 활성화
   const stompClientRef = useWebSocket({
@@ -698,24 +710,6 @@ const Sidebar = ({ onStartChat }) => {
 
       {showToast && (
         <Toast message={toastMessage} />
-      )}
-
-      {newMessageAlert && (
-        <NewMessageAlert
-          roomName={newMessageAlert.roomName}
-          content={newMessageAlert.content}
-          senderNickname={newMessageAlert.senderNickname}
-          senderProfile={newMessageAlert.senderProfile}
-          onClose={() => setNewMessageAlert(null)}
-          onNavigate={() => {
-            // const invite = chatRooms.find(r => r.uniqueId === newMessageAlert.roomUniqueId)?.inviteCode;
-            const invite=newMessageAlert.inviteCode;
-            if (invite) {
-              navigate(`/chat/${invite}`);
-              setNewMessageAlert(null);
-            }
-          }}
-        />
       )}
 
       {/* CSS 애니메이션 추가 */}

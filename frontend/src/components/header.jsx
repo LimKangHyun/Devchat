@@ -114,6 +114,32 @@ export function HeaderWithNotifications() {
     onNotificationReceived: handleNotificationReceived,
   })
 
+  // 채팅 메세지 수신
+  useEffect(() => {
+
+    const handleExternalNotify = (e) => {
+      const { senderNickname, body, senderImg, url, tag, silent, roomName } = e.detail || {}
+      if (!silent) playNotificationSound()
+      console.log("이벤트 수신완료");
+
+      showImmediateNotification(
+        {
+          type: "CHAT_MESSAGE",
+          senderNickname: senderNickname,
+          senderImg: senderImg,
+          content: body,
+          roomName: roomName,
+          url: url,
+          tag: tag
+        },
+      )
+    }
+
+    window.addEventListener("chat:notify", handleExternalNotify)
+    return () => window.removeEventListener("chat:notify", handleExternalNotify)
+  }, [])
+
+
   const showImmediateNotification = (notification) => {
     const message = notification.content
     if (!message) {
@@ -135,20 +161,36 @@ export function HeaderWithNotifications() {
           return `💬 ${notification.senderNickname}`
         case "CODE_REVIEW":
           return "🧪 코드 리뷰 알림이 있습니다."
+        case "CHAT_MESSAGE":
+          return `💬 ${notification.senderNickname} (${notification.roomName})`
         default:
           return "🔔 DevChat 알림"
       }
     }
 
     if (Notification.permission === "granted") {
+      const noti =
       new Notification(getTitleByType(notification.type), {
         body: message,
         icon: notification.senderImg
           ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
           : "/images/not-found-profile.png",
-      })
+        // tag: notification.tag, //없으면 undefiend
+        renotify: true
+      });
+
+      if(notification.url){
+        noti.onclick = () => {
+        try { window.focus() } catch {}
+        window.location.href = notification.url
+        noti.close()
+        }
+      }
+
+      return noti;
     }
   }
+  
   // Get notification type info
   const getNotificationTypeInfo = (type) => {
     switch (type) {
