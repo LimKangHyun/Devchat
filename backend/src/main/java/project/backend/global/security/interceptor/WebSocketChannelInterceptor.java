@@ -29,7 +29,7 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
 			Authentication auth = (Authentication) accessor.getSessionAttributes().get("auth");
 
 			if (auth != null) {
-				accessor.setUser(auth); //websocket principal로 주입
+				accessor.setUser(auth); //stomp 메시지의 principal로 주입
 			}
 		}
 

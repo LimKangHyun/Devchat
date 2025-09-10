@@ -16,6 +16,7 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 import org.springframework.web.socket.handler.WebSocketHandlerDecorator;
+import project.backend.global.security.handler.JwtHandshakeHandler;
 import project.backend.global.security.interceptor.WebSocketChannelInterceptor;
 import project.backend.global.security.interceptor.WebSocketHandShakeInterceptor;
 
@@ -27,6 +28,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 	private final WebSocketHandShakeInterceptor handShakeInterceptor;
 	private final WebSocketChannelInterceptor channelInterceptor;
+	private final JwtHandshakeHandler jwtHandshakeHandler;
 
 	@Value("${url.domain-url}")
 	private String domainUrl;
@@ -36,6 +38,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
 		registry.addEndpoint("/ws")
+			.setHandshakeHandler(jwtHandshakeHandler)
 			.setAllowedOriginPatterns(domainUrl)
 			.addInterceptors(handShakeInterceptor);
 	}
