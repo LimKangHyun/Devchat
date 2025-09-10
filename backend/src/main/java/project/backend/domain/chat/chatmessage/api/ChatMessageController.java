@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageEditRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
@@ -21,21 +22,16 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
-import project.backend.domain.chat.chatroom.app.ChatRoomService;
-import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
-import project.backend.auth.dto.MemberDetails;
 
 @RestController
 @RequiredArgsConstructor
 public class ChatMessageController {
 
-	private final ChatRoomService chatRoomService;
 	private final ChatMessageService chatMessageService;
 	private final ImageFileService imageFileService;
 	private final SimpMessagingTemplate messagingTemplate;
-	private final ChatParticipantRepository chatParticipantRepository;
 
 	@MessageMapping("/send-message/{roomId}") //클라이언트가 메세지를 보낼 경로
 	public ChatMessageResponse sendMessage(@DestinationVariable Long roomId,

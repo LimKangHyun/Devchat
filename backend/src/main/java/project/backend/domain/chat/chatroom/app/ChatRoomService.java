@@ -95,20 +95,6 @@ public class ChatRoomService {
 		room.addParticipant(gitParticipant);
 	}
 
-	@Transactional(readOnly = true)
-	public String getInviteCode(Long roomId) {
-		ChatRoom room = getRoomById(roomId);
-
-		return room.getInviteCode();
-	}
-
-	@Transactional(readOnly = true)
-	public Long getRoomIdByInviteCode(String inviteCode) {
-		ChatRoom room = getByInviteCode(inviteCode);
-
-		return room.getId();
-	}
-
 	@TimeTrace
 	@Transactional
 	public InviteJoinResponse joinChatRoom(String inviteCode, Long memberId) {
