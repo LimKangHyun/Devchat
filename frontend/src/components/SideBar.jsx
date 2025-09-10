@@ -10,7 +10,6 @@ import RoomInfoModal from "./modals/RoomInfoModal"
 import Toast from "./common/Toast"
 import FriendsSidebar from "./FriendsSidebar" // Import the new component
 import axiosInstance from "./api/axiosInstance"
-import NewMessageAlert from './modals/NewMessageAlert';
 import { useAlarm } from '../context/AlarmContext';
 import useWebSocket from './common/useWebSocket';
 
@@ -71,23 +70,8 @@ const Sidebar = ({ onStartChat }) => {
         return;
       }
 
-      // setNewMessageAlert({
-      //   // roomName: chatRooms.find(r => r.uniqueId === roomUniqueId)?.roomName || `Room ${roomUniqueId}`,
-      //   roomName: room?.roomName || `Room ${roomUniqueId}`,
-      //   inviteCode: room?.inviteCode,
-      //   content: message.content,
-      //   senderNickname: message.senderName,
-      //   senderProfile: message.profileImageUrl,
-      //   roomUniqueId,
-      // });
-
       // header.jsx에게 "브라우저 알림 요청" 전역 이벤트 발행
-      // const senderNickname = message.senderName;
-      // const senderImg = message.profileImageUrl
-      //     ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${message.profileImageUrl}`
-      //     : "/images/not-found-profile.png";
-
-      console.log(`notification 이벤트 발생`);
+      console.log(`chat_message 전역 이벤트 발행`);
 
       window.dispatchEvent(
         new CustomEvent("chat:notify", {
@@ -96,14 +80,12 @@ const Sidebar = ({ onStartChat }) => {
             body: message.content,
             senderImg: message.profileImageUrl,
             url: room?.inviteCode ? `/chat/${room.inviteCode}` : undefined, // 클릭 시 해당 채팅방으로 이동
-            tag: `room-${Date.now()}`, // 고유 태그 부여
-            silent: false,               // 소리 재생
+            tag: `room-${Date.now()}`, // 고유 태그 부여(사용 안함)
+            silent: false, // 소리 재생 여부(true면 소리 재생 x)
             roomName: room?.roomName || `Room ${roomUniqueId}`
           },
         })
       );
-
-
 
     }
   };

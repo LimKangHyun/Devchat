@@ -130,8 +130,7 @@ export function HeaderWithNotifications() {
           senderImg: senderImg,
           content: body,
           roomName: roomName,
-          url: url,
-          tag: tag
+          url: url
         },
       )
     }
@@ -171,12 +170,12 @@ export function HeaderWithNotifications() {
 
     if (Notification.permission === "granted") {
       // 1) 지금 떠 있는 알림(있으면) 무조건 닫기 → 토스트 재표시 강제
-      // if (window.__devchatActiveNoti) {
-      //   console.log("이전 noti 존재")
-      //   try { window.__devchatActiveNoti.onclose = null; } catch {}
-      //   try { window.__devchatActiveNoti.close(); } catch {}
-      //   window.__devchatActiveNoti = null;
-      // }
+      if (window.__devchatActiveNoti) {
+        console.log("이전 noti 존재")
+        try { window.__devchatActiveNoti.onclose = null; } catch {}
+        try { window.__devchatActiveNoti.close(); } catch {}
+        window.__devchatActiveNoti = null;
+      }
 
       // 2) 새 알림 생성
       const noti = new Notification(
@@ -185,8 +184,6 @@ export function HeaderWithNotifications() {
         icon: notification.senderImg
           ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
           : "/images/not-found-profile.png",
-        // tag: notification.tag,
-        // renotify: true
       });
 
       // 3) 클릭 시 이동 (현재 chat_message에만 적용)
@@ -198,15 +195,15 @@ export function HeaderWithNotifications() {
         }
       }
       
-      // // 4) 새 알림을 전역에 보관
-      // window.__devchatActiveNoti = noti;
+      // 4) 새 알림을 전역에 보관
+      window.__devchatActiveNoti = noti;
 
-      // // 5) 사용자가 닫으면 포인터 정리
-      // noti.onclose = () => {
-      //   if (window.__devchatActiveNoti === noti) {
-      //     window.__devchatActiveNoti = null;
-      //   }
-      // };
+      // 5) 사용자가 닫으면 포인터 정리
+      noti.onclose = () => {
+        if (window.__devchatActiveNoti === noti) {
+          window.__devchatActiveNoti = null;
+        }
+      };
 
       return noti;
     }
