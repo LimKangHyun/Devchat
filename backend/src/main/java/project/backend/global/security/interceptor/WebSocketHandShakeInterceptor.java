@@ -3,7 +3,6 @@ package project.backend.global.security.interceptor;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.server.ServerHttpRequest;
@@ -16,6 +15,9 @@ import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 import project.backend.auth.app.CookieUtils;
 import project.backend.auth.token.jwt.JwtProvider;
+import project.backend.auth.token.jwt.TokenStatus;
+import project.backend.global.exception.errorcode.TokenErrorCode;
+import project.backend.global.exception.ex.CustomJwtException;
 
 @Slf4j
 @Component
@@ -30,19 +32,25 @@ public class WebSocketHandShakeInterceptor implements HandshakeInterceptor {
 
 		if (request instanceof ServletServerHttpRequest servletRequest) {
 			HttpServletRequest httpServletRequest = servletRequest.getServletRequest();
-			Optional<Cookie> accessTokenCookie = CookieUtils.getCookie(httpServletRequest,
-				"accessToken");
 
-			if (accessTokenCookie.isPresent()) {
-				String token = accessTokenCookie.get().getValue();
-				Authentication authentication = jwtProvider.getAuthentication(token);
+			Cookie cookie = CookieUtils.getCookie(httpServletRequest,
+					"accessToken")
+				.orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));
+			String accessToken = cookie.getValue();
 
+			// 토큰 검증
+			TokenStatus tokenStatus = jwtProvider.validateAccessToken(accessToken);
+
+			if (tokenStatus == TokenStatus.VALID) {
+				log.info("[JWT] 유효한 토큰");
+				Authentication authentication = jwtProvider.getAuthentication(accessToken);
 				// 이후 ChannelInterceptor에서 꺼내쓰기 위해 attributes에 저장
 				attributes.put("auth", authentication);
+
 			} else {
-				log.error("웹소켓 핸드쉐이크 요청 시 쿠키에 accessToken이 포함되지 않음");
 				return false; //handshake 허용x
 			}
+
 		}
 		return true; // handshake 허용
 	}

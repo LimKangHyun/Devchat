@@ -65,7 +65,7 @@ const Sidebar = ({ onStartChat }) => {
       // 알림 허용 상태 체크
       const isAlarmEnabled = getAlarmStatus(roomUniqueId);
       if (isAlarmEnabled === false) {
-        console.log(`🔕 알림 비활성화된 방(${roomUniqueId}) → 모달 알림 생략`);
+        console.log(`🔕 알림 비활성화된 방(${roomUniqueId}) → 브라우저 알림 생략`);
         return;
       }
 
