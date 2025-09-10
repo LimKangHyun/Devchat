@@ -21,7 +21,6 @@ import project.backend.domain.member.entity.Member;
 @Component
 public class ChatRoomMapper {
 
-
 	public static RoomInfoResponse toListResponse(ChatRoom chatRoom) {
 		return RoomInfoResponse.builder()
 			.roomId(chatRoom.getId())
@@ -86,16 +85,16 @@ public class ChatRoomMapper {
 		return UUID.randomUUID().toString();
 	}
 
-    public static EventMessageResponse toJoinEventMessageResponse(JoinChatRoomEvent joinEvent) {
-        return EventMessageResponse.builder()
-            .messageId(joinEvent.messageId())
-            .type(MessageType.EVENT)
-            .roomId(joinEvent.roomId())
-            .sender(joinEvent.nickname())
-            .content(joinEvent.nickname() + "님이 입장했습니다.")
-            .sendAt(joinEvent.joinAt())
-            .build();
-    }
+	public static EventMessageResponse toJoinEventMessageResponse(JoinChatRoomEvent joinEvent) {
+		return EventMessageResponse.builder()
+			.messageId(joinEvent.messageId())
+			.type(MessageType.EVENT)
+			.roomId(joinEvent.roomId())
+			.sender(joinEvent.nickname())
+			.content(joinEvent.nickname() + "님이 입장했습니다.")
+			.sendAt(joinEvent.joinAt())
+			.build();
+	}
 
 	public static EventMessageResponse toLeaveEventMessageResponse(LeaveChatRoomEvent leaveEvent,
 		Long messageId) {
@@ -109,12 +108,12 @@ public class ChatRoomMapper {
 			.build();
 	}
 
-    public static EventMessageResponse toDeleteEventMessageResponse(
-        DeleteChatRoomEvent deleteEvent) {
-        return EventMessageResponse.builder()
-            .type(MessageType.EVENT)
-            .roomId(deleteEvent.roomId())
-            .content("채팅방 '" + deleteEvent.roomName() + "'이 삭제되었습니다.")
-            .build();
-    }
+	public static EventMessageResponse toDeleteEventMessageResponse(
+		DeleteChatRoomEvent deleteEvent) {
+		return EventMessageResponse.builder()
+			.type(MessageType.EVENT)
+			.roomId(deleteEvent.roomId())
+			.content("채팅방 '" + deleteEvent.roomName() + "'이 삭제되었습니다.")
+			.build();
+	}
 }
