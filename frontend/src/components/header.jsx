@@ -7,6 +7,7 @@ import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link } from "react-router-dom"
 import useWebSocketNotifications from "./common/useWebSocket"
+window.__devchatActiveNoti ??= null;  // 현재 떠 있는 Notification 인스턴스 보관
 
 export function HeaderWithNotifications() {
   const [profileImage, setProfileImage] = useState(null)
@@ -169,16 +170,26 @@ export function HeaderWithNotifications() {
     }
 
     if (Notification.permission === "granted") {
-      const noti =
-      new Notification(getTitleByType(notification.type), {
+      // 1) 지금 떠 있는 알림(있으면) 무조건 닫기 → 토스트 재표시 강제
+      // if (window.__devchatActiveNoti) {
+      //   console.log("이전 noti 존재")
+      //   try { window.__devchatActiveNoti.onclose = null; } catch {}
+      //   try { window.__devchatActiveNoti.close(); } catch {}
+      //   window.__devchatActiveNoti = null;
+      // }
+
+      // 2) 새 알림 생성
+      const noti = new Notification(
+        getTitleByType(notification.type), {
         body: message,
         icon: notification.senderImg
           ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
           : "/images/not-found-profile.png",
-        // tag: notification.tag, //없으면 undefiend
-        renotify: true
+        // tag: notification.tag,
+        // renotify: true
       });
 
+      // 3) 클릭 시 이동 (현재 chat_message에만 적용)
       if(notification.url){
         noti.onclick = () => {
         try { window.focus() } catch {}
@@ -186,6 +197,16 @@ export function HeaderWithNotifications() {
         noti.close()
         }
       }
+      
+      // // 4) 새 알림을 전역에 보관
+      // window.__devchatActiveNoti = noti;
+
+      // // 5) 사용자가 닫으면 포인터 정리
+      // noti.onclose = () => {
+      //   if (window.__devchatActiveNoti === noti) {
+      //     window.__devchatActiveNoti = null;
+      //   }
+      // };
 
       return noti;
     }

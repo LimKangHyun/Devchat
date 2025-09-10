@@ -96,7 +96,7 @@ const Sidebar = ({ onStartChat }) => {
             body: message.content,
             senderImg: message.profileImageUrl,
             url: room?.inviteCode ? `/chat/${room.inviteCode}` : undefined, // 클릭 시 해당 채팅방으로 이동
-            tag: `room-${roomUniqueId}`, // 같은 방 알림은 덮어쓰기 가능
+            tag: `room-${Date.now()}`, // 고유 태그 부여
             silent: false,               // 소리 재생
             roomName: room?.roomName || `Room ${roomUniqueId}`
           },
