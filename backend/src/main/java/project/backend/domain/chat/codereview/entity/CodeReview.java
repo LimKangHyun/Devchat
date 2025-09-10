@@ -10,7 +10,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,37 +24,37 @@ import project.backend.domain.member.entity.Member;
 @Getter
 public class CodeReview {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name = "review_id")
-	private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "review_id")
+    private Long id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "message_id")
-	@OnDelete(action = OnDeleteAction.CASCADE)
-	private ChatMessage message;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "message_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private ChatMessage message;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "member_id")
-	private Member author;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id")
+    private Member author;
 
-	private Integer lineNumber;
+    private Integer lineNumber;
 
-	@Column(columnDefinition = "TEXT")
-	private String content;
+    @Column(columnDefinition = "TEXT")
+    private String content;
 
-	@CreationTimestamp
-	private LocalDateTime createdAt;
+    @CreationTimestamp
+    private LocalDateTime createdAt;
 
-	public void editReview(String content) {
-		this.content = content;
-	}
+    public void editReview(String content) {
+        this.content = content;
+    }
 
-	@Builder
-	public CodeReview(ChatMessage message, Member author, Integer lineNumber, String content) {
-		this.message = message;
-		this.author = author;
-		this.lineNumber = lineNumber;
-		this.content = content;
-	}
+    @Builder
+    public CodeReview(ChatMessage message, Member author, Integer lineNumber, String content) {
+        this.message = message;
+        this.author = author;
+        this.lineNumber = lineNumber;
+        this.content = content;
+    }
 }

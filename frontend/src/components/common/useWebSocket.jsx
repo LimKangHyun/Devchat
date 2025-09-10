@@ -50,6 +50,7 @@ const useWebSocket = ({
             subscriptionRef.current.unsubscribe()
             console.log("🔁 Previous chat subscription cleared.")
           }
+
           subscriptionRef.current = client.subscribe(`/topic/chat/${roomId}`, (message) => {
               try {
                   const received = JSON.parse(message.body);
@@ -63,7 +64,6 @@ const useWebSocket = ({
 
         // Notification 구독
         if (username && onNotificationReceived) {
-          //기존 구독 정리
           if (notificationSubscriptionRef.current) {
             notificationSubscriptionRef.current.unsubscribe()
             console.log("🔁 Previous notification subscription cleared.")
@@ -88,7 +88,7 @@ const useWebSocket = ({
 
 
         // 사이드바 채팅방 구독
-        if (chatRooms.length > 0) {
+        if (chatRooms.length > 0 && onSidebarMessage) {
           // 기존 사이드바 구독들 정리
           sidebarSubscriptionsRef.current.forEach((subscription, roomId) => {
               subscription.unsubscribe();
@@ -106,7 +106,7 @@ const useWebSocket = ({
                           // 현재 있는 채팅방이 아닌 경우에만 사이드바 알림 처리
                           if (Number(currentRoomId) !== Number(roomUniqueId) && received.type !== 'EVENT') {
                               onSidebarMessage(roomUniqueId, received);
-                              console.log(`📨 New message in room ${roomUniqueId}`);
+                              console.log("📨 New message in room ${roomUniqueId}");
                           }
                       } catch (e) {
                           console.error("📛 Failed to parse sidebar message", e);
@@ -114,7 +114,7 @@ const useWebSocket = ({
                   });
               
                   sidebarSubscriptionsRef.current.set(roomUniqueId, subscription);
-                  console.log(`📡 Subscribed to sidebar room: ${roomUniqueId}`);
+                  console.log("📡 Subscribed to sidebar room: ${roomUniqueId}");
               }
           });
         }
@@ -224,7 +224,7 @@ const useWebSocket = ({
       sidebarSubscriptionsRef.current.forEach((subscription) => {
         subscription.unsubscribe()
       })
-      sidebarSubscriptionsRef.current.clear()
+      // sidebarSubscriptionsRef.current.clear()
 
       if (client && client.active) {
         client.deactivate().then(() => {

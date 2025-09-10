@@ -2,6 +2,7 @@ package project.backend.global.webconfig;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -9,7 +10,6 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.config.WebSocketMessageBrokerStats;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -27,12 +27,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	private final WebSocketHandShakeInterceptor handShakeInterceptor;
 	private final WebSocketChannelInterceptor channelInterceptor;
 
+	@Value("${url.domain-url}")
+	private String domainUrl;
+
 	//클라이언트가 연결할 웹소켓 엔드포인트 지정
 	//해당 주소로 접속 시 웹소켓 핸드셰이크 커넥션 생성
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
-		registry.addEndpoint("/wss")
-			.setAllowedOriginPatterns("http://localhost:3000")
+		registry.addEndpoint("/ws")
+			.setAllowedOriginPatterns(domainUrl)
 			.addInterceptors(handShakeInterceptor);
 	}
 
@@ -67,7 +70,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 			@Override
 			public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-				log.info("✅ WebSocket connected - sessionId={}, principal={}",
+				log.info("✅ WebSocket connected! - sessionId={}, principal={}",
 					session.getId(),
 					session.getPrincipal() != null ? session.getPrincipal().getName()
 						: "anonymous");
@@ -78,7 +81,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 			@Override
 			public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus)
 				throws Exception {
-				log.warn("🔌 WebSocket closed - sessionId={}, reason={}", session.getId(),
+				log.warn("🔌 WebSocket closed! - sessionId={}, reason={}", session.getId(),
 					closeStatus);
 
 				super.afterConnectionClosed(session, closeStatus);

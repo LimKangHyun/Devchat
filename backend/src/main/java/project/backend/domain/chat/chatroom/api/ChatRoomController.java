@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
@@ -28,9 +27,10 @@ import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
 import project.backend.domain.chat.chatroom.dto.EntryRoomResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinRequest;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
-import project.backend.domain.chat.chatroom.dto.JoinRoomInfoResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
+import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
+import project.backend.auth.dto.MemberDetails;
 
 @Slf4j
 @RestController
@@ -62,6 +62,16 @@ public class ChatRoomController {
 		String inviteCode = chatRoomService.getRecentRoomInviteCode(
 			memberDetails.getId());
 		return new RecentChatRoomResponse(inviteCode);
+	}
+
+	@GetMapping
+	public Page<RoomInfoResponse> getChatRooms(
+		@AuthenticationPrincipal MemberDetails memberDetails,
+		@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+		Long memberId = memberDetails.getId();
+		// 채팅방 목록 리스트로 가져오기
+		return chatRoomService.findChatRoomsByMemberId(memberId, pageable);
 	}
 
 	@GetMapping("/{roomId}/participants")
@@ -101,7 +111,7 @@ public class ChatRoomController {
 	}
 
 	@GetMapping("/info/{inviteCode}")
-	public JoinRoomInfoResponse getChatRoomDetails(@PathVariable String inviteCode,
+	public RoomInfoResponse getChatRoomDetails(@PathVariable String inviteCode,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		return chatRoomService.getRoomInfo(inviteCode, memberDetails.getId());
 	}

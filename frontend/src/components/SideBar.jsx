@@ -39,7 +39,6 @@ const Sidebar = ({ onStartChat }) => {
   const [unreadMessages, setUnreadMessages] = useState({})
   const [roomId, setRoomId] = useState(null)
 
-  const [newMessageAlert, setNewMessageAlert] = useState(null)
   const { getAlarmStatus, alarmStatusMap={} } = useAlarm(); // 전역 알림 상태 접근
   const [alarmRooms, setAlarmRooms] = useState([])
 
@@ -81,7 +80,7 @@ const Sidebar = ({ onStartChat }) => {
             senderImg: message.profileImageUrl,
             url: room?.inviteCode ? `/chat/${room.inviteCode}` : undefined, // 클릭 시 해당 채팅방으로 이동
             tag: `room-${Date.now()}`, // 고유 태그 부여(사용 안함)
-            silent: false, // 소리 재생 여부(true면 소리 재생 x)
+            silent: false, // 소리 재생 여부 (true면 소리 재생 x)
             roomName: room?.roomName || `Room ${roomUniqueId}`
           },
         })
@@ -269,7 +268,6 @@ const Sidebar = ({ onStartChat }) => {
 
       const created = res.data;
       setShowCreateModal(false);
-      // fetchChatRooms(0);
       fetchAllRooms();
 
       // 응답에서 얻은 데이터로 채팅방 목록 직접 업데이트
@@ -282,7 +280,7 @@ const Sidebar = ({ onStartChat }) => {
           participants: [
             {
               ...(currentUser || {}),
-              owner: true,
+              owner: true, 
               nickname: currentUser?.nickname || currentUser?.username || "나",
             },
           ],
@@ -370,7 +368,7 @@ const Sidebar = ({ onStartChat }) => {
               채팅방 불러오는 중...
             </div>
           ) : alarmRooms.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: 'rgba(255,255,255,0.7)' }}>
+            <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.7)" }}>
               참여중인 채팅방이 없습니다
             </div>
           ) : (

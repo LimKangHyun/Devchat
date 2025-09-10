@@ -3,25 +3,36 @@ package project.backend.auth.app;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 
 public class CookieUtils {
 
+	private static final String COOKIE_NAME = "accessToken";
+
 	public static void saveCookie(HttpServletResponse response, String accessToken) {
-		Cookie cookie = new Cookie("accessToken", accessToken);
-		cookie.setPath("/");
-		cookie.setHttpOnly(true);
-		cookie.setMaxAge(60 * 60 * 24 * 7);
-		response.addCookie(cookie);
+		ResponseCookie cookie = ResponseCookie.from(COOKIE_NAME, accessToken)
+			.httpOnly(true)
+			.secure(true)
+			.sameSite("None")
+			.path("/")
+			.maxAge(Duration.ofDays(7))
+			.build();
+		response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 	}
 
 	public static void deleteCookie(HttpServletResponse response) {
-		Cookie cookie = new Cookie("accessToken", null);
-		cookie.setPath("/");
-		cookie.setHttpOnly(true);
-		cookie.setMaxAge(0);
-		response.addCookie(cookie);
+		ResponseCookie cookie = ResponseCookie.from(COOKIE_NAME, "")
+			.httpOnly(true)
+			.secure(true)
+			.sameSite("None")
+			.path("/")
+			.maxAge(Duration.ZERO)
+			.build();
+		response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 	}
 
 	public static Optional<Cookie> getCookie(HttpServletRequest request, String name) {

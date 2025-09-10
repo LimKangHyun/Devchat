@@ -252,7 +252,7 @@ export default function EditProfilePage() {
                           enabling two-step authentication.
                         </p>
                         <button
-                          onClick={() => alert("좀 있어보임? ㅇㅈ ㅋㅋㅋ")}
+                          onClick={() => alert("개발 예정입니다.")}
                           className={styles.manageSessionsButton}
                         >
                           Set Two-Step Authentication
@@ -267,7 +267,7 @@ export default function EditProfilePage() {
                           devices.
                         </p>
                         <button
-                          onClick={() => alert("좀 있어보임? ㅇㅈ ㅋㅋㅋ")}
+                          onClick={() => alert("개발 예정입니다.")}
                           className={styles.manageSessionsButton}
                         >
                           Manage Sessions
