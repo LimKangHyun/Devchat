@@ -9,9 +9,14 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class JoinRoomInfoResponse {
+public class RoomInfoResponse {
+
+	private Long roomId;
 
 	private String roomName;
 
+	private String repositoryUrl;
+
 	private String inviteCode;
+
 }
