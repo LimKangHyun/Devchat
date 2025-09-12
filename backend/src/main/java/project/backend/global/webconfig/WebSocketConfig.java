@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.CloseStatus;
@@ -17,7 +16,6 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 import org.springframework.web.socket.handler.WebSocketHandlerDecorator;
 import project.backend.global.security.handler.JwtHandshakeHandler;
-import project.backend.global.security.interceptor.WebSocketChannelInterceptor;
 import project.backend.global.security.interceptor.WebSocketHandShakeInterceptor;
 
 @Configuration
@@ -27,7 +25,6 @@ import project.backend.global.security.interceptor.WebSocketHandShakeInterceptor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 	private final WebSocketHandShakeInterceptor handShakeInterceptor;
-	private final WebSocketChannelInterceptor channelInterceptor;
 	private final JwtHandshakeHandler jwtHandshakeHandler;
 
 	@Value("${url.domain-url}")
@@ -51,11 +48,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 		registry.enableSimpleBroker("/topic")
 			.setHeartbeatValue(new long[]{10000, 20000})
 			.setTaskScheduler(customWebSocketTaskScheduler());
-	}
-
-	@Override
-	public void configureClientInboundChannel(ChannelRegistration registration) {
-		registration.interceptors(channelInterceptor);
 	}
 
 	@Bean
