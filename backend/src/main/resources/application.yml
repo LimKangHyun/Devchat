@@ -19,7 +19,7 @@ spring:
       max-request-size: 10MB
 
   profiles:
-    active: prod
+    active: local
 
   data:
     redis:
@@ -73,7 +73,7 @@ cloud:
     region:
       static: ap-northeast-2
     s3:
-      bucket: devchatimage
+      bucket: devchat-images
 
 jwt:
   redirection:
