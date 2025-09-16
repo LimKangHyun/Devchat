@@ -31,12 +31,6 @@ const useWebSocket = ({
   const navigate = useNavigate()
 
   useEffect(() => {
-    console.log("roomId:", roomId, "username:", username);
-    if (!roomId && !username) {
-      console.log("⏳ roomId와 username이 없어서 웹소켓 연결을 대기합니다.")
-      return
-    }
-
     const client = new Client({
       webSocketFactory: () => new WebSocket(process.env.REACT_APP_WEB_SOCKET_URL),
       reconnectDelay: 1000,
@@ -50,25 +44,25 @@ const useWebSocket = ({
         setConnected(true) // Add this line
         hasConnectedRef.current = true
 
-        // Chat room subscription (existing functionality)
-        if (roomId && onMessageReceived) {
+        // 들어가 있는 채팅방 구독
+        if(roomId && onMessageReceived){ 
           if (subscriptionRef.current) {
             subscriptionRef.current.unsubscribe()
             console.log("🔁 Previous chat subscription cleared.")
           }
 
           subscriptionRef.current = client.subscribe(`/topic/chat/${roomId}`, (message) => {
-            try {
-              const received = JSON.parse(message.body)
-              received.sendAt = received.sendAt || new Date().toISOString()
-              onMessageReceived(received)
-            } catch (e) {
-              console.error("📛 Failed to parse incoming chat message", e)
-            }
-          })
+              try {
+                  const received = JSON.parse(message.body);
+                  received.sendAt = received.sendAt || new Date().toISOString();
+                  onMessageReceived(received)
+              } catch (e) {
+                  console.error("📛 Failed to parse chat message", e);
+              }
+          });
         }
 
-        // Notification subscription
+        // Notification 구독
         if (username && onNotificationReceived) {
           if (notificationSubscriptionRef.current) {
             notificationSubscriptionRef.current.unsubscribe()
@@ -92,55 +86,60 @@ const useWebSocket = ({
           console.log(`🔔 Subscribed to notifications for user: ${username}`)
         }
 
-        // Sidebar subscriptions (existing functionality)
+
+        // 사이드바 채팅방 구독
         if (chatRooms.length > 0 && onSidebarMessage) {
+          // 기존 사이드바 구독들 정리
           sidebarSubscriptionsRef.current.forEach((subscription, roomId) => {
-            // subscription.unsubscribe()
-            console.log(`🔁 Previous sidebar subscription for room ${roomId} cleared.`)
-          })
-          sidebarSubscriptionsRef.current.clear()
+              subscription.unsubscribe();
+              console.log(`🔁 Previous sidebar subscription for room ${roomId} cleared.`);
+          });
+          sidebarSubscriptionsRef.current.clear();
 
-          chatRooms.forEach((room) => {
-            const roomUniqueId = room.uniqueId
-            if (roomUniqueId && !sidebarSubscriptionsRef.current.has(roomUniqueId)) {
-              const subscription = client.subscribe(`/topic/chat/${roomUniqueId}`, (message) => {
-                try {
-                  const received = JSON.parse(message.body)
-                  if (Number(currentRoomId) !== Number(roomUniqueId)) {
-                    onSidebarMessage(roomUniqueId, received)
-                  }
-                } catch (e) {
-                  console.error("Failed to parse sidebar message", e)
-                }
-              })
-
-              sidebarSubscriptionsRef.current.set(roomUniqueId, subscription)
-              console.log(`Subscribed to sidebar room: ${roomUniqueId}`)
-            }
-          })
+          chatRooms.forEach(room => {
+              const roomUniqueId = room.uniqueId;
+              if (roomUniqueId) {
+                  const subscription = client.subscribe(`/topic/chat/${roomUniqueId}`, (message) => {
+                      try {
+                          const received = JSON.parse(message.body);
+                          
+                          // 현재 있는 채팅방이 아닌 경우에만 사이드바 알림 처리
+                          if (Number(currentRoomId) !== Number(roomUniqueId) && received.type !== 'EVENT') {
+                              onSidebarMessage(roomUniqueId, received);
+                              console.log("📨 New message in room ${roomUniqueId}");
+                          }
+                      } catch (e) {
+                          console.error("📛 Failed to parse sidebar message", e);
+                      }
+                  });
+              
+                  sidebarSubscriptionsRef.current.set(roomUniqueId, subscription);
+                  console.log("📡 Subscribed to sidebar room: ${roomUniqueId}");
+              }
+          });
         }
 
-        // Profile update subscription
+        // 프로필 업데이트 구독
         if (onProfileUpdate) {
           if (profileSubscriptionRef.current) {
-            profileSubscriptionRef.current.unsubscribe()
-            console.log("🔁 Previous profile subscription cleared.")
+              profileSubscriptionRef.current.unsubscribe();
+              console.log("🔁 Previous profile subscription cleared.");
           }
-
-          profileSubscriptionRef.current = client.subscribe("/topic/profile-update", (message) => {
+        
+          profileSubscriptionRef.current = client.subscribe('/topic/profile-update', (message) => {
             try {
-              const profileUpdate = JSON.parse(message.body)
-              console.log("🔥 프로필 업데이트 수신:", profileUpdate)
-              onProfileUpdate(profileUpdate)
+              const profileUpdate = JSON.parse(message.body);
+              console.log("🔥 프로필 업데이트 수신:", profileUpdate);
+              onProfileUpdate(profileUpdate);
             } catch (e) {
-              console.error("📛 Failed to parse profile update message", e)
+              console.error("📛 Failed to parse profile update message", e);
             }
-          })
-
-          console.log("👤 프로필 업데이트 구독 완료")
+          });
+            
+          console.log("👤 프로필 업데이트 구독 완료");
         }
 
-        // Room deletion subscription
+        // 방 삭제 구독
         if (roomId && onRoomDeleted) {
           deleteSubscriptionRef.current = client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
             try {
@@ -160,34 +159,33 @@ const useWebSocket = ({
         if (keepAliveIntervalRef.current) clearInterval(keepAliveIntervalRef.current)
 
         keepAliveIntervalRef.current = setInterval(() => {
-          if (client && client.connected) {
+            if (client && client.connected) {
             client.publish({
-              destination: "/app/ping",
-              body: "p",
-            })
-            console.log("📡 Sent keep-alive ping")
-          }
+                destination: "/app/ping",
+                body: "p"
+            });
+            console.log("📡 Sent keep-alive ping");
+            }
         }, 15000)
       },
 
       onWebSocketClose: async () => {
-        console.warn("🛑 WebSocket 끊김 → 토큰 갱신 시도")
-        try {
-          await safeRefreshToken()
-        } catch (err) {
-          console.error("❌ 토큰 갱신 실패 → 로그인 페이지로 이동")
-          navigate("/login")
-        }
+          console.warn('🛑 WebSocket 끊김 → 토큰 갱신 시도');
+          try{
+              await safeRefreshToken(); // 중복 요청 방지됨
+          } catch(err){
+              console.error('❌ 토큰 갱신 실패 → 로그인 페이지로 이동');
+              navigate('/login');
+          }
       },
-
+            
       onStompError: (frame) => {
-        setConnected(false)
-        console.error("💥 STOMP error:", frame.headers["message"])
-      },
-    })
+          console.error("💥 STOMP error:", frame.headers['message']);
+      }
+    });
 
-    client.activate()
-    stompClientRef.current = client
+    client.activate();
+    stompClientRef.current = client;
 
     return () => {
       console.log("🧹 Cleaning up WebSocket...")

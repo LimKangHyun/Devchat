@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
+import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
@@ -29,7 +31,6 @@ import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
-import project.backend.auth.dto.MemberDetails;
 
 @Slf4j
 @RestController
@@ -69,7 +70,6 @@ public class ChatRoomController {
 		@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Long memberId = memberDetails.getId();
-		// 채팅방 목록 리스트로 가져오기
 		return chatRoomService.findChatRoomsByMemberId(memberId, pageable);
 	}
 
@@ -103,6 +103,7 @@ public class ChatRoomController {
 		return chatRoomService.getEntryInfo(inviteCode, memberDetails.getId());
 	}
 
+
 	@GetMapping("/info/{inviteCode}")
 	public RoomInfoResponse getChatRoomDetails(@PathVariable String inviteCode,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
@@ -113,5 +114,17 @@ public class ChatRoomController {
 	public void deleteChatRoom(@PathVariable Long roomId,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		chatRoomService.deleteChatRoom(roomId, memberDetails.getId());
+	}
+
+	@PostMapping("/alarm/toggle/{roomId}")
+	public boolean toggleAlarm(@PathVariable Long roomId,
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		return chatRoomService.toggleAlarm(roomId, memberDetails.getId());
+	}
+
+	@GetMapping("/all")
+	public List<AllRoomsResponse> getAllRooms(
+		@AuthenticationPrincipal MemberDetails memberDetails) {
+		return chatRoomService.findAllRoomsByMemberId(memberDetails.getId());
 	}
 }

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { FaCopy } from 'react-icons/fa';
+import { FaCopy, FaBell, FaRegBell } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
-const RoomHeader= ({roomName, inviteCode, onSearch, onLeaveRoom, onDeleteRoom, isOwner}) => {
+const RoomHeader= ({roomName, inviteCode, onSearch, onLeaveRoom, onDeleteRoom, isOwner, toggleAlarm, alarmEnabled}) => {
 
     const navigate = useNavigate();  
     const [showNotification, setShowModal] = useState(false);
@@ -175,6 +175,22 @@ const RoomHeader= ({roomName, inviteCode, onSearch, onLeaveRoom, onDeleteRoom, i
                   )}
                 </div>
               )}
+
+              <button
+                onClick={toggleAlarm}
+                title={alarmEnabled ? "알림 끄기" : "알림 켜기"}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '25px',
+                  marginLeft: '8px',
+                  display: 'flex',
+                  color: '#CCCCCC'
+                }}
+              >
+                {alarmEnabled ? <FaBell /> : <FaRegBell />}
+              </button>
             </div>
 
             <div>

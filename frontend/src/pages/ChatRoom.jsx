@@ -8,6 +8,7 @@ import useWebSocket from '../components/common/useWebSocket';
 import RoomHeader from '../components/chatroom/RoomHeader';
 import RoomDeletedModal from '../components/modals/RoomDeletedModal';
 import CodeReviewModal from '../components/modals/CodeReviewModal.jsx';
+import { useAlarm } from '../context/AlarmContext';
 
 const ChatRoom = () => {
   const { inviteCode } = useParams()
@@ -70,7 +71,6 @@ const ChatRoom = () => {
     }
   }, []);
 
-
   // 1. 방 정보 불러오기
   const fetchRoomInfo = useCallback(async () => {
     try {
@@ -81,6 +81,9 @@ const ChatRoom = () => {
       setRoomName(roomData.roomName);
       setRoomData(roomData);
 
+      // ✅ Context 전역 상태도 함께 갱신
+      updateAlarm(roomData.roomId, roomData.alarmEnabled);
+      
       // 한 번에 상태 업데이트
       setInitState(prev => ({
         ...prev,
@@ -206,6 +209,19 @@ const ChatRoom = () => {
       }));
     }
   }, []);
+
+  const { getAlarmStatus, updateAlarm } = useAlarm();
+
+  //채팅방 알림 수신 여부 핸들러
+  const toggleAlarm = async () => {
+    try {
+      const res = await axiosInstance.post(`/chat-rooms/alarm/toggle/${roomId}`);
+      // setAlarmEnabled(res.data);
+      updateAlarm(roomId, res.data);
+    } catch (e) {
+      console.error("알림 설정 토글 실패", e);
+    }
+  };
 
   // 프로필 업데이트 처리 함수
   const handleProfileUpdate = useCallback((profileUpdateData) => {
@@ -670,15 +686,18 @@ const ChatRoom = () => {
           transition: 'opacity 0.3s ease'
         }}>
 
-          <RoomHeader
-            roomName={roomName}
-            inviteCode={inviteCode}
-            onSearch={handleSearch}
-            onLeaveRoom={handleLeaveRoom}
-            onDeleteRoom={handleDeleteRoom}
-            isOwner={isOwner}
-
-          />
+          {getAlarmStatus(roomId) !== undefined && (
+            <RoomHeader
+              roomName={roomName}
+              inviteCode={inviteCode}
+              onSearch={handleSearch} 
+              onLeaveRoom={handleLeaveRoom}
+              onDeleteRoom={handleDeleteRoom}
+              isOwner={isOwner}
+              toggleAlarm={toggleAlarm}
+              alarmEnabled={getAlarmStatus(roomId)}
+            />
+          )}
 
           <div
             ref={messageContainerRef}

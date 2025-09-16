@@ -11,9 +11,12 @@ import EditProfilePage from './pages/editprofile';
 import ErrorPage from './pages/ErrorPage';
 
 import Layout from './Layout';
+import { AlarmProvider } from './context/AlarmContext';
 
 function App() {
+
   return (
+  <AlarmProvider>
     <BrowserRouter>
       <Routes>
         {/* 공통 레이아웃이 적용될 라우트들 */}
@@ -30,6 +33,7 @@ function App() {
         <Route path="/error" element={<ErrorPage />} />
       </Routes>
     </BrowserRouter>
+  </AlarmProvider>
   );
 }
 

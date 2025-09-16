@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { FaRegCommentDots, FaInfoCircle, FaAngleLeft, FaAngleRight, FaComments, FaPlus, FaUsers } from "react-icons/fa"
+import { FaRegCommentDots, FaInfoCircle, FaComments, FaPlus, FaUsers } from "react-icons/fa"
 
 import CreateRoomModal from "./modals/CreateRoomModal"
 import JoinRoomModal from "./modals/JoinRoomModal"
@@ -10,7 +10,8 @@ import RoomInfoModal from "./modals/RoomInfoModal"
 import Toast from "./common/Toast"
 import FriendsSidebar from "./FriendsSidebar" // Import the new component
 import axiosInstance from "./api/axiosInstance"
-import useWebSocket from "./common/useWebSocket"
+import { useAlarm } from '../context/AlarmContext';
+import useWebSocket from './common/useWebSocket';
 
 const Sidebar = ({ onStartChat }) => {
   const navigate = useNavigate()
@@ -19,14 +20,7 @@ const Sidebar = ({ onStartChat }) => {
 
   // Tab state - ADD THIS
   const [activeTab, setActiveTab] = useState("chat")
-
-  const [chatRooms, setChatRooms] = useState([])
   const [loading, setLoading] = useState(true)
-
-  // 페이지네이션 상태
-  const [currentPage, setCurrentPage] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [totalElements, setTotalElements] = useState(0)
 
   // 모달 상태
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -45,34 +39,72 @@ const Sidebar = ({ onStartChat }) => {
   const [unreadMessages, setUnreadMessages] = useState({})
   const [roomId, setRoomId] = useState(null)
 
+  const { getAlarmStatus, alarmStatusMap={} } = useAlarm(); // 전역 알림 상태 접근
+  const [alarmRooms, setAlarmRooms] = useState([])
+
   // 사이드바 메시지 처리 콜백
   const handleSidebarMessage = (roomUniqueId, message) => {
+
     // 현재 있는 채팅방이 아닌 경우에만 알림 표시
     if (Number(roomId) !== Number(roomUniqueId)) {
       setUnreadMessages((prev) => ({
         ...prev,
-        [roomUniqueId]: true,
-      }))
-      console.log(`📨 New message in room ${roomUniqueId}`)
+        [roomUniqueId]: true
+      }));
+
+      const room=alarmRooms.find(r=> r.uniqueId===roomUniqueId);
+
+      // ✅ 알림 채팅방 최상단으로 올리기
+      if (room) {
+        setAlarmRooms(prev => {
+          const updated = prev.filter(r => r.uniqueId !== roomUniqueId);
+          return [room, ...updated];
+        });
+      }
+
+      // 알림 허용 상태 체크
+      const isAlarmEnabled = getAlarmStatus(roomUniqueId);
+      if (isAlarmEnabled === false) {
+        console.log(`🔕 알림 비활성화된 방(${roomUniqueId}) → 브라우저 알림 생략`);
+        return;
+      }
+
+      // header.jsx에게 "브라우저 알림 요청" 전역 이벤트 발행
+      console.log(`chat_message 전역 이벤트 발행`);
+
+      window.dispatchEvent(
+        new CustomEvent("chat:notify", {
+          detail: {
+            senderNickname: message.senderName,
+            body: message.content,
+            senderImg: message.profileImageUrl,
+            url: room?.inviteCode ? `/chat/${room.inviteCode}` : undefined, // 클릭 시 해당 채팅방으로 이동
+            tag: `room-${Date.now()}`, // 고유 태그 부여(사용 안함)
+            silent: false, // 소리 재생 여부 (true면 소리 재생 x)
+            roomName: room?.roomName || `Room ${roomUniqueId}`
+          },
+        })
+      );
+
     }
-  }
+  };
 
   // useWebSocket 훅 사용 - 사이드바용 구독만 활성화
   const stompClientRef = useWebSocket({
-    roomId: null, // 메인 채팅방 구독은 비활성화
-    onMessageReceived: () => {}, // 메인 메시지 처리는 비활성화
-    chatRooms, // 채팅방 목록 전달
+    chatRooms: alarmRooms, // 채팅방 목록 전달
     currentRoomId: roomId, // 현재 활성화된 채팅방 ID
     onSidebarMessage: handleSidebarMessage, // 사이드바 메시지 처리 콜백
-  })
+    onMessageReceived: () => {}, // 메인 메시지 처리는 비활성화
+    roomId: null,
+  });
 
   useEffect(() => {
     // Only fetch chat rooms when chat tab is active
     if (activeTab === "chat") {
-      fetchChatRooms(currentPage)
+      fetchAllRooms();
       fetchCurrentUser()
     }
-  }, [currentPage, inviteCode, activeTab]) // Add activeTab to dependencies
+  }, [inviteCode, activeTab, alarmStatusMap]) // Add activeTab to dependencies
 
   // 현재 채팅방이 변경될 때 해당 방의 읽지 않은 메시지 상태 제거
   useEffect(() => {
@@ -83,16 +115,23 @@ const Sidebar = ({ onStartChat }) => {
         return updated
       })
     }
-  }, [roomId])
+  }, [roomId, alarmStatusMap]);
 
   useEffect(() => {
-    if (inviteCode && chatRooms.length > 0) {
-      const currentRoom = chatRooms.find((room) => room.inviteCode === inviteCode)
-      if (currentRoom) {
-        setRoomId(currentRoom.uniqueId)
-      }
+    if (!inviteCode) {
+      setRoomId(null);
+      return;
     }
-  }, [inviteCode, chatRooms])
+
+    // chatRooms가 비어 있으면 기다렸다가 다시 실행 (최초 로딩 대응)
+    const foundRoom = alarmRooms.find(room => room.inviteCode === inviteCode);
+
+    if (foundRoom) {
+      setRoomId(foundRoom.uniqueId);
+    } else {
+      setRoomId(null); // 또는 유지
+    }
+  }, [inviteCode, alarmRooms, alarmStatusMap]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -103,24 +142,21 @@ const Sidebar = ({ onStartChat }) => {
     }
   }
 
-  const fetchChatRooms = async (page) => {
+  const fetchAllRooms = async () => {
     try {
-      setLoading(true)
-      const res = await axiosInstance.get(`/chat-rooms?page=${page}&size=10`)
-      const data = res.data
+      setLoading(true);
+      const res = await axiosInstance.get('/chat-rooms/all');
+      const rooms = res.data.map(room => ({
+        ...room,
+        uniqueId: room.roomId || room.id,
+        alarmEnabled: room.alarmEnabled ?? true,
+        roomName: room.roomName || `Room ${room.roomId || room.id}`,
+        inviteCode: room.inviteCode,
+      })).filter(room => room.uniqueId);
 
-      const validatedRooms = (data.content || [])
-        .map((room) => {
-          const id = room.roomId || room.id
-          return { ...room, uniqueId: id }
-        })
-        .filter((room) => room.uniqueId)
-
-      setChatRooms(validatedRooms)
-      setTotalPages(data.totalPages)
-      setTotalElements(data.totalElements)
-    } catch (err) {
-      console.error("채팅방 목록 로딩 오류:", err)
+      setAlarmRooms(rooms);
+    } catch (e) {
+      console.error('알림용 채팅방 목록 로딩 실패', e);
     } finally {
       setLoading(false)
     }
@@ -136,21 +172,14 @@ const Sidebar = ({ onStartChat }) => {
       })
       navigate(`/chat/${inviteCode}`)
     }
-  }
-
-  // 페이지 변경 핸들러
-  const paginate = (pageNumber) => {
-    if (pageNumber >= 0 && pageNumber < totalPages) {
-      setCurrentPage(pageNumber)
-    }
-  }
+  };
 
   // 방 상세 정보 가져오기
   const fetchRoomDetails = async (roomId) => {
     try {
       // 방 상세 정보를 가져오는 API가 있다면 사용
       // 현재 예시에서는 이런 API가 명시되어 있지 않으므로 기존 목록에서 찾아서 사용
-      const existingRoom = chatRooms.find((room) => Number(room.uniqueId) === Number(roomId))
+      const existingRoom = alarmRooms.find(room => Number(room.uniqueId) === Number(roomId));
 
       if (!existingRoom) return null
 
@@ -217,8 +246,10 @@ const Sidebar = ({ onStartChat }) => {
     setShowMembersModal(true)
 
     // 상태 업데이트 - 방 목록에 반영
-    setChatRooms((prev) => prev.map((r) => (Number(r.uniqueId) === Number(enhancedRoom.uniqueId) ? enhancedRoom : r)))
-  }
+    setAlarmRooms(prev => prev.map(r =>
+      Number(r.uniqueId) === Number(enhancedRoom.uniqueId) ? enhancedRoom : r
+    ));
+  };
 
   // 토스트 메시지 표시 함수
   const showToastMessage = (message) => {
@@ -235,9 +266,9 @@ const Sidebar = ({ onStartChat }) => {
         repositoryUrl: repoUrl,
       })
 
-      const created = res.data
-      setShowCreateModal(false)
-      fetchChatRooms(0)
+      const created = res.data;
+      setShowCreateModal(false);
+      fetchAllRooms();
 
       // 응답에서 얻은 데이터로 채팅방 목록 직접 업데이트
       if (created) {
@@ -255,16 +286,8 @@ const Sidebar = ({ onStartChat }) => {
           ],
         }
 
-        // 현재 페이지가 첫 페이지인 경우만 직접 목록에 추가
-        if (currentPage === 0) {
-          setChatRooms((prev) => [newRoom, ...prev.slice(0, 9)]) // 최대 10개 유지
-          setTotalElements((prev) => prev + 1)
-        } else {
-          // 첫 페이지가 아니면 첫 페이지로 이동하고 목록 갱신
-          setCurrentPage(0)
-          setCurrentPage(0)
-          fetchChatRooms(0)
-        }
+          setAlarmRooms(prev => [newRoom, ...prev.slice(0, 9)]); // 최대 10개 유지
+          fetchAllRooms();
       }
 
       if (created?.id) {
@@ -288,10 +311,9 @@ const Sidebar = ({ onStartChat }) => {
         inviteCode,
       })
 
-      const joined = await res.data
-      setShowJoinModal(false)
-      setCurrentPage(0)
-      fetchChatRooms(0)
+      const joined = await res.data;
+      setShowJoinModal(false);
+      fetchAllRooms();
 
       if (joined) {
         const newRoom = {
@@ -301,29 +323,15 @@ const Sidebar = ({ onStartChat }) => {
             ...(joined.participants || []),
             ...(joined.ownerId === currentUser?.id && currentUser
               ? [
-                  {
-                    ...currentUser,
-                    owner: true,
-                    nickname: currentUser.nickname || currentUser.username || "나",
+                 {
+                  ...currentUser,
+                  owner: true,
+                  nickname: currentUser.nickname || currentUser.username || '나'
                   },
-                ]
-              : []),
-          ],
-        }
-
-        if (currentPage === 0) {
-          setChatRooms((prev) => {
-            const exists = prev.some((room) => room.uniqueId === newRoom.uniqueId)
-            if (!exists) {
-              return [newRoom, ...prev.slice(0, 9)]
-            }
-            return prev
-          })
-          setTotalElements((prev) => prev + 1)
-        } else {
-          setCurrentPage(0)
-          fetchChatRooms(0)
-        }
+              ]
+              : [])
+          ]
+        };
       }
 
       if (joined?.id) {
@@ -355,18 +363,21 @@ const Sidebar = ({ onStartChat }) => {
             msOverflowStyle: "none", // IE/Edge
           }}
         >
-          { chatRooms.length === 0 ? (
+          {loading ? (
+            <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.7)" }}>
+              채팅방 불러오는 중...
+            </div>
+          ) : alarmRooms.length === 0 ? (
             <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.7)" }}>
               참여중인 채팅방이 없습니다
             </div>
           ) : (
-            chatRooms.map((room) => {
-              const roomUniqueId = room.uniqueId
-              const isCurrentRoom = roomId && Number(roomId) === Number(roomUniqueId)
-              const isSelectedForModal =
-                selectedRoom && Number(selectedRoom.uniqueId) === Number(roomUniqueId) && showMembersModal
-              const roomInviteCode = room.inviteCode
-              const hasUnreadMessage = unreadMessages[roomUniqueId] && !isCurrentRoom
+            alarmRooms.map((room) => {
+              const roomUniqueId = room.uniqueId;
+              const isCurrentRoom = roomId && Number(roomId) === Number(roomUniqueId);
+              const isSelectedForModal = selectedRoom && Number(selectedRoom.uniqueId) === Number(roomUniqueId) && showMembersModal;
+              const roomInviteCode = room.inviteCode;
+              const hasUnreadMessage = unreadMessages[roomUniqueId] && !isCurrentRoom;
 
               return (
                 <div key={`room-${roomUniqueId}`} style={{ padding: "5px 10px" }}>
@@ -419,7 +430,7 @@ const Sidebar = ({ onStartChat }) => {
                         }}
                       >
                         <FaRegCommentDots size={14} />
-                        {/* 읽지 않은 메시지 알림 점 */}
+                        {/* 읽지 않은 메시지 알림 점 (빨간점)*/}
                         {hasUnreadMessage && (
                           <div
                             style={{
@@ -495,53 +506,6 @@ const Sidebar = ({ onStartChat }) => {
           )}
         </div>
 
-        {/* 페이지네이션 컨트롤 */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: "12px 0",
-            borderTop: "1px solid rgba(255,255,255,0.15)",
-            borderBottom: "1px solid rgba(255,255,255,0.15)",
-            backgroundColor: "rgba(0,0,0,0.05)",
-          }}
-        >
-          <button
-            onClick={() => paginate(currentPage - 1)}
-            disabled={currentPage === 0}
-            style={{
-              background: "none",
-              border: "none",
-              color: currentPage === 0 ? "rgba(255,255,255,0.3)" : "white",
-              cursor: currentPage === 0 ? "not-allowed" : "pointer",
-              fontSize: "20px",
-              padding: "0 8px",
-            }}
-          >
-            <FaAngleLeft />
-          </button>
-
-          <div style={{ margin: "0 10px", fontSize: "14px", fontWeight: "500" }}>
-            {currentPage + 1} / {totalPages || 1}
-          </div>
-
-          <button
-            onClick={() => paginate(currentPage + 1)}
-            disabled={currentPage === totalPages - 1 || totalPages === 0}
-            style={{
-              background: "none",
-              border: "none",
-              color: currentPage === totalPages - 1 || totalPages === 0 ? "rgba(255,255,255,0.3)" : "white",
-              cursor: currentPage === totalPages - 1 || totalPages === 0 ? "not-allowed" : "pointer",
-              fontSize: "20px",
-              padding: "0 8px",
-            }}
-          >
-            <FaAngleRight />
-          </button>
-        </div>
-
         {/* 하단 버튼 */}
         <div
           style={{
@@ -606,10 +570,6 @@ const Sidebar = ({ onStartChat }) => {
     )
   }
 
-  // 현재 페이지의 시작 항목과 끝 항목 계산
-  const startItem = currentPage * 10 + 1
-  const endItem = Math.min(currentPage * 10 + chatRooms.length, totalElements)
-
   return (
     <>
       <div
@@ -640,7 +600,7 @@ const Sidebar = ({ onStartChat }) => {
             </span>
           
             {/* Show different counters based on active tab */}
-            {activeTab === "chat" && totalElements > 0 && (
+            {activeTab === "chat" && (
               <span
                 style={{
                   fontSize: "14px",
@@ -651,7 +611,6 @@ const Sidebar = ({ onStartChat }) => {
                   whiteSpace: "nowrap",
                 }}
               >
-                {startItem}-{endItem} / {totalElements}
               </span>
             )}
           </h3>
@@ -729,7 +688,9 @@ const Sidebar = ({ onStartChat }) => {
 
       {showJoinModal && <JoinRoomModal onClose={() => setShowJoinModal(false)} onSubmit={handleJoinRoom} />}
 
-      {showToast && <Toast message={toastMessage} />}
+      {showToast && (
+        <Toast message={toastMessage} />
+      )}
 
       {/* CSS 애니메이션 추가 */}
       <style jsx>{`

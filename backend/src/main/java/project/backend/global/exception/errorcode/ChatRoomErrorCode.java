@@ -18,9 +18,11 @@ public enum ChatRoomErrorCode implements ErrorCode {
     OWNER_PERMISSION_REQUIRED("CRE-008", "방장 권한이 필요합니다.", HttpStatus.FORBIDDEN),
     OWNER_NOT_FOUND("CRE-009", "방장을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     ASYNC_TASK_REJECTED("CRE-010", "작업량이 많아 요청이 처리되지 않았습니다. 잠시 후 다시 시도해주세요.",
-        HttpStatus.TOO_MANY_REQUESTS);
+        HttpStatus.TOO_MANY_REQUESTS),
+	ALARM_NOT_FOUND("CRE-010", "채팅방 알림 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
 
-    private final String code;
+
+	private final String code;
     private final String message;
     private final HttpStatus status;
 }
