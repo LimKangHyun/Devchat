@@ -80,8 +80,7 @@
 ---
 # 📄문서
 ## 🛢️ERD
-![image](https://github.com/user-attachments/assets/d84700d9-3e1b-476f-b3c8-aff4712cca61)
-
+<img width="1458" height="628" alt="스크린샷 2025-09-16 오후 8 36 03" src="https://github.com/user-attachments/assets/45117a63-07cf-4b71-aa91-dd0c46724624" />
 <br>
 
 ## 🔀Flow Chart
@@ -97,5 +96,4 @@ Swagger를 사용하여 API명세서를 제작 <br>
 <br>
 
 ## 🌐시스템 구성도
-![시스템 구성도  8팀_2차 팀프로젝트](https://github.com/user-attachments/assets/4d0eb7ed-9255-489e-88ff-3ebd6354c0e8)
-배포환경 시스템 구성도 업데이트 예정
+<img width="4540" height="3008" alt="devchat_시스템_아키텍처" src="https://github.com/user-attachments/assets/a1451e54-e729-4b55-b3de-2b091775fda9" />
