@@ -171,6 +171,7 @@ jobs:
             cd ~/NBE5-7-2-TEAM08/deployment
             chmod +x ./deploy.sh
             ./deploy.sh
+
           # 중단방식
           # script: |
           #   cd ~/NBE5-7-2-TEAM08
