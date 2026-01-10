@@ -19,7 +19,7 @@ spring:
       max-request-size: 10MB
 
   profiles:
-    active: local
+    active: prod
 
   data:
     redis:
