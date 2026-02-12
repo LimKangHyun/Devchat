@@ -11,7 +11,8 @@ public interface ChatMessageSearchRepository extends JpaRepository<ChatMessageSe
     @Query(value = """
         SELECT id FROM chat_message_search
         WHERE room_id = :roomId
-        AND MATCH(content) AGAINST (:keyword IN BOOLEAN MODE)
+        AND MATCH(content) AGAINST (:keyword IN NATURAL LANGUAGE MODE)
+        ORDER BY id DESC
         LIMIT :limit OFFSET :offset
         """, nativeQuery = true)
         // 페이지 하나를 어떻게 구성할것인지 limit: 한 페이지에 담을 결과 개수, offset: 시작 위치
