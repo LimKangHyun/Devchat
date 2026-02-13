@@ -440,12 +440,12 @@ const ChatRoom = () => {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchHasNext, setSearchHasNext] = useState(false);
-  const [searchTotalCount, setSearchTotalCount] = useState(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
   const [errorMessage, setErrorMessage] = useState(null);
-  
 
-  const handleSearch = async (keyword, lastMessageId = null) => {
+  const handleSearch = async (keyword, page = 0) => {
     if (!roomId || !initState.isRoomValidated) {
       setErrorMessage('채팅방이 아직 로딩 중입니다. 잠시 후 다시 시도해주세요.');
       return;
@@ -453,24 +453,12 @@ const ChatRoom = () => {
 
     setIsSearching(true);
     setShowSearchSidebar(true);
-    if (keyword !== searchKeyword) {
-      setSearchKeyword(keyword);
-      setSearchTotalCount(null);
-    }
+    setSearchKeyword(keyword);
     setErrorMessage(null);
 
     try {
-      const params = {
-        keyword: keyword,
-        pageSize: 10
-      };
-
-      if (lastMessageId) {
-        params.lastMessageId = lastMessageId;
-      }
-
       const response = await axiosInstance.get(`/chat/search/${roomId}`, {
-        params: params
+        params: { keyword, page, size: 10 }
       });
 
       const data = response.data;
@@ -483,16 +471,12 @@ const ChatRoom = () => {
       });
 
       setSearchResults(validatedResults);
-      setSearchHasNext(!data.last);
-
-      if (lastMessageId === null && data.totalCount !== undefined) {
-        setSearchTotalCount(data.totalCount);
-      }
-
+      setCurrentPage(data.pageable?.pageNumber || 0);
+      setTotalPages(data.totalPages || 0);
+      setTotalElements(data.totalElements || 0);
     } catch (err) {
       console.error('Search error:', err);
       setErrorMessage(err.response?.data?.message || '검색 중 오류가 발생했습니다.');
-      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -833,14 +817,15 @@ const ChatRoom = () => {
         {/* 검색 사이드바 */}
         {showSearchSidebar && (
           <SearchSidebar
-            totalCount={searchTotalCount}
-            onSearch={handleSearch} 
             searchKeyword={searchKeyword}
             searchResults={searchResults}
             isSearching={isSearching}
             errorMessage={errorMessage}
-            hasNext={searchHasNext}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
             onClose={() => setShowSearchSidebar(false)}
+            onPageChange={(page) => handleSearch(searchKeyword, page)}
             onMessageClick={scrollToMessage}
           />
         )}

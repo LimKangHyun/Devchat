@@ -1,11 +1,15 @@
 package project.backend.domain.chat.chatmessage.app;
 
 import jakarta.validation.Valid;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
@@ -15,13 +19,14 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
-import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchSlice;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
+import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
@@ -42,7 +47,9 @@ public class ChatMessageService {
     private final ChatRoomService chatRoomService;
     private final MemberService memberService;
     private final ImageFileService imageFileService;
+    private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageSearchRepository chatMessageSearchRepository;
+    private final ChatParticipantRepository chatParticipantRepository;
 
     private final ChatMessageMapper messageMapper;
 
@@ -69,6 +76,7 @@ public class ChatMessageService {
 
         chatMessageRepository.save(message);
 
+        // 검색용 테이블에도 저장된 메시지의 id(pk), roomId, content를 다시 뽑아서 저장
         if (isSearchable(message)) {
             ChatMessageSearch searchMessage = messageMapper.toSearchEntity(message);
             chatMessageSearchRepository.save(searchMessage);
@@ -82,38 +90,38 @@ public class ChatMessageService {
     }
 
     @Transactional(readOnly = true)
-    public Slice<ChatMessageSearchResponse> searchMessages(Long memberId, Long roomId,
+    public Page<ChatMessageSearchResponse> searchMessages(Long memberId, Long roomId,
         @Valid ChatMessageSearchRequest request) {
 
+        String keyword = request.getKeyword();
+        int page = request.getPage();
+        int size = request.getPageSize();
+        int offset = page * size;
+
         chatRoomService.validateParticipant(memberId, roomId);
+        // messageIds는 DESC 정렬 보장
+        List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomId(keyword,
+            roomId, size, offset);
 
-        List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomIdWithCursor(
-            request.getKeyword(),
-            roomId,
-            request.getLastMessageId(),
-            request.getPageSize() + 1
-        );
+        long totalCount = chatMessageSearchRepository.countByKeywordAndRoomId(keyword, roomId);
 
-        boolean hasNext = messageIds.size() > request.getPageSize();
-        if (hasNext) {
-            messageIds.remove(messageIds.size() - 1);
-        }
+        // findByIdIn은 정렬 보장이 안되므로, chatMessages에 대한 정렬 필요
+        List<ChatMessage> chatMessages = chatMessageRepository.findByIdIn(
+            messageIds);
 
-        // 첫 요청일 때만 totalCount 계산
-        Long totalCount = null;
-        if (request.getLastMessageId() == null) {
-            totalCount = chatMessageSearchRepository.countByKeywordAndRoomId(
-                request.getKeyword(), roomId);
-        }
+        // chatMessage의 빠른 정렬 수행을 위해 Map으로 변환
+        Map<Long, ChatMessage> messageMap = chatMessages.stream()
+            .collect(Collectors.toMap(ChatMessage::getId, Function.identity()));
 
-        List<ChatMessageSearchResponse> resultList = chatMessageRepository.findByIdIn(messageIds)
-            .stream()
-            .sorted(Comparator.comparingInt(cm -> messageIds.indexOf(cm.getId())))
+        // messageIds의 정렬순서에 맞춰서 chatMessages 정렬 수행
+        List<ChatMessageSearchResponse> resultList = messageIds.stream()
+            .map(messageMap::get)
+            .filter(Objects::nonNull)
             .map(messageMapper::toSearchResponse)
-            .toList();
+            .collect(Collectors.toList());
 
-        return new ChatMessageSearchSlice(resultList,
-            PageRequest.of(0, request.getPageSize()), hasNext, totalCount);
+        // PageImpl 구체 클래스로 담아서 반환
+        return new PageImpl<>(resultList, PageRequest.of(page, size), totalCount);
     }
 
     @Transactional
