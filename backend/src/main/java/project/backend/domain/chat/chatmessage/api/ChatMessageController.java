@@ -1,8 +1,10 @@
 package project.backend.domain.chat.chatmessage.api;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Slice;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -56,16 +58,19 @@ public class ChatMessageController {
     }
 
     @GetMapping("/chat/search/{roomId}")
-    public Page<ChatMessageSearchResponse> searchMessages(
+    public Slice<ChatMessageSearchResponse> searchMessages(
         @AuthenticationPrincipal MemberDetails memberDetails,
         @PathVariable("roomId") Long roomId,
         @RequestParam("keyword") String keyword,
-        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(required = false) Long lastMessageId,
         @RequestParam(defaultValue = "10") int size
-    ) {
-        ChatMessageSearchRequest request = ChatMessageSearchRequest.of(keyword, page, size);
+    ) throws JsonProcessingException {  // writeValueAsString 때문에 예외 선언 필요
+        ChatMessageSearchRequest request = ChatMessageSearchRequest.of(keyword, lastMessageId,
+            size);
+        Slice<ChatMessageSearchResponse> result = chatMessageService.searchMessages(
+            memberDetails.getId(), roomId, request);
 
-        return chatMessageService.searchMessages(memberDetails.getId(), roomId, request);
+        return result;
     }
 
     @GetMapping("/{roomId}/messages")
