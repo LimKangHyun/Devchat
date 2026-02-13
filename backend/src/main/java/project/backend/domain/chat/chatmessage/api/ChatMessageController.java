@@ -1,8 +1,10 @@
 package project.backend.domain.chat.chatmessage.api;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Slice;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -29,71 +31,74 @@ import project.backend.domain.imagefile.ImageFileService;
 @RequiredArgsConstructor
 public class ChatMessageController {
 
-	private final ChatMessageService chatMessageService;
-	private final ImageFileService imageFileService;
-	private final SimpMessagingTemplate messagingTemplate;
+    private final ChatMessageService chatMessageService;
+    private final ImageFileService imageFileService;
+    private final SimpMessagingTemplate messagingTemplate;
 
-	@MessageMapping("/send-message/{roomId}") //클라이언트가 메세지를 보낼 경로
-	public ChatMessageResponse sendMessage(@DestinationVariable Long roomId,
-		@Payload ChatMessageRequest request, Principal principal) {
-		ChatMessageResponse response = chatMessageService.save(roomId, request,
-			principal.getName());
+    @MessageMapping("/send-message/{roomId}") //클라이언트가 메세지를 보낼 경로
+    public ChatMessageResponse sendMessage(@DestinationVariable Long roomId,
+        @Payload ChatMessageRequest request, Principal principal) {
+        ChatMessageResponse response = chatMessageService.save(roomId, request,
+            principal.getName());
 
-		messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
+        messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
 
-		return response;
-	}
+        return response;
+    }
 
-	@MessageMapping("/edit-message/{roomId}")
-	public ChatMessageResponse editMessage(@DestinationVariable Long roomId, @Payload
-	ChatMessageEditRequest request, Principal principal) {
-		ChatMessageResponse response = chatMessageService.editMessage(roomId, request,
-			principal.getName());
+    @MessageMapping("/edit-message/{roomId}")
+    public ChatMessageResponse editMessage(@DestinationVariable Long roomId, @Payload
+    ChatMessageEditRequest request, Principal principal) {
+        ChatMessageResponse response = chatMessageService.editMessage(roomId, request,
+            principal.getName());
 
-		messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
+        messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
 
-		return response;
-	}
+        return response;
+    }
 
-	@GetMapping("/chat/search/{roomId}")
-	public Page<ChatMessageSearchResponse> searchMessages(
-		@AuthenticationPrincipal MemberDetails memberDetails,
-		@PathVariable("roomId") Long roomId,
-		@RequestParam("keyword") String keyword,
-		@RequestParam(defaultValue = "0") int page,
-		@RequestParam(defaultValue = "10") int size
-	) {
-		ChatMessageSearchRequest request = ChatMessageSearchRequest.of(keyword, page, size);
+    @GetMapping("/chat/search/{roomId}")
+    public Slice<ChatMessageSearchResponse> searchMessages(
+        @AuthenticationPrincipal MemberDetails memberDetails,
+        @PathVariable("roomId") Long roomId,
+        @RequestParam("keyword") String keyword,
+        @RequestParam(required = false) Long lastMessageId,
+        @RequestParam(defaultValue = "10") int size
+    ) throws JsonProcessingException {  // writeValueAsString 때문에 예외 선언 필요
+        ChatMessageSearchRequest request = ChatMessageSearchRequest.of(keyword, lastMessageId,
+            size);
+        Slice<ChatMessageSearchResponse> result = chatMessageService.searchMessages(
+            memberDetails.getId(), roomId, request);
 
-		return chatMessageService.searchMessages(memberDetails.getId(), roomId, request);
-	}
+        return result;
+    }
 
-	@GetMapping("/{roomId}/messages")
-	public ChatScrollResponse getMessages(
-		@AuthenticationPrincipal MemberDetails memberDetails,
-		@PathVariable Long roomId,
-		@RequestParam(required = false) Long cursor,
-		@RequestParam(defaultValue = "30") int size
-	) {
-		return chatMessageService.getMessagesByRoomId(memberDetails.getId(), roomId, cursor, size);
-	}
+    @GetMapping("/{roomId}/messages")
+    public ChatScrollResponse getMessages(
+        @AuthenticationPrincipal MemberDetails memberDetails,
+        @PathVariable Long roomId,
+        @RequestParam(required = false) Long cursor,
+        @RequestParam(defaultValue = "30") int size
+    ) {
+        return chatMessageService.getMessagesByRoomId(memberDetails.getId(), roomId, cursor, size);
+    }
 
-	@MessageMapping("/delete-message/{roomId}")
-	public ChatMessageResponse deleteMessage(@DestinationVariable Long roomId,
-		@Payload Long messageId,
-		Principal principal) {
-		ChatMessageResponse response = chatMessageService.deleteMessage(roomId, messageId,
-			principal.getName());
+    @MessageMapping("/delete-message/{roomId}")
+    public ChatMessageResponse deleteMessage(@DestinationVariable Long roomId,
+        @Payload Long messageId,
+        Principal principal) {
+        ChatMessageResponse response = chatMessageService.deleteMessage(roomId, messageId,
+            principal.getName());
 
-		messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
+        messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
 
-		return response;
-	}
+        return response;
+    }
 
-	@PostMapping("/send-image")
-	public Long uploadImage(@RequestParam MultipartFile image) {
-		ImageFile imageFile = imageFileService.saveChatImage(image);
-		return imageFile.getImageId();
-	}
+    @PostMapping("/send-image")
+    public Long uploadImage(@RequestParam MultipartFile image) {
+        ImageFile imageFile = imageFileService.saveChatImage(image);
+        return imageFile.getImageId();
+    }
 
 }
