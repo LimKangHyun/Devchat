@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
+import project.backend.domain.imagefile.ImageFile;
 
 @Getter
 @Builder

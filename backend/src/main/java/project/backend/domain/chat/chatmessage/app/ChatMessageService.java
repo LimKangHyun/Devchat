@@ -3,13 +3,7 @@ package project.backend.domain.chat.chatmessage.app;
 import jakarta.validation.Valid;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -39,8 +33,6 @@ import project.backend.global.exception.errorcode.ChatMessageErrorCode;
 import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.ChatMessageException;
 import project.backend.global.metric.TimeTrace;
-
-import static java.util.stream.Collectors.toMap;
 
 @Service
 @RequiredArgsConstructor
@@ -90,38 +82,38 @@ public class ChatMessageService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ChatMessageSearchResponse> searchMessages(Long memberId, Long roomId,
+    public Slice<ChatMessageSearchResponse> searchMessages(Long memberId, Long roomId,
         @Valid ChatMessageSearchRequest request) {
 
-        String keyword = request.getKeyword();
-        int page = request.getPage();
-        int size = request.getPageSize();
-        int offset = page * size;
-
         chatRoomService.validateParticipant(memberId, roomId);
-        // messageIds는 DESC 정렬 보장
-        List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomId(keyword,
-            roomId, size, offset);
 
-        long totalCount = chatMessageSearchRepository.countByKeywordAndRoomId(keyword, roomId);
+        List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomIdWithCursor(
+            request.getKeyword(),
+            roomId,
+            request.getLastMessageId(),
+            request.getPageSize() + 1
+        );
 
-        // findByIdIn은 정렬 보장이 안되므로, chatMessages에 대한 정렬 필요
-        List<ChatMessage> chatMessages = chatMessageRepository.findByIdIn(
-            messageIds);
+        boolean hasNext = messageIds.size() > request.getPageSize();
+        if (hasNext) {
+            messageIds.remove(messageIds.size() - 1);
+        }
 
-        // chatMessage의 빠른 정렬 수행을 위해 Map으로 변환
-        Map<Long, ChatMessage> messageMap = chatMessages.stream()
-            .collect(toMap(ChatMessage::getId, Function.identity()));
+        // 첫 요청일 때만 totalCount 계산
+        Long totalCount = null;
+        if (request.getLastMessageId() == null) {
+            totalCount = chatMessageSearchRepository.countByKeywordAndRoomId(
+                request.getKeyword(), roomId);
+        }
 
-        // messageIds의 정렬순서에 맞춰서 chatMessages 정렬 수행
-        List<ChatMessageSearchResponse> resultList = messageIds.stream()
-            .map(messageMap::get)
-            .filter(Objects::nonNull)
+        List<ChatMessageSearchResponse> resultList = chatMessageRepository.findByIdIn(messageIds)
+            .stream()
+            .sorted(Comparator.comparingInt(cm -> messageIds.indexOf(cm.getId())))
             .map(messageMapper::toSearchResponse)
-            .collect(Collectors.toList());
+            .toList();
 
-        // PageImpl 구체 클래스로 담아서 반환
-        return new PageImpl<>(resultList, PageRequest.of(page, size), totalCount);
+        return new ChatMessageSearchSlice(resultList,
+            PageRequest.of(0, request.getPageSize()), hasNext, totalCount);
     }
 
     @Transactional

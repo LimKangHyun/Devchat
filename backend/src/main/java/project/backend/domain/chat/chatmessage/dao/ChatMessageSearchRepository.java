@@ -9,18 +9,19 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 public interface ChatMessageSearchRepository extends JpaRepository<ChatMessageSearch, Long> {
 
     @Query(value = """
-        SELECT id FROM chat_message_search
+        SELECT id
+        FROM chat_message_search
         WHERE room_id = :roomId
         AND MATCH(content) AGAINST (:keyword IN NATURAL LANGUAGE MODE)
+        AND (:lastMessageId IS NULL OR id < :lastMessageId)
         ORDER BY id DESC
-        LIMIT :limit OFFSET :offset
+        LIMIT :limit
         """, nativeQuery = true)
-        // 페이지 하나를 어떻게 구성할것인지 limit: 한 페이지에 담을 결과 개수, offset: 시작 위치
-    List<Long> searchIdsByKeywordAndRoomId(
+    List<Long> searchIdsByKeywordAndRoomIdWithCursor(
         @Param("keyword") String keyword,
         @Param("roomId") Long roomId,
-        @Param("limit") int limit,
-        @Param("offset") int offset
+        @Param("lastMessageId") Long lastMessageId,
+        @Param("limit") int limit
     );
 
     @Query(value = """
