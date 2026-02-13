@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import 'highlight.js/styles/github.css';
 
 const SearchSidebar = ({ 
@@ -6,57 +6,20 @@ const SearchSidebar = ({
   searchResults,
   isSearching,
   errorMessage,
-  hasNext,
-  totalCount,
+  currentPage,
+  totalPages,
+  totalElements,
   onClose,
-  onSearch,
+  onPageChange,
   onMessageClick
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   
-  // 커서 스택: 각 페이지의 마지막 메시지 ID를 저장
-  const [cursorStack, setCursorStack] = useState([null]); // [null, cursor1, cursor2, ...]
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  // 페이지당 10개씩 표시
+  const itemsPerPage = 10;
   
-  // 총 페이지 수 계산 (예상치)
-  const estimatedTotalPages = totalCount ? Math.ceil(totalCount / 10) : '?';
-  
-  // 검색어 변경 시 커서 스택 초기화
-  useEffect(() => {
-    setCursorStack([null]);
-    setCurrentPageIndex(0);
-  }, [searchKeyword]);
-  
-  // 다음 페이지로 이동
-  const handleNextPage = () => {
-    if (!hasNext || searchResults.length === 0) return;
-    
-    // 현재 페이지의 마지막 메시지 ID를 커서로 저장
-    const lastMessageId = searchResults[searchResults.length - 1].messageId;
-    
-    // 새로운 커서를 스택에 추가
-    const newStack = [...cursorStack.slice(0, currentPageIndex + 1), lastMessageId];
-    setCursorStack(newStack);
-    setCurrentPageIndex(currentPageIndex + 1);
-    
-    // 다음 페이지 검색
-    onSearch(searchKeyword, lastMessageId);
-  };
-  
-  // 이전 페이지로 이동
-  const handlePrevPage = () => {
-    if (currentPageIndex === 0) return;
-    
-    const prevPageIndex = currentPageIndex - 1;
-    setCurrentPageIndex(prevPageIndex);
-    
-    // 이전 페이지의 커서로 검색 (0번째 페이지는 null)
-    const prevCursor = cursorStack[prevPageIndex];
-    onSearch(searchKeyword, prevCursor);
-  };
-  
-  // 현재 페이지 번호 (1부터 시작)
-  const currentPageNumber = currentPageIndex + 1;
+  // 총 페이지 수 계산 (10개씩 끊어서)
+  const calculatedTotalPages = Math.ceil(totalElements / itemsPerPage);
   
   return (
     <div className="search-sidebar" style={{ 
@@ -99,7 +62,7 @@ const SearchSidebar = ({
         padding: '10px 15px 5px',
         borderBottom: '1px solid #f0f0f0'
       }}>
-        최신순으로 정렬됨 • {totalCount ? `전체 ${totalCount}개의 결과` : '검색 중...'}
+        최신순으로 정렬됨 • 전체 {totalElements}개의 결과
       </div>
 
       <div style={{ 
@@ -121,13 +84,13 @@ const SearchSidebar = ({
         }}>
           {errorMessage}
         </div>
-      ) : !searchResults || searchResults.length === 0 ? (
+      ) : totalElements === 0 ? (
         <div style={{ textAlign: 'center', padding: '20px' }}>검색 결과가 없습니다.</div>
       ) : (
         <>
           {searchResults.map((msg, index) => (
             <div 
-              key={msg.messageId} 
+              key={index} 
               onClick={() => onMessageClick && onMessageClick(msg.messageId)}
               onMouseEnter={() => setHoveredIndex(index)}
               onMouseLeave={() => setHoveredIndex(null)}
@@ -220,55 +183,50 @@ const SearchSidebar = ({
       )}
       </div>
 
-      {/* 페이지네이션 버튼 - 결과가 있을 때만 표시 */}
-      {searchResults && searchResults.length > 0 && (
+      {calculatedTotalPages > 1 && (
         <div style={{ 
           display: 'flex', 
           justifyContent: 'center', 
-          alignItems: 'center',
           padding: '15px',
-          borderTop: '1px solid #f0f0f0',
-          gap: '10px'
+          borderTop: '1px solid #f0f0f0'
         }}>
           <button
-            onClick={handlePrevPage}
-            disabled={currentPageIndex === 0}
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 0}
             style={{ 
+              margin: '0 5px', 
               padding: '8px 15px',
-              cursor: currentPageIndex === 0 ? 'not-allowed' : 'pointer', 
-              opacity: currentPageIndex === 0 ? 0.5 : 1,
+              cursor: currentPage === 0 ? 'default' : 'pointer', 
+              opacity: currentPage === 0 ? 0.5 : 1,
               border: '1px solid #ccc',
               borderRadius: '4px',
-              backgroundColor: 'white',
-              fontWeight: '500'
+              backgroundColor: 'white'
             }}
           >
-            ← 이전
+            이전
           </button>
-          
           <span style={{ 
-            fontSize: '14px',
-            color: '#333',
-            minWidth: '80px',
-            textAlign: 'center'
+            margin: '0 10px', 
+            display: 'flex', 
+            alignItems: 'center',
+            fontSize: '14px'
           }}>
-            {currentPageNumber} / {estimatedTotalPages}
+            {currentPage + 1} / {calculatedTotalPages}
           </span>
-          
           <button
-            onClick={handleNextPage}
-            disabled={!hasNext}
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === calculatedTotalPages - 1}
             style={{ 
+              margin: '0 5px', 
               padding: '8px 15px',
-              cursor: !hasNext ? 'not-allowed' : 'pointer', 
-              opacity: !hasNext ? 0.5 : 1,
+              cursor: currentPage === calculatedTotalPages - 1 ? 'default' : 'pointer', 
+              opacity: currentPage === calculatedTotalPages - 1 ? 0.5 : 1,
               border: '1px solid #ccc',
               borderRadius: '4px',
-              backgroundColor: 'white',
-              fontWeight: '500'
+              backgroundColor: 'white'
             }}
           >
-            다음 →
+            다음
           </button>
         </div>
       )}
