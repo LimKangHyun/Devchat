@@ -12,8 +12,8 @@ public interface ChatMessageSearchRepository extends JpaRepository<ChatMessageSe
         SELECT id
         FROM chat_message_search
         WHERE room_id = :roomId
-          AND MATCH(content) AGAINST (:keyword IN NATURAL LANGUAGE MODE)
-          AND (:lastMessageId IS NULL OR id < :lastMessageId)
+        AND MATCH(content) AGAINST (:keyword IN NATURAL LANGUAGE MODE)
+        AND (:lastMessageId IS NULL OR id < :lastMessageId)
         ORDER BY id DESC
         LIMIT :limit
         """, nativeQuery = true)
