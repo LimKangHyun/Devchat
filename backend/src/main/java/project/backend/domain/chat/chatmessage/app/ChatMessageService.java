@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchSlice;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
+import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSavedEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
@@ -43,6 +45,7 @@ public class ChatMessageService {
     private final MemberService memberService;
     private final ImageFileService imageFileService;
     private final ChatMessageSearchRepository chatMessageSearchRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     private final ChatMessageMapper messageMapper;
 
@@ -70,8 +73,7 @@ public class ChatMessageService {
         chatMessageRepository.save(message);
 
         if (isSearchable(message)) {
-            ChatMessageSearch searchMessage = messageMapper.toSearchEntity(message);
-            chatMessageSearchRepository.save(searchMessage);
+            eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
         }
 
         return messageMapper.toResponse(message);
@@ -99,7 +101,6 @@ public class ChatMessageService {
             messageIds.remove(messageIds.size() - 1);
         }
 
-        // 첫 요청일 때만 totalCount 계산
         Long totalCount = null;
         if (request.getLastMessageId() == null) {
             totalCount = chatMessageSearchRepository.countByKeywordAndRoomId(
