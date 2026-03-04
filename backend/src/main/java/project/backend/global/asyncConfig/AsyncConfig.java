@@ -1,4 +1,4 @@
-package project.backend.global.AsyncConfig;
+package project.backend.global.asyncConfig;
 
 import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +21,18 @@ public class AsyncConfig {
         executor.setMaxPoolSize(20); // 최대 스레드 수
         executor.setQueueCapacity(100); // 작업 대기열
         executor.setThreadNamePrefix("ChatRoomEvent-");
+        executor.setRejectedExecutionHandler(rejectExecutionHandler);
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean(name = "chatSearchEventExecutor")
+    public Executor getChatSearchEventExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(5);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("ChatSearchEvent-");
         executor.setRejectedExecutionHandler(rejectExecutionHandler);
         executor.initialize();
         return executor;
