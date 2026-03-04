@@ -1,4 +1,4 @@
-package project.backend.global.AsyncConfig;
+package project.backend.global.asyncConfig;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
