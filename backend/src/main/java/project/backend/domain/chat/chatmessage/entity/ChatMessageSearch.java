@@ -14,29 +14,28 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatMessageSearch {
 
-	@Id
-	// chat_message의 id를 그대로 넣어줌
-	private Long id;
+    @Id
+    private Long id;
 
-	@Column(name = "room_id", nullable = false)
-	private Long roomId;
-	
-	@Lob
-	@Column(columnDefinition = "TEXT", nullable = false)
-	private String content;
+    @Column(name = "room_id", nullable = false)
+    private Long roomId;
 
-	@Builder
-	public ChatMessageSearch(Long id, Long roomId, String content) {
-		this.id = id;
-		this.roomId = roomId;
-		this.content = content;
-	}
+    @Lob
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String content;
 
-	public void updateContent(String content) {
-		this.content = content;
-	}
+    @Builder
+    public ChatMessageSearch(Long id, Long roomId, String content) {
+        this.id = id;
+        this.roomId = roomId;
+        this.content = content;
+    }
 
-	public void deleteContent() {
-		this.content = "";
-	}
+    public void updateContent(String content) {
+        this.content = content;
+    }
+
+    public void deleteContent() {
+        this.content = "";
+    }
 }
