@@ -29,53 +29,57 @@ import project.backend.domain.member.entity.Member;
 @Builder
 public class ChatMessage {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name = "message_id")
-	private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "message_id")
+    private Long id;
 
-	@ManyToOne
-	@JoinColumn(name = "member_id")
-	private Member sender;
+    @ManyToOne
+    @JoinColumn(name = "member_id")
+    private Member sender;
 
-	@ManyToOne
-	@JoinColumn(name = "room_id")
-	private ChatRoom chatRoom;
+    @ManyToOne
+    @JoinColumn(name = "room_id")
+    private ChatRoom chatRoom;
 
-	@Lob
-	@Column(columnDefinition = "TEXT")
-	private String content;
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String content;
 
-	private LocalDateTime sendAt;
+    private LocalDateTime sendAt;
 
-	@Enumerated(EnumType.STRING)
-	private MessageType type;
+    @Enumerated(EnumType.STRING)
+    private MessageType type;
 
-	private String codeLanguage; //추가, 문법마다 다르게 하이라이팅을 하기 위함
+    private String codeLanguage;
 
-	@OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
-	@JoinColumn(name = "chat_image_id")
-	private ImageFile chatImage;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "chat_image_id")
+    private ImageFile chatImage;
 
-	@Builder.Default
-	@Enumerated(EnumType.STRING)
-	private MessageStatus status = MessageStatus.NO_CHANGE;
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    private MessageStatus status = MessageStatus.NO_CHANGE;
 
-	public void updateContent(String newContent) {
-		if (newContent != null) {
-			content = newContent;
-			status = MessageStatus.EDITED;
-		}
-	}
+    public Long getChatRoomId() {
+        return chatRoom.getId();
+    }
 
-	public void updateLanguage(String language) {
-		if (language != null) {
-			codeLanguage = language;
-			status = MessageStatus.EDITED;
-		}
-	}
+    public void updateContent(String newContent) {
+        if (newContent != null) {
+            content = newContent;
+            status = MessageStatus.EDITED;
+        }
+    }
 
-	public void delete() {
-		status = MessageStatus.DELETED;
-	}
+    public void updateLanguage(String language) {
+        if (language != null) {
+            codeLanguage = language;
+            status = MessageStatus.EDITED;
+        }
+    }
+
+    public void delete() {
+        status = MessageStatus.DELETED;
+    }
 }
