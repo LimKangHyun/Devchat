@@ -21,59 +21,74 @@ import project.backend.domain.member.entity.Member;
 @Getter
 public class ChatParticipant {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name = "chat_participant_id")
-	private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "chat_participant_id")
+    private Long id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "member_id")
-	private Member participant;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id")
+    private Member participant;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "room_id")
-	private ChatRoom chatRoom;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id")
+    private ChatRoom chatRoom;
 
-	private boolean isOwner;
+    private boolean isOwner;
 
-	private boolean isActive = true;
+    private boolean isActive = true;
 
-	private LocalDateTime joinAt;
+    private LocalDateTime joinAt;
 
-	@Builder
-	public ChatParticipant(Long id, Member participant, ChatRoom chatRoom, boolean isOwner,
-		LocalDateTime joinAt) {
-		this.id = id;
-		this.participant = participant;
-		this.chatRoom = chatRoom;
-		this.isOwner = isOwner;
-		this.joinAt = joinAt;
-	}
+    @Column(name = "unread_count", nullable = false)
+    private long unreadCount = 0;
 
-	public static ChatParticipant of(Member participant, ChatRoom chatRoom) {
-		return ChatParticipant.builder()
-			.participant(participant)
-			.chatRoom(chatRoom)
-			.joinAt(LocalDateTime.now())
-			.build();
-	}
+    @Column(name = "last_read_message_id")
+    private Long lastReadMessageId;
 
-	public static ChatParticipant createOwner(Member participant, ChatRoom chatRoom) {
-		return ChatParticipant.builder()
-			.participant(participant)
-			.chatRoom(chatRoom)
-			.isOwner(true)
-			.joinAt(LocalDateTime.now())
-			.build();
-	}
+    @Builder
+    public ChatParticipant(Long id, Member participant, ChatRoom chatRoom, boolean isOwner,
+        LocalDateTime joinAt) {
+        this.id = id;
+        this.participant = participant;
+        this.chatRoom = chatRoom;
+        this.isOwner = isOwner;
+        this.joinAt = joinAt;
+    }
 
-	public void leave() {
-		this.isActive = false;
-	}
+    public static ChatParticipant of(Member participant, ChatRoom chatRoom) {
+        return ChatParticipant.builder()
+            .participant(participant)
+            .chatRoom(chatRoom)
+            .joinAt(LocalDateTime.now())
+            .build();
+    }
 
-	public void rejoin() {
-		this.isActive = true;
-	}
+    public static ChatParticipant createOwner(Member participant, ChatRoom chatRoom) {
+        return ChatParticipant.builder()
+            .participant(participant)
+            .chatRoom(chatRoom)
+            .isOwner(true)
+            .joinAt(LocalDateTime.now())
+            .build();
+    }
+
+    public void incrementUnreadCount() {
+        this.unreadCount++;
+    }
+
+    public void resetUnreadCount(Long messageId) {
+        this.unreadCount = 0;
+        this.lastReadMessageId = messageId;
+    }
+
+    public void leave() {
+        this.isActive = false;
+    }
+
+    public void rejoin() {
+        this.isActive = true;
+    }
 
 }
 

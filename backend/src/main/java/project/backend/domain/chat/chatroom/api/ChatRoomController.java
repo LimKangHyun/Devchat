@@ -38,93 +38,101 @@ import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
 @RequestMapping("/chat-rooms")
 public class ChatRoomController {
 
-	private final ChatRoomService chatRoomService;
+    private final ChatRoomService chatRoomService;
 
-	@PostMapping
-	@ResponseStatus(HttpStatus.CREATED)
-	public ChatRoomSimpleResponse createChatRoom(@Valid @RequestBody ChatRoomRequest request,
-		@AuthenticationPrincipal MemberDetails memberDetails) {
-		Long ownerId = memberDetails.getId();
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ChatRoomSimpleResponse createChatRoom(@Valid @RequestBody ChatRoomRequest request,
+        @AuthenticationPrincipal MemberDetails memberDetails) {
+        Long ownerId = memberDetails.getId();
 
-		return chatRoomService.createChatRoom(request, ownerId);
-	}
+        return chatRoomService.createChatRoom(request, ownerId);
+    }
 
-	@PostMapping("/join")
-	public InviteJoinResponse joinChatRoom(@RequestBody InviteJoinRequest request,
-		@AuthenticationPrincipal MemberDetails memberDetails
-	) {
-		return chatRoomService.joinChatRoom(request.getInviteCode(), memberDetails.getId());
-	}
+    @PostMapping("/join")
+    public InviteJoinResponse joinChatRoom(@RequestBody InviteJoinRequest request,
+        @AuthenticationPrincipal MemberDetails memberDetails
+    ) {
+        return chatRoomService.joinChatRoom(request.getInviteCode(), memberDetails.getId());
+    }
 
-	@GetMapping("/recent")
-	public RecentChatRoomResponse getRecentRoomInviteCode(
-		@AuthenticationPrincipal MemberDetails memberDetails) {
-		String inviteCode = chatRoomService.getRecentRoomInviteCode(
-			memberDetails.getId());
-		return new RecentChatRoomResponse(inviteCode);
-	}
+    @GetMapping("/recent")
+    public RecentChatRoomResponse getRecentRoomInviteCode(
+        @AuthenticationPrincipal MemberDetails memberDetails) {
+        String inviteCode = chatRoomService.getRecentRoomInviteCode(
+            memberDetails.getId());
+        return new RecentChatRoomResponse(inviteCode);
+    }
 
-	@GetMapping
-	public Page<RoomInfoResponse> getChatRooms(
-		@AuthenticationPrincipal MemberDetails memberDetails,
-		@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+    @GetMapping
+    public Page<RoomInfoResponse> getChatRooms(
+        @AuthenticationPrincipal MemberDetails memberDetails,
+        @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-		Long memberId = memberDetails.getId();
-		return chatRoomService.findChatRoomsByMemberId(memberId, pageable);
-	}
+        Long memberId = memberDetails.getId();
+        return chatRoomService.findChatRoomsByMemberId(memberId, pageable);
+    }
 
-	@GetMapping("/{roomId}/participants")
-	public List<ChatParticipantResponse> getParticipants(
-		@PathVariable Long roomId,
-		@AuthenticationPrincipal MemberDetails memberDetails) {
+    @GetMapping("/{roomId}/participants")
+    public List<ChatParticipantResponse> getParticipants(
+        @PathVariable Long roomId,
+        @AuthenticationPrincipal MemberDetails memberDetails) {
 
-		return chatRoomService.getParticipants(memberDetails.getId(), roomId);
-	}
+        return chatRoomService.getParticipants(memberDetails.getId(), roomId);
+    }
 
-	// 자신이 만든 채팅방 가져오기 -> 주후 인증객체 id로 조회가능 할듯(Authentication)
-	@GetMapping("/mine/{memberId}")
-	public Page<MyChatRoomResponse> findMyAllChatRooms(@PathVariable Long memberId,
-		@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-		log.info("자신이 만든 채팅방 요청: memberId = {}", memberId);
-		return chatRoomService.findAllRoomsByOwnerId(memberId, pageable);
-	}
+    // 자신이 만든 채팅방 가져오기 -> 주후 인증객체 id로 조회가능 할듯(Authentication)
+    @GetMapping("/mine/{memberId}")
+    public Page<MyChatRoomResponse> findMyAllChatRooms(@PathVariable Long memberId,
+        @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("자신이 만든 채팅방 요청: memberId = {}", memberId);
+        return chatRoomService.findAllRoomsByOwnerId(memberId, pageable);
+    }
 
-	@DeleteMapping("/{roomId}/leave")
-	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void leaveChatRoom(@PathVariable Long roomId,
-		@AuthenticationPrincipal MemberDetails memberDetails) {
-		chatRoomService.leaveChatRoom(roomId, memberDetails.getId());
-	}
+    @DeleteMapping("/{roomId}/leave")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void leaveChatRoom(@PathVariable Long roomId,
+        @AuthenticationPrincipal MemberDetails memberDetails) {
+        chatRoomService.leaveChatRoom(roomId, memberDetails.getId());
+    }
 
-	//채팅방 입장
-	@GetMapping("/{inviteCode}")
-	public EntryRoomResponse entryChatRoom(@PathVariable String inviteCode,
-		@AuthenticationPrincipal MemberDetails memberDetails) {
-		return chatRoomService.getEntryInfo(inviteCode, memberDetails.getId());
-	}
+    //채팅방 입장
+    @GetMapping("/{inviteCode}")
+    public EntryRoomResponse entryChatRoom(@PathVariable String inviteCode,
+        @AuthenticationPrincipal MemberDetails memberDetails) {
+        return chatRoomService.getEntryInfo(inviteCode, memberDetails.getId());
+    }
 
 
-	@GetMapping("/info/{inviteCode}")
-	public RoomInfoResponse getChatRoomDetails(@PathVariable String inviteCode,
-		@AuthenticationPrincipal MemberDetails memberDetails) {
-		return chatRoomService.getRoomInfo(inviteCode, memberDetails.getId());
-	}
+    @GetMapping("/info/{inviteCode}")
+    public RoomInfoResponse getChatRoomDetails(@PathVariable String inviteCode,
+        @AuthenticationPrincipal MemberDetails memberDetails) {
+        return chatRoomService.getRoomInfo(inviteCode, memberDetails.getId());
+    }
 
-	@DeleteMapping("/{roomId}")
-	public void deleteChatRoom(@PathVariable Long roomId,
-		@AuthenticationPrincipal MemberDetails memberDetails) {
-		chatRoomService.deleteChatRoom(roomId, memberDetails.getId());
-	}
+    @DeleteMapping("/{roomId}")
+    public void deleteChatRoom(@PathVariable Long roomId,
+        @AuthenticationPrincipal MemberDetails memberDetails) {
+        chatRoomService.deleteChatRoom(roomId, memberDetails.getId());
+    }
 
-	@PostMapping("/alarm/toggle/{roomId}")
-	public boolean toggleAlarm(@PathVariable Long roomId,
-		@AuthenticationPrincipal MemberDetails memberDetails) {
-		return chatRoomService.toggleAlarm(roomId, memberDetails.getId());
-	}
+    @PostMapping("/alarm/toggle/{roomId}")
+    public boolean toggleAlarm(@PathVariable Long roomId,
+        @AuthenticationPrincipal MemberDetails memberDetails) {
+        return chatRoomService.toggleAlarm(roomId, memberDetails.getId());
+    }
 
-	@GetMapping("/all")
-	public List<AllRoomsResponse> getAllRooms(
-		@AuthenticationPrincipal MemberDetails memberDetails) {
-		return chatRoomService.findAllRoomsByMemberId(memberDetails.getId());
-	}
+    @GetMapping("/all")
+    public List<AllRoomsResponse> getAllRooms(
+        @AuthenticationPrincipal MemberDetails memberDetails) {
+        return chatRoomService.findAllRoomsByMemberId(memberDetails.getId());
+    }
+
+    @PostMapping("/{roomId}/read")
+    public void markAsRead(
+        @PathVariable Long roomId,
+        @AuthenticationPrincipal MemberDetails memberDetails
+    ) {
+        chatRoomService.markAsRead(roomId, memberDetails.getId());
+    }
 }

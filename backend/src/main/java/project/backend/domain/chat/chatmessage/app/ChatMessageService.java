@@ -41,10 +41,12 @@ import project.backend.global.metric.TimeTrace;
 public class ChatMessageService {
 
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatMessageSearchRepository chatMessageSearchRepository;
+
     private final ChatRoomService chatRoomService;
     private final MemberService memberService;
     private final ImageFileService imageFileService;
-    private final ChatMessageSearchRepository chatMessageSearchRepository;
+
     private final ApplicationEventPublisher eventPublisher;
 
     private final ChatMessageMapper messageMapper;
@@ -71,6 +73,8 @@ public class ChatMessageService {
         }
 
         chatMessageRepository.save(message);
+
+        chatRoomService.incrementUnreadCountForOfflineMembers(roomId, sender.getId());
 
         if (isSearchable(message)) {
             eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));

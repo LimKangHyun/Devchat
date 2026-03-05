@@ -7,9 +7,10 @@ import lombok.Getter;
 @AllArgsConstructor
 public class AllRoomsResponse {
 
-	private Long roomId;
-	private String inviteCode;
-	private String roomName;
-	private boolean alarmEnabled;
+    private Long roomId;
+    private String inviteCode;
+    private String roomName;
+    private boolean alarmEnabled;
+    private long unreadCount;
 
 }

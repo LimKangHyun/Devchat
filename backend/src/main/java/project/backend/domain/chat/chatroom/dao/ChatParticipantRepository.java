@@ -11,25 +11,34 @@ import project.backend.domain.chat.chatroom.entity.ChatRoom;
 
 public interface ChatParticipantRepository extends JpaRepository<ChatParticipant, Long> {
 
-	@EntityGraph(attributePaths = {"participant"})
-	@Query("""
-    SELECT cp 
-    FROM ChatParticipant cp 
-    WHERE cp.chatRoom = :chatRoom 
-      AND cp.isActive = true
-    """)
-	List<ChatParticipant> findByChatRoom(@Param("chatRoom") ChatRoom chatRoom);
+    @EntityGraph(attributePaths = {"participant"})
+    @Query("""
+        SELECT cp 
+        FROM ChatParticipant cp 
+        WHERE cp.chatRoom = :chatRoom 
+          AND cp.isActive = true
+        """)
+    List<ChatParticipant> findByChatRoom(@Param("chatRoom") ChatRoom chatRoom);
 
-	Optional<ChatParticipant> findByChatRoomIdAndParticipantIdAndIsActiveTrue(Long chatRoomId,
-		Long participantId);
+    Optional<ChatParticipant> findByChatRoomIdAndParticipantIdAndIsActiveTrue(Long chatRoomId,
+        Long participantId);
 
-	Optional<ChatParticipant> findByChatRoomIdAndParticipantId(Long chatRoomId, Long participantId);
+    Optional<ChatParticipant> findByChatRoomIdAndParticipantId(Long chatRoomId, Long participantId);
 
-	Optional<ChatParticipant> findTopByParticipantIdAndIsActiveTrueOrderByJoinAtDesc(
-		Long participantId);
+    Optional<ChatParticipant> findTopByParticipantIdAndIsActiveTrueOrderByJoinAtDesc(
+        Long participantId);
 
-	Optional<ChatParticipant> findByChatRoomIdAndIsOwnerTrue(Long roomId);
+    Optional<ChatParticipant> findByChatRoomIdAndIsOwnerTrue(Long roomId);
 
-	boolean existsByParticipantIdAndChatRoomIdAndIsActiveTrue(Long participantId, Long chatRoomId);
+    boolean existsByParticipantIdAndChatRoomIdAndIsActiveTrue(Long participantId, Long chatRoomId);
+
+    @Query("""
+        SELECT cp 
+        FROM ChatParticipant cp 
+        JOIN FETCH cp.chatRoom 
+        WHERE cp.participant.id = :memberId 
+          AND cp.isActive = true
+        """)
+    List<ChatParticipant> findAllByParticipantIdAndIsActiveTrue(@Param("memberId") Long memberId);
 }
 

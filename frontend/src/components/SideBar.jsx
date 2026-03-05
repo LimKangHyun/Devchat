@@ -35,8 +35,6 @@ const Sidebar = ({ onStartChat }) => {
   // 현재 사용자 정보
   const [currentUser, setCurrentUser] = useState(null)
 
-  // 읽지 않은 메시지 상태 (roomId: boolean)
-  const [unreadMessages, setUnreadMessages] = useState({})
   const [roomId, setRoomId] = useState(null)
 
   const { getAlarmStatus, alarmStatusMap={} } = useAlarm(); // 전역 알림 상태 접근
@@ -44,33 +42,29 @@ const Sidebar = ({ onStartChat }) => {
 
   // 사이드바 메시지 처리 콜백
   const handleSidebarMessage = (roomUniqueId, message) => {
-
-    // 현재 있는 채팅방이 아닌 경우에만 알림 표시
     if (Number(roomId) !== Number(roomUniqueId)) {
-      setUnreadMessages((prev) => ({
-        ...prev,
-        [roomUniqueId]: true
-      }));
+      // unreadCount 증가
+      setAlarmRooms(prev => prev.map(r =>
+        Number(r.uniqueId) === Number(roomUniqueId)
+          ? { ...r, unreadCount: (r.unreadCount ?? 0) + 1 }
+          : r
+      ));
 
-      const room=alarmRooms.find(r=> r.uniqueId===roomUniqueId);
+      const room = alarmRooms.find(r => r.uniqueId === roomUniqueId);
 
-      // ✅ 알림 채팅방 최상단으로 올리기
       if (room) {
         setAlarmRooms(prev => {
           const updated = prev.filter(r => r.uniqueId !== roomUniqueId);
-          return [room, ...updated];
+          const updatedRoom = prev.find(r => r.uniqueId === roomUniqueId);
+          return [updatedRoom, ...updated];
         });
       }
 
-      // 알림 허용 상태 체크
       const isAlarmEnabled = getAlarmStatus(roomUniqueId);
       if (isAlarmEnabled === false) {
         console.log(`🔕 알림 비활성화된 방(${roomUniqueId}) → 브라우저 알림 생략`);
         return;
       }
-
-      // header.jsx에게 "브라우저 알림 요청" 전역 이벤트 발행
-      console.log(`chat_message 전역 이벤트 발행`);
 
       window.dispatchEvent(
         new CustomEvent("chat:notify", {
@@ -78,14 +72,13 @@ const Sidebar = ({ onStartChat }) => {
             senderNickname: message.senderName,
             body: message.content,
             senderImg: message.profileImageUrl,
-            url: room?.inviteCode ? `/chat/${room.inviteCode}` : undefined, // 클릭 시 해당 채팅방으로 이동
-            tag: `room-${Date.now()}`, // 고유 태그 부여(사용 안함)
-            silent: false, // 소리 재생 여부 (true면 소리 재생 x)
+            url: room?.inviteCode ? `/chat/${room.inviteCode}` : undefined,
+            tag: `room-${Date.now()}`,
+            silent: false,
             roomName: room?.roomName || `Room ${roomUniqueId}`
           },
         })
       );
-
     }
   };
 
@@ -105,17 +98,6 @@ const Sidebar = ({ onStartChat }) => {
       fetchCurrentUser()
     }
   }, [inviteCode, activeTab, alarmStatusMap]) // Add activeTab to dependencies
-
-  // 현재 채팅방이 변경될 때 해당 방의 읽지 않은 메시지 상태 제거
-  useEffect(() => {
-    if (roomId) {
-      setUnreadMessages((prev) => {
-        const updated = { ...prev }
-        delete updated[roomId]
-        return updated
-      })
-    }
-  }, [roomId, alarmStatusMap]);
 
   useEffect(() => {
     if (!inviteCode) {
@@ -152,6 +134,7 @@ const Sidebar = ({ onStartChat }) => {
         alarmEnabled: room.alarmEnabled ?? true,
         roomName: room.roomName || `Room ${room.roomId || room.id}`,
         inviteCode: room.inviteCode,
+        unreadCount: room.unreadCount ?? 0,
       })).filter(room => room.uniqueId);
 
       setAlarmRooms(rooms);
@@ -162,17 +145,21 @@ const Sidebar = ({ onStartChat }) => {
     }
   }
 
-  const navigateToRoom = (id, inviteCode) => {
+ const navigateToRoom = async (id, inviteCode) => {
     if (id) {
-      // 해당 방의 읽지 않은 메시지 상태 제거
-      setUnreadMessages((prev) => {
-        const updated = { ...prev }
-        delete updated[id]
-        return updated
-      })
-      navigate(`/chat/${inviteCode}`)
+        console.log("현재 roomId:", roomId);  // ← 여기 확인
+        console.log("이동할 id:", id);
+        if (roomId) {
+            await axiosInstance.post(`/chat-rooms/${roomId}/read`).catch((e) => {
+                console.error("read API 실패:", e);  // ← API 실패 여부 확인
+            });
+        }
+        setAlarmRooms(prev => prev.map(r =>
+            Number(r.uniqueId) === Number(roomId) ? {...r, unreadCount: 0} : r
+        ));
+        navigate(`/chat/${inviteCode}`);
     }
-  };
+};
 
   // 방 상세 정보 가져오기
   const fetchRoomDetails = async (roomId) => {
@@ -377,7 +364,8 @@ const Sidebar = ({ onStartChat }) => {
               const isCurrentRoom = roomId && Number(roomId) === Number(roomUniqueId);
               const isSelectedForModal = selectedRoom && Number(selectedRoom.uniqueId) === Number(roomUniqueId) && showMembersModal;
               const roomInviteCode = room.inviteCode;
-              const hasUnreadMessage = unreadMessages[roomUniqueId] && !isCurrentRoom;
+              const unreadCount = room.unreadCount ?? 0;
+              const hasUnread = unreadCount > 0 && !isCurrentRoom;
 
               return (
                 <div key={`room-${roomUniqueId}`} style={{ padding: "5px 10px" }}>
@@ -431,29 +419,35 @@ const Sidebar = ({ onStartChat }) => {
                       >
                         <FaRegCommentDots size={14} />
                         {/* 읽지 않은 메시지 알림 점 (빨간점)*/}
-                        {hasUnreadMessage && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "-3px",
-                              right: "-3px",
-                              width: "12px",
-                              height: "12px",
-                              backgroundColor: "#ff4757",
-                              borderRadius: "50%",
-                              border: "2px solid #2588F1",
-                              animation: "pulse 2s infinite",
-                            }}
-                          />
+                        {hasUnread && (
+                          <div style={{
+                            position: "absolute",
+                            top: "-3px",
+                            right: "-3px",
+                            minWidth: "16px",
+                            height: "16px",
+                            backgroundColor: "#ff4757",
+                            borderRadius: "8px",
+                            border: "2px solid #2588F1",
+                            fontSize: "9px",
+                            color: "white",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: "0 2px",
+                            animation: "pulse 2s infinite",
+                          }}>
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </div>
                         )}
                       </div>
                       <span
                         style={{
-                          fontWeight: isCurrentRoom ? "bold" : hasUnreadMessage ? "600" : "normal",
+                          fontWeight: isCurrentRoom ? "bold" : hasUnread ? "600" : "normal",
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
-                          color: hasUnreadMessage ? "#fff" : "inherit",
+                          color: hasUnread ? "#fff" : "inherit",
                         }}
                       >
                         {room.name || room.roomName || `Room ${roomUniqueId}`}
