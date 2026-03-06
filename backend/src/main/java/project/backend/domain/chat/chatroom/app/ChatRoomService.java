@@ -1,13 +1,10 @@
 package project.backend.domain.chat.chatroom.app;
 
-
 import java.time.LocalDateTime;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,9 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
@@ -25,6 +19,7 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomAlarmRepository;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.dao.UnreadCountProjection;
 import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
@@ -56,16 +51,18 @@ import project.backend.global.metric.TimeTrace;
 public class ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final ChatRoomRedisRepository chatRoomRedisRepository;
+    private final ChatRoomAlarmRepository chatRoomAlarmRepository;
     private final ChatParticipantRepository chatParticipantRepository;
+
     private final ChatRoomMapper chatRoomMapper;
     private final ChatMessageMapper chatMessageMapper;
+
     private final MemberService memberService;
     private final GitMessageService gitMessageService;
-    private final ApplicationEventPublisher eventPublisher;
-    private final ChatMessageRepository chatMessageRepository;
-    private final ChatRoomAlarmRepository chatRoomAlarmRepository;
 
-    private final RedisTemplate<String, String> redisTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${github.username}")
     private String githubUsername;
@@ -89,7 +86,6 @@ public class ChatRoomService {
             joinGitHubBot(savedRoom); //깃허브봇 채팅 참가
         }
 
-        updateRoomMembersCache(savedRoom.getId());
         return chatRoomMapper.toSimpleResponse(savedRoom, owner);
     }
 
@@ -122,7 +118,6 @@ public class ChatRoomService {
             new JoinChatRoomEvent(room.getId(), memberId, member.getNickname(),
                 savedMessage.getId(), savedMessage.getSendAt()));
 
-        updateRoomMembersCache(room.getId());
         return ChatRoomMapper.toInviteJoinResponse(room.getId(), room.getInviteCode(),
             room.getName());
     }
@@ -145,7 +140,6 @@ public class ChatRoomService {
         }
     }
 
-
     @Transactional(readOnly = true)
     public String getRecentRoomInviteCode(Long memberId) {
         Long roomId = memberService.getMemberById(memberId).getRecentRoomId();
@@ -154,7 +148,6 @@ public class ChatRoomService {
         if (roomId == null) {
             throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_EXIST);
         }
-
         return getRoomById(roomId).getInviteCode();
     }
 
@@ -166,7 +159,6 @@ public class ChatRoomService {
         return allRoomsByOwnerId.map(ChatRoomMapper::toProfileResponse);
     }
 
-
     @Transactional(readOnly = true)
     public Page<RoomInfoResponse> findChatRoomsByMemberId(Long memberId, Pageable pageable) {
 
@@ -176,21 +168,17 @@ public class ChatRoomService {
         return chatRooms.map(ChatRoomMapper::toListResponse);
     }
 
-    // 채팅방의 참가자 목록 조회
     @Transactional(readOnly = true)
     public List<ChatParticipantResponse> getParticipants(Long memberId, Long roomId) {
-        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
-            .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 
         validateParticipant(memberId, roomId);
 
-        List<ChatParticipant> participants = chatParticipantRepository.findByChatRoom(chatRoom);
+        List<ChatParticipant> participants = chatParticipantRepository.findByChatRoomId(roomId);
 
         return participants.stream()
-            .map(ChatRoomMapper::toParticipantResponse).collect(Collectors.toList());
+            .map(ChatRoomMapper::toParticipantResponse).toList();
     }
 
-    //임창인
     @Transactional
     public void leaveChatRoom(Long roomId, Long memberId) {
 
@@ -210,7 +198,6 @@ public class ChatRoomService {
             new LeaveChatRoomEvent(roomId, memberId, member.getNickname(),
                 LocalDateTime.now()));
 
-        updateRoomMembersCache(roomId);
         updateRecentRoomAfterLeaving(memberId);
     }
 
@@ -226,7 +213,6 @@ public class ChatRoomService {
         } else {
             member.setRecentRoomId(null);
         }
-
     }
 
     private ChatRoom getByInviteCode(String inviteCode) {
@@ -245,11 +231,20 @@ public class ChatRoomService {
         ChatRoom room = getByInviteCode(inviteCode);
         validateParticipant(memberId, room.getId());
 
-        syncAndResetUnreadCount(room.getId(), memberId);
+        // lastReadMessageId 업데이트
+        chatParticipantRepository
+            .findByChatRoomIdAndParticipantIdAndIsActiveTrue(room.getId(), memberId)
+            .ifPresent(p -> {
+                Long latestMessageId =
+                    chatRoomRedisRepository.getLastMessageId(room.getId());
+
+                p.resetUnreadCount(latestMessageId);
+            });
 
         memberService.getMemberById(memberId).setRecentRoomId(room.getId());
 
         Long ownerId = findOwnerId(room.getId());
+
         boolean alarmEnable = chatRoomAlarmRepository
             .findEnabledByMemberIdAndRoomId(memberId, room.getId());
 
@@ -301,128 +296,67 @@ public class ChatRoomService {
         ChatRoomAlarm alarm = chatRoomAlarmRepository.findByIdMemberIdAndIdRoomId(memberId, roomId)
             .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.ALARM_NOT_FOUND));
 
-        System.out.println("Before toggle: " + alarm.isEnabled());
+        log.debug("Before toggle: {}", alarm.isEnabled());
         alarm.setEnabled(!alarm.isEnabled());
-        System.out.println("After toggle: " + alarm.isEnabled());
+        log.debug("After toggle: {}", alarm.isEnabled());
 
         return alarm.isEnabled();
     }
 
-    @Transactional(readOnly = true)
     public List<AllRoomsResponse> findAllRoomsByMemberId(Long memberId) {
-        List<ChatRoom> chatRooms = chatRoomRepository.findAllRoomsByParticipantId(memberId);
+
+        List<ChatRoom> chatRooms = fetchChatRooms(memberId);
         List<Long> roomIds = chatRooms.stream().map(ChatRoom::getId).toList();
 
-        Map<Long, Boolean> alarmEnabledMap = chatRoomAlarmRepository.findEnabledMap(memberId,
-            roomIds);
+        Map<Long, Boolean> alarmEnabledMap = fetchAlarmEnabledMap(memberId, roomIds);
+        Map<Long, Long> lastReadMessageIdMap = fetchLastReadMessageIdMap(memberId);
 
-        Map<Long, Long> dbUnreadCountMap = chatParticipantRepository
-            .findUnreadCountsByMemberId(memberId)
+        List<Long> lastMessageIds = chatRoomRedisRepository.getLastMessageIds(roomIds);
+
+        List<AllRoomsResponse> result = new ArrayList<>(chatRooms.size());
+
+        for (int i = 0; i < chatRooms.size(); i++) {
+            ChatRoom room = chatRooms.get(i);
+            Long roomId = room.getId();
+
+            boolean alarmEnabled = alarmEnabledMap.getOrDefault(roomId, true);
+            Long lastReadMessageId = lastReadMessageIdMap.getOrDefault(roomId, 0L);
+
+            Long lastMessageId = lastMessageIds.get(i);
+
+            long unreadCount = calculateUnread(lastReadMessageId, lastMessageId);
+
+            result.add(ChatRoomMapper.toDto(room, alarmEnabled, unreadCount));
+        }
+        return result;
+    }
+
+    private List<ChatRoom> fetchChatRooms(Long memberId) {
+        return chatRoomRepository.findAllRoomsByParticipantId(memberId);
+    }
+
+    private Map<Long, Boolean> fetchAlarmEnabledMap(Long memberId, List<Long> roomIds) {
+        return chatRoomAlarmRepository.findEnabledMap(memberId, roomIds);
+    }
+
+    private Map<Long, Long> fetchLastReadMessageIdMap(Long memberId) {
+        return chatParticipantRepository.findUnreadCountsByMemberId(memberId)
             .stream()
             .collect(Collectors.toMap(
                 UnreadCountProjection::getChatRoomId,
-                UnreadCountProjection::getUnreadCount
+                UnreadCountProjection::getLastReadMessageId
             ));
+    }
 
-        // HGETALL 한 번으로 모든 방 unread 조회
-        Map<Object, Object> redisUnreadMap = new HashMap<>();
+    private long calculateUnread(Long lastReadMessageId, Object redisVal) {
         try {
-            redisUnreadMap = redisTemplate.opsForHash()
-                .entries("user:" + memberId + ":unread");
+            if (redisVal != null) {
+                long lastMessageId = Long.parseLong(redisVal.toString());
+                return Math.max(0, lastMessageId - lastReadMessageId);
+            }
         } catch (Exception e) {
-            log.warn("Redis HGETALL 실패 - DB 값만 사용. memberId: {}", memberId);
+            return 0L;
         }
-
-        final Map<Object, Object> finalRedisMap = redisUnreadMap;
-
-        return chatRooms.stream()
-            .map(room -> {
-                boolean alarmEnabled = alarmEnabledMap.getOrDefault(room.getId(), true);
-                long dbCount = dbUnreadCountMap.getOrDefault(room.getId(), 0L);
-                long redisCount = 0L;
-                try {
-                    Object val = finalRedisMap.get(room.getId().toString());
-                    redisCount = val != null ? Long.parseLong(val.toString()) : 0L;
-                } catch (Exception e) {
-                    log.warn("Redis GET 실패. roomId: {}", room.getId());
-                }
-                long unreadCount = dbCount + redisCount;
-                return new AllRoomsResponse(room.getId(), room.getInviteCode(), room.getName(),
-                    alarmEnabled, unreadCount);
-            }).toList();
-    }
-
-    @Async("unreadCountExecutor")
-    public void incrementUnreadCount(Long roomId, Long senderId) {
-        Set<String> members = redisTemplate.opsForSet().members("room:members:" + roomId);
-
-        if (members == null || members.isEmpty()) {
-            updateRoomMembersCache(roomId);
-            members = redisTemplate.opsForSet().members("room:members:" + roomId);
-        }
-
-        if (members == null) {
-            return;
-        }
-
-        List<String> targetMembers = members.stream()
-            .filter(memberId -> !memberId.equals(senderId.toString()))
-            .toList();
-
-        // Pipeline으로 한 번에 처리
-        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            targetMembers.forEach(memberId -> {
-                String key = "user:" + memberId + ":unread";
-                connection.hashCommands().hIncrBy(
-                    key.getBytes(),
-                    roomId.toString().getBytes(),
-                    1
-                );
-            });
-            return null;
-        });
-    }
-
-    @Transactional
-    public void markAsRead(Long roomId, Long memberId) {
-        syncAndResetUnreadCount(roomId, memberId);
-        log.info("Marked as read: {}", memberId);
-    }
-
-    private void syncAndResetUnreadCount(Long roomId, Long memberId) {
-        chatParticipantRepository
-            .findByChatRoomIdAndParticipantIdAndIsActiveTrue(roomId, memberId)
-            .ifPresent(p -> {
-                Long latestMessageId = chatMessageRepository
-                    .findTopByChatRoom_IdOrderByIdDesc(roomId)
-                    .map(ChatMessage::getId)
-                    .orElse(null);
-
-                try {
-                    // Hash에서 해당 방의 unread만 삭제
-                    redisTemplate.opsForHash()
-                        .delete("user:" + memberId + ":unread", roomId.toString());
-                } catch (Exception e) {
-                    log.warn("Redis HDEL 실패. roomId: {}, memberId: {}", roomId, memberId);
-                }
-
-                p.resetUnreadCount(latestMessageId);
-            });
-    }
-
-    private void updateRoomMembersCache(Long roomId) {
-        ChatRoom room = getRoomById(roomId);
-        List<ChatParticipant> participants = chatParticipantRepository.findByChatRoom(room);
-
-        String key = "room:members:" + roomId;
-        redisTemplate.delete(key);
-
-        if (!participants.isEmpty()) {
-            String[] memberIds = participants.stream()
-                .map(p -> p.getParticipant().getId().toString())
-                .toArray(String[]::new);
-            redisTemplate.opsForSet().add(key, memberIds);
-            redisTemplate.expire(key, 24, TimeUnit.HOURS);
-        }
+        return 0L;
     }
 }

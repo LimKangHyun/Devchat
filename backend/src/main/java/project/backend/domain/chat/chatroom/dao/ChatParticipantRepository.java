@@ -18,7 +18,7 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
         WHERE cp.chatRoom = :chatRoom 
           AND cp.isActive = true
         """)
-    List<ChatParticipant> findByChatRoom(@Param("chatRoom") ChatRoom chatRoom);
+    List<ChatParticipant> findByChatRoomId(Long chatRoomId);
 
     Optional<ChatParticipant> findByChatRoomIdAndParticipantIdAndIsActiveTrue(Long chatRoomId,
         Long participantId);
@@ -33,7 +33,7 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
     boolean existsByParticipantIdAndChatRoomIdAndIsActiveTrue(Long participantId, Long chatRoomId);
 
     @Query("""
-        SELECT cp.chatRoom.id AS chatRoomId, cp.unreadCount AS unreadCount
+        SELECT cp.chatRoom.id AS chatRoomId, cp.lastReadMessageId AS lastReadMessageId
         FROM ChatParticipant cp
         WHERE cp.participant.id = :memberId
         AND cp.isActive = true

@@ -4,5 +4,5 @@ public interface UnreadCountProjection {
 
     Long getChatRoomId();
 
-    Long getUnreadCount();
+    Long getLastReadMessageId();
 }

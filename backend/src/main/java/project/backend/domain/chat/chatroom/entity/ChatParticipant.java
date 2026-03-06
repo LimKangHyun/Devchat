@@ -15,10 +15,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import project.backend.domain.member.entity.Member;
 
-
 @Entity
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatParticipant {
 
     @Id
@@ -73,17 +72,9 @@ public class ChatParticipant {
             .build();
     }
 
-    public void incrementUnreadCount() {
-        this.unreadCount++;
-    }
-
     public void resetUnreadCount(Long messageId) {
         this.unreadCount = 0;
         this.lastReadMessageId = messageId;
-    }
-
-    public void addUnreadCount(long count) {
-        this.unreadCount += count;
     }
 
     public void leave() {
@@ -93,6 +84,4 @@ public class ChatParticipant {
     public void rejoin() {
         this.isActive = true;
     }
-
 }
-
