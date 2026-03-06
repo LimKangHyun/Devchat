@@ -2,6 +2,7 @@ package project.backend.domain.chat.chatroom.app;
 
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,6 +26,7 @@ import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomAlarmRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
+import project.backend.domain.chat.chatroom.dao.UnreadCountProjection;
 import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
@@ -309,37 +311,41 @@ public class ChatRoomService {
     @Transactional(readOnly = true)
     public List<AllRoomsResponse> findAllRoomsByMemberId(Long memberId) {
         List<ChatRoom> chatRooms = chatRoomRepository.findAllRoomsByParticipantId(memberId);
+        List<Long> roomIds = chatRooms.stream().map(ChatRoom::getId).toList();
 
-        List<Long> roomIds = chatRooms.stream()
-            .map(ChatRoom::getId)
-            .toList();
+        Map<Long, Boolean> alarmEnabledMap = chatRoomAlarmRepository.findEnabledMap(memberId,
+            roomIds);
 
-        Map<Long, Boolean> alarmEnabledMap = chatRoomAlarmRepository
-            .findEnabledMap(memberId, roomIds);
-
-        // DB unreadCount map
         Map<Long, Long> dbUnreadCountMap = chatParticipantRepository
-            .findAllByParticipantIdAndIsActiveTrue(memberId)
+            .findUnreadCountsByMemberId(memberId)
             .stream()
             .collect(Collectors.toMap(
-                cp -> cp.getChatRoom().getId(),
-                ChatParticipant::getUnreadCount
+                UnreadCountProjection::getChatRoomId,
+                UnreadCountProjection::getUnreadCount
             ));
+
+        // HGETALL 한 번으로 모든 방 unread 조회
+        Map<Object, Object> redisUnreadMap = new HashMap<>();
+        try {
+            redisUnreadMap = redisTemplate.opsForHash()
+                .entries("user:" + memberId + ":unread");
+        } catch (Exception e) {
+            log.warn("Redis HGETALL 실패 - DB 값만 사용. memberId: {}", memberId);
+        }
+
+        final Map<Object, Object> finalRedisMap = redisUnreadMap;
 
         return chatRooms.stream()
             .map(room -> {
                 boolean alarmEnabled = alarmEnabledMap.getOrDefault(room.getId(), true);
                 long dbCount = dbUnreadCountMap.getOrDefault(room.getId(), 0L);
-
                 long redisCount = 0L;
                 try {
-                    String redisValue = redisTemplate.opsForValue()
-                        .get("unread:" + room.getId() + ":" + memberId);
-                    redisCount = redisValue != null ? Long.parseLong(redisValue) : 0L;
+                    Object val = finalRedisMap.get(room.getId().toString());
+                    redisCount = val != null ? Long.parseLong(val.toString()) : 0L;
                 } catch (Exception e) {
-                    log.warn("Redis GET 실패 - DB 값만 사용. roomId: {}", room.getId());
+                    log.warn("Redis GET 실패. roomId: {}", room.getId());
                 }
-
                 long unreadCount = dbCount + redisCount;
                 return new AllRoomsResponse(room.getId(), room.getInviteCode(), room.getName(),
                     alarmEnabled, unreadCount);
@@ -348,7 +354,6 @@ public class ChatRoomService {
 
     @Async("unreadCountExecutor")
     public void incrementUnreadCount(Long roomId, Long senderId) {
-        log.info("비동기 실행 스레드: {}", Thread.currentThread().getName());
         Set<String> members = redisTemplate.opsForSet().members("room:members:" + roomId);
 
         if (members == null || members.isEmpty()) {
@@ -367,8 +372,12 @@ public class ChatRoomService {
         // Pipeline으로 한 번에 처리
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             targetMembers.forEach(memberId -> {
-                String key = "unread:" + roomId + ":" + memberId;
-                connection.stringCommands().incr(key.getBytes());
+                String key = "user:" + memberId + ":unread";
+                connection.hashCommands().hIncrBy(
+                    key.getBytes(),
+                    roomId.toString().getBytes(),
+                    1
+                );
             });
             return null;
         });
@@ -390,15 +399,14 @@ public class ChatRoomService {
                     .orElse(null);
 
                 try {
-                    // GETDEL로 원자적으로 읽고 삭제
-                    String redisValue = redisTemplate.opsForValue()
-                        .getAndDelete("unread:" + roomId + ":" + memberId);
-                    // Redis 값은 버림 (어차피 DB 0으로 초기화)
+                    // Hash에서 해당 방의 unread만 삭제
+                    redisTemplate.opsForHash()
+                        .delete("user:" + memberId + ":unread", roomId.toString());
                 } catch (Exception e) {
-                    log.warn("Redis GETDEL 실패. roomId: {}, memberId: {}", roomId, memberId);
+                    log.warn("Redis HDEL 실패. roomId: {}, memberId: {}", roomId, memberId);
                 }
 
-                p.resetUnreadCount(latestMessageId);  // DB unread_count = 0
+                p.resetUnreadCount(latestMessageId);
             });
     }
 
