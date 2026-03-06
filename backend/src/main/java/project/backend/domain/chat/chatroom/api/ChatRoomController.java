@@ -1,6 +1,5 @@
 package project.backend.domain.chat.chatroom.api;
 
-
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -126,13 +125,5 @@ public class ChatRoomController {
     public List<AllRoomsResponse> getAllRooms(
         @AuthenticationPrincipal MemberDetails memberDetails) {
         return chatRoomService.findAllRoomsByMemberId(memberDetails.getId());
-    }
-
-    @PostMapping("/{roomId}/read")
-    public void markAsRead(
-        @PathVariable Long roomId,
-        @AuthenticationPrincipal MemberDetails memberDetails
-    ) {
-        chatRoomService.markAsRead(roomId, memberDetails.getId());
     }
 }

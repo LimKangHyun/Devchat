@@ -4,9 +4,11 @@ import jakarta.validation.Valid;
 import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
@@ -36,9 +38,12 @@ import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.ChatMessageException;
 import project.backend.global.metric.TimeTrace;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatMessageService {
+
+    private static final String ROOM_LAST_MESSAGE_KEY = "room:lastMessageId:";
 
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageSearchRepository chatMessageSearchRepository;
@@ -48,6 +53,7 @@ public class ChatMessageService {
     private final ImageFileService imageFileService;
 
     private final ApplicationEventPublisher eventPublisher;
+    private final StringRedisTemplate redisTemplate;
 
     private final ChatMessageMapper messageMapper;
 
@@ -74,10 +80,16 @@ public class ChatMessageService {
 
         chatMessageRepository.save(message);
 
+        try {
+            redisTemplate.opsForValue()
+                .set(ROOM_LAST_MESSAGE_KEY + roomId, message.getId().toString());
+        } catch (Exception e) {
+            log.warn("Redis lastMessageId 갱신 실패. roomId: {}", roomId);
+        }
+
         if (isSearchable(message)) {
             eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
         }
-
         return messageMapper.toResponse(message);
     }
 
