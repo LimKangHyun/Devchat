@@ -33,12 +33,11 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
     boolean existsByParticipantIdAndChatRoomIdAndIsActiveTrue(Long participantId, Long chatRoomId);
 
     @Query("""
-        SELECT cp 
-        FROM ChatParticipant cp 
-        JOIN FETCH cp.chatRoom 
-        WHERE cp.participant.id = :memberId 
-          AND cp.isActive = true
+        SELECT cp.chatRoom.id AS chatRoomId, cp.unreadCount AS unreadCount
+        FROM ChatParticipant cp
+        WHERE cp.participant.id = :memberId
+        AND cp.isActive = true
         """)
-    List<ChatParticipant> findAllByParticipantIdAndIsActiveTrue(@Param("memberId") Long memberId);
+    List<UnreadCountProjection> findUnreadCountsByMemberId(@Param("memberId") Long memberId);
 }
 
