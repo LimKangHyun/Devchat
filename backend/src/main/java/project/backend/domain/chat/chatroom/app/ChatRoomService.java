@@ -346,19 +346,9 @@ public class ChatRoomService {
             }).toList();
     }
 
-    private long getUnreadCount(Long roomId, Long memberId, long dbFallback) {
-        try {
-            String redisValue = (String) redisTemplate.opsForValue()
-                .get("unread:" + roomId + ":" + memberId);
-            return redisValue != null ? Long.parseLong(redisValue) : dbFallback;
-        } catch (Exception e) {
-            log.warn("Redis GET 실패 - DB 폴백. roomId: {}, memberId: {}", roomId, memberId);
-            return dbFallback;
-        }
-    }
-
     @Async("unreadCountExecutor")
     public void incrementUnreadCount(Long roomId, Long senderId) {
+        log.info("비동기 실행 스레드: {}", Thread.currentThread().getName());
         Set<String> members = redisTemplate.opsForSet().members("room:members:" + roomId);
 
         if (members == null || members.isEmpty()) {
