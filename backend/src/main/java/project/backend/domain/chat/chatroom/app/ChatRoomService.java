@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
@@ -170,13 +171,15 @@ public class ChatRoomService {
 
     @Transactional(readOnly = true)
     public List<ChatParticipantResponse> getParticipants(Long memberId, Long roomId) {
+        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+            .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 
         validateParticipant(memberId, roomId);
 
-        List<ChatParticipant> participants = chatParticipantRepository.findByChatRoomId(roomId);
+        List<ChatParticipant> participants = chatParticipantRepository.findByChatRoom(chatRoom);
 
         return participants.stream()
-            .map(ChatRoomMapper::toParticipantResponse).toList();
+            .map(ChatRoomMapper::toParticipantResponse).collect(Collectors.toList());
     }
 
     @Transactional
@@ -358,5 +361,10 @@ public class ChatRoomService {
             return 0L;
         }
         return 0L;
+    }
+
+    @Async("redisUpdateExecutor")
+    public void updateLastMessageId(Long roomId, Long messageId) {
+        chatRoomRedisRepository.updateLastMessageId(roomId, messageId);
     }
 }

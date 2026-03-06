@@ -18,7 +18,7 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
         WHERE cp.chatRoom = :chatRoom 
           AND cp.isActive = true
         """)
-    List<ChatParticipant> findByChatRoomId(Long chatRoomId);
+    List<ChatParticipant> findByChatRoom(ChatRoom chatRoom);
 
     Optional<ChatParticipant> findByChatRoomIdAndParticipantIdAndIsActiveTrue(Long chatRoomId,
         Long participantId);

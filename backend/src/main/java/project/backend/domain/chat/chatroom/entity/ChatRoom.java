@@ -24,55 +24,55 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 @Getter
 public class ChatRoom {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name = "room_id")
-	private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "room_id")
+    private Long id;
 
-	@Column(nullable = false)
-	private String name;
+    @Column(nullable = false)
+    private String name;
 
-	private LocalDateTime createdAt;
+    private LocalDateTime createdAt;
 
-	private String repositoryUrl;
+    private String repositoryUrl;
 
-	private String inviteCode;
+    private String inviteCode;
 
-	private Long webhookId;
+    private Long webhookId;
 
-	@OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<ChatMessage> messages = new ArrayList<>();
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ChatMessage> messages = new ArrayList<>();
 
-	@OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
-	private List<ChatParticipant> participants = new ArrayList<>();
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ChatParticipant> participants = new ArrayList<>();
 
-	@Builder
-	public ChatRoom(String name, LocalDateTime createdAt, String repositoryUrl, String inviteCode,
-		Long webhookId, List<ChatMessage> messages, List<ChatParticipant> participants) {
-		this.name = name;
-		this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
-		this.repositoryUrl = repositoryUrl;
-		this.inviteCode = inviteCode;
-		this.webhookId = webhookId;
-		if (messages != null) {
-			this.messages = messages;
-		}
-		if (participants != null) {
-			this.participants = participants;
-		}
-	}
+    @Builder
+    public ChatRoom(String name, LocalDateTime createdAt, String repositoryUrl, String inviteCode,
+        Long webhookId, List<ChatMessage> messages, List<ChatParticipant> participants) {
+        this.name = name;
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+        this.repositoryUrl = repositoryUrl;
+        this.inviteCode = inviteCode;
+        this.webhookId = webhookId;
+        if (messages != null) {
+            this.messages = messages;
+        }
+        if (participants != null) {
+            this.participants = participants;
+        }
+    }
 
-	public void addParticipant(ChatParticipant chatParticipant) {
-		participants.add(chatParticipant);
-	}
+    public void addParticipant(ChatParticipant chatParticipant) {
+        participants.add(chatParticipant);
+    }
 
-	public int getActiveParticipantCount() {
-		return (int) participants.stream()
-			.filter(ChatParticipant::isActive)
-			.count();
-	}
+    public int getActiveParticipantCount() {
+        return (int) participants.stream()
+            .filter(ChatParticipant::isActive)
+            .count();
+    }
 
-	public void updateWebhookId(Long webhookId) {
-		this.webhookId = webhookId;
-	}
+    public void updateWebhookId(Long webhookId) {
+        this.webhookId = webhookId;
+    }
 }
