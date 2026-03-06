@@ -37,4 +37,16 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    @Bean(name = "unreadCountExecutor")
+    public Executor getUnreadCountExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(10);
+        executor.setMaxPoolSize(50);
+        executor.setQueueCapacity(500);
+        executor.setThreadNamePrefix("UnreadCount-");
+        executor.setRejectedExecutionHandler(rejectExecutionHandler);
+        executor.initialize();
+        return executor;
+    }
 }

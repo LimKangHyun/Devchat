@@ -24,6 +24,7 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
+import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 
@@ -32,6 +33,7 @@ import project.backend.domain.imagefile.ImageFileService;
 public class ChatMessageController {
 
     private final ChatMessageService chatMessageService;
+    private final ChatRoomService chatRoomService;
     private final ImageFileService imageFileService;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -43,6 +45,7 @@ public class ChatMessageController {
 
         messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
 
+        chatRoomService.incrementUnreadCount(roomId, response.getSenderId());
         return response;
     }
 
