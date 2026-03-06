@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -83,6 +85,7 @@ public class ChatRoomService {
             joinGitHubBot(savedRoom); //깃허브봇 채팅 참가
         }
 
+        updateRoomMembersCache(savedRoom.getId());
         return chatRoomMapper.toSimpleResponse(savedRoom, owner);
     }
 
@@ -115,6 +118,7 @@ public class ChatRoomService {
             new JoinChatRoomEvent(room.getId(), memberId, member.getNickname(),
                 savedMessage.getId(), savedMessage.getSendAt()));
 
+        updateRoomMembersCache(room.getId());
         return ChatRoomMapper.toInviteJoinResponse(room.getId(), room.getInviteCode(),
             room.getName());
     }
@@ -202,6 +206,7 @@ public class ChatRoomService {
             new LeaveChatRoomEvent(roomId, memberId, member.getNickname(),
                 LocalDateTime.now()));
 
+        updateRoomMembersCache(roomId);
         updateRecentRoomAfterLeaving(memberId);
     }
 
@@ -310,7 +315,7 @@ public class ChatRoomService {
         Map<Long, Boolean> alarmEnabledMap = chatRoomAlarmRepository
             .findEnabledMap(memberId, roomIds);
 
-        // DB unreadCount map (폴백용)
+        // DB unreadCount map
         Map<Long, Long> dbUnreadCountMap = chatParticipantRepository
             .findAllByParticipantIdAndIsActiveTrue(memberId)
             .stream()
@@ -322,8 +327,18 @@ public class ChatRoomService {
         return chatRooms.stream()
             .map(room -> {
                 boolean alarmEnabled = alarmEnabledMap.getOrDefault(room.getId(), true);
-                long unreadCount = getUnreadCount(room.getId(), memberId,
-                    dbUnreadCountMap.getOrDefault(room.getId(), 0L));
+                long dbCount = dbUnreadCountMap.getOrDefault(room.getId(), 0L);
+
+                long redisCount = 0L;
+                try {
+                    String redisValue = redisTemplate.opsForValue()
+                        .get("unread:" + room.getId() + ":" + memberId);
+                    redisCount = redisValue != null ? Long.parseLong(redisValue) : 0L;
+                } catch (Exception e) {
+                    log.warn("Redis GET 실패 - DB 값만 사용. roomId: {}", room.getId());
+                }
+
+                long unreadCount = dbCount + redisCount;
                 return new AllRoomsResponse(room.getId(), room.getInviteCode(), room.getName(),
                     alarmEnabled, unreadCount);
             }).toList();
@@ -342,21 +357,30 @@ public class ChatRoomService {
 
     @Transactional
     public void incrementUnreadCount(Long roomId, Long senderId) {
-        ChatRoom room = getRoomById(roomId);
-        List<ChatParticipant> participants = chatParticipantRepository.findByChatRoom(room);
+        Set<String> members = redisTemplate.opsForSet().members("room:members:" + roomId);
 
-        participants.stream()
-            .filter(p -> !p.getParticipant().getId().equals(senderId))
-            .forEach(p -> {
-                Long memberId = p.getParticipant().getId();
+        if (members == null || members.isEmpty()) {
+            // Redis 캐시 미스 시 DB 조회 후 캐싱
+            updateRoomMembersCache(roomId);
+            members = redisTemplate.opsForSet().members("room:members:" + roomId);
+        }
+
+        if (members == null) {
+            return;
+        }
+
+        members.stream()
+            .filter(memberId -> !memberId.equals(senderId.toString()))
+            .forEach(memberId -> {
                 try {
-                    // Redis INCR
                     redisTemplate.opsForValue()
                         .increment("unread:" + roomId + ":" + memberId);
                 } catch (Exception e) {
-                    // Redis 장애 시 DB 폴백
                     log.warn("Redis INCR 실패 - DB 폴백. roomId: {}, memberId: {}", roomId, memberId);
-                    p.incrementUnreadCount();
+                    chatParticipantRepository
+                        .findByChatRoomIdAndParticipantIdAndIsActiveTrue(roomId,
+                            Long.parseLong(memberId))
+                        .ifPresent(ChatParticipant::incrementUnreadCount);
                 }
             });
     }
@@ -377,13 +401,31 @@ public class ChatRoomService {
                     .orElse(null);
 
                 try {
-                    // Redis 값 삭제
-                    redisTemplate.delete("unread:" + roomId + ":" + memberId);
+                    // GETDEL로 원자적으로 읽고 삭제
+                    String redisValue = redisTemplate.opsForValue()
+                        .getAndDelete("unread:" + roomId + ":" + memberId);
+                    // Redis 값은 버림 (어차피 DB 0으로 초기화)
                 } catch (Exception e) {
-                    log.warn("Redis DELETE 실패. roomId: {}, memberId: {}", roomId, memberId);
+                    log.warn("Redis GETDEL 실패. roomId: {}, memberId: {}", roomId, memberId);
                 }
 
-                p.resetUnreadCount(latestMessageId);
+                p.resetUnreadCount(latestMessageId);  // DB unread_count = 0
             });
+    }
+
+    private void updateRoomMembersCache(Long roomId) {
+        ChatRoom room = getRoomById(roomId);
+        List<ChatParticipant> participants = chatParticipantRepository.findByChatRoom(room);
+
+        String key = "room:members:" + roomId;
+        redisTemplate.delete(key);
+
+        if (!participants.isEmpty()) {
+            String[] memberIds = participants.stream()
+                .map(p -> p.getParticipant().getId().toString())
+                .toArray(String[]::new);
+            redisTemplate.opsForSet().add(key, memberIds);
+            redisTemplate.expire(key, 24, TimeUnit.HOURS);
+        }
     }
 }

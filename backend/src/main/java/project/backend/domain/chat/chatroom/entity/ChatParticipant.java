@@ -82,6 +82,10 @@ public class ChatParticipant {
         this.lastReadMessageId = messageId;
     }
 
+    public void addUnreadCount(long count) {
+        this.unreadCount += count;
+    }
+
     public void leave() {
         this.isActive = false;
     }
