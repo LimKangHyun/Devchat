@@ -356,7 +356,6 @@ public class ChatRoomService {
         }
     }
 
-    @Transactional
     public void incrementUnreadCount(Long roomId, Long senderId) {
         Set<String> members = redisTemplate.opsForSet().members("room:members:" + roomId);
 
