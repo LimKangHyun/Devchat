@@ -23,6 +23,7 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
+import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 
@@ -30,8 +31,9 @@ import project.backend.domain.imagefile.ImageFileService;
 @RequiredArgsConstructor
 public class ChatMessageController {
 
-    private final ChatMessageService chatMessageService;
+    private final ChatRoomService chatRoomService;
     private final ImageFileService imageFileService;
+    private final ChatMessageService chatMessageService;
     private final SimpMessagingTemplate messagingTemplate;
 
     @MessageMapping("/send-message/{roomId}") //클라이언트가 메세지를 보낼 경로
@@ -41,6 +43,8 @@ public class ChatMessageController {
             principal.getName());
 
         messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
+
+        chatRoomService.updateLastMessageId(roomId, response.getMessageId());
 
         return response;
     }

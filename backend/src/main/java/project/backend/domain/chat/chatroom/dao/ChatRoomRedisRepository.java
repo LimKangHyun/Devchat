@@ -2,10 +2,12 @@ package project.backend.domain.chat.chatroom.dao;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class ChatRoomRedisRepository {
@@ -42,4 +44,14 @@ public class ChatRoomRedisRepository {
 
         return Long.parseLong(value);
     }
+
+    public void updateLastMessageId(Long roomId, Long messageId) {
+        try {
+            redisTemplate.opsForValue()
+                .set(ROOM_LAST_MESSAGE_KEY + roomId, messageId.toString());
+        } catch (Exception e) {
+            log.warn("Redis lastMessageId 갱신 실패. roomId: {}", roomId);
+        }
+    }
+
 }
