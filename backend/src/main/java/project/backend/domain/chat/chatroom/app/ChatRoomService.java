@@ -308,7 +308,6 @@ public class ChatRoomService {
 
     @Transactional(readOnly = true)
     public List<AllRoomsResponse> findAllRoomsByMemberId(Long memberId) {
-        //참여 중인 방 id 목록 조회
         List<ChatRoom> chatRooms = chatRoomRepository.findAllRoomsByParticipantId(
             memberId);
 
