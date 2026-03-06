@@ -74,7 +74,7 @@ public class ChatMessageService {
 
         chatMessageRepository.save(message);
 
-        chatRoomService.incrementUnreadCountForOfflineMembers(roomId, sender.getId());
+        chatRoomService.incrementUnreadCount(roomId, sender.getId());
 
         if (isSearchable(message)) {
             eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));

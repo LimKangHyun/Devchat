@@ -59,6 +59,8 @@ public class ChatRoomService {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomAlarmRepository chatRoomAlarmRepository;
 
+    private final RedisTemplate<String, String> redisTemplate;
+
     @Value("${github.username}")
     private String githubUsername;
 
@@ -234,22 +236,13 @@ public class ChatRoomService {
         ChatRoom room = getByInviteCode(inviteCode);
         validateParticipant(memberId, room.getId());
 
-        chatParticipantRepository.findByChatRoomIdAndParticipantIdAndIsActiveTrue(room.getId(),
-                memberId)
-            .ifPresent(p -> {
-                Long latestMessageId = chatMessageRepository
-                    .findTopByChatRoom_IdOrderByIdDesc(room.getId())
-                    .map(ChatMessage::getId)
-                    .orElse(null);
-                p.resetUnreadCount(latestMessageId);
-            });
+        syncAndResetUnreadCount(room.getId(), memberId);
 
-        memberService.getMemberById(memberId).setRecentRoomId(room.getId()); //recentRoomId 업데이트
+        memberService.getMemberById(memberId).setRecentRoomId(room.getId());
 
         Long ownerId = findOwnerId(room.getId());
-
-        boolean alarmEnable = chatRoomAlarmRepository.findEnabledByMemberIdAndRoomId(
-            memberId, room.getId());
+        boolean alarmEnable = chatRoomAlarmRepository
+            .findEnabledByMemberIdAndRoomId(memberId, room.getId());
 
         return new EntryRoomResponse(room.getId(), room.getName(), ownerId, alarmEnable);
     }
@@ -308,18 +301,17 @@ public class ChatRoomService {
 
     @Transactional(readOnly = true)
     public List<AllRoomsResponse> findAllRoomsByMemberId(Long memberId) {
-        List<ChatRoom> chatRooms = chatRoomRepository.findAllRoomsByParticipantId(
-            memberId);
+        List<ChatRoom> chatRooms = chatRoomRepository.findAllRoomsByParticipantId(memberId);
 
         List<Long> roomIds = chatRooms.stream()
             .map(ChatRoom::getId)
             .toList();
 
-        //알림 상태 map
-        Map<Long, Boolean> alarmEnabledMap = chatRoomAlarmRepository.findEnabledMap(memberId,
-            roomIds);
+        Map<Long, Boolean> alarmEnabledMap = chatRoomAlarmRepository
+            .findEnabledMap(memberId, roomIds);
 
-        Map<Long, Long> unreadCountMap = chatParticipantRepository
+        // DB unreadCount map (폴백용)
+        Map<Long, Long> dbUnreadCountMap = chatParticipantRepository
             .findAllByParticipantIdAndIsActiveTrue(memberId)
             .stream()
             .collect(Collectors.toMap(
@@ -330,24 +322,52 @@ public class ChatRoomService {
         return chatRooms.stream()
             .map(room -> {
                 boolean alarmEnabled = alarmEnabledMap.getOrDefault(room.getId(), true);
-                long unreadCount = unreadCountMap.getOrDefault(room.getId(), 0L);
+                long unreadCount = getUnreadCount(room.getId(), memberId,
+                    dbUnreadCountMap.getOrDefault(room.getId(), 0L));
                 return new AllRoomsResponse(room.getId(), room.getInviteCode(), room.getName(),
                     alarmEnabled, unreadCount);
             }).toList();
     }
 
+    private long getUnreadCount(Long roomId, Long memberId, long dbFallback) {
+        try {
+            String redisValue = (String) redisTemplate.opsForValue()
+                .get("unread:" + roomId + ":" + memberId);
+            return redisValue != null ? Long.parseLong(redisValue) : dbFallback;
+        } catch (Exception e) {
+            log.warn("Redis GET 실패 - DB 폴백. roomId: {}, memberId: {}", roomId, memberId);
+            return dbFallback;
+        }
+    }
+
     @Transactional
-    public void incrementUnreadCountForOfflineMembers(Long roomId, Long senderId) {
+    public void incrementUnreadCount(Long roomId, Long senderId) {
         ChatRoom room = getRoomById(roomId);
         List<ChatParticipant> participants = chatParticipantRepository.findByChatRoom(room);
 
         participants.stream()
             .filter(p -> !p.getParticipant().getId().equals(senderId))
-            .forEach(ChatParticipant::incrementUnreadCount);
+            .forEach(p -> {
+                Long memberId = p.getParticipant().getId();
+                try {
+                    // Redis INCR
+                    redisTemplate.opsForValue()
+                        .increment("unread:" + roomId + ":" + memberId);
+                } catch (Exception e) {
+                    // Redis 장애 시 DB 폴백
+                    log.warn("Redis INCR 실패 - DB 폴백. roomId: {}, memberId: {}", roomId, memberId);
+                    p.incrementUnreadCount();
+                }
+            });
     }
 
     @Transactional
     public void markAsRead(Long roomId, Long memberId) {
+        syncAndResetUnreadCount(roomId, memberId);
+        log.info("Marked as read: {}", memberId);
+    }
+
+    private void syncAndResetUnreadCount(Long roomId, Long memberId) {
         chatParticipantRepository
             .findByChatRoomIdAndParticipantIdAndIsActiveTrue(roomId, memberId)
             .ifPresent(p -> {
@@ -355,8 +375,15 @@ public class ChatRoomService {
                     .findTopByChatRoom_IdOrderByIdDesc(roomId)
                     .map(ChatMessage::getId)
                     .orElse(null);
+
+                try {
+                    // Redis 값 삭제
+                    redisTemplate.delete("unread:" + roomId + ":" + memberId);
+                } catch (Exception e) {
+                    log.warn("Redis DELETE 실패. roomId: {}, memberId: {}", roomId, memberId);
+                }
+
                 p.resetUnreadCount(latestMessageId);
             });
-        log.info("Marked as read: {}", memberId);
     }
 }
