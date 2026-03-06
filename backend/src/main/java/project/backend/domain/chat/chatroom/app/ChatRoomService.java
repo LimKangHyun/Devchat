@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -360,7 +361,6 @@ public class ChatRoomService {
         Set<String> members = redisTemplate.opsForSet().members("room:members:" + roomId);
 
         if (members == null || members.isEmpty()) {
-            // Redis 캐시 미스 시 DB 조회 후 캐싱
             updateRoomMembersCache(roomId);
             members = redisTemplate.opsForSet().members("room:members:" + roomId);
         }
@@ -369,20 +369,18 @@ public class ChatRoomService {
             return;
         }
 
-        members.stream()
+        List<String> targetMembers = members.stream()
             .filter(memberId -> !memberId.equals(senderId.toString()))
-            .forEach(memberId -> {
-                try {
-                    redisTemplate.opsForValue()
-                        .increment("unread:" + roomId + ":" + memberId);
-                } catch (Exception e) {
-                    log.warn("Redis INCR 실패 - DB 폴백. roomId: {}, memberId: {}", roomId, memberId);
-                    chatParticipantRepository
-                        .findByChatRoomIdAndParticipantIdAndIsActiveTrue(roomId,
-                            Long.parseLong(memberId))
-                        .ifPresent(ChatParticipant::incrementUnreadCount);
-                }
+            .toList();
+
+        // Pipeline으로 한 번에 처리
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            targetMembers.forEach(memberId -> {
+                String key = "unread:" + roomId + ":" + memberId;
+                connection.stringCommands().incr(key.getBytes());
             });
+            return null;
+        });
     }
 
     @Transactional
