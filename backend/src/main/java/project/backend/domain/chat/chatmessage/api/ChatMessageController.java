@@ -8,10 +8,12 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,7 +25,6 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
-import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 
@@ -31,7 +32,6 @@ import project.backend.domain.imagefile.ImageFileService;
 @RequiredArgsConstructor
 public class ChatMessageController {
 
-    private final ChatRoomService chatRoomService;
     private final ImageFileService imageFileService;
     private final ChatMessageService chatMessageService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -39,14 +39,22 @@ public class ChatMessageController {
     @MessageMapping("/send-message/{roomId}") //클라이언트가 메세지를 보낼 경로
     public ChatMessageResponse sendMessage(@DestinationVariable Long roomId,
         @Payload ChatMessageRequest request, Principal principal) {
-        ChatMessageResponse response = chatMessageService.save(roomId, request,
-            principal.getName());
+
+        MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
+        Long memberId = userDetails.getId();
+        ChatMessageResponse response = chatMessageService.save(roomId, request, memberId);
 
         messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
 
-        chatRoomService.updateLastMessageId(roomId, response.getMessageId());
-
         return response;
+    }
+
+    @PostMapping("/chat-rooms/{roomId}/messages")
+    public ChatMessageResponse saveMessage(@PathVariable Long roomId,
+        @RequestBody ChatMessageRequest request, Principal principal) {
+        MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
+        Long memberId = userDetails.getId();
+        return chatMessageService.save(roomId, request, memberId);
     }
 
     @MessageMapping("/edit-message/{roomId}")
