@@ -37,16 +37,4 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
-
-    @Bean(name = "redisUpdateExecutor")
-    public Executor getRedisUpdateExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(5);
-        executor.setMaxPoolSize(20);
-        executor.setQueueCapacity(500);
-        executor.setThreadNamePrefix("RedisUpdate-");
-        executor.setRejectedExecutionHandler(rejectExecutionHandler);
-        executor.initialize();
-        return executor;
-    }
 }

@@ -1,5 +1,6 @@
 package project.backend.domain.chat.chatmessage.app;
 
+import jakarta.persistence.EntityManager;
 import jakarta.validation.Valid;
 import java.util.Comparator;
 import java.util.List;
@@ -8,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
@@ -26,6 +26,7 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
@@ -43,9 +44,8 @@ import project.backend.global.metric.TimeTrace;
 @RequiredArgsConstructor
 public class ChatMessageService {
 
-    private static final String ROOM_LAST_MESSAGE_KEY = "room:lastMessageId:";
-
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatRoomRedisRepository chatRoomRedisRepository;
     private final ChatMessageSearchRepository chatMessageSearchRepository;
 
     private final ChatRoomService chatRoomService;
@@ -53,18 +53,15 @@ public class ChatMessageService {
     private final ImageFileService imageFileService;
 
     private final ApplicationEventPublisher eventPublisher;
-    private final StringRedisTemplate redisTemplate;
 
+    private final EntityManager entityManager;
     private final ChatMessageMapper messageMapper;
 
     @Transactional
-    public ChatMessageResponse save(Long roomId, ChatMessageRequest request, String username) {
+    public ChatMessageResponse save(Long roomId, ChatMessageRequest request, Long id) {
 
-        Member sender = memberService.getMemberByUsername(username);
-
-        ChatRoom room = chatRoomService.getRoomById(roomId);
-
-        chatRoomService.validateParticipant(sender.getId(), roomId);
+        Member sender = entityManager.getReference(Member.class, id);
+        ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);
 
         ChatMessage message;
 
@@ -80,12 +77,7 @@ public class ChatMessageService {
 
         chatMessageRepository.save(message);
 
-        try {
-            redisTemplate.opsForValue()
-                .set(ROOM_LAST_MESSAGE_KEY + roomId, message.getId().toString());
-        } catch (Exception e) {
-            log.warn("Redis lastMessageId 갱신 실패. roomId: {}", roomId);
-        }
+        chatRoomRedisRepository.updateLastMessageId(roomId, message.getId());
 
         if (isSearchable(message)) {
             eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
