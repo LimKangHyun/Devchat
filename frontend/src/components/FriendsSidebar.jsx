@@ -65,7 +65,7 @@ const FriendsSidebar = ({ onStartChat }) => {
   }, [])
 
   useWebSocketNotifications({
-    username: currentUser?.username,
+    receiverId: currentUser?.id,
     onNotificationReceived: handleFriendNotification,
     // other props...
   })

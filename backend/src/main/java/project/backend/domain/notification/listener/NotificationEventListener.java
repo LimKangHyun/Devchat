@@ -25,22 +25,22 @@ public class NotificationEventListener {
 
 		switch (type) {
 			case FRIEND_REQUESTED -> {
-				log.info("친구 요청 알림: {} → {}", event.senderUsername(), event.receiverUsername());
+				log.info("친구 요청 알림: {} → {}", event.senderId(), event.receiverId());
 			}
 			case FRIEND_ACCEPTED -> {
-				log.info("친구 수락 알림: {} → {}", event.senderUsername(), event.receiverUsername());
+				log.info("친구 수락 알림: {} → {}", event.senderId(), event.receiverId());
 			}
 
 			case FRIEND_REJECTED -> {
-				log.info("친구 거절 알림: {} → {}", event.senderUsername(), event.receiverUsername());
+				log.info("친구 거절 알림: {} → {}", event.senderId(), event.receiverId());
 			}
 			case CODE_REVIEW -> {
-				log.warn("CODE_REVIEW 알림은 아직 지원되지 않음: {} → {}", event.senderUsername(),
-					event.receiverUsername());
+				log.warn("CODE_REVIEW 알림은 아직 지원되지 않음: {} → {}", event.senderId(),
+					event.receiverId());
 			}
 		}
 
-		simpMessagingTemplate.convertAndSend("/topic/notifications/" + event.receiverUsername(),
+		simpMessagingTemplate.convertAndSend("/topic/notifications/" + event.receiverId(),
 			event);
 	}
 

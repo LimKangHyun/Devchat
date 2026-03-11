@@ -4,9 +4,9 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${MYSQL_USERNAME}
-    password: ${MYSQL_PASSWORD}
-    url: jdbc:mysql://localhost:3306/FLYING_TRUCK_PROJECT
+    username: chat
+    password: 0218
+    url: jdbc:mysql://localhost:3306/devchat
 
   flyway:
     enabled: false
@@ -19,7 +19,7 @@ spring:
       max-request-size: 10MB
 
   profiles:
-    active: prod
+    active: dev
 
   data:
     redis:
@@ -31,8 +31,8 @@ spring:
       client:
         registration:
           github:
-            client-id: ${GITHUB_CLIENT_ID}
-            client-secret: ${GITHUB_SECRET}
+            client-id: Ov23liGeyq42UqwWePKp
+            client-secret: 3dd1f3e58f3e9691b95dfb901f5f3d74412eabca
             scope:
               - repo
               - admin:repo_hook
@@ -42,7 +42,7 @@ spring:
             user-name-attribute: login
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     properties:
       hibernate:
         show_sql: true

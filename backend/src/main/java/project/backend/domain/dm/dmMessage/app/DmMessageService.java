@@ -37,13 +37,13 @@ public class DmMessageService {
 		DmMessage dmMessage = new DmMessage(room, sender, request.content(), request.type());
 
 		NotificationDto notificationDto = NotificationDto.ofDmMessage(dmMessage,
-			request.receiverUsername());
+			request.receiverId());
 
 		DmMessageResponse response = DmMessageResponse.from(dmMessageRepository.save(dmMessage));
 		messagingTemplate.convertAndSend("/topic/dm/" + roomId, response);
 
 		messagingTemplate.convertAndSend(
-			"/topic/notifications/" + notificationDto.receiverUsername(),
+			"/topic/notifications/" + notificationDto.receiverId(),
 			notificationDto);
 		return response;
 	}

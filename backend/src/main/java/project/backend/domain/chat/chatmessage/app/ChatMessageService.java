@@ -66,10 +66,10 @@ public class ChatMessageService {
         ChatMessage message;
 
         switch (request.getType()) {
-            case IMAGE -> {
-                ImageFile findImage = imageFileService.getImageById(request.getImageFileId());
-                message = messageMapper.toEntityWithImage(room, sender, findImage);
-            }
+//            case IMAGE -> {
+//                ImageFile findImage = imageFileService.getImageById(request.getImageFileId());
+//                message = messageMapper.toEntityWithImage(room, sender, findImage);
+//            }
             case TEXT -> message = messageMapper.toEntityWithText(room, sender, request);
             case CODE -> message = messageMapper.toEntityWithCode(room, sender, request);
             default -> throw new ChatMessageException(ChatMessageErrorCode.INVALID_ROUTE);

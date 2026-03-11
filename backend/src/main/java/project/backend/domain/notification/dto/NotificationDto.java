@@ -9,8 +9,8 @@ public record NotificationDto(
 	Long notificationId,
 	Boolean isRead,
 	NotificationType type,
-	String receiverUsername,
-	String senderUsername,
+	Long receiverId,
+	Long senderId,
 	String senderNickname,
 	String senderImg,
 	String content,
@@ -24,8 +24,8 @@ public record NotificationDto(
 			notification.getId(),
 			notification.isRead(),
 			notification.getType(),
-			notification.getReceiver().getUsername(),
-			notification.getSender().getUsername(),
+			notification.getReceiver().getId(),
+			notification.getSender().getId(),
 			notification.getSender().getNickname(),
 			notification.getSender().getProfileImage(),
 			getContentByType(notification.getSender().getNickname(), notification.getType()),
@@ -34,13 +34,13 @@ public record NotificationDto(
 		);
 	}
 
-	public static NotificationDto ofDmMessage(DmMessage dmMessage, String receiverUsername) {
+	public static NotificationDto ofDmMessage(DmMessage dmMessage, Long receiverId) {
 		return new NotificationDto(
 			null,
 			null,
 			NotificationType.NEW_DM,
-			receiverUsername,
-			dmMessage.getSender().getUsername(),
+			receiverId,
+			dmMessage.getSender().getId(),
 			dmMessage.getSender().getNickname(),
 			dmMessage.getSender().getProfileImage(),
 			dmMessage.getContent(),

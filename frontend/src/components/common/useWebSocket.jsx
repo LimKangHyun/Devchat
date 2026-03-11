@@ -7,7 +7,7 @@ import { safeRefreshToken } from "../api/refreshManager"
 
 const useWebSocket = ({
   roomId,
-  username,
+  receiverId,
   onMessageReceived,
   onNotificationReceived,
   chatRooms = [],
@@ -63,13 +63,13 @@ const useWebSocket = ({
         }
 
         // Notification 구독
-        if (username && onNotificationReceived) {
+        if (receiverId && onNotificationReceived) {
           if (notificationSubscriptionRef.current) {
             notificationSubscriptionRef.current.unsubscribe()
             console.log("🔁 Previous notification subscription cleared.")
           }
 
-          notificationSubscriptionRef.current = client.subscribe(`/topic/notifications/${username}`, (message) => {
+          notificationSubscriptionRef.current = client.subscribe(`/topic/notifications/${receiverId}`, (message) => {
             try {
               const notification = JSON.parse(message.body)
               notification.timestamp = new Date().toISOString()
@@ -83,7 +83,7 @@ const useWebSocket = ({
             }
           })
 
-          console.log(`🔔 Subscribed to notifications for user: ${username}`)
+          console.log(`🔔 Subscribed to notifications for user: ${receiverId}`)
         }
 
 
@@ -232,7 +232,7 @@ const useWebSocket = ({
         })
       }
     }
-  }, [currentRoomId, navigate, onProfileUpdate, roomId, username, onNotificationReceived])
+  }, [currentRoomId, navigate, onProfileUpdate, roomId, receiverId, onNotificationReceived])
 
   useEffect(() => {
     const client = stompClientRef.current
