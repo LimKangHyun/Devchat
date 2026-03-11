@@ -17,7 +17,7 @@ const CommunityEdit = () => {
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        const res = await axiosInstance.get(`/community/posts/${postId}`);
+        const res = await axiosInstance.get(`/community/${postId}`);
         const post = res.data;
         setForm({
           title: post.title,

@@ -106,10 +106,10 @@ public class ChatMessageController {
         return response;
     }
 
-//    @PostMapping("/send-image")
-//    public Long uploadImage(@RequestParam MultipartFile image) {
-//        ImageFile imageFile = imageFileService.saveChatImage(image);
-//        return imageFile.getImageId();
-//    }
+    @PostMapping("/send-image")
+    public Long uploadImage(@RequestParam MultipartFile image) {
+        ImageFile imageFile = imageFileService.saveChatImage(image);
+        return imageFile.getImageId();
+    }
 
 }

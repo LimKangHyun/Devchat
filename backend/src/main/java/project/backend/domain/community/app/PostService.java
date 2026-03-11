@@ -50,8 +50,8 @@ public class PostService {
     public Slice<PostResponse> getPosts(String sort, int page, int size) {
         PageRequest pageable = PageRequest.of(page, size);
         Slice<Post> posts = sort.equals("hot")
-                ? postRepository.findAllByOrderByViewCountDesc(pageable)
-                : postRepository.findAllByOrderByCreatedAtDesc(pageable);
+            ? postRepository.findAllByOrderByViewCountDesc(pageable)
+            : postRepository.findAllByOrderByCreatedAtDesc(pageable);
         return posts.map(PostResponse::from);
     }
 
@@ -59,7 +59,7 @@ public class PostService {
     @Transactional
     public PostResponse getPost(Long postId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
+            .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
         post.incrementViewCount();
         return PostResponse.from(post);
     }
@@ -69,31 +69,33 @@ public class PostService {
     public PostResponse createPost(PostCreateRequest request, MemberDetails memberDetails) {
         Member author = Member.of(memberDetails);
         ChatRoom chatRoom = chatRoomRepository.findById(request.getChatRoomId())
-                .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND)); // ChatRoom용 에러코드로 교체
+            .orElseThrow(
+                () -> new PostException(PostErrorCode.POST_NOT_FOUND)); // ChatRoom용 에러코드로 교체
 
         Post post = Post.builder()
-                .title(request.getTitle())
-                .content(request.getContent())
-                .maxCount(request.getMaxCount())
-                .tag(request.getTag())
-                .mode(request.getMode())
-                .deadline(request.getDeadline())
-                .techStacks(request.getTechStacks() != null
-                        ? String.join(",", request.getTechStacks())
-                        : null)
-                .author(author)
-                .chatRoom(chatRoom)
-                .createdAt(LocalDateTime.now())
-                .build();
+            .title(request.getTitle())
+            .content(request.getContent())
+            .maxCount(request.getMaxCount())
+            .tag(request.getTag())
+            .mode(request.getMode())
+            .deadline(request.getDeadline())
+            .techStacks(request.getTechStacks() != null
+                ? String.join(",", request.getTechStacks())
+                : null)
+            .author(author)
+            .chatRoom(chatRoom)
+            .createdAt(LocalDateTime.now())
+            .build();
 
         return PostResponse.from(postRepository.save(post));
     }
 
     // 게시글 수정
     @Transactional
-    public PostResponse updatePost(Long postId, PostUpdateRequest request, MemberDetails memberDetails) {
+    public PostResponse updatePost(Long postId, PostUpdateRequest request,
+        MemberDetails memberDetails) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
+            .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
 
         if (!post.getAuthor().getId().equals(memberDetails.getId())) {
             throw new PostException(PostErrorCode.POST_FORBIDDEN);
@@ -106,26 +108,43 @@ public class PostService {
         }
 
         post.update(
-                request.getTitle(),
-                request.getContent(),
-                request.getMaxCount(),
-                request.getTag(),
-                request.getMode(),
-                request.getDeadline(),
-                request.getTechStacks() != null ? String.join(",", request.getTechStacks()) : null
+            request.getTitle(),
+            request.getContent(),
+            request.getMaxCount(),
+            request.getTag(),
+            request.getMode(),
+            request.getDeadline(),
+            request.getTechStacks() != null ? String.join(",", request.getTechStacks()) : null
         );
 
         return PostResponse.from(post);
+    }
+
+    // 게시글 삭제
+    @Transactional
+    public void deletePost(Long postId, MemberDetails memberDetails) {
+        Post post = postRepository.findById(postId)
+            .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
+
+        if (!post.getAuthor().getId().equals(memberDetails.getId())) {
+            throw new PostException(PostErrorCode.POST_FORBIDDEN);
+        }
+
+        postRepository.delete(post);
     }
 
     // 스터디 신청
     @Transactional
     public void apply(Long postId, MemberDetails memberDetails) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
+            .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
 
-        if (post.isClosed()) throw new PostException(PostErrorCode.POST_ALREADY_CLOSED);
-        if (post.isFull()) throw new PostException(PostErrorCode.POST_ALREADY_FULL);
+        if (post.isClosed()) {
+            throw new PostException(PostErrorCode.POST_ALREADY_CLOSED);
+        }
+        if (post.isFull()) {
+            throw new PostException(PostErrorCode.POST_ALREADY_FULL);
+        }
 
         Member member = Member.of(memberDetails);
 
@@ -142,16 +161,16 @@ public class PostService {
     // 신청자 목록 조회 (방장만)
     public List<ApplicantResponse> getApplicants(Long postId, MemberDetails memberDetails) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
+            .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
 
         if (!post.getAuthor().getId().equals(memberDetails.getId())) {
             throw new PostException(PostErrorCode.POST_FORBIDDEN);
         }
 
         return applicantRepository.findByPost_IdAndStatus(postId, ApplicantStatus.PENDING)
-                .stream()
-                .map(ApplicantResponse::from)
-                .toList();
+            .stream()
+            .map(ApplicantResponse::from)
+            .toList();
     }
 
     @Transactional
@@ -161,20 +180,25 @@ public class PostService {
 
         applicant.approve();
         post.incrementCurrentCount();
-        if (post.isFull()) post.close();
+        if (post.isFull()) {
+            post.close();
+        }
 
-        ChatParticipant chatParticipant = ChatParticipant.of(applicant.getMember(), post.getChatRoom());
+        ChatParticipant chatParticipant = ChatParticipant.of(applicant.getMember(),
+            post.getChatRoom());
         chatParticipantRepository.save(chatParticipant);
 
         chatRoomService.createAlarm(applicant.getMember().getId(), post.getChatRoom().getId());
 
-        ChatMessage message = chatMessageMapper.toEntityWithJoinEvent(post.getChatRoom(), applicant.getMember(),
-                LocalDateTime.now());
+        ChatMessage message = chatMessageMapper.toEntityWithJoinEvent(post.getChatRoom(),
+            applicant.getMember(),
+            LocalDateTime.now());
         ChatMessage savedMessage = chatMessageRepository.save(message);
 
         eventPublisher.publishEvent(
-                new JoinChatRoomEvent(post.getChatRoom().getId(), applicant.getMember().getId(), applicant.getMember().getNickname(),
-                        savedMessage.getId(), savedMessage.getSendAt()));
+            new JoinChatRoomEvent(post.getChatRoom().getId(), applicant.getMember().getId(),
+                applicant.getMember().getNickname(),
+                savedMessage.getId(), savedMessage.getSendAt()));
     }
 
     @Transactional
@@ -185,7 +209,7 @@ public class PostService {
 
     private Post getPostAndValidateOwner(Long postId, MemberDetails memberDetails) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
+            .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
         if (!post.getAuthor().getId().equals(memberDetails.getId())) {
             throw new PostException(PostErrorCode.POST_FORBIDDEN);
         }
@@ -194,6 +218,6 @@ public class PostService {
 
     private Applicant getApplicant(Long applicantId) {
         return applicantRepository.findById(applicantId)
-                .orElseThrow(() -> new PostException(PostErrorCode.APPLICANT_NOT_FOUND));
+            .orElseThrow(() -> new PostException(PostErrorCode.APPLICANT_NOT_FOUND));
     }
 }

@@ -27,14 +27,14 @@ public class MemberController {
         return memberService.getMemberDetails(authentication);
     }
 
-//    @PutMapping(value = "/info", consumes = "multipart/form-data")
-//    public MemberResponse updateMemberInfo(
-//        Authentication authentication,
-//        @RequestPart("request") @Valid MemberInfoUpdateRequest request,
-//        @RequestPart(value = "profileImage", required = false) MultipartFile profileImg
-//    ) {
-//        return memberService.updateMemberInfo(authentication, request, profileImg);
-//    }
+    @PutMapping(value = "/info", consumes = "multipart/form-data")
+    public MemberResponse updateMemberInfo(
+        Authentication authentication,
+        @RequestPart("request") @Valid MemberInfoUpdateRequest request,
+        @RequestPart(value = "profileImage", required = false) MultipartFile profileImg
+    ) {
+        return memberService.updateMemberInfo(authentication, request, profileImg);
+    }
 
     @PutMapping("/password")
     public void updatePassword(Authentication authentication,

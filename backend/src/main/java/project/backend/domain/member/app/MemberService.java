@@ -62,33 +62,33 @@ public class MemberService {
         return MemberMapper.toResponse(newMember);
     }
 
-//    public MemberResponse updateMemberInfo(Authentication auth, MemberInfoUpdateRequest request,
-//        MultipartFile file) {
-//        MemberDetails memberDetails = checkAuthentication(auth);
-//        Member targetMember = getMemberById(memberDetails.getId());
-//
-//        doUpdateMemberInfo(targetMember, request, file);
-//
-//        eventPublisher.publishEvent(ProfileUpdateEvent.of(targetMember));
-//
-//        return MemberMapper.toResponse(targetMember);
-//    }
+    public MemberResponse updateMemberInfo(Authentication auth, MemberInfoUpdateRequest request,
+        MultipartFile file) {
+        MemberDetails memberDetails = checkAuthentication(auth);
+        Member targetMember = getMemberById(memberDetails.getId());
 
-//    private void doUpdateMemberInfo(Member targetMember, MemberInfoUpdateRequest request,
-//        MultipartFile file) {
-//        if (request.getNickname() != null) {
-//            targetMember.updateNickname(request.getNickname());
-//        }
-//
-//        if (request.getEmail() != null) {
-//            targetMember.updateEmail(request.getEmail());
-//        }
-//
-//        if (file != null) {
-//            String profileImage = imageFileService.saveProfileImage(file);
-//            targetMember.updateProfileImage(profileImage);
-//        }
-//    }
+        doUpdateMemberInfo(targetMember, request, file);
+
+        eventPublisher.publishEvent(ProfileUpdateEvent.of(targetMember));
+
+        return MemberMapper.toResponse(targetMember);
+    }
+
+    private void doUpdateMemberInfo(Member targetMember, MemberInfoUpdateRequest request,
+        MultipartFile file) {
+        if (request.getNickname() != null) {
+            targetMember.updateNickname(request.getNickname());
+        }
+
+        if (request.getEmail() != null) {
+            targetMember.updateEmail(request.getEmail());
+        }
+
+        if (file != null) {
+            String profileImage = imageFileService.saveProfileImage(file);
+            targetMember.updateProfileImage(profileImage);
+        }
+    }
 
     public void updatePassword(Authentication auth, PasswordChangeRequest request) {
         MemberDetails memberDetails = checkAuthentication(auth);
