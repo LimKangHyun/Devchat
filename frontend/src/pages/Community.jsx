@@ -7,7 +7,7 @@ const Community = () => {
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState('latest'); // 'latest' | 'hot'
+  const [filter, setFilter] = useState('hot'); // 'latest' | 'hot'
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -24,6 +24,15 @@ const Community = () => {
 
     fetchPosts();
   }, [filter]);
+
+  const getDaysLeft = (deadline) => {
+    if (!deadline) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(deadline);
+    end.setHours(0, 0, 0, 0);
+    return Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+  };
 
   return (
     <div className={styles.container}>
@@ -44,16 +53,16 @@ const Community = () => {
       {/* 필터 탭 */}
       <div className={styles.filterTabs}>
         <button
-          className={`${styles.filterTab} ${filter === 'latest' ? styles.filterTabActive : ''}`}
-          onClick={() => setFilter('latest')}
-        >
-          최신순
-        </button>
-        <button
           className={`${styles.filterTab} ${filter === 'hot' ? styles.filterTabActive : ''}`}
           onClick={() => setFilter('hot')}
         >
           🔥 인기순
+        </button>
+        <button
+          className={`${styles.filterTab} ${filter === 'latest' ? styles.filterTabActive : ''}`}
+          onClick={() => setFilter('latest')}
+        >
+          🆕 최신순
         </button>
       </div>
 
@@ -72,20 +81,27 @@ const Community = () => {
         </div>
       ) : (
         <div className={styles.postList}>
-          {posts.map((post) => (
+        {posts.map((post) => {
+          const daysLeft = getDaysLeft(post.deadline);
+          const isUrgent = !post.isClosed && daysLeft !== null && daysLeft <= 3 && daysLeft >= 0;
+
+          return (
             <div
               key={post.id}
-              className={styles.postCard}
+              className={`${styles.postCard} ${post.isClosed ? styles.postCardClosed : ''} ${isUrgent ? styles.postCardUrgent : ''}`}
               onClick={() => navigate(`/community/${post.id}`)}
             >
+              {post.isClosed && <div className={styles.closedOverlay} />}
+
               <div className={styles.postCardHeader}>
                 <div className={styles.postMeta}>
                   <span className={styles.postTag}>{post.tag || '스터디'}</span>
                   {post.isClosed && <span className={styles.closedTag}>마감</span>}
-                  {post.deadline && !post.isClosed && (
-                    <span className={styles.deadlineTag}>
-                      {post.deadline} 마감
-                    </span>
+                  {isUrgent && (
+                    <span className={styles.urgentTag}>🔥 D-{daysLeft}</span>
+                  )}
+                  {post.deadline && !post.isClosed && !isUrgent && (
+                    <span className={styles.deadlineTag}>{post.deadline} 마감</span>
                   )}
                 </div>
                 <span className={styles.viewCount}>👁 {post.viewCount ?? 0}</span>
@@ -115,7 +131,8 @@ const Community = () => {
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
     </div>

@@ -12,6 +12,7 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
@@ -22,6 +23,8 @@ import project.backend.domain.community.dto.ApplicantResponse;
 import project.backend.domain.community.dto.PostCreateRequest;
 import project.backend.domain.community.dto.PostResponse;
 import project.backend.domain.community.dto.PostUpdateRequest;
+import project.backend.domain.community.dto.event.ApplicantResultEvent;
+import project.backend.domain.community.dto.event.ApplyEvent;
 import project.backend.domain.community.entity.ApplicantStatus;
 import project.backend.domain.community.entity.Post;
 import project.backend.domain.community.entity.Applicant;
@@ -40,6 +43,7 @@ public class PostService {
     private final PostRepository postRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatRoomRedisRepository chatRoomRedisRepository;
     private final ChatParticipantRepository chatParticipantRepository;
     private final ApplicantRepository applicantRepository;
     private final ChatMessageMapper chatMessageMapper;
@@ -155,6 +159,15 @@ public class PostService {
             throw new PostException(PostErrorCode.ALREADY_APPLIED);
         }
 
+        eventPublisher.publishEvent(new ApplyEvent(
+            post.getAuthor().getId(),
+            post.getAuthor().getUsername(),
+            member.getId(),
+            member.getNickname(),
+            post.getId(),
+            post.getTitle()
+        ));
+
         applicantRepository.save(Applicant.of(post, member));
     }
 
@@ -188,6 +201,9 @@ public class PostService {
             post.getChatRoom());
         chatParticipantRepository.save(chatParticipant);
 
+        Long latestMessageId = chatRoomRedisRepository.getLastMessageId(post.getChatRoom().getId());
+        chatParticipant.resetUnreadCount(latestMessageId);
+
         chatRoomService.createAlarm(applicant.getMember().getId(), post.getChatRoom().getId());
 
         ChatMessage message = chatMessageMapper.toEntityWithJoinEvent(post.getChatRoom(),
@@ -199,12 +215,28 @@ public class PostService {
             new JoinChatRoomEvent(post.getChatRoom().getId(), applicant.getMember().getId(),
                 applicant.getMember().getNickname(),
                 savedMessage.getId(), savedMessage.getSendAt()));
+
+        eventPublisher.publishEvent(
+            new ApplicantResultEvent(applicant.getMember().getId(),
+                applicant.getMember().getUsername(),
+                post.getAuthor().getId(), post.getId(), post.getTitle(), true
+            ));
     }
 
     @Transactional
     public void reject(Long postId, Long applicantId, MemberDetails memberDetails) {
-        getPostAndValidateOwner(postId, memberDetails);
-        getApplicant(applicantId).reject();
+        Post post = getPostAndValidateOwner(postId, memberDetails);
+        Applicant applicant = getApplicant(applicantId);
+        applicant.reject();
+
+        eventPublisher.publishEvent(new ApplicantResultEvent(
+            applicant.getMember().getId(),
+            post.getAuthor().getUsername(),
+            post.getAuthor().getId(),
+            post.getId(),
+            post.getTitle(),
+            false
+        ));
     }
 
     private Post getPostAndValidateOwner(Long postId, MemberDetails memberDetails) {

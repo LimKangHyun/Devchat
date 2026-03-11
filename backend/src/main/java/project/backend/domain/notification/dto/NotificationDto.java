@@ -57,6 +57,9 @@ public record NotificationDto(
             case FRIEND_REJECTED -> senderNickname + "님이 친구요청을 거절했습니다.";
             case WE_ARE_FRIEND_NOW -> senderNickname + "님과 친구가 되었습니다.";
             case CODE_REVIEW -> senderNickname + "님이 코드 리뷰를 추가했습니다.";
+            case STUDY_APPLY -> senderNickname + "님이 스터디 참여를 신청했습니다.";
+            case STUDY_APPROVED -> senderNickname + "님의 스터디 신청이 승인됐습니다! 🎉";
+            case STUDY_REJECTED -> senderNickname + "님의 스터디 신청이 거절됐습니다.";
             default -> "딩동";
         };
     }

@@ -49,7 +49,7 @@ export function HeaderWithNotifications() {
   const notificationContentRef = useRef(null)
 
   // WebSocket notification handler
-  const handleNotificationReceived = useCallback(
+  const handleNotificationReceived = useCallback( 
     (notification) => {
       console.log("🔔 Processing new real-time notification:", notification)
 
@@ -165,6 +165,12 @@ export function HeaderWithNotifications() {
           return "🧪 코드 리뷰 알림이 있습니다."
         case "CHAT_MESSAGE":
           return `💬 ${notification.senderNickname} (${notification.roomName})`
+        case "STUDY_APPLY":
+          return "📬 새로운 스터디 신청이 도착했습니다!"
+        case "STUDY_APPROVED":
+          return "🎉 스터디 신청이 승인되었습니다!"
+        case "STUDY_REJECTED":
+          return "😢 스터디 신청이 거절되었습니다."
         default:
           return "🔔 DevChat 알림"
       }
@@ -241,6 +247,27 @@ export function HeaderWithNotifications() {
           icon: <User size={14} />,
           color: "#10b981", // Same as friend request for consistency, or choose a new one
           bgColor: "#ecfdf5",
+        }
+      case "STUDY_APPLY":
+        return {
+          label: "Study Apply",
+          icon: <User size={14} />,
+          color: "#2588F1",
+          bgColor: "#ebf4ff",
+        }
+      case "STUDY_APPROVED":
+        return {
+          label: "Study Approved",
+          icon: <Check size={14} />,
+          color: "#10b981",
+          bgColor: "#ecfdf5",
+        }
+      case "STUDY_REJECTED":
+        return {
+          label: "Study Rejected",
+          icon: <X size={14} />,
+          color: "#ef4444",
+          bgColor: "#fef2f2",
         }
       default: // This will catch 'NOTIFICATION' or any other types
         return {
@@ -401,6 +428,15 @@ export function HeaderWithNotifications() {
       case "CODE_REVIEW":
         window.location.href = `/code-review/${entityId}`
         break
+      case "STUDY_APPLY":
+        // 방장 → 신청자 관리 페이지로
+        window.location.href = `/community/${entityId}/applicants`
+        break
+      case "STUDY_APPROVED":
+      case "STUDY_REJECTED":
+        // 신청자 → 해당 게시글로
+        window.location.href = `/community/${entityId}`
+        break
       case "MESSAGE":
         console.log(
           "Header: 'MESSAGE' notification clicked for",
@@ -471,7 +507,7 @@ export function HeaderWithNotifications() {
 
     // Determine if this notification type should have a "mark as read" button
     // These types typically have direct navigation or specific actions rather than just "mark as read"
-    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", "CODE_REVIEW", "MESSAGE"]
+    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", "CODE_REVIEW", "MESSAGE", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"]
     const canMarkAsRead = !typesWithoutMarkAsReadButton.includes(notification.type) && !notification.isRead
 
     let actionElement = null
@@ -512,8 +548,8 @@ export function HeaderWithNotifications() {
           {markingAsReadId === notification.id ? <div className={styles.buttonSpinner}></div> : <Check size={16} />}
         </button>
       )
-    } else if (notification.type === "CODE_REVIEW" || notification.type === "MESSAGE") {
-      // Navigation for specific types if not a friend request and not eligible for mark as read
+    } else if (notification.type === "CODE_REVIEW" || notification.type === "MESSAGE"
+            || notification.type === "STUDY_APPLY" || notification.type === "STUDY_APPROVED" || notification.type === "STUDY_REJECTED") {
       actionElement = (
         <button
           className={styles.navigationButton}
