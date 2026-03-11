@@ -1,0 +1,239 @@
+.container {
+  padding: 40px;
+  min-height: 100vh;
+  background-color: #f7fafc;
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #eaedf0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  max-width: 780px;
+  height: fit-content;
+}
+
+/* 카드 헤더 */
+.cardHeader {
+  padding: 32px 40px 24px;
+  border-bottom: 1px solid #f0f4f8;
+  background: linear-gradient(135deg, #ebf4ff 0%, #f0f7ff 100%);
+  border-radius: 16px 16px 0 0;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 6px 0;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #718096;
+  margin: 0;
+}
+
+/* 폼 */
+.form {
+  padding: 32px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.required {
+  color: #e53e3e;
+}
+
+/* 한 줄 배치 */
+.row {
+  display: flex;
+  gap: 16px;
+}
+
+/* 입력 공통 */
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #2d3748;
+  background: #fafafa;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+  outline: none;
+  font-family: inherit;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: #2588F1;
+  box-shadow: 0 0 0 3px rgba(37, 136, 241, 0.1);
+  background: white;
+}
+
+.textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.charCount {
+  font-size: 12px;
+  color: #a0aec0;
+  text-align: right;
+  margin-top: -4px;
+}
+
+/* 기술 스택 칩 */
+.stackGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stackChip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #4a5568;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.stackChip:hover {
+  border-color: #2588F1;
+  color: #2588F1;
+}
+
+.stackChipActive {
+  background-color: #2588F1;
+  border-color: #2588F1;
+  color: white;
+}
+
+.stackChipActive:hover {
+  background-color: #1a6fd4;
+  color: white;
+}
+
+/* 버튼 영역 */
+.buttonRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f4f8;
+}
+
+.cancelButton {
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #718096;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cancelButton:hover {
+  background: #f7fafc;
+  color: #4a5568;
+}
+
+.submitButton {
+  padding: 10px 28px;
+  border-radius: 8px;
+  border: none;
+  background: #2588F1;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.submitButton:hover {
+  background: #1a6fd4;
+}
+
+.submitButton:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.previewToggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.toggle {
+  padding: 7px 18px;
+  border: none;
+  background: white;
+  color: #718096;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.toggle:hover {
+  background: #f7fafc;
+  color: #2d3748;
+}
+
+.toggleActive {
+  padding: 7px 18px;
+  border: none;
+  background: #2588F1;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.previewBox {
+  min-height: 200px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #fafafa;
+  font-size: 14px;
+  color: #2d3748;
+  line-height: 1.6;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+}
