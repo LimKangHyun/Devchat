@@ -321,3 +321,45 @@
 .backButton:hover {
   color: #2588F1;
 }
+
+.tableWrapper {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.thead {
+  background-color: #f7f8fa;
+}
+
+.th {
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #2d3748;
+  border: 1px solid #eaedf0;
+}
+
+.td {
+  padding: 10px 16px;
+  border: 1px solid #eaedf0;
+  color: #4a5568;
+}
+
+.tr:hover {
+  background-color: #f7f8fa;
+}
+
+.checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: #2588F1;
+  cursor: default;
+  margin-right: 6px;
+  vertical-align: middle;
+}
