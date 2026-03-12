@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../components/api/axiosInstance';
 import styles from './CommunityDetail.module.css';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const CommunityDetail = () => {
   const navigate = useNavigate();
@@ -16,7 +18,7 @@ const CommunityDetail = () => {
     const fetchData = async () => {
       try {
         const [postRes, userRes] = await Promise.all([
-          axiosInstance.get(`/community/${postId}`), 
+          axiosInstance.get(`/community/${postId}`),
           axiosInstance.get('/user/details'),
         ]);
         setPost(postRes.data);
@@ -146,9 +148,25 @@ const CommunityDetail = () => {
 
         {/* 본문 */}
         <div className={styles.content}>
-          {(post.content ?? '').split('\n').map((line, i) => (
-            <p key={i}>{line || <br />}</p>
-          ))}
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                  table: ({node, ...props}) => (
+                      <div className={styles.tableWrapper}>
+                          <table className={styles.table} {...props} />
+                      </div>
+                  ),
+                  thead: ({node, ...props}) => <thead className={styles.thead} {...props} />,
+                  th: ({node, ...props}) => <th className={styles.th} {...props} />,
+                  td: ({node, ...props}) => <td className={styles.td} {...props} />,
+                  tr: ({node, ...props}) => <tr className={styles.tr} {...props} />,
+                  input: ({node, ...props}) => (
+                      <input className={styles.checkbox} {...props} readOnly />
+                  ),
+              }}
+          >
+              {post.content ?? ""}
+          </ReactMarkdown>
         </div>
 
         {/* 신청 버튼 */}
