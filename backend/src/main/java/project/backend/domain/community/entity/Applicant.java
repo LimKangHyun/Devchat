@@ -3,6 +3,8 @@ package project.backend.domain.community.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import project.backend.domain.member.entity.Member;
+import project.backend.global.exception.errorcode.PostErrorCode;
+import project.backend.global.exception.ex.PostException;
 
 import java.time.LocalDateTime;
 
@@ -30,6 +32,8 @@ public class Applicant {
 
     private LocalDateTime appliedAt = LocalDateTime.now();
 
+    private LocalDateTime rejectedAt;
+
     public static Applicant of(Post post, Member member) {
         Applicant applicant = new Applicant();
         applicant.post = post;
@@ -43,6 +47,7 @@ public class Applicant {
 
     public void reject() {
         this.status = ApplicantStatus.REJECTED;
+        this.rejectedAt = LocalDateTime.now();
     }
 
     public String getMemberNickname() {
@@ -51,5 +56,14 @@ public class Applicant {
 
     public String getProfileImage() {
         return member.getProfileImage();
+    }
+
+    public void validateReapply() {
+        if (this.status != ApplicantStatus.REJECTED) {
+            throw new PostException(PostErrorCode.ALREADY_APPLIED);
+        }
+        if (this.rejectedAt.isAfter(LocalDateTime.now().minusHours(24))) {
+            throw new PostException(PostErrorCode.APPLY_TOO_SOON);
+        }
     }
 }

@@ -14,7 +14,6 @@ import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
-import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.community.dao.ApplicantRepository;
@@ -23,17 +22,21 @@ import project.backend.domain.community.dto.ApplicantResponse;
 import project.backend.domain.community.dto.PostCreateRequest;
 import project.backend.domain.community.dto.PostResponse;
 import project.backend.domain.community.dto.PostUpdateRequest;
-import project.backend.domain.community.dto.event.ApplicantResultEvent;
-import project.backend.domain.community.dto.event.ApplyEvent;
 import project.backend.domain.community.entity.ApplicantStatus;
 import project.backend.domain.community.entity.Post;
 import project.backend.domain.community.entity.Applicant;
+import project.backend.domain.community.mapper.CommunityMapper;
 import project.backend.domain.member.entity.Member;
+import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.errorcode.PostErrorCode;
+import project.backend.global.exception.ex.ChatRoomException;
 import project.backend.global.exception.ex.PostException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import static project.backend.domain.community.mapper.CommunityMapper.*;
 
 @Service
 @RequiredArgsConstructor
@@ -50,12 +53,32 @@ public class PostService {
     private final ApplicationEventPublisher eventPublisher;
     private final ChatRoomService chatRoomService;
 
-    // 게시글 목록 조회
-    public Slice<PostResponse> getPosts(String sort, int page, int size) {
+    public Slice<PostResponse> getPosts(String sort, boolean activeOnly, boolean myApplied,
+                                        int page, int size, MemberDetails memberDetails) {
+
         PageRequest pageable = PageRequest.of(page, size);
-        Slice<Post> posts = sort.equals("hot")
-            ? postRepository.findAllByOrderByViewCountDesc(pageable)
-            : postRepository.findAllByOrderByCreatedAtDesc(pageable);
+
+        if (myApplied) {
+            if (memberDetails == null) {
+                throw new PostException(PostErrorCode.POST_FORBIDDEN);
+            }
+            return postRepository
+                    .findAppliedByMember(memberDetails.getId(), pageable)
+                    .map(PostResponse::from);
+        }
+
+        Slice<Post> posts;
+        if (activeOnly) {
+            LocalDate today = LocalDate.now();
+            posts = sort.equals("hot")
+                    ? postRepository.findActiveByOrderByViewCountDesc(pageable, today)
+                    : postRepository.findActiveByOrderByCreatedAtDesc(pageable, today);
+        } else {
+            posts = sort.equals("hot")
+                    ? postRepository.findAllByOrderByViewCountDesc(pageable)
+                    : postRepository.findAllByOrderByCreatedAtDesc(pageable);
+        }
+
         return posts.map(PostResponse::from);
     }
 
@@ -72,26 +95,16 @@ public class PostService {
     @Transactional
     public PostResponse createPost(PostCreateRequest request, MemberDetails memberDetails) {
         Member author = Member.of(memberDetails);
+
+        if (postRepository.existsByChatRoom_Id(request.getChatRoomId())) {
+            throw new PostException(PostErrorCode.CHATROOM_ALREADY_HAS_POST);
+        }
+
         ChatRoom chatRoom = chatRoomRepository.findById(request.getChatRoomId())
             .orElseThrow(
-                () -> new PostException(PostErrorCode.POST_NOT_FOUND)); // ChatRoom용 에러코드로 교체
+                () -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 
-        Post post = Post.builder()
-            .title(request.getTitle())
-            .content(request.getContent())
-            .maxCount(request.getMaxCount())
-            .tag(request.getTag())
-            .mode(request.getMode())
-            .deadline(request.getDeadline())
-            .techStacks(request.getTechStacks() != null
-                ? String.join(",", request.getTechStacks())
-                : null)
-            .author(author)
-            .chatRoom(chatRoom)
-            .createdAt(LocalDateTime.now())
-            .build();
-
-        return PostResponse.from(postRepository.save(post));
+        return PostResponse.from(postRepository.save(CommunityMapper.toPost(request, author, chatRoom)));
     }
 
     // 게시글 수정
@@ -155,18 +168,13 @@ public class PostService {
         if (post.getAuthor().getId().equals(member.getId())) {
             throw new PostException(PostErrorCode.CANNOT_APPLY_OWN_POST);
         }
-        if (applicantRepository.existsByPost_IdAndMember_Id(postId, member.getId())) {
-            throw new PostException(PostErrorCode.ALREADY_APPLIED);
-        }
+        applicantRepository.findByPost_IdAndMember_Id(postId, member.getId())
+                .ifPresent(existing -> {
+                    existing.validateReapply();
+                    applicantRepository.delete(existing);
+                });
 
-        eventPublisher.publishEvent(new ApplyEvent(
-            post.getAuthor().getId(),
-            post.getAuthor().getUsername(),
-            member.getId(),
-            member.getNickname(),
-            post.getId(),
-            post.getTitle()
-        ));
+        eventPublisher.publishEvent(CommunityMapper.toApplyEvent(post, member));
 
         applicantRepository.save(Applicant.of(post, member));
     }
@@ -211,16 +219,8 @@ public class PostService {
             LocalDateTime.now());
         ChatMessage savedMessage = chatMessageRepository.save(message);
 
-        eventPublisher.publishEvent(
-            new JoinChatRoomEvent(post.getChatRoom().getId(), applicant.getMember().getId(),
-                applicant.getMember().getNickname(),
-                savedMessage.getId(), savedMessage.getSendAt()));
-
-        eventPublisher.publishEvent(
-            new ApplicantResultEvent(applicant.getMember().getId(),
-                applicant.getMember().getUsername(),
-                post.getAuthor().getId(), post.getId(), post.getTitle(), true
-            ));
+        eventPublisher.publishEvent(toJoinChatRoomEvent(post, applicant.getMember(), savedMessage));
+        eventPublisher.publishEvent(toApplicantResultEvent(post, applicant, true));
     }
 
     @Transactional
@@ -229,14 +229,7 @@ public class PostService {
         Applicant applicant = getApplicant(applicantId);
         applicant.reject();
 
-        eventPublisher.publishEvent(new ApplicantResultEvent(
-            applicant.getMember().getId(),
-            post.getAuthor().getUsername(),
-            post.getAuthor().getId(),
-            post.getId(),
-            post.getTitle(),
-            false
-        ));
+        eventPublisher.publishEvent(CommunityMapper.toApplicantResultEvent(post, applicant, false));
     }
 
     private Post getPostAndValidateOwner(Long postId, MemberDetails memberDetails) {

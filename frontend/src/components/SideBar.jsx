@@ -33,6 +33,7 @@ const Sidebar = ({ onStartChat }) => {
   const [showJoinModal, setShowJoinModal] = useState(false)
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
+  const [roomsReady, setRoomsReady] = useState(false)
 
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState("")
@@ -144,8 +145,9 @@ const Sidebar = ({ onStartChat }) => {
 
       setAlarmRooms(rooms)
 
-      // 최신 데이터 캐시 저장
+      // 최신 데이터 캐시 저장s
       localStorage.setItem(CACHE_KEY, JSON.stringify(rooms))
+      setRoomsReady(true)
     } catch (e) {
       console.error('채팅방 목록 로딩 실패', e)
     } finally {
@@ -361,7 +363,7 @@ const Sidebar = ({ onStartChat }) => {
       <div ref={sidebarRef} className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
           <h3 className={styles.sidebarTitle}>
-            {activeTab === "chat" ? "Chat Rooms" : "Friends"}
+            {activeTab === "chat" ? "채팅방" : "친구"}
           </h3>
 
           <div className={styles.tabNav}>

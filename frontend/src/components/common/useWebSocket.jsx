@@ -33,7 +33,6 @@ const useWebSocket = ({
   useEffect(() => {
     const client = new Client({
       webSocketFactory: () => new WebSocket(process.env.REACT_APP_WEB_SOCKET_URL),
-      reconnectDelay: 1000,
       heartbeatIncoming: 15000,
       heartbeatOutgoing: 10000,
       withCredentials: true,
@@ -171,8 +170,10 @@ const useWebSocket = ({
 
       onWebSocketClose: async () => {
           console.warn('🛑 WebSocket 끊김 → 토큰 갱신 시도');
+          client.deactivate();
           try{
               await safeRefreshToken(); // 중복 요청 방지됨
+              client.activate();
           } catch(err){
               console.error('❌ 토큰 갱신 실패 → 로그인 페이지로 이동');
               navigate('/login');

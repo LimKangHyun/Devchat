@@ -421,8 +421,19 @@ export function HeaderWithNotifications() {
   }
 
   // Handle navigation for non-friend-request notifications
-  const handleNotificationNavigation = (notification) => {
+  const handleNotificationNavigation = async (notification) => {
     // For these types, referenceId usually points to the entity (e.g., code review ID, chat ID)
+    if (!notification.isRead && notification.id) {
+      try {
+        await axiosInstance.post(`/notification/read/${notification.id}`)
+        setApiNotifications((prev) =>
+          prev.map((n) => (n.id === notification.id ? { ...n, isRead: true, isNew: false } : n))
+        )
+        setUnreadNotificationCount((prev) => Math.max(0, prev - 1))
+      } catch (err) {
+        console.error("읽음 처리 실패:", err)
+      }
+    }
     const entityId = notification.referenceId
     switch (notification.type) {
       case "CODE_REVIEW":

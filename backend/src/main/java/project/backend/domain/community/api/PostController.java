@@ -24,12 +24,15 @@ public class PostController {
 
     // 게시글 목록 조회
     @GetMapping
-    public ResponseEntity<Slice<PostResponse>> getPosts(
-        @RequestParam(defaultValue = "latest") String sort,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "12") int size
+    public ResponseEntity<?> getPosts(
+            @RequestParam(defaultValue = "hot") String sort,
+            @RequestParam(defaultValue = "false") boolean activeOnly,
+            @RequestParam(defaultValue = "false") boolean myApplied,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal MemberDetails memberDetails
     ) {
-        return ResponseEntity.ok(postService.getPosts(sort, page, size));
+        return ResponseEntity.ok(postService.getPosts(sort, activeOnly, myApplied, page, size, memberDetails));
     }
 
     // 게시글 상세 조회

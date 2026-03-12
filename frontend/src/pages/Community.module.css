@@ -3,8 +3,8 @@
   width: 100%;
   max-width: 100%;
   margin: 0 auto;
-  background-color: #ffffff;  
-  min-height: 100vh;          
+  background-color: #ffffff;
+  min-height: 100vh;
 }
 
 /* 페이지 헤더 */
@@ -13,6 +13,11 @@
   justify-content: space-between;
   align-items: flex-end;
   margin-bottom: 24px;
+}
+
+.pageHeaderLeft {
+  display: flex;
+  flex-direction: column;
 }
 
 .pageTitle {
@@ -45,13 +50,20 @@
   background-color: #1a6fd4;
 }
 
-/* 필터 탭 */
-.filterTabs {
+/* 필터 영역 전체 행 */
+.filterRow {
   display: flex;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
   border-bottom: 1px solid #eaedf0;
   padding-bottom: 12px;
+}
+
+/* 정렬 탭 */
+.filterTabs {
+  display: flex;
+  gap: 8px;
 }
 
 .filterTab {
@@ -77,6 +89,80 @@
   font-weight: 600;
 }
 
+/* 내 신청 보기 활성화 중엔 정렬 탭 흐리게 */
+.filterTabDisabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* 우측 토글 묶음 */
+.toggleGroup {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 공통 토글 버튼 */
+.activeOnlyToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #a0aec0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.activeOnlyToggle:hover {
+  border-color: #2588F1;
+  color: #2588F1;
+}
+
+/* 모집중만 보기 - 활성 (파랑) */
+.activeOnlyToggleOn {
+  background-color: #ebf4ff;
+  border-color: #2588F1;
+  color: #2588F1;
+  font-weight: 600;
+}
+
+/* 내 신청 보기 - 활성 (보라) */
+.myAppliedToggleOn {
+  background-color: #f3f0ff;
+  border-color: #7c3aed;
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.myAppliedToggleOn:hover {
+  border-color: #7c3aed;
+  color: #7c3aed;
+}
+
+/* dot */
+.activeOnlyDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #cbd5e0;
+  transition: background-color 0.15s;
+  flex-shrink: 0;
+}
+
+.activeOnlyToggleOn .activeOnlyDot {
+  background-color: #2588F1;
+}
+
+.myAppliedDot {
+  background-color: #7c3aed !important;
+}
+
 /* 게시글 목록 */
 .postList {
   display: grid;
@@ -96,6 +182,8 @@
   flex-direction: column;
   justify-content: space-between;
   min-height: 200px;
+  position: relative;
+  overflow: hidden;
 }
 
 .postCard:hover {
@@ -114,20 +202,12 @@
   display: flex;
   gap: 6px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .postTag {
   background-color: #ebf4ff;
   color: #2588F1;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 10px;
-  border-radius: 20px;
-}
-
-.closedTag {
-  background-color: #fed7d7;
-  color: #c53030;
   font-size: 12px;
   font-weight: 600;
   padding: 2px 10px;
@@ -224,21 +304,7 @@
   margin: 0;
 }
 
-.postCard {
-  background: white;
-  border: 1px solid #eaedf0;
-  border-radius: 10px;
-  padding: 20px 24px;
-  cursor: pointer;
-  transition: box-shadow 0.15s, border-color 0.15s;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 200px;
-  position: relative;
-  overflow: hidden;
-}
-
+/* 마감 카드 (정원/수동) */
 .postCardClosed {
   background-color: #f7f8fa;
 }
@@ -292,4 +358,37 @@
   padding: 2px 10px;
   border-radius: 20px;
   border: 1px solid #fed7aa;
+}
+
+/* 기간 마감 카드 */
+.postCardExpired {
+  opacity: 0.75;
+}
+
+.expiredOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(220, 50, 50, 0.06);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.expiredTag {
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+
+/* 승인 대기중 뱃지 */
+.pendingTag {
+  background-color: #f3f0ff;
+  color: #7c3aed;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+  border: 1px solid #ddd6fe;
 }
