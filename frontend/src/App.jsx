@@ -2,6 +2,11 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import ChatRoom from './pages/ChatRoom';
+import Community from './pages/Community';
+import CommunityWrite from './pages/CommunityWrite';
+import CommunityDetail from './pages/CommunityDetail';
+import CommunityEdit from './pages/CommunityEdit';
+import CommunityApplicants from './pages/CommunityApplicants';
 import Home from './pages/Home';
 import BlankRoom from './pages/BlankRoom';
 import Login from './pages/login-form';
@@ -23,6 +28,11 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/chat/:inviteCode" element={<ChatRoom />} />
           <Route path="/blank" element={<BlankRoom />} />
+          <Route path="/community" element={<Community />} />
+          <Route path="/community/write" element={<CommunityWrite />} />
+          <Route path="/community/:postId" element={<CommunityDetail />} />
+          <Route path="/community/:postId/edit" element={<CommunityEdit />} />
+          <Route path="/community/:postId/applicants" element={<CommunityApplicants />} />
           <Route path="/myprofile" element={<MyPage />} />
           <Route path="/myprofile/edit" element={<EditProfilePage />} />
           <Route path="/" element={<Home />} />

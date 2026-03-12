@@ -1,0 +1,187 @@
+.container {
+  padding: 40px;
+  min-height: 100vh;
+  background-color: #f7fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #eaedf0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  max-width: 680px;
+  height: fit-content;
+}
+
+.cardHeader {
+  padding: 32px 40px 24px;
+  border-bottom: 1px solid #f0f4f8;
+  background: linear-gradient(135deg, #ebf4ff 0%, #f0f7ff 100%);
+  border-radius: 16px 16px 0 0;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 6px 0;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #718096;
+  margin: 0;
+}
+
+.body {
+  padding: 24px 40px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 0;
+  color: #a0aec0;
+  gap: 12px;
+}
+
+.emptyIcon {
+  font-size: 40px;
+}
+
+.empty p {
+  font-size: 15px;
+  margin: 0;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fafafa;
+  transition: box-shadow 0.15s;
+}
+
+.item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+}
+
+.userMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nickname {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.appliedAt {
+  font-size: 12px;
+  color: #a0aec0;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.approveButton {
+  padding: 7px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #2588F1;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.approveButton:hover {
+  background: #1a6fd4;
+}
+
+.approveButton:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.rejectButton {
+  padding: 7px 18px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #718096;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rejectButton:hover {
+  border-color: #fc8181;
+  color: #e53e3e;
+  background: #fff5f5;
+}
+
+.rejectButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.backButton {
+  margin-top: 20px;
+  background: none;
+  border: none;
+  color: #718096;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.backButton:hover {
+  color: #2d3748;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  color: #718096;
+  font-size: 15px;
+}

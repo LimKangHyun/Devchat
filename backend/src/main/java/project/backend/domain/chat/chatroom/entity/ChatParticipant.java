@@ -47,11 +47,12 @@ public class ChatParticipant {
 
     @Builder
     public ChatParticipant(Long id, Member participant, ChatRoom chatRoom, boolean isOwner,
-        LocalDateTime joinAt) {
+        boolean isActive, LocalDateTime joinAt) {
         this.id = id;
         this.participant = participant;
         this.chatRoom = chatRoom;
         this.isOwner = isOwner;
+        this.isActive = isActive;
         this.joinAt = joinAt;
     }
 
@@ -59,6 +60,7 @@ public class ChatParticipant {
         return ChatParticipant.builder()
             .participant(participant)
             .chatRoom(chatRoom)
+            .isActive(true)
             .joinAt(LocalDateTime.now())
             .build();
     }
@@ -68,6 +70,7 @@ public class ChatParticipant {
             .participant(participant)
             .chatRoom(chatRoom)
             .isOwner(true)
+            .isActive(true)
             .joinAt(LocalDateTime.now())
             .build();
     }

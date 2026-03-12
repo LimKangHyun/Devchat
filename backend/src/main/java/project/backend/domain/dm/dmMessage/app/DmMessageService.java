@@ -22,49 +22,49 @@ import project.backend.domain.notification.dto.NotificationDto;
 @RequiredArgsConstructor
 public class DmMessageService {
 
-	private final DmRoomService dmRoomService;
-	private final DmMessageRepository dmMessageRepository;
-	private final MemberService memberService;
-	private final SimpMessagingTemplate messagingTemplate;
+    private final DmRoomService dmRoomService;
+    private final DmMessageRepository dmMessageRepository;
+    private final MemberService memberService;
+    private final SimpMessagingTemplate messagingTemplate;
 
-	@Transactional
-	public DmMessageResponse save(Long roomId, DmMessageRequest request, Authentication auth) {
-		MemberDetails memberDetails = memberService.checkAuthentication(auth);
-		Member sender = memberService.getMemberById(memberDetails.getId());
+    @Transactional
+    public DmMessageResponse save(Long roomId, DmMessageRequest request, Authentication auth) {
+        MemberDetails memberDetails = memberService.checkAuthentication(auth);
+        Member sender = memberService.getMemberById(memberDetails.getId());
 
-		DmRoom room = dmRoomService.getDmRoomById(roomId);
+        DmRoom room = dmRoomService.getDmRoomById(roomId);
 
-		DmMessage dmMessage = new DmMessage(room, sender, request.content(), request.type());
+        DmMessage dmMessage = new DmMessage(room, sender, request.content(), request.type());
 
-		NotificationDto notificationDto = NotificationDto.ofDmMessage(dmMessage,
-			request.receiverUsername());
+        NotificationDto notificationDto = NotificationDto.ofDmMessage(dmMessage,
+            request.receiverUsername());
 
-		DmMessageResponse response = DmMessageResponse.from(dmMessageRepository.save(dmMessage));
-		messagingTemplate.convertAndSend("/topic/dm/" + roomId, response);
+        DmMessageResponse response = DmMessageResponse.from(dmMessageRepository.save(dmMessage));
+        messagingTemplate.convertAndSend("/topic/dm/" + roomId, response);
 
-		messagingTemplate.convertAndSend(
-			"/topic/notifications/" + notificationDto.receiverUsername(),
-			notificationDto);
-		return response;
-	}
+        messagingTemplate.convertAndSend(
+            "/topic/notifications/" + notificationDto.receiverUsername(),
+            notificationDto);
+        return response;
+    }
 
-	@Transactional
-	public DmMessageResponse saveEvent(DmMessageResponse dmEvent) {
-		DmRoom room = dmRoomService.getDmRoomById(dmEvent.roomId());
-		Member member = memberService.getMemberById(dmEvent.senderId());
+    @Transactional
+    public DmMessageResponse saveEvent(DmMessageResponse dmEvent) {
+        DmRoom room = dmRoomService.getDmRoomById(dmEvent.roomId());
+        Member member = memberService.getMemberById(dmEvent.senderId());
 
-		DmMessage dmMessage = new DmMessage(room, member, dmEvent.content(), dmEvent.type());
+        DmMessage dmMessage = new DmMessage(room, member, dmEvent.content(), dmEvent.type());
 
-		DmMessage save = dmMessageRepository.save(dmMessage);
-		return DmMessageResponse.from(save);
-	}
-	
-	@Transactional(readOnly = true)
-	public Page<DmMessageResponse> getDmMessages(Long roomId, Pageable pageable,
-		Authentication auth) {
+        DmMessage save = dmMessageRepository.save(dmMessage);
+        return DmMessageResponse.from(save);
+    }
 
-		memberService.checkAuthentication(auth);
+    @Transactional(readOnly = true)
+    public Page<DmMessageResponse> getDmMessages(Long roomId, Pageable pageable,
+        Authentication auth) {
 
-		return dmMessageRepository.findMessagesByRoomId(roomId, pageable);
-	}
+        memberService.checkAuthentication(auth);
+
+        return dmMessageRepository.findMessagesByRoomId(roomId, pageable);
+    }
 }

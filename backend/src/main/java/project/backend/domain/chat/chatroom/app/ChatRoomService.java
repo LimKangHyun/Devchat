@@ -38,6 +38,7 @@ import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.chatroom.entity.ChatRoomAlarm;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
 import project.backend.domain.chat.github.app.GitMessageService;
+import project.backend.domain.community.dao.PostRepository;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
@@ -50,6 +51,7 @@ import project.backend.global.metric.TimeTrace;
 @RequiredArgsConstructor
 public class ChatRoomService {
 
+    private final PostRepository postRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRedisRepository chatRoomRedisRepository;
@@ -89,7 +91,7 @@ public class ChatRoomService {
         return chatRoomMapper.toSimpleResponse(savedRoom, owner);
     }
 
-    private void createAlarm(Long memberId, Long roomId) {
+    public void createAlarm(Long memberId, Long roomId) {
         ChatRoomAlarm alarm = new ChatRoomAlarm(memberId, roomId);
         chatRoomAlarmRepository.save(alarm);
     }
@@ -290,6 +292,10 @@ public class ChatRoomService {
             new DeleteChatRoomEvent(roomId, room.getName())
         );
 
+        chatParticipantRepository.deleteByChatRoom_Id(roomId);
+        chatMessageRepository.deleteByChatRoom_Id(roomId);
+        postRepository.deleteByChatRoom_Id(roomId);
+
         chatRoomRepository.delete(room);
     }
 
@@ -343,11 +349,11 @@ public class ChatRoomService {
 
     private Map<Long, Long> fetchLastReadMessageIdMap(Long memberId) {
         return chatParticipantRepository.findUnreadCountsByMemberId(memberId)
-            .stream()
-            .collect(Collectors.toMap(
-                UnreadCountProjection::getChatRoomId,
-                UnreadCountProjection::getLastReadMessageId
-            ));
+                .stream()
+                .collect(Collectors.toMap(
+                        UnreadCountProjection::getChatRoomId,
+                        p -> p.getLastReadMessageId() != null ? p.getLastReadMessageId() : 0L
+                ));
     }
 
     private long calculateUnread(Long lastReadMessageId, Object redisVal) {

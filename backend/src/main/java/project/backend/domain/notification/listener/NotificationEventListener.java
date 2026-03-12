@@ -15,33 +15,33 @@ import project.backend.domain.notification.entity.NotificationType;
 @RequiredArgsConstructor
 public class NotificationEventListener {
 
-	private final SimpMessagingTemplate simpMessagingTemplate;
+    private final SimpMessagingTemplate simpMessagingTemplate;
 
-	@Async
-	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-	public void handleFriendRequest(NotificationDto event) {
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleFriendRequest(NotificationDto event) {
 
-		NotificationType type = event.type();
+        NotificationType type = event.type();
 
-		switch (type) {
-			case FRIEND_REQUESTED -> {
-				log.info("친구 요청 알림: {} → {}", event.senderUsername(), event.receiverUsername());
-			}
-			case FRIEND_ACCEPTED -> {
-				log.info("친구 수락 알림: {} → {}", event.senderUsername(), event.receiverUsername());
-			}
+        switch (type) {
+            case FRIEND_REQUESTED -> {
+                log.info("친구 요청 알림: {} → {}", event.senderUsername(), event.receiverUsername());
+            }
+            case FRIEND_ACCEPTED -> {
+                log.info("친구 수락 알림: {} → {}", event.senderUsername(), event.receiverUsername());
+            }
 
-			case FRIEND_REJECTED -> {
-				log.info("친구 거절 알림: {} → {}", event.senderUsername(), event.receiverUsername());
-			}
-			case CODE_REVIEW -> {
-				log.warn("CODE_REVIEW 알림은 아직 지원되지 않음: {} → {}", event.senderUsername(),
-					event.receiverUsername());
-			}
-		}
+            case FRIEND_REJECTED -> {
+                log.info("친구 거절 알림: {} → {}", event.senderUsername(), event.receiverUsername());
+            }
+            case CODE_REVIEW -> {
+                log.warn("CODE_REVIEW 알림은 아직 지원되지 않음: {} → {}", event.senderUsername(),
+                    event.receiverUsername());
+            }
+        }
 
-		simpMessagingTemplate.convertAndSend("/topic/notifications/" + event.receiverUsername(),
-			event);
-	}
+        simpMessagingTemplate.convertAndSend("/topic/notifications/" + event.receiverUsername(),
+            event);
+    }
 
 }

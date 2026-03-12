@@ -1,24 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Highlight from 'react-highlight';
-import { FaCopy, FaTrashAlt, FaUserPlus, FaClock } from 'react-icons/fa';
+import { FaUserPlus } from 'react-icons/fa';
 
-// 날짜를 YYYY-MM-DD 형식으로 변환하는 함수
 const formatDate = (dateString) => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return '오늘';
+  if (date.toDateString() === yesterday.toDateString()) return '어제';
+  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
-// 시간을 HH:MM 형식으로 변환하는 함수
 const formatTime = (dateString) => {
-  const date = new Date(dateString);
-  return date.toLocaleTimeString('ko-KR', {
+  return new Date(dateString).toLocaleTimeString('ko-KR', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true  // 오전/오후 표시 활성화
+    hour12: true,
   });
 };
 
@@ -26,72 +25,161 @@ const renderWithLink = (text) => {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return text.split(urlRegex).map((part, i) =>
     urlRegex.test(part) ? (
-      <a
-        key={i}
-        href={part}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ color: '#0366d6', textDecoration: 'underline' }}
-      >
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+        style={{ color: '#1264a3', textDecoration: 'underline' }}>
         {part}
       </a>
-    ) : (
-      part
-    )
+    ) : part
   );
 };
 
-const HighlightedCode = ({ content, language, onClick }) => {
-  return (
-    <div
-      onClick={(e) => {
-        console.log('🖱️ 코드 블록 클릭됨!'); // 디버깅용
-        console.log('onClick prop:', onClick); // onClick이 제대로 전달되었는지 확인
-        if (onClick) {
-          onClick(e);
-        } else {
-          console.log('❌ onClick prop이 없음!');
-        }
-      }}
+/* ── 코드 블록 ── */
+const HighlightedCode = ({ content, language, onClick }) => (
+  <div
+    onClick={onClick}
+    style={{ cursor: 'pointer', position: 'relative', borderRadius: '6px', overflow: 'hidden' }}
+    onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.92')}
+    onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+  >
+    <Highlight className={language}>{content}</Highlight>
+    <div style={{
+      position: 'absolute', top: '8px', right: '10px',
+      background: 'rgba(0,0,0,0.55)', color: 'white',
+      padding: '3px 8px', borderRadius: '4px', fontSize: '11px',
+    }}>
+      클릭하여 자세히 보기
+    </div>
+  </div>
+);
 
+/* ── 메시지 본문 ── */
+const MessageContent = ({ msg, editMessageId, editContent, setEditContent, handleEditMessage, setEditMessageId, onCodeClick }) => {
 
-
-      style={{
-        cursor: 'pointer',
-        position: 'relative',
-        transition: 'all 0.2s ease'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.01)';
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-        e.currentTarget.style.boxShadow = 'none';
-      }}
-    >
-      <Highlight className={language}>{content}</Highlight>
-      <div style={{
-        position: 'absolute',
-        top: '8px',
-        right: '12px',
-        background: 'rgba(0,0,0,0.7)',
-        color: 'white',
-        padding: '4px 8px',
-        borderRadius: '4px',
-        fontSize: '12px',
-        opacity: 0.8
-      }}>
-        클릭하여 자세히 보기
+  if (editMessageId === msg.messageId) {
+    return (
+      <div style={{ display: 'flex', gap: '8px', flexDirection: 'column', marginTop: '4px' }}>
+        <textarea
+          value={editContent}
+          onChange={(e) => setEditContent(e.target.value)}
+          style={{
+            width: '100%', minHeight: '72px',
+            border: '1px solid #1264a3', borderRadius: '6px',
+            padding: '8px 10px', fontSize: '14px',
+            resize: 'vertical', outline: 'none',
+            boxShadow: '0 0 0 3px rgba(18,100,163,0.1)',
+            fontFamily: 'inherit', lineHeight: '1.5',
+            boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => handleEditMessage(msg.messageId)} style={btnSave}>저장</button>
+          <button onClick={() => { setEditMessageId(null); setEditContent(''); }} style={btnCancel}>취소</button>
+          <span style={{ fontSize: '12px', color: '#aaa', alignSelf: 'center', marginLeft: '4px' }}>
+            Esc로 취소
+          </span>
+        </div>
       </div>
+    );
+  }
+
+  if (msg.status === 'DELETED') {
+    return (
+      <div style={{ fontSize: '14px', color: '#bbb', fontStyle: 'italic' }}>
+        이 메시지는 삭제되었습니다.
+      </div>
+    );
+  }
+
+  if (msg.type === 'GIT') {
+    return (
+      <div style={{
+        display: 'flex', backgroundColor: '#f6f8fa',
+        borderRadius: '6px', overflow: 'hidden',
+        border: '1px solid #e8e8e8',
+      }}>
+        <div style={{ width: '4px', backgroundColor: '#24292e', flexShrink: 0 }} />
+        <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', padding: '10px 14px', fontSize: '13px', color: '#24292e' }}>
+          {msg.content.split('\n').map((line, i) => (
+            <div key={i}>{i === 0 ? <strong>{line}</strong> : renderWithLink(line)}</div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (msg.type === 'CODE') {
+    return (
+      <div>
+        <div style={{ border: '1px solid #e8e8e8', borderRadius: '6px', overflow: 'hidden' }}>
+          <HighlightedCode
+            content={msg.content}
+            language={msg.language || 'java'}
+            onClick={() => onCodeClick && onCodeClick(msg)}
+          />
+        </div>
+        {msg.status === 'EDITED' && <EditedLabel />}
+      </div>
+    );
+  }
+
+  if (msg.type === 'IMAGE') {
+    return (
+      <div style={{ marginTop: '4px', display: 'inline-block', maxWidth: '360px' }}>
+        <img
+          src={`${process.env.REACT_APP_CHAT_IMAGE_URL}/${msg.chatImageUrl}`}
+          alt="이미지"
+          style={{
+            display: 'block', width: '100%', maxHeight: '360px',
+            objectFit: 'contain', borderRadius: '8px',
+            border: '1px solid #f0f0f0',
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (msg.type === 'EVENT') {
+    return (
+      <div style={{
+        display: 'flex', justifyContent: 'center',
+        margin: '10px 0', padding: '0 16px',
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '7px',
+          backgroundColor: '#f8f9fa', borderRadius: '20px',
+          padding: '6px 14px', fontSize: '12px', color: '#666',
+          border: '1px solid #ebebeb',
+        }}>
+          <FaUserPlus size={11} color="#aaa" />
+          <span>{msg.content}</span>
+          <span style={{ color: '#ccc', marginLeft: '2px' }}>
+            {formatTime(msg.sendAt || msg.joinAt)}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ fontSize: '14px', lineHeight: '1.6', color: '#1d1c1d', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+      {renderWithLink(msg.content)}
+      {msg.status === 'EDITED' && <EditedLabel />}
     </div>
   );
 };
 
-// 프로필 이미지, 날짜, 수정 삭제 메뉴
-const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEditMessageId, setEditContent, handleEditMessage, handleDeleteMessage, editMessageId, editContent, onCodeClick }) => {
+const EditedLabel = () => (
+  <span style={{ marginLeft: '5px', fontSize: '11px', color: '#ccc', fontStyle: 'italic' }}>(수정됨)</span>
+);
 
-  // 이벤트 타입은 메시지만 렌더링 (원래 로직 유지)
+/* ── 메시지 아이템 ── */
+const MessageItem = ({
+  msg, currentUser, contextMenuId, setContextMenuId,
+  setEditMessageId, setEditContent, handleEditMessage,
+  handleDeleteMessage, editMessageId, editContent, onCodeClick,
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   if (msg.type === 'EVENT') {
     return (
       <MessageContent
@@ -102,148 +190,56 @@ const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEdi
         handleEditMessage={handleEditMessage}
         setEditMessageId={setEditMessageId}
       />
-    )
+    );
   }
+
+  const isMenuOpen = contextMenuId === msg.messageId;
+  const isOwn = currentUser?.id === msg.senderId;
 
   return (
     <div
-      id={`message-${msg.messageId}`} // 추가
-      style={{ marginBottom: '18px', display: 'flex', alignItems: 'flex-start' }}>
+      id={`message-${msg.messageId}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => { setIsHovered(false); }}
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        padding: '3px 16px',
+        borderRadius: '4px',
+        backgroundColor: isMenuOpen ? '#f8f8f8' : isHovered ? '#f8f8f8' : 'transparent',
+        transition: 'background-color 0.1s',
+        position: 'relative',
+        marginBottom: '2px',
+      }}
+    >
       {/* 프로필 이미지 */}
       <img
         src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${msg.profileImageUrl}`}
         alt="프로필"
-        width={38}
-        height={38}
-        onError={(e) => {
-          e.currentTarget.src = "/images/not-found-profile.png";
-        }}
+        width={36}
+        height={36}
+        onError={(e) => { e.currentTarget.src = '/images/not-found-profile.png'; }}
         style={{
-          borderRadius: '50%',
-          marginRight: '12px',
+          borderRadius: '4px',
+          marginRight: '10px',
           objectFit: 'cover',
-          display: 'block',
-          fontWeight: '600',
-          fontSize: '16px'
+          flexShrink: 0,
+          marginTop: '2px',
         }}
       />
 
-      <div style={{ flex: 1 }}>
-        <div style={{
-          display: 'flex',
-          marginBottom: '6px',
-          justifyContent: 'space-between',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'baseline' }}>
-            <span style={{
-              fontWeight: '600',
-              fontSize: '15px',
-              color: '#2d3748'
-            }}>
-              {msg.senderName}
-            </span>
-            <span style={{
-              fontWeight: 'normal',
-              fontSize: '12px',
-              color: '#718096',
-              marginLeft: '8px'
-            }}>
-              {new Date(msg.sendAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-
-          {/* 점 세개 메뉴는 조건부 렌더링 */}
-          {currentUser?.id === msg.senderId && !(msg.status === "DELETED") && (
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() =>
-                  setContextMenuId(contextMenuId === msg.messageId ? null : msg.messageId)
-                }
-                style={{
-                  position: 'absolute',
-                  right: '0px',
-                  border: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  fontSize: '18px',
-                  color: '#94a3b8'
-                }}
-              >
-                ⋯
-              </button>
-
-              {contextMenuId === msg.messageId && (
-                <div style={{
-                  position: 'absolute',
-                  top: '24px',
-                  right: '0',
-                  backgroundColor: '#fff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-                  zIndex: 1000,
-                  padding: '6px 0',
-                  minWidth: '140px'
-                }}>
-                  {/* 수정 버튼은 이미지 메시지가 아닌 경우에만 표시 */}
-                  {msg.type !== 'IMAGE' && (
-                    <>
-                      <button
-                        onClick={() => {
-                          setEditMessageId(msg.messageId);
-                          setEditContent(msg.content);
-                          setContextMenuId(null);
-                        }}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          padding: '10px 16px',
-                          textAlign: 'left',
-                          background: 'none',
-                          border: 'none',
-                          fontSize: '14px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        메세지 수정하기
-                      </button>
-
-                      {/* 구분선 추가 */}
-                      <div style={{
-                        height: '1px',
-                        backgroundColor: '#e2e8f0',
-                        margin: '0 8px'
-                      }} />
-                    </>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      const confirmed = window.confirm("정말 삭제하시겠습니까?");
-                      if (confirmed) {
-                        handleDeleteMessage(msg.messageId);
-                      }
-                      setContextMenuId(null);
-                    }}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '10px 16px',
-                      textAlign: 'left',
-                      background: 'none',
-                      border: 'none',
-                      fontSize: '14px',
-                      color: '#e53e3e',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    삭제
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* 발신자 + 시간 */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '3px' }}>
+          <span style={{ fontWeight: '700', fontSize: '14px', color: '#1d1c1d' }}>
+            {msg.senderName}
+          </span>
+          <span style={{ fontSize: '11px', color: '#aaa' }}>
+            {formatTime(msg.sendAt)}
+          </span>
         </div>
+
+        {/* 메시지 본문 */}
         <MessageContent
           msg={msg}
           editMessageId={editMessageId}
@@ -254,279 +250,106 @@ const MessageItem = ({ msg, currentUser, contextMenuId, setContextMenuId, setEdi
           onCodeClick={onCodeClick}
         />
       </div>
+
+      {/* 호버 액션 버튼 (본인 메시지만) */}
+      {isOwn && !(msg.status === 'DELETED') && (isHovered || isMenuOpen) && (
+        <div style={{
+          position: 'absolute',
+          top: '4px',
+          right: '16px',
+          display: 'flex',
+          gap: '2px',
+          zIndex: 10,
+        }}>
+          {msg.type !== 'IMAGE' && (
+            <ActionBtn
+              label="수정"
+              onClick={() => {
+                setEditMessageId(msg.messageId);
+                setEditContent(msg.content);
+                setContextMenuId(null);
+              }}
+            />
+          )}
+          <ActionBtn
+            label="삭제"
+            danger
+            onClick={() => {
+              if (window.confirm('정말 삭제하시겠습니까?')) handleDeleteMessage(msg.messageId);
+              setContextMenuId(null);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };
 
-const MessageContent = ({ msg, editMessageId, editContent, setEditContent, handleEditMessage, setEditMessageId, onCodeClick }) => {
-
-  // 수정 중인 메시지는 textarea 렌더
-  if (editMessageId === msg.messageId) {
-    return (
-      <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
-        <textarea
-          value={editContent}
-          onChange={(e) => setEditContent(e.target.value)}
-          style={{
-            width: '100%',
-            minHeight: '80px',
-            border: '1px solid #e2e8f0',
-            borderRadius: '6px',
-            padding: '10px',
-            fontSize: '14px',
-            resize: 'vertical'
-          }}
-        />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          <button
-            onClick={() => handleEditMessage(msg.messageId)}
-            style={{
-              backgroundColor: '#4a6cf7',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              padding: '6px 12px',
-              fontSize: '14px',
-              cursor: 'pointer'
-            }}
-          >
-            저장
-          </button>
-          <button
-            onClick={() => {
-              setEditMessageId(null);
-              setEditContent('');
-            }}
-            style={{
-              backgroundColor: '#e2e8f0',
-              color: '#1a202c',
-              border: 'none',
-              borderRadius: '4px',
-              padding: '6px 12px',
-              fontSize: '14px',
-              cursor: 'pointer'
-            }}
-          >
-            취소
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (msg.status === "DELETED") {
-    return <div style={{
-      fontSize: '14px',
-      lineHeight: '1.5',
-      color: '#a0aec0',
-      fontStyle: 'italic'
-    }}>
-      삭제된 메시지입니다.
-    </div>;
-  }
-
-  if (msg.type === 'GIT') {
-    return (
-      <div style={{
-        backgroundColor: '#f6f8fa',
-        borderRadius: '6px',
-        color: '#24292e',
-        display: 'flex'
-      }}>
-        {/* 왼쪽 검정색 선 */}
-        <div style={{
-          width: '6px',
-          backgroundColor: '#000',
-          marginRight: '10px',
-          borderRadius: '2px'
-        }} />
-        <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', padding: '10px' }}>
-          {msg.content.split('\n').map((line, i) => (
-            <div key={i}>
-              {i === 0 ? (
-                <strong>{line}</strong>
-              ) : (
-                <>{renderWithLink(line)}</>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (msg.type === 'CODE') {
-    console.log('🔍 CODE 메시지 렌더링, onCodeClick:', onCodeClick); // 디버깅용
-    return (
-      <div style={{
-        borderRadius: '6px',
-        overflow: 'hidden',
-        border: '1px solid #e2e8f0'
-      }}>
-        <HighlightedCode
-          content={msg.content}
-          language={msg.language || 'java'}
-          onClick={() => onCodeClick && onCodeClick(msg)} // 새로 추가
-        />
-        {msg.status === "EDITED" && (
-          <span style={{
-            marginLeft: '6px',
-            fontSize: '11px',
-            color: '#a0aec0',
-            fontStyle: 'italic'
-          }}>
-            (수정됨)
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  if (msg.type === 'IMAGE') {
-    return (
-      <div style={{
-        maxWidth: '30%',
-        backgroundColor: '#f8fafc',
-        border: '1px solid #e2e8f0',
-        borderRadius: '8px',
-        padding: '8px',
-        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)'
-      }}>
-        <img
-          src={`${process.env.REACT_APP_CHAT_IMAGE_URL}/${msg.chatImageUrl}`}
-          alt="업로드된 이미지"
-          style={{
-            width: '100%',
-            maxHeight: '400px',
-            objectFit: 'contain',
-            borderRadius: '6px'
-          }}
-        />
-      </div>
-    )
-  }
-
-  if (msg.type === 'EVENT') {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        margin: '12px 0', // 상하 마진 줄임
-        padding: '0 16px'
-      }}>
-        <div style={{
-          backgroundColor: '#f0f9ff',
-          borderRadius: '16px',
-          padding: '8px 16px', // 패딩 줄임
-          display: 'flex',
-          alignItems: 'center', // 가로 정렬로 변경
-          gap: '8px',
-          color: '#0369a1',
-          fontSize: '13px',
-          fontWeight: '500',
-          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-          border: '1px solid #e0f2fe',
-          maxWidth: '80%'
-        }}>
-          {/* 유저 아이콘 */}
-          <FaUserPlus size={12} style={{ flexShrink: 0 }} />
-
-          {/* 메인 메시지 */}
-          <span>{msg.content}</span>
-
-          {/* 입장 시간 표시 (구분선과 함께) */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '12px',
-            color: '#60a5fa',
-            borderLeft: '1px solid #bfdbfe',
-            paddingLeft: '8px',
-            marginLeft: '4px'
-          }}>
-            <FaClock size={10} />
-            {formatTime(msg.sendAt || msg.joinAt)}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+/* ── 호버 액션 버튼 ── */
+const ActionBtn = ({ label, onClick, danger = false }) => {
+  const [hovered, setHovered] = useState(false);
   return (
-    <div style={{
-      fontSize: '14px',
-      lineHeight: '1.5',
-      color: '#4a5568',
-      wordBreak: 'break-word',
-      whiteSpace: 'pre-wrap'
-    }}>
-      {renderWithLink(msg.content)} {/* renderWithLink 적용 */}
-      {(msg.status === "EDITED") && (
-        <span style={{
-          marginLeft: '6px',
-          fontSize: '11px',
-          color: '#a0aec0',
-          fontStyle: 'italic'
-        }}>
-          (수정됨)
-        </span>
-      )}
-    </div>
-  )
-}
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: '4px 10px',
+        fontSize: '12px',
+        fontWeight: '500',
+        border: `1px solid ${danger ? (hovered ? '#e01e5a' : '#f0d0d8') : (hovered ? '#aaa' : '#e8e8e8')}`,
+        borderRadius: '4px',
+        backgroundColor: danger ? (hovered ? '#e01e5a' : '#fff') : (hovered ? '#f0f0f0' : '#fff'),
+        color: danger ? (hovered ? '#fff' : '#e01e5a') : '#555',
+        cursor: 'pointer',
+        transition: 'all 0.1s',
+        lineHeight: 1,
+      }}
+    >
+      {label}
+    </button>
+  );
+};
 
-const MessageList = ({ messages, currentUser, contextMenuId, setContextMenuId, setEditMessageId, setEditContent,
-  editMessageId, editContent, handleEditMessage, handleDeleteMessage, onCodeClick }) => {
+/* ── 날짜 구분선 ── */
+const DateDivider = ({ label }) => (
+  <div style={{
+    display: 'flex', alignItems: 'center',
+    margin: '20px 16px 12px',
+  }}>
+    <div style={{ flex: 1, height: '1px', backgroundColor: '#f0f0f0' }} />
+    <span style={{
+      margin: '0 14px', padding: '3px 12px',
+      backgroundColor: '#fff', border: '1px solid #ebebeb',
+      borderRadius: '12px', fontSize: '12px', color: '#888',
+      fontWeight: '500', whiteSpace: 'nowrap',
+    }}>
+      {label}
+    </span>
+    <div style={{ flex: 1, height: '1px', backgroundColor: '#f0f0f0' }} />
+  </div>
+);
+
+/* ── 메시지 리스트 ── */
+const MessageList = ({
+  messages, currentUser, contextMenuId, setContextMenuId,
+  setEditMessageId, setEditContent, editMessageId, editContent,
+  handleEditMessage, handleDeleteMessage, onCodeClick,
+}) => {
   if (!messages.length) return null;
+
   const result = [];
   let currentDate = null;
 
-  // 메시지를 순회하며 날짜별로 구분
   messages.forEach((msg, index) => {
-    const messageDate = formatDate(msg.sendAt || msg.joinAt);
-
-    // 날짜가 바뀌었다면 구분선 추가
-    if (messageDate !== currentDate) {
-      currentDate = messageDate;
-      result.push(
-        <div key={`date-${index}`}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            margin: '24px 0',
-            color: '#64748b',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}>
-          <div style={{
-            flex: '1',
-            height: '1px',
-            backgroundColor: '#e2e8f0'
-          }} />
-          <div style={{
-            margin: '0 16px',
-            padding: '4px 12px',
-            backgroundColor: '#f8fafc',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0'
-          }}>
-            {messageDate}
-          </div>
-          <div style={{
-            flex: '1',
-            height: '1px',
-            backgroundColor: '#e2e8f0'
-          }} />
-        </div>
-      );
+    const label = formatDate(msg.sendAt || msg.joinAt);
+    if (label !== currentDate) {
+      currentDate = label;
+      result.push(<DateDivider key={`date-${index}`} label={label} />);
     }
-
-    // 메시지 추가
     result.push(
       <MessageItem
-        key={`msg-${msg.messageId}`} // messageId가 없는 경우를 대비해 index 사용
+        key={`msg-${msg.messageId ?? index}`}
         msg={msg}
         currentUser={currentUser}
         contextMenuId={contextMenuId}
@@ -541,7 +364,22 @@ const MessageList = ({ messages, currentUser, contextMenuId, setContextMenuId, s
       />
     );
   });
-  return <>{result}</>
+
+  return <>{result}</>;
+};
+
+/* ── 버튼 스타일 ── */
+const btnSave = {
+  backgroundColor: '#007a5a', color: 'white',
+  border: 'none', borderRadius: '4px',
+  padding: '6px 14px', fontSize: '13px',
+  fontWeight: '600', cursor: 'pointer',
+};
+const btnCancel = {
+  backgroundColor: 'transparent', color: '#555',
+  border: '1px solid #e0e0e0', borderRadius: '4px',
+  padding: '6px 14px', fontSize: '13px',
+  cursor: 'pointer',
 };
 
 export default MessageList;

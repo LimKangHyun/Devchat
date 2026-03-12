@@ -39,5 +39,7 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
         AND cp.isActive = true
         """)
     List<UnreadCountProjection> findUnreadCountsByMemberId(@Param("memberId") Long memberId);
+
+    void deleteByChatRoom_Id(Long chatRoomId);
 }
 

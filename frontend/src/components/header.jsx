@@ -14,6 +14,8 @@ export function HeaderWithNotifications() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [username, setUsername] = useState("")
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const profileDropdownRef = useRef(null)
 
   // Notification states
   const [apiNotifications, setApiNotifications] = useState([])
@@ -47,7 +49,7 @@ export function HeaderWithNotifications() {
   const notificationContentRef = useRef(null)
 
   // WebSocket notification handler
-  const handleNotificationReceived = useCallback(
+  const handleNotificationReceived = useCallback( 
     (notification) => {
       console.log("🔔 Processing new real-time notification:", notification)
 
@@ -163,6 +165,12 @@ export function HeaderWithNotifications() {
           return "🧪 코드 리뷰 알림이 있습니다."
         case "CHAT_MESSAGE":
           return `💬 ${notification.senderNickname} (${notification.roomName})`
+        case "STUDY_APPLY":
+          return "📬 새로운 스터디 신청이 도착했습니다!"
+        case "STUDY_APPROVED":
+          return "🎉 스터디 신청이 승인되었습니다!"
+        case "STUDY_REJECTED":
+          return "😢 스터디 신청이 거절되었습니다."
         default:
           return "🔔 DevChat 알림"
       }
@@ -239,6 +247,27 @@ export function HeaderWithNotifications() {
           icon: <User size={14} />,
           color: "#10b981", // Same as friend request for consistency, or choose a new one
           bgColor: "#ecfdf5",
+        }
+      case "STUDY_APPLY":
+        return {
+          label: "Study Apply",
+          icon: <User size={14} />,
+          color: "#2588F1",
+          bgColor: "#ebf4ff",
+        }
+      case "STUDY_APPROVED":
+        return {
+          label: "Study Approved",
+          icon: <Check size={14} />,
+          color: "#10b981",
+          bgColor: "#ecfdf5",
+        }
+      case "STUDY_REJECTED":
+        return {
+          label: "Study Rejected",
+          icon: <X size={14} />,
+          color: "#ef4444",
+          bgColor: "#fef2f2",
         }
       default: // This will catch 'NOTIFICATION' or any other types
         return {
@@ -392,12 +421,32 @@ export function HeaderWithNotifications() {
   }
 
   // Handle navigation for non-friend-request notifications
-  const handleNotificationNavigation = (notification) => {
+  const handleNotificationNavigation = async (notification) => {
     // For these types, referenceId usually points to the entity (e.g., code review ID, chat ID)
+    if (!notification.isRead && notification.id) {
+      try {
+        await axiosInstance.post(`/notification/read/${notification.id}`)
+        setApiNotifications((prev) =>
+          prev.map((n) => (n.id === notification.id ? { ...n, isRead: true, isNew: false } : n))
+        )
+        setUnreadNotificationCount((prev) => Math.max(0, prev - 1))
+      } catch (err) {
+        console.error("읽음 처리 실패:", err)
+      }
+    }
     const entityId = notification.referenceId
     switch (notification.type) {
       case "CODE_REVIEW":
         window.location.href = `/code-review/${entityId}`
+        break
+      case "STUDY_APPLY":
+        // 방장 → 신청자 관리 페이지로
+        window.location.href = `/community/${entityId}/applicants`
+        break
+      case "STUDY_APPROVED":
+      case "STUDY_REJECTED":
+        // 신청자 → 해당 게시글로
+        window.location.href = `/community/${entityId}`
         break
       case "MESSAGE":
         console.log(
@@ -469,7 +518,7 @@ export function HeaderWithNotifications() {
 
     // Determine if this notification type should have a "mark as read" button
     // These types typically have direct navigation or specific actions rather than just "mark as read"
-    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", "CODE_REVIEW", "MESSAGE"]
+    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", "CODE_REVIEW", "MESSAGE", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"]
     const canMarkAsRead = !typesWithoutMarkAsReadButton.includes(notification.type) && !notification.isRead
 
     let actionElement = null
@@ -510,8 +559,8 @@ export function HeaderWithNotifications() {
           {markingAsReadId === notification.id ? <div className={styles.buttonSpinner}></div> : <Check size={16} />}
         </button>
       )
-    } else if (notification.type === "CODE_REVIEW" || notification.type === "MESSAGE") {
-      // Navigation for specific types if not a friend request and not eligible for mark as read
+    } else if (notification.type === "CODE_REVIEW" || notification.type === "MESSAGE"
+            || notification.type === "STUDY_APPLY" || notification.type === "STUDY_APPROVED" || notification.type === "STUDY_REJECTED") {
       actionElement = (
         <button
           className={styles.navigationButton}
@@ -706,155 +755,172 @@ export function HeaderWithNotifications() {
   return (
     <>
       <header className={styles.header}>
-        <div className={styles.container}>
-          <Link to="/">
+      <div className={styles.container}>
+
+        {/* 왼쪽: 로고 + 커뮤니티 */}
+        <div className={styles.leftSection}>
+          <Link to="/" className={styles.logoLink}>
             <img src="/images/devchat-logo.png" alt="DevChat Logo" className={styles.headerLogoImage} />
           </Link>
+          <div className={styles.divider} />
+          <Link
+            to="/community"
+            className={`${styles.communityTab} ${window.location.pathname.startsWith('/community') ? styles.communityTabActive : ''}`}
+          >
+            Community
+          </Link>
+        </div>
 
-          <div className={styles.profileContainer}>
-            {/* Notification Bell */}
-            <div className={styles.notificationContainer} ref={notificationRef}>
-              <button
-                className={`${styles.notificationBell} ${isShaking || hasUnreadItems() ? styles.shake : ""}`}
-                onClick={toggleNotifications}
-                aria-label="알림"
-              >
-                <Bell size={20} />
-                {displayCount > 0 && (
-                  <span key={`count-${displayCount}`} className={styles.notificationCount}>
-                    {displayCount > 99 ? "99+" : displayCount}
-                  </span>
-                )}
-              </button>
+        {/* 오른쪽: 알림 + 프로필 드롭다운 */}
+        <div className={styles.rightSection}>
 
-              {/* Notification Dropdown */}
-              {isNotificationOpen && (
-                <div className={styles.notificationDropdown}>
-                  <div className={styles.notificationDropdownHeader}>
-                    <div className={styles.headerLeft}>
-                      <h3>Notifications</h3>
-                      {apiNotifications.length > 0 && (
-                        <span className={styles.totalCount}>{apiNotifications.length}</span>
-                      )}
-                    </div>
-                    <div className={styles.toggleContainer}>
-                      <span className={styles.toggleLabel}>Unread only</span>
-                      <button
-                        className={`${styles.toggleSwitch} ${notificationFilter === "unread" ? styles.toggleSwitchActive : ""}`}
-                        onClick={handleFilterChange}
-                        aria-label={`Switch to ${notificationFilter === "all" ? "unread only" : "view all"} notifications`}
-                      >
-                        <span className={styles.toggleSlider}></span>
-                      </button>
-                    </div>
-                  </div>
+          {/* 알림 벨 - 기존 코드 그대로 */}
+          <div className={styles.notificationContainer} ref={notificationRef}>
+            <button
+              className={`${styles.notificationBell} ${isShaking || hasUnreadItems() ? styles.shake : ""}`}
+              onClick={toggleNotifications}
+              aria-label="알림"
+            >
+              <Bell size={20} />
+              {displayCount > 0 && (
+                <span key={`count-${displayCount}`} className={styles.notificationCount}>
+                  {displayCount > 99 ? "99+" : displayCount}
+                </span>
+              )}
+            </button>
 
-                  <div className={styles.notificationList} ref={notificationContentRef}>
-                    {isLoadingNotifications ? (
-                      <div className={styles.loadingState}>
-                        <div className={styles.loadingSpinner}></div>
-                        <span>Loading notifications...</span>
-                      </div>
-                    ) : apiNotifications.length === 0 ? (
-                      <div className={styles.emptyState}>
-                        <Bell size={48} className={styles.emptyIcon} />
-                        <h4>{notificationFilter === "unread" ? "No unread notifications!" : "All caught up!"}</h4>
-                        <p>
-                          {notificationFilter === "unread"
-                            ? "You have no unread notifications"
-                            : "You have no new notifications"}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className={styles.notificationsList}>
-                        {apiNotifications.map(renderNotificationItem)}
-
-                        {isLoadingMore && (
-                          <div className={styles.loadingMore}>
-                            <div className={styles.loadingSpinner}></div>
-                            <span>Loading more...</span>
-                          </div>
-                        )}
-
-                        {!hasMoreNotifications && apiNotifications.length > 0 && (
-                          <div className={styles.endMessage}>
-                            <span>You're all caught up!</span>
-                          </div>
-                        )}
-                      </div>
+            {/* 알림 드롭다운 - 기존 코드 그대로 */}
+            {isNotificationOpen && (
+              <div className={styles.notificationDropdown}>
+                <div className={styles.notificationDropdownHeader}>
+                  <div className={styles.headerLeft}>
+                    <h3>Notifications</h3>
+                    {apiNotifications.length > 0 && (
+                      <span className={styles.totalCount}>{apiNotifications.length}</span>
                     )}
                   </div>
+                  <div className={styles.toggleContainer}>
+                    <span className={styles.toggleLabel}>Unread only</span>
+                    <button
+                      className={`${styles.toggleSwitch} ${notificationFilter === "unread" ? styles.toggleSwitchActive : ""}`}
+                      onClick={handleFilterChange}
+                    >
+                      <span className={styles.toggleSlider}></span>
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* Profile Section */}
-            {isLoading ? (
-              <div className={styles.profileImageLoading}></div>
-            ) : error ? (
-              <div className={styles.profileImageError}>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
+                <div className={styles.notificationList} ref={notificationContentRef}>
+                  {isLoadingNotifications ? (
+                    <div className={styles.loadingState}>
+                      <div className={styles.loadingSpinner}></div>
+                      <span>Loading notifications...</span>
+                    </div>
+                  ) : apiNotifications.length === 0 ? (
+                    <div className={styles.emptyState}>
+                      <Bell size={48} className={styles.emptyIcon} />
+                      <h4>{notificationFilter === "unread" ? "No unread notifications!" : "All caught up!"}</h4>
+                      <p>{notificationFilter === "unread" ? "You have no unread notifications" : "You have no new notifications"}</p>
+                    </div>
+                  ) : (
+                    <div className={styles.notificationsList}>
+                      {apiNotifications.map(renderNotificationItem)}
+                      {isLoadingMore && (
+                        <div className={styles.loadingMore}>
+                          <div className={styles.loadingSpinner}></div>
+                          <span>Loading more...</span>
+                        </div>
+                      )}
+                      {!hasMoreNotifications && apiNotifications.length > 0 && (
+                        <div className={styles.endMessage}><span>You're all caught up!</span></div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            ) : (
-              <Link to="/myprofile">
+            )}
+          </div>
+
+          {/* 프로필 드롭다운 */}
+          <div className={styles.profileDropdownWrapper} ref={profileDropdownRef}>
+            <button
+              className={styles.profileTrigger}
+              onClick={() => setIsProfileOpen(prev => !prev)}
+            >
+              {isLoading ? (
+                <div className={styles.profileImageLoading} />
+              ) : (
                 <img
                   src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${profileImage}`}
                   alt="User profile"
                   className={styles.profileImage}
-                  onError={(e) => {
-                    e.currentTarget.src = "/images/not-found-profile.png"
-                  }}
+                  onError={(e) => { e.currentTarget.src = "/images/not-found-profile.png" }}
                 />
-              </Link>
-            )}
-
-            <button
-              className={styles.logoutButton}
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                margin: 0,
-                cursor: "pointer",
-                fontWeight: 500,
-              }}
-              onClick={async () => {
-                try {
-                  const response = await axiosInstance.post("/logout", {})
-                  if (response.status === 204) {
-                    alert("로그아웃 되었습니다.")
-                    window.location.href = "/login"
-                  } else {
-                    alert("로그아웃 실패")
-                  }
-                } catch (error) {
-                  console.error("로그아웃 요청 실패:", error)
-                  alert("서버 오류로 로그아웃 실패")
-                }
-              }}
-            >
-              Log Out
+              )}
+              <span className={`${styles.profileChevron} ${isProfileOpen ? styles.profileChevronOpen : ''}`}>
+                ▾
+              </span>
             </button>
+
+            {isProfileOpen && (
+              <div className={styles.profileDropdown}>
+                {/* 상단 유저 정보 */}
+                <div className={styles.profileDropdownUser}>
+                  <img
+                    src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${profileImage}`}
+                    alt="profile"
+                    className={styles.profileDropdownAvatar}
+                    onError={(e) => { e.currentTarget.src = "/images/not-found-profile.png" }}
+                  />
+                  <div>
+                    <p className={styles.profileDropdownName}>{username}</p>
+                    <p className={styles.profileDropdownSub}>개발자</p>
+                  </div>
+                </div>
+
+                <div className={styles.profileDropdownDivider} />
+
+                {/* 메뉴 아이템 */}
+                <Link
+                  to="/myprofile"
+                  className={styles.profileDropdownItem}
+                  onClick={() => setIsProfileOpen(false)}
+                >
+                  <span className={styles.profileDropdownIcon}>👤</span>
+                  내 프로필
+                </Link>
+
+                <div className={styles.profileDropdownDivider} />
+
+                <button
+                  className={`${styles.profileDropdownItem} ${styles.profileDropdownLogout}`}
+                  onClick={async () => {
+                    try {
+                      const response = await axiosInstance.post("/logout", {})
+                      if (response.status === 204) {
+                        alert("로그아웃 되었습니다.")
+                        window.location.href = "/login"
+                      } else {
+                        alert("로그아웃 실패")
+                      }
+                    } catch (error) {
+                      console.error("로그아웃 요청 실패:", error)
+                      alert("서버 오류로 로그아웃 실패")
+                    }
+                  }}
+                >
+                  <span className={styles.profileDropdownIcon}>🚪</span>
+                  로그아웃
+                </button>
+              </div>
+            )}
           </div>
+
         </div>
-        <audio ref={audioRef} preload="auto">
-          <source src="/sounds/notification2.mp3" type="audio/mpeg" />
-        </audio>
-      </header>
+      </div>
+      <audio ref={audioRef} preload="auto">
+        <source src="/sounds/notification2.mp3" type="audio/mpeg" />
+      </audio>
+    </header>
     </>
   )
 }

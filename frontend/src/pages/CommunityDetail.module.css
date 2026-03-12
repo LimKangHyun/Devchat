@@ -1,0 +1,365 @@
+.container {
+  padding: 40px;
+  min-height: 100vh;
+  background-color: #f7fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.loading {
+  padding: 60px;
+  text-align: center;
+  color: #a0aec0;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #eaedf0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  max-width: 780px;
+}
+
+/* 카드 헤더 */
+.cardHeader {
+  padding: 32px 40px 24px;
+  border-bottom: 1px solid #f0f4f8;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  background-color: #ebf4ff;
+  color: #2588F1;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+
+.modeTag {
+  background-color: #f0fff4;
+  color: #38a169;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+
+.closedTag {
+  background-color: #fed7d7;
+  color: #c53030;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+
+.deadlineTag {
+  background-color: #fefcbf;
+  color: #b7791f;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+
+.viewCount {
+  font-size: 13px;
+  color: #a0aec0;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 16px 0;
+  line-height: 1.4;
+}
+
+.authorRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.authorInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.authorName {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.dot {
+  color: #cbd5e0;
+}
+
+.createdAt {
+  font-size: 13px;
+  color: #a0aec0;
+}
+
+/* 방장 버튼 */
+.ownerButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.editButton {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #4a5568;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.editButton:hover {
+  background: #f7fafc;
+  border-color: #2588F1;
+  color: #2588F1;
+}
+
+.deleteButton {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid #fed7d7;
+  background: white;
+  color: #e53e3e;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.deleteButton:hover {
+  background: #fff5f5;
+}
+
+/* 모집 정보 그리드 */
+.infoGrid {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #f0f4f8;
+  border-top: 1px solid #f0f4f8;
+}
+
+.infoItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  gap: 6px;
+  border-right: 1px solid #f0f4f8;
+}
+
+.infoItem:last-child {
+  border-right: none;
+}
+
+.infoLabel {
+  font-size: 12px;
+  color: #a0aec0;
+  font-weight: 500;
+}
+
+.infoValue {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+/* 기술 스택 */
+.techSection {
+  padding: 20px 40px;
+  border-bottom: 1px solid #f0f4f8;
+}
+
+.sectionLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #718096;
+  margin: 0 0 10px 0;
+}
+
+.techStacks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.techChip {
+  padding: 4px 14px;
+  border-radius: 20px;
+  background-color: #edf2f7;
+  color: #4a5568;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* 본문 */
+.content {
+  padding: 32px 40px;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #2d3748;
+  border-bottom: 1px solid #f0f4f8;
+  min-height: 200px;
+}
+
+.content p {
+  margin: 0 0 4px 0;
+}
+
+/* 신청 섹션 */
+.applySection {
+  padding: 24px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.applyInfo {
+  font-size: 14px;
+  color: #718096;
+}
+
+.applyCount {
+  font-weight: 500;
+}
+
+.applyButton {
+  padding: 12px 32px;
+  border-radius: 8px;
+  border: none;
+  background: #2588F1;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.applyButton:hover {
+  background: #1a6fd4;
+}
+
+.applyButtonDisabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.applyButtonDisabled:hover {
+  background: #a0aec0;
+}
+
+/* 방장 신청자 관리 */
+.applicantSection {
+  padding: 24px 40px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.applicantButton {
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: 1px solid #2588F1;
+  background: white;
+  color: #2588F1;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.applicantButton:hover {
+  background: #ebf4ff;
+}
+
+/* 뒤로가기 */
+.backButton {
+  margin-top: 20px;
+  background: none;
+  border: none;
+  color: #718096;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 0;
+  align-self: flex-start;
+  transition: color 0.15s;
+}
+
+.backButton:hover {
+  color: #2588F1;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.thead {
+  background-color: #f7f8fa;
+}
+
+.th {
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #2d3748;
+  border: 1px solid #eaedf0;
+}
+
+.td {
+  padding: 10px 16px;
+  border: 1px solid #eaedf0;
+  color: #4a5568;
+}
+
+.tr:hover {
+  background-color: #f7f8fa;
+}
+
+.checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: #2588F1;
+  cursor: default;
+  margin-right: 6px;
+  vertical-align: middle;
+}

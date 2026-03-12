@@ -29,4 +29,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     List<ChatMessage> findMissingSearchIndex(@Param("from") LocalDateTime from, Pageable pageable);
 
     Optional<ChatMessage> findTopByChatRoom_IdOrderByIdDesc(Long roomId);
+
+    void deleteByChatRoom_Id(Long chatRoomId);
 }

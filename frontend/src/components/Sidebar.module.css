@@ -1,0 +1,271 @@
+/* =====================
+   사이드바 컨테이너
+   ===================== */
+.sidebar {
+  width: 260px;
+  height: 100%;
+  background-color: #2588F1;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* =====================
+   헤더
+   ===================== */
+.sidebarHeader {
+  padding: 20px 15px 0px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), transparent);
+}
+
+.sidebarTitle {
+  margin: 0 0 15px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* =====================
+   탭 네비게이션
+   ===================== */
+.tabNav {
+  display: flex;
+  margin-bottom: 15px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.tabButton {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: transparent;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-weight: normal;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  gap: 6px;
+}
+
+.tabButtonActive {
+  background-color: rgba(255, 255, 255, 0.2);
+  font-weight: bold;
+}
+
+/* =====================
+   채팅방 목록
+   ===================== */
+.roomsContainer {
+  overflow-y: auto;
+  flex: 1;
+  padding: 5px 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.roomsContainer::-webkit-scrollbar {
+  display: none;
+}
+
+.roomItem {
+  padding: 5px 10px;
+}
+
+.roomRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border: 1px solid transparent;
+  position: relative;
+}
+
+.roomRowActive {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.roomRow:not(.roomRowActive):hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.roomLeft {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  overflow: hidden;
+}
+
+.roomIcon {
+  background-color: rgba(255, 255, 255, 0.7);
+  color: #2588F1;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.roomIconActive {
+  background-color: #fff;
+}
+
+.roomName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.roomNameUnread {
+  font-weight: 600;
+  color: #fff;
+}
+
+.roomNameActive {
+  font-weight: bold;
+}
+
+/* 안읽음 뱃지 */
+.unreadBadge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 16px;
+  height: 16px;
+  background-color: #ff4757;
+  border-radius: 8px;
+  border: 2px solid #2588F1;
+  font-size: 9px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  animation: pulse 2s infinite;
+}
+
+/* 방 정보 버튼 */
+.roomInfoButton {
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+  position: relative;
+  border: none;
+  color: white;
+  flex-shrink: 0;
+}
+
+.roomInfoButton:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.roomInfoButtonActive {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.roomInfoDot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background-color: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #2588F1;
+}
+
+/* 로딩/빈 상태 */
+.loadingState {
+  text-align: center;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.emptyState {
+  text-align: center;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* =====================
+   하단 버튼
+   ===================== */
+.sidebarFooter {
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.joinButton {
+  width: 100%;
+  padding: 12px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  cursor: pointer;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.joinButton:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.createButton {
+  width: 100%;
+  padding: 12px;
+  background-color: #1366d6;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.createButton:hover {
+  background-color: #0d5bca;
+}
+
+/* =====================
+   애니메이션
+   ===================== */
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+}
