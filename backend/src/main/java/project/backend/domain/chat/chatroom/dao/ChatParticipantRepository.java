@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
@@ -39,6 +40,19 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
         AND cp.isActive = true
         """)
     List<UnreadCountProjection> findUnreadCountsByMemberId(@Param("memberId") Long memberId);
+
+    @Modifying
+    @Query("""
+            UPDATE ChatParticipant cp
+            SET cp.lastReadMessageId = :lastMessageId
+            WHERE cp.chatRoom.id = :roomId
+            AND cp.participant.id = :memberId
+        """)
+    void updateLastReadMessageId(
+        @Param("roomId") Long roomId,
+        @Param("memberId") Long memberId,
+        @Param("lastMessageId") Long lastMessageId
+    );
 
     void deleteByChatRoom_Id(Long chatRoomId);
 }

@@ -29,6 +29,8 @@ const ChatRoom = () => {
   const messageContainerRef = useRef(null);
   const prevScrollHeightRef = useRef(0);
   const navigate = useNavigate();
+  const roomIdRef = useRef(null);
+  const prevRoomIdRef = useRef(null);
   const [roomName, setRoomName] = useState('로딩 중...');
   const [roomId, setRoomId] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
@@ -58,6 +60,20 @@ const ChatRoom = () => {
     initState.isRoomValidated && initState.isUserLoaded && initState.isMessagesLoaded;
 
   const { getAlarmStatus, updateAlarm } = useAlarm();
+
+  // roomId가 세팅될 때 ref도 업데이트
+  useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
+
+  // 컴포넌트 완전 언마운트 시 read 처리
+  useEffect(() => {
+    return () => {
+      if (roomIdRef.current) {
+        axiosInstance.patch(`/chat-rooms/${roomIdRef.current}/read`).catch(() => {});
+      }
+    };
+  }, []);
 
   const handleCodeClick = (message) => {
     setSelectedCodeMessage(message);
@@ -210,12 +226,23 @@ const ChatRoom = () => {
 
   useEffect(() => {
     if (!inviteCode) { navigate('/error'); return; }
+
+    const prevRoomId = prevRoomIdRef.current;
+
     const init = async () => {
+      // 이전 방 read 처리 (방 이동 시)
+      if (prevRoomId) {
+        await axiosInstance.patch(`/chat-rooms/${prevRoomId}/read`).catch(() => {});
+      }
+
       setInitState({ isRoomValidated: false, isUserLoaded: false, isMessagesLoaded: false, hasError: false, errorMessage: '' });
       setMessages([]); setCursor(null); setHasMoreMessages(true);
       setIsInitialLoad(true); setIsLoadingMessages(false); prevScrollHeightRef.current = 0;
+
       const [id] = await Promise.all([fetchRoomInfo(), fetchCurrentUser()]);
-      if (!id) navigate('/error');
+      if (!id) { navigate('/error'); return; }
+
+      prevRoomIdRef.current = id; // 현재 방 저장
     };
     init();
   }, [inviteCode, navigate, fetchRoomInfo, fetchCurrentUser]);

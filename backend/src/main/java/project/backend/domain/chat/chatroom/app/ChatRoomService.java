@@ -349,11 +349,11 @@ public class ChatRoomService {
 
     private Map<Long, Long> fetchLastReadMessageIdMap(Long memberId) {
         return chatParticipantRepository.findUnreadCountsByMemberId(memberId)
-                .stream()
-                .collect(Collectors.toMap(
-                        UnreadCountProjection::getChatRoomId,
-                        p -> p.getLastReadMessageId() != null ? p.getLastReadMessageId() : 0L
-                ));
+            .stream()
+            .collect(Collectors.toMap(
+                UnreadCountProjection::getChatRoomId,
+                p -> p.getLastReadMessageId() != null ? p.getLastReadMessageId() : 0L
+            ));
     }
 
     private long calculateUnread(Long lastReadMessageId, Object redisVal) {
@@ -366,5 +366,13 @@ public class ChatRoomService {
             return 0L;
         }
         return 0L;
+    }
+
+    @Transactional
+    public void updateLastReadMessageId(Long roomId, Long memberId) {
+        Long lastMessageId = chatRoomRedisRepository.getLastMessageId(roomId);
+        log.info("lastRead 업데이트 roomId={}, memberId={}, lastMessageId={}", roomId, memberId,
+            lastMessageId);
+        chatParticipantRepository.updateLastReadMessageId(roomId, memberId, lastMessageId);
     }
 }

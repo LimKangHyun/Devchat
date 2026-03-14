@@ -157,11 +157,6 @@ const Sidebar = ({ onStartChat }) => {
 
   const navigateToRoom = async (id, inviteCode) => {
     if (id) {
-      if (roomId) {
-        await axiosInstance.post(`/chat-rooms/${roomId}/read`).catch((e) => {
-          console.error("read API 실패:", e)
-        })
-      }
       setAlarmRooms(prev => prev.map(r =>
         Number(r.uniqueId) === Number(roomId) ? { ...r, unreadCount: 0 } : r
       ))
