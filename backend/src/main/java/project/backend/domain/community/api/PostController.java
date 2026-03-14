@@ -2,7 +2,6 @@ package project.backend.domain.community.api;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Slice;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -51,7 +50,7 @@ public class PostController {
     }
 
     // 게시글 수정
-    @PatchMapping("/{postId}")
+    @PostMapping("/{postId}")
     public ResponseEntity<PostResponse> updatePost(
         @PathVariable Long postId,
         @RequestBody @Valid PostUpdateRequest request,

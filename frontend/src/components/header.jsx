@@ -918,7 +918,7 @@ export function HeaderWithNotifications() {
         </div>
       </div>
       <audio ref={audioRef} preload="auto">
-        <source src="/sounds/notification2.mp3" type="audio/mpeg" />
+        <source src="/sounds/notification.mp3" type="audio/mpeg" />
       </audio>
     </header>
     </>
