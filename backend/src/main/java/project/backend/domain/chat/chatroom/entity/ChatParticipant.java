@@ -39,9 +39,6 @@ public class ChatParticipant {
 
     private LocalDateTime joinAt;
 
-    @Column(name = "unread_count", nullable = false)
-    private long unreadCount = 0;
-
     @Column(name = "last_read_message_id")
     private Long lastReadMessageId;
 
@@ -76,7 +73,6 @@ public class ChatParticipant {
     }
 
     public void resetUnreadCount(Long messageId) {
-        this.unreadCount = 0;
         this.lastReadMessageId = messageId;
     }
 

@@ -1,14 +1,59 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Virtuoso } from 'react-virtuoso';
 import SearchSidebar from '../components/SearchSideBar';
 import axiosInstance from '../components/api/axiosInstance';
 import MessageInput from '../components/chatroom/MessageInput';
-import MessageList from '../components/chatroom/MessageList';
+import { MessageItem, DateDivider } from '../components/chatroom/MessageList';
 import useWebSocket from '../components/common/useWebSocket';
 import RoomHeader from '../components/chatroom/RoomHeader';
 import RoomDeletedModal from '../components/modals/RoomDeletedModal';
 import CodeReviewModal from '../components/modals/CodeReviewModal.jsx';
 import { useAlarm } from '../context/AlarmContext';
+
+const PAGE_SIZE = 30;
+const INDEX_OFFSET = 100000;
+
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return '오늘';
+  if (date.toDateString() === yesterday.toDateString()) return '어제';
+  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
+// ✅ Virtuoso itemContent용 — 날짜 구분선 + MessageItem 직접 렌더링
+const VirtuosoMessageItem = React.memo(({
+  msg, prevMsg,
+  currentUser, contextMenuId, setContextMenuId,
+  setEditMessageId, setEditContent,
+  handleDeleteMessage, editMessageId, editContent,
+  handleEditMessage, onCodeClick,
+}) => {
+  const msgDate = formatDate(msg.sendAt || msg.joinAt);
+  const prevDate = prevMsg ? formatDate(prevMsg.sendAt || prevMsg.joinAt) : null;
+
+  return (
+    <div>
+      {msgDate !== prevDate && <DateDivider label={msgDate} />}
+      <MessageItem
+        msg={msg}
+        currentUser={currentUser}
+        contextMenuId={contextMenuId}
+        setContextMenuId={setContextMenuId}
+        setEditMessageId={setEditMessageId}
+        setEditContent={setEditContent}
+        handleDeleteMessage={handleDeleteMessage}
+        editMessageId={editMessageId}
+        editContent={editContent}
+        handleEditMessage={handleEditMessage}
+        onCodeClick={onCodeClick}
+      />
+    </div>
+  );
+});
 
 const ChatRoom = () => {
   const { inviteCode } = useParams();
@@ -24,14 +69,15 @@ const ChatRoom = () => {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const messagesEndRef = useRef(null);
-  const messagesStartRef = useRef(null);
-  const messageContainerRef = useRef(null);
-  const prevScrollHeightRef = useRef(0);
+  const [firstItemIndex, setFirstItemIndex] = useState(INDEX_OFFSET);
+
+  const virtuosoRef = useRef(null);
   const navigate = useNavigate();
   const roomIdRef = useRef(null);
   const prevRoomIdRef = useRef(null);
   const readDoneRef = useRef(false);
+  const isLoadingRef = useRef(false);
+
   const [roomName, setRoomName] = useState('로딩 중...');
   const [roomId, setRoomId] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
@@ -62,12 +108,10 @@ const ChatRoom = () => {
 
   const { getAlarmStatus, updateAlarm } = useAlarm();
 
-  // roomId가 세팅될 때 ref도 업데이트
   useEffect(() => {
     roomIdRef.current = roomId;
   }, [roomId]);
 
-  // 컴포넌트 완전 언마운트 시 read 처리 (방 이동이 아닌 경우에만)
   useEffect(() => {
     return () => {
       if (roomIdRef.current && !readDoneRef.current) {
@@ -82,14 +126,6 @@ const ChatRoom = () => {
     setSelectedCodeMessage(message);
     setShowCodeModal(true);
   };
-
-  const scrollToBottom = useCallback(() => {
-    if (messageContainerRef.current) {
-      requestAnimationFrame(() => {
-        messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
-      });
-    }
-  }, []);
 
   const fetchRoomInfo = useCallback(async () => {
     try {
@@ -113,12 +149,14 @@ const ChatRoom = () => {
 
   const fetchMessages = useCallback(
     async (cursorValue = null, isLoadMore = false) => {
-      setIsLoadingMessages((prev) => {
-        if (prev) return prev;
-        return true;
-      });
+      if (!roomId) return;
+      if (isLoadingRef.current) return;
+
+      isLoadingRef.current = true;
+      setIsLoadingMessages(true);
+
       try {
-        const params = { size: 30 };
+        const params = { size: PAGE_SIZE };
         if (cursorValue) params.cursor = cursorValue;
         const res = await axiosInstance.get(`/${roomId}/messages`, { params });
         const data = res.data;
@@ -133,21 +171,26 @@ const ChatRoom = () => {
         const sorted = [...validated].sort(
           (a, b) => new Date(a.sendAt) - new Date(b.sendAt)
         );
+
         if (isLoadMore) {
-          prevScrollHeightRef.current = messageContainerRef.current?.scrollHeight || 0;
+          // ✅ firstItemIndex를 추가된 개수만큼 줄여서 Virtuoso가 스크롤 위치 자동 유지
+          setFirstItemIndex((prev) => prev - sorted.length);
           setMessages((prev) => {
             const ids = new Set(prev.map((m) => m.messageId));
             return [...sorted.filter((m) => !ids.has(m.messageId)), ...prev];
           });
         } else {
+          setFirstItemIndex(INDEX_OFFSET);
           setMessages(sorted);
           setInitState((prev) => ({ ...prev, isMessagesLoaded: true }));
         }
+
         setCursor(data.nextCursor);
         setHasMoreMessages(!!data.nextCursor && messageList.length > 0);
       } catch (e) {
         console.error(e);
       } finally {
+        isLoadingRef.current = false;
         setIsLoadingMessages(false);
       }
     },
@@ -186,46 +229,12 @@ const ChatRoom = () => {
         const updated = prev.some((m) => m.messageId === received.messageId)
           ? prev.map((m) => (m.messageId === received.messageId ? received : m))
           : [...prev, received];
-        const sorted = [...updated].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
-        if (messageContainerRef.current) {
-          const { scrollTop, clientHeight, scrollHeight } = messageContainerRef.current;
-          if (scrollTop + clientHeight >= scrollHeight - 100 || received.senderId === currentUser?.userId) {
-            scrollToBottom();
-          }
-        }
-        return sorted;
+        return [...updated].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
       });
     },
     onProfileUpdate: handleProfileUpdate,
     onRoomDeleted: (e) => setDeleteNotification(e.content),
   });
-
-  const restoreScrollPosition = useCallback(() => {
-    if (!messageContainerRef.current) return;
-    const diff = messageContainerRef.current.scrollHeight - prevScrollHeightRef.current;
-    if (diff > 0) messageContainerRef.current.scrollTop += diff;
-  }, []);
-
-  const handleScroll = useCallback(() => {
-    if (!messageContainerRef.current || !roomId || !initState.isRoomValidated) return;
-    const { scrollTop, scrollHeight } = messageContainerRef.current;
-    if (scrollTop <= 150 && !isLoadingMessages && hasMoreMessages && cursor) {
-      prevScrollHeightRef.current = scrollHeight;
-      fetchMessages(cursor, true);
-    }
-  }, [fetchMessages, hasMoreMessages, cursor, isLoadingMessages, roomId, initState.isRoomValidated]);
-
-  useEffect(() => {
-    const el = messageContainerRef.current;
-    if (!el) return;
-    let tid = null;
-    const debounced = () => {
-      clearTimeout(tid);
-      tid = setTimeout(handleScroll, 150);
-    };
-    el.addEventListener('scroll', debounced, { passive: true });
-    return () => { el.removeEventListener('scroll', debounced); clearTimeout(tid); };
-  }, [handleScroll]);
 
   useEffect(() => {
     if (!inviteCode) { navigate('/error'); return; }
@@ -233,7 +242,6 @@ const ChatRoom = () => {
     const prevRoomId = prevRoomIdRef.current;
 
     const init = async () => {
-      // 이전 방 read 처리 (방 이동 시)
       if (prevRoomId) {
         readDoneRef.current = true;
         await axiosInstance.post(`/chat-rooms/${prevRoomId}/read`).catch(() => {});
@@ -242,8 +250,13 @@ const ChatRoom = () => {
       }
 
       setInitState({ isRoomValidated: false, isUserLoaded: false, isMessagesLoaded: false, hasError: false, errorMessage: '' });
-      setMessages([]); setCursor(null); setHasMoreMessages(true);
-      setIsInitialLoad(true); setIsLoadingMessages(false); prevScrollHeightRef.current = 0;
+      setMessages([]);
+      setCursor(null);
+      setHasMoreMessages(true);
+      setIsInitialLoad(true);
+      setIsLoadingMessages(false);
+      setFirstItemIndex(INDEX_OFFSET);
+      isLoadingRef.current = false;
 
       const [id] = await Promise.all([fetchRoomInfo(), fetchCurrentUser()]);
       if (!id) { navigate('/error'); return; }
@@ -261,20 +274,32 @@ const ChatRoom = () => {
   }, [roomId, initState.isRoomValidated, isInitialLoad, fetchMessages]);
 
   useEffect(() => {
-    if (!isInitialLoad && messages.length > 0) {
-      if (isLoadingMessages) {
-        requestAnimationFrame(() => requestAnimationFrame(restoreScrollPosition));
-      } else if (prevScrollHeightRef.current === 0 && messageContainerRef.current) {
-        scrollToBottom();
-      }
-    }
-  }, [messages, isInitialLoad, restoreScrollPosition, isLoadingMessages, scrollToBottom]);
-
-  useEffect(() => {
     if (currentUser && roomData?.ownerId) {
       setIsOwner(currentUser.id === roomData.ownerId);
     }
   }, [currentUser, roomData]);
+
+  // ✅ Virtuoso 맨 위 도달 시 이전 메시지 로드
+  const handleStartReached = useCallback(() => {
+    if (!isLoadingRef.current && hasMoreMessages && cursor) {
+      fetchMessages(cursor, true);
+    }
+  }, [fetchMessages, hasMoreMessages, cursor]);
+
+  // ✅ 검색 결과 메시지로 스크롤
+  const scrollToMessage = useCallback((messageId) => {
+    const idx = messages.findIndex((m) => m.messageId === messageId);
+    if (idx === -1) return;
+    virtuosoRef.current?.scrollToIndex({ index: idx, behavior: 'smooth', align: 'center' });
+    setTimeout(() => {
+      const el = document.getElementById(`message-${messageId}`);
+      if (!el) return;
+      el.style.backgroundColor = '#fff8e1';
+      el.style.borderRadius = '6px';
+      el.style.transition = 'background-color 0.3s ease';
+      setTimeout(() => { el.style.backgroundColor = ''; el.style.borderRadius = ''; }, 2000);
+    }, 300);
+  }, [messages]);
 
   const handleLeaveRoom = async () => {
     try {
@@ -321,16 +346,6 @@ const ChatRoom = () => {
     } finally {
       setIsSearching(false);
     }
-  };
-
-  const scrollToMessage = (messageId) => {
-    const el = document.getElementById(`message-${messageId}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el.style.backgroundColor = '#fff8e1';
-    el.style.borderRadius = '6px';
-    el.style.transition = 'background-color 0.3s ease';
-    setTimeout(() => { el.style.backgroundColor = ''; el.style.borderRadius = ''; }, 2000);
   };
 
   const handleUnifiedSend = async () => {
@@ -391,10 +406,6 @@ const ChatRoom = () => {
     <>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        .msg-container::-webkit-scrollbar { width: 6px; }
-        .msg-container::-webkit-scrollbar-track { background: transparent; }
-        .msg-container::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 3px; }
-        .msg-container::-webkit-scrollbar-thumb:hover { background: #c8c8c8; }
       `}</style>
 
       <div style={{
@@ -425,15 +436,13 @@ const ChatRoom = () => {
             </div>
           )}
 
-          <div
-            ref={messageContainerRef}
-            className="msg-container"
-            style={{
-              flex: 1, overflowY: 'auto', padding: '16px 20px',
-              backgroundColor: '#ffffff', minHeight: 0, position: 'relative',
-              opacity: isFullyLoaded ? 1 : 0.6, transition: 'opacity 0.2s',
-            }}
-          >
+          <div style={{
+            flex: 1,
+            minHeight: 0,
+            position: 'relative',
+            opacity: isFullyLoaded ? 1 : 0.6,
+            transition: 'opacity 0.2s',
+          }}>
             {!isFullyLoaded && (
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', zIndex: 10 }}>
                 <div style={{ width: '28px', height: '28px', border: '2.5px solid #e8e8e8', borderTop: '2.5px solid #1264a3', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
@@ -441,33 +450,51 @@ const ChatRoom = () => {
               </div>
             )}
 
-            {isLoadingMessages && hasMoreMessages && (
-              <div style={{ textAlign: 'center', padding: '6px 14px', color: '#888', fontSize: '12px', backgroundColor: '#f8f8f8', borderRadius: '12px', margin: '0 auto 12px', width: 'fit-content', border: '1px solid #efefef' }}>
-                메시지 불러오는 중...
-              </div>
-            )}
-
-            {!hasMoreMessages && messages.length > 0 && !isInitialLoad && (
-              <div style={{ textAlign: 'center', padding: '6px 14px', color: '#bbb', fontSize: '11px', margin: '0 auto 16px', width: 'fit-content' }}>
-                채널의 시작입니다
-              </div>
-            )}
-
-            <div ref={messagesStartRef} />
-            <MessageList
-              messages={messages}
-              currentUser={currentUser}
-              contextMenuId={contextMenuId}
-              setContextMenuId={setContextMenuId}
-              setEditMessageId={setEditMessageId}
-              setEditContent={setEditContent}
-              handleDeleteMessage={handleDeleteMessage}
-              editMessageId={editMessageId}
-              editContent={editContent}
-              handleEditMessage={handleEditMessage}
-              onCodeClick={handleCodeClick}
+            <Virtuoso
+              ref={virtuosoRef}
+              style={{ height: '100%' }}
+              firstItemIndex={firstItemIndex}
+              initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
+              data={messages}
+              // ✅ 맨 아래에 있을 때만 새 메시지 오면 자동 스크롤
+              followOutput={(isAtBottom) => isAtBottom ? 'smooth' : false}
+              // ✅ 맨 위 도달 시 이전 메시지 로드
+              startReached={handleStartReached}
+              overscan={300}
+              components={{
+                Header: () =>
+                  isLoadingMessages && hasMoreMessages ? (
+                    <div style={{ textAlign: 'center', padding: '6px 14px', color: '#888', fontSize: '12px', backgroundColor: '#f8f8f8', borderRadius: '12px', margin: '8px auto', width: 'fit-content', border: '1px solid #efefef' }}>
+                      메시지 불러오는 중...
+                    </div>
+                  ) : !hasMoreMessages && messages.length > 0 ? (
+                    <div style={{ textAlign: 'center', padding: '6px 14px', color: '#bbb', fontSize: '11px', margin: '8px auto 16px', width: 'fit-content' }}>
+                      채널의 시작입니다
+                    </div>
+                  ) : null,
+              }}
+              itemContent={(index, msg) => {
+                // ✅ Virtuoso index → messages 배열 index 변환
+                const arrayIndex = index - firstItemIndex;
+                const prevMsg = arrayIndex > 0 ? messages[arrayIndex - 1] : null;
+                return (
+                  <VirtuosoMessageItem
+                    msg={msg}
+                    prevMsg={prevMsg}
+                    currentUser={currentUser}
+                    contextMenuId={contextMenuId}
+                    setContextMenuId={setContextMenuId}
+                    setEditMessageId={setEditMessageId}
+                    setEditContent={setEditContent}
+                    handleDeleteMessage={handleDeleteMessage}
+                    editMessageId={editMessageId}
+                    editContent={editContent}
+                    handleEditMessage={handleEditMessage}
+                    onCodeClick={handleCodeClick}
+                  />
+                );
+              }}
             />
-            <div ref={messagesEndRef} />
           </div>
 
           <div style={{ padding: '0 20px 16px', backgroundColor: '#ffffff', flexShrink: 0, pointerEvents: isFullyLoaded ? 'auto' : 'none' }}>
