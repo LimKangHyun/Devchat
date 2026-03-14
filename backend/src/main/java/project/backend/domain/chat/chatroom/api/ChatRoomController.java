@@ -126,4 +126,11 @@ public class ChatRoomController {
         @AuthenticationPrincipal MemberDetails memberDetails) {
         return chatRoomService.findAllRoomsByMemberId(memberDetails.getId());
     }
+
+    @PostMapping("/{roomId}/read")
+    public void updateLastRead(
+        @PathVariable Long roomId,
+        @AuthenticationPrincipal MemberDetails memberDetails) {
+        chatRoomService.updateLastReadMessageId(roomId, memberDetails.getId());
+    }
 }

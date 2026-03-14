@@ -29,6 +29,9 @@ const ChatRoom = () => {
   const messageContainerRef = useRef(null);
   const prevScrollHeightRef = useRef(0);
   const navigate = useNavigate();
+  const roomIdRef = useRef(null);
+  const prevRoomIdRef = useRef(null);
+  const readDoneRef = useRef(false);
   const [roomName, setRoomName] = useState('로딩 중...');
   const [roomId, setRoomId] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
@@ -58,6 +61,22 @@ const ChatRoom = () => {
     initState.isRoomValidated && initState.isUserLoaded && initState.isMessagesLoaded;
 
   const { getAlarmStatus, updateAlarm } = useAlarm();
+
+  // roomId가 세팅될 때 ref도 업데이트
+  useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
+
+  // 컴포넌트 완전 언마운트 시 read 처리 (방 이동이 아닌 경우에만)
+  useEffect(() => {
+    return () => {
+      if (roomIdRef.current && !readDoneRef.current) {
+        axiosInstance.post(`/chat-rooms/${roomIdRef.current}/read`)
+          .then(() => window.dispatchEvent(new CustomEvent('room:read')))
+          .catch(() => {});
+      }
+    };
+  }, []);
 
   const handleCodeClick = (message) => {
     setSelectedCodeMessage(message);
@@ -210,12 +229,26 @@ const ChatRoom = () => {
 
   useEffect(() => {
     if (!inviteCode) { navigate('/error'); return; }
+
+    const prevRoomId = prevRoomIdRef.current;
+
     const init = async () => {
+      // 이전 방 read 처리 (방 이동 시)
+      if (prevRoomId) {
+        readDoneRef.current = true;
+        await axiosInstance.post(`/chat-rooms/${prevRoomId}/read`).catch(() => {});
+        window.dispatchEvent(new CustomEvent('room:read', { detail: { roomId: prevRoomId } }));
+        readDoneRef.current = false;
+      }
+
       setInitState({ isRoomValidated: false, isUserLoaded: false, isMessagesLoaded: false, hasError: false, errorMessage: '' });
       setMessages([]); setCursor(null); setHasMoreMessages(true);
       setIsInitialLoad(true); setIsLoadingMessages(false); prevScrollHeightRef.current = 0;
+
       const [id] = await Promise.all([fetchRoomInfo(), fetchCurrentUser()]);
-      if (!id) navigate('/error');
+      if (!id) { navigate('/error'); return; }
+
+      prevRoomIdRef.current = id;
     };
     init();
   }, [inviteCode, navigate, fetchRoomInfo, fetchCurrentUser]);
@@ -370,7 +403,6 @@ const ChatRoom = () => {
         backgroundColor: '#ffffff',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
       }}>
-        {/* 메인 채팅 영역 */}
         <div style={{
           flex: 1,
           display: 'flex',
@@ -378,14 +410,8 @@ const ChatRoom = () => {
           minWidth: 0,
           borderRight: showSearchSidebar ? '1px solid #f0f0f0' : 'none',
         }}>
-
-          {/* 헤더 */}
           {getAlarmStatus(roomId) !== undefined && (
-            <div style={{
-              borderBottom: '1px solid #f0f0f0',
-              backgroundColor: '#ffffff',
-              flexShrink: 0,
-            }}>
+            <div style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: '#ffffff', flexShrink: 0 }}>
               <RoomHeader
                 roomName={roomName}
                 inviteCode={inviteCode}
@@ -399,59 +425,30 @@ const ChatRoom = () => {
             </div>
           )}
 
-          {/* 메시지 목록 */}
           <div
             ref={messageContainerRef}
             className="msg-container"
             style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '16px 20px',
-              backgroundColor: '#ffffff',
-              minHeight: 0,
-              position: 'relative',
-              opacity: isFullyLoaded ? 1 : 0.6,
-              transition: 'opacity 0.2s',
+              flex: 1, overflowY: 'auto', padding: '16px 20px',
+              backgroundColor: '#ffffff', minHeight: 0, position: 'relative',
+              opacity: isFullyLoaded ? 1 : 0.6, transition: 'opacity 0.2s',
             }}
           >
-            {/* 로딩 스피너 */}
             {!isFullyLoaded && (
-              <div style={{
-                position: 'absolute', top: '50%', left: '50%',
-                transform: 'translate(-50%, -50%)', textAlign: 'center', zIndex: 10,
-              }}>
-                <div style={{
-                  width: '28px', height: '28px',
-                  border: '2.5px solid #e8e8e8',
-                  borderTop: '2.5px solid #1264a3',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite',
-                  margin: '0 auto 10px',
-                }} />
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', zIndex: 10 }}>
+                <div style={{ width: '28px', height: '28px', border: '2.5px solid #e8e8e8', borderTop: '2.5px solid #1264a3', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
                 <div style={{ fontSize: '13px', color: '#aaa' }}>불러오는 중...</div>
               </div>
             )}
 
-            {/* 무한스크롤 로딩 */}
             {isLoadingMessages && hasMoreMessages && (
-              <div style={{
-                textAlign: 'center', padding: '6px 14px',
-                color: '#888', fontSize: '12px',
-                backgroundColor: '#f8f8f8', borderRadius: '12px',
-                margin: '0 auto 12px', width: 'fit-content',
-                border: '1px solid #efefef',
-              }}>
+              <div style={{ textAlign: 'center', padding: '6px 14px', color: '#888', fontSize: '12px', backgroundColor: '#f8f8f8', borderRadius: '12px', margin: '0 auto 12px', width: 'fit-content', border: '1px solid #efefef' }}>
                 메시지 불러오는 중...
               </div>
             )}
 
-            {/* 모두 불러옴 */}
             {!hasMoreMessages && messages.length > 0 && !isInitialLoad && (
-              <div style={{
-                textAlign: 'center', padding: '6px 14px',
-                color: '#bbb', fontSize: '11px',
-                margin: '0 auto 16px', width: 'fit-content',
-              }}>
+              <div style={{ textAlign: 'center', padding: '6px 14px', color: '#bbb', fontSize: '11px', margin: '0 auto 16px', width: 'fit-content' }}>
                 채널의 시작입니다
               </div>
             )}
@@ -473,13 +470,7 @@ const ChatRoom = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* 입력 영역 */}
-          <div style={{
-            padding: '0 20px 16px',
-            backgroundColor: '#ffffff',
-            flexShrink: 0,
-            pointerEvents: isFullyLoaded ? 'auto' : 'none',
-          }}>
+          <div style={{ padding: '0 20px 16px', backgroundColor: '#ffffff', flexShrink: 0, pointerEvents: isFullyLoaded ? 'auto' : 'none' }}>
             <MessageInput
               inputMode={inputMode}
               setInputMode={setInputMode}
@@ -495,7 +486,6 @@ const ChatRoom = () => {
           </div>
         </div>
 
-        {/* 검색 사이드바 */}
         {showSearchSidebar && (
           <SearchSidebar
             totalCount={searchTotalCount}
@@ -510,7 +500,6 @@ const ChatRoom = () => {
           />
         )}
 
-        {/* 코드 리뷰 모달 */}
         {showCodeModal && selectedCodeMessage && (
           <CodeReviewModal
             message={selectedCodeMessage}

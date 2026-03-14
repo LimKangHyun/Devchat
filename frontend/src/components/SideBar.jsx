@@ -23,10 +23,9 @@ const Sidebar = ({ onStartChat }) => {
 
   const [activeTab, setActiveTab] = useState("chat")
 
-  // localStorage 캐시로 초기값 설정 → 깜빡임 방지
   const [loading, setLoading] = useState(() => {
     const cached = localStorage.getItem(CACHE_KEY)
-    return !cached // 캐시 있으면 로딩 false로 시작
+    return !cached
   })
 
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -43,7 +42,6 @@ const Sidebar = ({ onStartChat }) => {
 
   const { getAlarmStatus, alarmStatusMap = {} } = useAlarm()
 
-  // localStorage 캐시로 초기값 설정 → 깜빡임 방지
   const [alarmRooms, setAlarmRooms] = useState(() => {
     try {
       const cached = localStorage.getItem(CACHE_KEY)
@@ -98,12 +96,20 @@ const Sidebar = ({ onStartChat }) => {
     roomId: null,
   })
 
+  // read API 완료 후 fetchAllRooms 실행
+  useEffect(() => {
+    const handleRoomRead = () => fetchAllRooms()
+    window.addEventListener('room:read', handleRoomRead)
+    return () => window.removeEventListener('room:read', handleRoomRead)
+  }, [])
+
+  // inviteCode에서 제거 (room:read 이벤트로 대체)
   useEffect(() => {
     if (activeTab === "chat") {
       fetchAllRooms()
       fetchCurrentUser()
     }
-  }, [inviteCode, activeTab, alarmStatusMap])
+  }, [activeTab, alarmStatusMap])
 
   useEffect(() => {
     if (!inviteCode) {
@@ -129,7 +135,6 @@ const Sidebar = ({ onStartChat }) => {
 
   const fetchAllRooms = async () => {
     try {
-      // 캐시 있으면 로딩 스피너 안 보여줌
       const cached = localStorage.getItem(CACHE_KEY)
       if (!cached) setLoading(true)
 
@@ -144,8 +149,6 @@ const Sidebar = ({ onStartChat }) => {
       })).filter(room => room.uniqueId)
 
       setAlarmRooms(rooms)
-
-      // 최신 데이터 캐시 저장s
       localStorage.setItem(CACHE_KEY, JSON.stringify(rooms))
       setRoomsReady(true)
     } catch (e) {
@@ -157,11 +160,6 @@ const Sidebar = ({ onStartChat }) => {
 
   const navigateToRoom = async (id, inviteCode) => {
     if (id) {
-      if (roomId) {
-        await axiosInstance.post(`/chat-rooms/${roomId}/read`).catch((e) => {
-          console.error("read API 실패:", e)
-        })
-      }
       setAlarmRooms(prev => prev.map(r =>
         Number(r.uniqueId) === Number(roomId) ? { ...r, unreadCount: 0 } : r
       ))

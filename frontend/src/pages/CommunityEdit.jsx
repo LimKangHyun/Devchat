@@ -57,7 +57,7 @@ const CommunityEdit = () => {
 
     try {
       setIsSubmitting(true);
-      await axiosInstance.patch(`/community/${postId}`, {
+      await axiosInstance.post(`/community/${postId}`, {
         title: form.title,
         content: form.content,
         maxCount: Number(form.maxCount),
