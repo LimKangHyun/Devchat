@@ -70,7 +70,7 @@ const ChatRoom = () => {
   useEffect(() => {
     return () => {
       if (roomIdRef.current) {
-        axiosInstance.patch(`/chat-rooms/${roomIdRef.current}/read`).catch(() => {});
+        axiosInstance.post(`/chat-rooms/${roomIdRef.current}/read`).catch(() => {});
       }
     };
   }, []);
