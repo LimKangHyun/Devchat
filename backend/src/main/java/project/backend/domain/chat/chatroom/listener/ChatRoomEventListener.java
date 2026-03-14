@@ -1,6 +1,5 @@
 package project.backend.domain.chat.chatroom.listener;
 
-import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -11,7 +10,6 @@ import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
-import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
 import project.backend.domain.chat.chatmessage.dto.event.EventMessageResponse;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
@@ -31,7 +29,6 @@ public class ChatRoomEventListener {
 
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final ChatMessageRepository chatMessageRepository;
-    private final ChatParticipantRepository chatParticipantRepository;
     private final ChatRoomService chatRoomService;
     private final ChatMessageMapper chatMessageMapper;
     private final MemberService memberService;

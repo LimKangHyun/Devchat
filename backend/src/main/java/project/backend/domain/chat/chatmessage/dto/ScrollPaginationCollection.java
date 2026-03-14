@@ -8,28 +8,28 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class ScrollPaginationCollection<T> {
 
-	private final List<T> itemsWithNextCursor;
-	private final int size;
+    private final List<T> itemsWithNextCursor;
+    private final int size;
 
-	public static <T> ScrollPaginationCollection<T> of(List<T> itemsWithNextCursor, int size) {
-		return new ScrollPaginationCollection<>(itemsWithNextCursor, size);
-	}
+    public static <T> ScrollPaginationCollection<T> of(List<T> itemsWithNextCursor, int size) {
+        return new ScrollPaginationCollection<>(itemsWithNextCursor, size);
+    }
 
-	public List<T> getCurrentScrollItems() {
-		if (isLastScroll()) {
-			return itemsWithNextCursor;
-		}
-		return itemsWithNextCursor.subList(0, size);
-	}
+    public List<T> getCurrentScrollItems() {
+        if (isLastScroll()) {
+            return itemsWithNextCursor;
+        }
+        return itemsWithNextCursor.subList(0, size);
+    }
 
-	public T getNextCursor() {
-		if (isLastScroll()) {
-			return null;
-		}
-		return itemsWithNextCursor.get(size);
-	}
+    public T getNextCursor() {
+        if (isLastScroll()) {
+            return null;
+        }
+        return itemsWithNextCursor.get(size);
+    }
 
-	public boolean isLastScroll() {
-		return itemsWithNextCursor.size() < size;
-	}
+    public boolean isLastScroll() {
+        return itemsWithNextCursor.size() <= size;
+    }
 }

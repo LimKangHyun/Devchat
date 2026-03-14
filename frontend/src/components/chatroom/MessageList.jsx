@@ -172,8 +172,8 @@ const EditedLabel = () => (
   <span style={{ marginLeft: '5px', fontSize: '11px', color: '#ccc', fontStyle: 'italic' }}>(수정됨)</span>
 );
 
-/* ── 메시지 아이템 ── */
-const MessageItem = ({
+/* ── 메시지 아이템 ── ✅ export 추가 */
+export const MessageItem = ({
   msg, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, handleEditMessage,
   handleDeleteMessage, editMessageId, editContent, onCodeClick,
@@ -311,8 +311,8 @@ const ActionBtn = ({ label, onClick, danger = false }) => {
   );
 };
 
-/* ── 날짜 구분선 ── */
-const DateDivider = ({ label }) => (
+/* ── 날짜 구분선 ── ✅ export 추가 */
+export const DateDivider = ({ label }) => (
   <div style={{
     display: 'flex', alignItems: 'center',
     margin: '20px 16px 12px',
@@ -330,7 +330,7 @@ const DateDivider = ({ label }) => (
   </div>
 );
 
-/* ── 메시지 리스트 ── */
+/* ── 메시지 리스트 (기존 사용처 호환용 default export 유지) ── */
 const MessageList = ({
   messages, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, editMessageId, editContent,

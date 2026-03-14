@@ -40,6 +40,12 @@ const Sidebar = ({ onStartChat }) => {
   const [currentUser, setCurrentUser] = useState(null)
   const [roomId, setRoomId] = useState(null)
 
+  // ✅ roomId를 ref로도 관리 — 클로저 캡처 문제 방지
+  const roomIdRef = useRef(null)
+  useEffect(() => {
+    roomIdRef.current = roomId
+  }, [roomId])
+
   const { getAlarmStatus, alarmStatusMap = {} } = useAlarm()
 
   const [alarmRooms, setAlarmRooms] = useState(() => {
@@ -52,7 +58,7 @@ const Sidebar = ({ onStartChat }) => {
   })
 
   const handleSidebarMessage = (roomUniqueId, message) => {
-    if (Number(roomId) !== Number(roomUniqueId)) {
+    if (Number(roomIdRef.current) !== Number(roomUniqueId)) {
       setAlarmRooms(prev => prev.map(r =>
         Number(r.uniqueId) === Number(roomUniqueId)
           ? { ...r, unreadCount: (r.unreadCount ?? 0) + 1 }
@@ -103,7 +109,6 @@ const Sidebar = ({ onStartChat }) => {
     return () => window.removeEventListener('room:read', handleRoomRead)
   }, [])
 
-  // inviteCode에서 제거 (room:read 이벤트로 대체)
   useEffect(() => {
     if (activeTab === "chat") {
       fetchAllRooms()
@@ -148,8 +153,19 @@ const Sidebar = ({ onStartChat }) => {
         unreadCount: room.unreadCount ?? 0,
       })).filter(room => room.uniqueId)
 
-      setAlarmRooms(rooms)
-      localStorage.setItem(CACHE_KEY, JSON.stringify(rooms))
+      // ✅ 현재 입장해 있는 방은 unreadCount를 0으로 강제 보정
+      const currentRoomId = roomIdRef.current
+      const correctedRooms = rooms.map(room => {
+        if (currentRoomId && Number(room.uniqueId) === Number(currentRoomId)) {
+          return { ...room, unreadCount: 0 }
+        }
+        return room
+      })
+
+      setAlarmRooms(correctedRooms)
+
+      // ✅ 보정된 값으로 캐시 저장 (새로고침 시 0으로 깜빡이는 문제 방지)
+      localStorage.setItem(CACHE_KEY, JSON.stringify(correctedRooms))
       setRoomsReady(true)
     } catch (e) {
       console.error('채팅방 목록 로딩 실패', e)
@@ -160,9 +176,13 @@ const Sidebar = ({ onStartChat }) => {
 
   const navigateToRoom = async (id, inviteCode) => {
     if (id) {
-      setAlarmRooms(prev => prev.map(r =>
-        Number(r.uniqueId) === Number(roomId) ? { ...r, unreadCount: 0 } : r
-      ))
+      // ✅ 이동 전 현재 방(roomIdRef.current)의 unreadCount를 0으로 초기화
+      const prevRoomId = roomIdRef.current
+      if (prevRoomId) {
+        setAlarmRooms(prev => prev.map(r =>
+          Number(r.uniqueId) === Number(prevRoomId) ? { ...r, unreadCount: 0 } : r
+        ))
+      }
       navigate(`/chat/${inviteCode}`)
     }
   }

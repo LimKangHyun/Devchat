@@ -356,16 +356,8 @@ public class ChatRoomService {
             ));
     }
 
-    private long calculateUnread(Long lastReadMessageId, Object redisVal) {
-        try {
-            if (redisVal != null) {
-                long lastMessageId = Long.parseLong(redisVal.toString());
-                return Math.max(0, lastMessageId - lastReadMessageId);
-            }
-        } catch (Exception e) {
-            return 0L;
-        }
-        return 0L;
+    private long calculateUnread(long lastReadMessageId, long lastMessageId) {
+        return Math.max(0, lastMessageId - lastReadMessageId);
     }
 
     @Transactional
