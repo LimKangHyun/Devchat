@@ -35,6 +35,7 @@ const Layout = () => {
                 flex: 1,
                 overflow: 'auto',
                 backgroundColor: '#e0e0e0',
+                height: '100%',
               }}
             >
               <Outlet />

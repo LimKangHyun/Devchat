@@ -40,7 +40,6 @@ const Sidebar = ({ onStartChat }) => {
   const [currentUser, setCurrentUser] = useState(null)
   const [roomId, setRoomId] = useState(null)
 
-  // ✅ roomId를 ref로도 관리 — 클로저 캡처 문제 방지
   const roomIdRef = useRef(null)
   useEffect(() => {
     roomIdRef.current = roomId
@@ -61,7 +60,7 @@ const Sidebar = ({ onStartChat }) => {
     if (Number(roomIdRef.current) !== Number(roomUniqueId)) {
       setAlarmRooms(prev => prev.map(r =>
         Number(r.uniqueId) === Number(roomUniqueId)
-          ? { ...r, unreadCount: (r.unreadCount ?? 0) + 1 }
+          ? { ...r, unreadCount: r.unreadCount === null ? null : (r.unreadCount ?? 0) + 1 }
           : r
       ))
 
@@ -102,7 +101,6 @@ const Sidebar = ({ onStartChat }) => {
     roomId: null,
   })
 
-  // read API 완료 후 fetchAllRooms 실행
   useEffect(() => {
     const handleRoomRead = () => fetchAllRooms()
     window.addEventListener('room:read', handleRoomRead)
@@ -114,7 +112,7 @@ const Sidebar = ({ onStartChat }) => {
       fetchAllRooms()
       fetchCurrentUser()
     }
-  }, [activeTab, alarmStatusMap])
+  }, [activeTab])
 
   useEffect(() => {
     if (!inviteCode) {
@@ -127,7 +125,7 @@ const Sidebar = ({ onStartChat }) => {
     } else {
       setRoomId(null)
     }
-  }, [inviteCode, alarmRooms, alarmStatusMap])
+  }, [inviteCode, alarmRooms])
 
   const fetchCurrentUser = async () => {
     try {
@@ -150,10 +148,9 @@ const Sidebar = ({ onStartChat }) => {
         alarmEnabled: room.alarmEnabled ?? true,
         roomName: room.roomName || `Room ${room.roomId || room.id}`,
         inviteCode: room.inviteCode,
-        unreadCount: room.unreadCount ?? 0,
+        unreadCount: room.unreadCount !== undefined ? room.unreadCount : null,
       })).filter(room => room.uniqueId)
 
-      // ✅ 현재 입장해 있는 방은 unreadCount를 0으로 강제 보정
       const currentRoomId = roomIdRef.current
       const correctedRooms = rooms.map(room => {
         if (currentRoomId && Number(room.uniqueId) === Number(currentRoomId)) {
@@ -163,8 +160,6 @@ const Sidebar = ({ onStartChat }) => {
       })
 
       setAlarmRooms(correctedRooms)
-
-      // ✅ 보정된 값으로 캐시 저장 (새로고침 시 0으로 깜빡이는 문제 방지)
       localStorage.setItem(CACHE_KEY, JSON.stringify(correctedRooms))
       setRoomsReady(true)
     } catch (e) {
@@ -176,7 +171,6 @@ const Sidebar = ({ onStartChat }) => {
 
   const navigateToRoom = async (id, inviteCode) => {
     if (id) {
-      // ✅ 이동 전 현재 방(roomIdRef.current)의 unreadCount를 0으로 초기화
       const prevRoomId = roomIdRef.current
       if (prevRoomId) {
         setAlarmRooms(prev => prev.map(r =>
@@ -325,8 +319,9 @@ const Sidebar = ({ onStartChat }) => {
               const isCurrentRoom = roomId && Number(roomId) === Number(roomUniqueId)
               const isSelectedForModal = selectedRoom && Number(selectedRoom.uniqueId) === Number(roomUniqueId) && showMembersModal
               const roomInviteCode = room.inviteCode
-              const unreadCount = room.unreadCount ?? 0
-              const hasUnread = unreadCount > 0 && !isCurrentRoom
+              const unreadCount = room.unreadCount
+              const isNew = unreadCount === null
+              const hasUnread = (isNew || unreadCount > 0) && !isCurrentRoom
 
               return (
                 <div key={`room-${roomUniqueId}`} className={styles.roomItem}>
@@ -339,7 +334,7 @@ const Sidebar = ({ onStartChat }) => {
                         <FaRegCommentDots size={14} />
                         {hasUnread && (
                           <div className={styles.unreadBadge}>
-                            {unreadCount > 99 ? "99+" : unreadCount}
+                            {isNew ? 'NEW' : unreadCount > 99 ? "99+" : unreadCount}
                           </div>
                         )}
                       </div>
