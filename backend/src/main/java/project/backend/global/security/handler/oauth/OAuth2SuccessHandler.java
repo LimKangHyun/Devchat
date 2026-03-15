@@ -31,54 +31,56 @@ import project.backend.auth.token.dao.TokenRedisRepository;
 @RequiredArgsConstructor
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-	@Value("${jwt.redirection.base}")
-	private String baseUrl;
+    @Value("${jwt.redirection.base}")
+    private String baseUrl;
 
-	private final JwtProvider jwtProvider;
-	private final OAuthSignUpService oAuthSignUpService;
-	private final MemberRepository memberRepository;
-	private final TokenRedisRepository tokenRedisRepository;
+    private final JwtProvider jwtProvider;
+    private final OAuthSignUpService oAuthSignUpService;
+    private final MemberRepository memberRepository;
+    private final TokenRedisRepository tokenRedisRepository;
 
-	@Override
-	@Transactional
-	public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
-		Authentication authentication) throws IOException, ServletException {
+    @Override
+    @Transactional
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
+        Authentication authentication) throws IOException, ServletException {
 
-		var oAuth2User = (OAuth2User) authentication.getPrincipal();
+        var oAuth2User = (OAuth2User) authentication.getPrincipal();
 
-		log.info("oAuth2User = {}", oAuth2User);
+        log.info("oAuth2User = {}", oAuth2User);
 
-		OAuthMemberDto userDto = new OAuthMemberDto(
-			(String) oAuth2User.getAttributes().get("email"),
-			(String) oAuth2User.getAttributes().get("name"),
-			(String) oAuth2User.getAttributes().get("login"));
+        OAuthMemberDto userDto = new OAuthMemberDto(
+            (String) oAuth2User.getAttributes().get("email"),
+            (String) oAuth2User.getAttributes().get("name"),
+            (String) oAuth2User.getAttributes().get("login"));
 
-		// 기존에 없는 email이면 회원가입
-		Member member = oAuthSignUpService.OAuthSignUp(userDto);
+        // 기존에 없는 email이면 회원가입
+        Member member = oAuthSignUpService.OAuthSignUp(userDto);
 
-		Token token = jwtProvider.generateTokenPair(new MemberDetails(member));
+        Token token = jwtProvider.generateTokenPair(
+            new MemberDetails(member.getId(), member.getUsername(), member.getNickname(),
+                member.getProfileImage()));
 
-		//쿠키 생성 및 저장
-		CookieUtils.saveCookie(response, token.accessToken());
+        //쿠키 생성 및 저장
+        CookieUtils.saveCookie(response, token.accessToken());
 
-		// 깃허브 엑세스 토큰
-		var githubAccess = (String) oAuth2User.getAttributes().get("githubAccess");
+        // 깃허브 엑세스 토큰
+        var githubAccess = (String) oAuth2User.getAttributes().get("githubAccess");
 
-		tokenRedisRepository.save(
-			new TokenRedis(member.getId(), token.accessToken(), token.refreshToken(),
-				githubAccess));
+        tokenRedisRepository.save(
+            new TokenRedis(member.getId(), token.accessToken(), token.refreshToken(),
+                githubAccess));
 
-		log.info("OAuth 로그인 성공: {}", member.getUsername());
+        log.info("OAuth 로그인 성공: {}", member.getUsername());
 
-		String redirectUrl = UriComponentsBuilder.fromUriString(baseUrl)
-			.build().toUriString();
+        String redirectUrl = UriComponentsBuilder.fromUriString(baseUrl)
+            .build().toUriString();
 
-		log.info("OAuth 로그인 후 리다이렉트 URL = {}", redirectUrl);
-		response.setStatus(HttpServletResponse.SC_OK);
-		response.setContentType("application/json");
-		response.sendRedirect(redirectUrl);
+        log.info("OAuth 로그인 후 리다이렉트 URL = {}", redirectUrl);
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.setContentType("application/json");
+        response.sendRedirect(redirectUrl);
 
-	}
+    }
 
 
 }
