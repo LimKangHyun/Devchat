@@ -39,8 +39,8 @@ public class ChatParticipant {
 
     private LocalDateTime joinAt;
 
-    @Column(name = "last_read_message_id")
-    private Long lastReadMessageId;
+    @Column(name = "last_read_sequence")
+    private Long lastReadSequence = 0L;
 
     @Builder
     public ChatParticipant(Long id, Member participant, ChatRoom chatRoom, boolean isOwner,
@@ -72,8 +72,8 @@ public class ChatParticipant {
             .build();
     }
 
-    public void resetUnreadCount(Long messageId) {
-        this.lastReadMessageId = messageId;
+    public void updateLastReadSequence(Long sequence) {
+        this.lastReadSequence = sequence;
     }
 
     public void leave() {

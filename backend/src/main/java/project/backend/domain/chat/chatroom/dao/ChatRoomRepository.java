@@ -12,41 +12,41 @@ import project.backend.domain.chat.chatroom.entity.ChatRoom;
 
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
-	@Query("""
-		SELECT DISTINCT cr
-		FROM ChatRoom cr
-		JOIN cr.participants cp
-		WHERE cp.participant.id = :memberId AND cp.isActive = true
-		""")
-	Page<ChatRoom> findChatRoomsByParticipantId(@Param("memberId") Long memberId,
-		Pageable pageable);
+    @Query("""
+        SELECT DISTINCT cr
+        FROM ChatRoom cr
+        JOIN cr.participants cp
+        WHERE cp.participant.id = :memberId AND cp.isActive = true
+        """)
+    Page<ChatRoom> findChatRoomsByParticipantId(@Param("memberId") Long memberId,
+        Pageable pageable);
 
-	Optional<ChatRoom> findByInviteCode(String inviteCode);
+    Optional<ChatRoom> findByInviteCode(String inviteCode);
 
-	@Query("""
-		SELECT cr
-		FROM ChatRoom cr
-		JOIN cr.participants cp
-		WHERE cp.participant.id = :ownerId AND cp.isOwner=true AND cp.isActive = true
-		""")
-	Page<ChatRoom> findAllRoomsByOwnerId(Long ownerId, Pageable pageable);
+    @Query("""
+        SELECT cr
+        FROM ChatRoom cr
+        JOIN cr.participants cp
+        WHERE cp.participant.id = :ownerId AND cp.isOwner=true AND cp.isActive = true
+        """)
+    Page<ChatRoom> findAllRoomsByOwnerId(Long ownerId, Pageable pageable);
 
-	//	@Query("""
-//		SELECT DISTINCT cr
-//		FROM ChatRoom cr
-//		JOIN cr.participants cp
-//		WHERE cp.participant.id = :memberId AND cp.isActive = true
-//		""")
-	@Query("""
-			SELECT cr
-			FROM ChatRoom cr
-			JOIN cr.participants cp
-			LEFT JOIN cr.messages m
-			WHERE cp.participant.id = :memberId AND cp.isActive = true
-			GROUP BY cr
-			ORDER BY MAX(m.sendAt) DESC NULLS LAST
-		""")
-	List<ChatRoom> findAllRoomsByParticipantId(@Param("memberId") Long memberId);
+    @Query("""
+        SELECT cr
+        FROM ChatRoom cr
+        JOIN cr.participants cp
+        WHERE cp.participant.id = :memberId AND cp.isActive = true
+        """)
+    List<ChatRoom> findAllRoomsByParticipantId(@Param("memberId") Long memberId);
 
+    @Query("""
+        SELECT cr.id AS chatRoomId, cr.name AS name, cr.inviteCode AS inviteCode,
+        	   cp.lastReadSequence AS lastReadSequence
+        FROM ChatRoom cr
+        JOIN cr.participants cp
+        WHERE cp.participant.id = :memberId AND cp.isActive = true
+        """)
+    List<ChatRoomWithSequenceProjection> findAllRoomsWithSequenceByParticipantId(
+        @Param("memberId") Long memberId);
 }
 

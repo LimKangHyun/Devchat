@@ -36,16 +36,14 @@ public class ChatMessageController {
     private final ChatMessageService chatMessageService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    @MessageMapping("/send-message/{roomId}") //클라이언트가 메세지를 보낼 경로
+    @MessageMapping("/send-message/{roomId}")
     public ChatMessageResponse sendMessage(@DestinationVariable Long roomId,
         @Payload ChatMessageRequest request, Principal principal) {
 
         MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
-        Long memberId = userDetails.getId();
-        ChatMessageResponse response = chatMessageService.save(roomId, request, memberId);
+        ChatMessageResponse response = chatMessageService.save(roomId, request, userDetails);
 
         messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
-
         return response;
     }
 
@@ -53,8 +51,7 @@ public class ChatMessageController {
     public ChatMessageResponse saveMessage(@PathVariable Long roomId,
         @RequestBody ChatMessageRequest request, Principal principal) {
         MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
-        Long memberId = userDetails.getId();
-        return chatMessageService.save(roomId, request, memberId);
+        return chatMessageService.save(roomId, request, userDetails);
     }
 
     @MessageMapping("/edit-message/{roomId}")

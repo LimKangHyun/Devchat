@@ -2,6 +2,8 @@ package project.backend.domain.chat.chatroom.app;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -21,7 +23,7 @@ import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomAlarmRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
-import project.backend.domain.chat.chatroom.dao.UnreadCountProjection;
+import project.backend.domain.chat.chatroom.dao.ChatRoomWithSequenceProjection;
 import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
@@ -235,20 +237,18 @@ public class ChatRoomService {
         ChatRoom room = getByInviteCode(inviteCode);
         validateParticipant(memberId, room.getId());
 
-        // lastReadMessageId 업데이트
-        chatParticipantRepository
-            .findByChatRoomIdAndParticipantIdAndIsActiveTrue(room.getId(), memberId)
-            .ifPresent(p -> {
-                Long latestMessageId =
-                    chatRoomRedisRepository.getLastMessageId(room.getId());
-
-                p.resetUnreadCount(latestMessageId);
-            });
+        try {
+            Long currentSequence = chatRoomRedisRepository.getSequence(room.getId());
+            chatParticipantRepository
+                .findByChatRoomIdAndParticipantIdAndIsActiveTrue(room.getId(), memberId)
+                .ifPresent(p -> p.updateLastReadSequence(currentSequence));
+        } catch (Exception e) {
+            log.warn("Redis 장애 - sequence 업데이트 스킵 roomId={}", room.getId());
+        }
 
         memberService.getMemberById(memberId).setRecentRoomId(room.getId());
 
         Long ownerId = findOwnerId(room.getId());
-
         boolean alarmEnable = chatRoomAlarmRepository
             .findEnabledByMemberIdAndRoomId(memberId, room.getId());
 
@@ -312,48 +312,62 @@ public class ChatRoomService {
     }
 
     public List<AllRoomsResponse> findAllRoomsByMemberId(Long memberId) {
+        // 1. 단일 프로젝션 쿼리로 DB 조회
+        List<ChatRoomWithSequenceProjection> roomProjections =
+            chatRoomRepository.findAllRoomsWithSequenceByParticipantId(memberId);
 
-        List<ChatRoom> chatRooms = fetchChatRooms(memberId);
-        List<Long> roomIds = chatRooms.stream().map(ChatRoom::getId).toList();
+        // 2. 단 한 번의 순회로 모든 맵 구조 생성 (O(N))
+        List<Long> roomIds = new ArrayList<>(roomProjections.size());
+        Map<Long, ChatRoomWithSequenceProjection> projectionMap = new HashMap<>();
+        Map<Long, Integer> sequenceIndexMap = new HashMap<>();
 
-        Map<Long, Boolean> alarmEnabledMap = fetchAlarmEnabledMap(memberId, roomIds);
-        Map<Long, Long> lastReadMessageIdMap = fetchLastReadMessageIdMap(memberId);
-
-        List<Long> lastMessageIds = chatRoomRedisRepository.getLastMessageIds(roomIds);
-
-        List<AllRoomsResponse> result = new ArrayList<>(chatRooms.size());
-
-        for (int i = 0; i < chatRooms.size(); i++) {
-            ChatRoom room = chatRooms.get(i);
-            Long roomId = room.getId();
-
-            boolean alarmEnabled = alarmEnabledMap.getOrDefault(roomId, true);
-            Long lastReadMessageId = lastReadMessageIdMap.getOrDefault(roomId, 0L);
-
-            Long lastMessageId = lastMessageIds.get(i);
-
-            long unreadCount = calculateUnread(lastReadMessageId, lastMessageId);
-
-            result.add(ChatRoomMapper.toDto(room, alarmEnabled, unreadCount));
+        for (int i = 0; i < roomProjections.size(); i++) {
+            ChatRoomWithSequenceProjection p = roomProjections.get(i);
+            Long id = p.getChatRoomId();
+            roomIds.add(id);
+            projectionMap.put(id, p);
+            sequenceIndexMap.put(id, i); // 인덱스 미리 저장 완료
         }
-        return result;
-    }
 
-    private List<ChatRoom> fetchChatRooms(Long memberId) {
-        return chatRoomRepository.findAllRoomsByParticipantId(memberId);
+        // 3. Redis 정렬
+        List<Long> sortedRoomIds;
+        try {
+            sortedRoomIds = chatRoomRedisRepository.getSortedRoomIds(roomIds);
+        } catch (Exception e) {
+            log.warn("Redis 장애 - 정렬 생략", e);
+            sortedRoomIds = roomIds;
+        }
+
+        // 4. 추가 데이터(알람, 시퀀스) 일괄 조회
+        Map<Long, Boolean> alarmEnabledMap = roomIds.isEmpty()
+            ? Collections.emptyMap()
+            : fetchAlarmEnabledMap(memberId, roomIds);
+        List<Long> sequences = getSequencesSafe(roomIds);
+
+        // 6. 최종 결과 조립
+        return sortedRoomIds.stream().map(roomId -> {
+            ChatRoomWithSequenceProjection p = projectionMap.get(roomId);
+            boolean alarmEnabled = alarmEnabledMap.getOrDefault(roomId, true);
+            Long lastRead = (p.getLastReadSequence() != null) ? p.getLastReadSequence() : 0L;
+
+            Long unreadCount = null;
+            Integer originalIdx = sequenceIndexMap.get(roomId); // 2번에서 만든 맵 사용
+            if (sequences != null && originalIdx != null) {
+                unreadCount = calculateUnread(lastRead, sequences.get(originalIdx));
+            }
+
+            return new AllRoomsResponse(
+                roomId,
+                p.getInviteCode(),
+                p.getName(),
+                alarmEnabled,
+                unreadCount
+            );
+        }).toList();
     }
 
     private Map<Long, Boolean> fetchAlarmEnabledMap(Long memberId, List<Long> roomIds) {
         return chatRoomAlarmRepository.findEnabledMap(memberId, roomIds);
-    }
-
-    private Map<Long, Long> fetchLastReadMessageIdMap(Long memberId) {
-        return chatParticipantRepository.findUnreadCountsByMemberId(memberId)
-            .stream()
-            .collect(Collectors.toMap(
-                UnreadCountProjection::getChatRoomId,
-                p -> p.getLastReadMessageId() != null ? p.getLastReadMessageId() : 0L
-            ));
     }
 
     private long calculateUnread(long lastReadMessageId, long lastMessageId) {
@@ -361,10 +375,19 @@ public class ChatRoomService {
     }
 
     @Transactional
-    public void updateLastReadMessageId(Long roomId, Long memberId) {
-        Long lastMessageId = chatRoomRedisRepository.getLastMessageId(roomId);
-        log.info("lastRead 업데이트 roomId={}, memberId={}, lastMessageId={}", roomId, memberId,
-            lastMessageId);
-        chatParticipantRepository.updateLastReadMessageId(roomId, memberId, lastMessageId);
+    public void updateLastReadSequence(Long roomId, Long memberId) {
+        Long currentSequence = chatRoomRedisRepository.getSequence(roomId);
+        chatParticipantRepository
+            .findByChatRoomIdAndParticipantIdAndIsActiveTrue(roomId, memberId)
+            .ifPresent(p -> p.updateLastReadSequence(currentSequence));
+    }
+
+    private List<Long> getSequencesSafe(List<Long> roomIds) {
+        try {
+            return chatRoomRedisRepository.getSequences(roomIds);
+        } catch (Exception e) {
+            log.warn("Redis 장애로 인해 시퀀스 조회를 생략합니다. (unreadCount는 null 처리됨)");
+            return null;
+        }
     }
 }

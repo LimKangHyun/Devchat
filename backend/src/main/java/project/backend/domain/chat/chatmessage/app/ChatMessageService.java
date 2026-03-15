@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageSearchRepository;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageEditRequest;
@@ -58,9 +59,10 @@ public class ChatMessageService {
     private final ChatMessageMapper messageMapper;
 
     @Transactional
-    public ChatMessageResponse save(Long roomId, ChatMessageRequest request, Long id) {
+    public ChatMessageResponse save(Long roomId, ChatMessageRequest request,
+        MemberDetails memberDetails) {
 
-        Member sender = entityManager.getReference(Member.class, id);
+        Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);
 
         ChatMessage message;
@@ -77,12 +79,13 @@ public class ChatMessageService {
 
         chatMessageRepository.save(message);
 
-        chatRoomRedisRepository.updateLastMessageId(roomId, message.getId());
+        chatRoomRedisRepository.incrementSequence(roomId);
+        chatRoomRedisRepository.updateRoomRanking(roomId);
 
         if (isSearchable(message)) {
             eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
         }
-        return messageMapper.toResponse(message);
+        return messageMapper.toResponse(message, memberDetails);
     }
 
     private boolean isSearchable(ChatMessage message) {

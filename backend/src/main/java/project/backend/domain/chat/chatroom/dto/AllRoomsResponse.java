@@ -11,6 +11,6 @@ public class AllRoomsResponse {
     private String inviteCode;
     private String roomName;
     private boolean alarmEnabled;
-    private long unreadCount;
+    private Long unreadCount;
 
 }
