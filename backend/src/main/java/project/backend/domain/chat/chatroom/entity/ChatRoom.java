@@ -46,7 +46,7 @@ public class ChatRoom {
     @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChatParticipant> participants = new ArrayList<>();
 
-    @Column(name = "last_sequence")
+    @Column(name = "last_sequence", nullable = false)
     private Long lastSequence = 0L;
 
     @Builder

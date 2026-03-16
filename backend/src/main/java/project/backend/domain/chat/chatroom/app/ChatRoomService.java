@@ -401,7 +401,9 @@ public class ChatRoomService {
             Long redisSeq = redisSequences.get(i);
             ChatRoom room = rooms.get(i);
 
-            if (redisSeq != null && redisSeq > room.getLastSequence()) {
+            long currentSeq = room.getLastSequence() != null ? room.getLastSequence() : 0L;
+
+            if (redisSeq != null && redisSeq > currentSeq) {
                 room.updateLastSequence(redisSeq);
             }
         }
