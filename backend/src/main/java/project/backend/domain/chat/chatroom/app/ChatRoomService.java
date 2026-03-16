@@ -370,8 +370,8 @@ public class ChatRoomService {
         return chatRoomAlarmRepository.findEnabledMap(memberId, roomIds);
     }
 
-    private long calculateUnread(long lastReadMessageId, long lastMessageId) {
-        return Math.max(0, lastMessageId - lastReadMessageId);
+    private long calculateUnread(long lastReadSequence, long lastMessageSequence) {
+        return Math.max(0, lastMessageSequence - lastReadSequence);
     }
 
     @Transactional
