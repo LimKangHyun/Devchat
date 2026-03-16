@@ -20,17 +20,17 @@ import project.backend.global.exception.ex.AuthException;
 @RequiredArgsConstructor
 public class LoginService implements UserDetailsService {
 
-	private final MemberService memberService;
+    private final MemberService memberService;
 
-	@Override
-	public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-		Member foundMember = memberService.getMemberForLogin(email);
+    @Override
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        Member foundMember = memberService.getMemberForLogin(email);
 
-		if (foundMember.getProvider() == ProviderType.GITHUB) {
-			throw new AuthException(AuthErrorCode.WRONG_AUTH_TYPE_LOGIN);
-		}
+        if (foundMember.getProvider() == ProviderType.GITHUB) {
+            throw new AuthException(AuthErrorCode.WRONG_AUTH_TYPE_LOGIN);
+        }
 
-		log.info("로그인 시도 = {}", foundMember);
-		return new MemberDetails(foundMember);
-	}
+        log.info("로그인 시도 = {}", foundMember);
+        return new MemberDetails(foundMember);
+    }
 }

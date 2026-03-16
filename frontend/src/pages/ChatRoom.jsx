@@ -24,7 +24,6 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
-// ✅ Virtuoso itemContent용 — 날짜 구분선 + MessageItem 직접 렌더링
 const VirtuosoMessageItem = React.memo(({
   msg, prevMsg,
   currentUser, contextMenuId, setContextMenuId,
@@ -70,13 +69,19 @@ const ChatRoom = () => {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [firstItemIndex, setFirstItemIndex] = useState(INDEX_OFFSET);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [newMessageCount, setNewMessageCount] = useState(0);
+  const [inputHeight, setInputHeight] = useState(0);
 
   const virtuosoRef = useRef(null);
+  const inputAreaRef = useRef(null);
   const navigate = useNavigate();
   const roomIdRef = useRef(null);
   const prevRoomIdRef = useRef(null);
   const readDoneRef = useRef(false);
   const isLoadingRef = useRef(false);
+  const isAtBottomRef = useRef(true);
+  const currentUserRef = useRef(null);
 
   const [roomName, setRoomName] = useState('로딩 중...');
   const [roomId, setRoomId] = useState(null);
@@ -108,9 +113,17 @@ const ChatRoom = () => {
 
   const { getAlarmStatus, updateAlarm } = useAlarm();
 
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  useEffect(() => { roomIdRef.current = roomId; }, [roomId]);
+
   useEffect(() => {
-    roomIdRef.current = roomId;
-  }, [roomId]);
+    const el = inputAreaRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setInputHeight(el.offsetHeight));
+    observer.observe(el);
+    setInputHeight(el.offsetHeight);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -138,64 +151,46 @@ const ChatRoom = () => {
       setInitState((prev) => ({ ...prev, isRoomValidated: true }));
       return data.roomId;
     } catch {
-      setInitState((prev) => ({
-        ...prev,
-        hasError: true,
-        errorMessage: '방 정보를 불러올 수 없습니다.',
-      }));
+      setInitState((prev) => ({ ...prev, hasError: true, errorMessage: '방 정보를 불러올 수 없습니다.' }));
       return null;
     }
   }, [inviteCode]);
 
-  const fetchMessages = useCallback(
-    async (cursorValue = null, isLoadMore = false) => {
-      if (!roomId) return;
-      if (isLoadingRef.current) return;
+  const fetchMessages = useCallback(async (cursorValue = null, isLoadMore = false) => {
+    if (!roomId) return;
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+    setIsLoadingMessages(true);
+    try {
+      const params = { size: PAGE_SIZE };
+      if (cursorValue) params.cursor = cursorValue;
+      const res = await axiosInstance.get(`/${roomId}/messages`, { params });
+      const data = res.data;
+      const messageList = data.messages || [];
+      const sorted = messageList
+        .map((msg) => ({ ...msg, sendAt: msg.sendAt && !isNaN(new Date(msg.sendAt).getTime()) ? msg.sendAt : new Date().toISOString() }))
+        .sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
 
-      isLoadingRef.current = true;
-      setIsLoadingMessages(true);
-
-      try {
-        const params = { size: PAGE_SIZE };
-        if (cursorValue) params.cursor = cursorValue;
-        const res = await axiosInstance.get(`/${roomId}/messages`, { params });
-        const data = res.data;
-        const messageList = data.messages || [];
-        const validated = messageList.map((msg) => ({
-          ...msg,
-          sendAt:
-            msg.sendAt && !isNaN(new Date(msg.sendAt).getTime())
-              ? msg.sendAt
-              : new Date().toISOString(),
-        }));
-        const sorted = [...validated].sort(
-          (a, b) => new Date(a.sendAt) - new Date(b.sendAt)
-        );
-
-        if (isLoadMore) {
-          // ✅ firstItemIndex를 추가된 개수만큼 줄여서 Virtuoso가 스크롤 위치 자동 유지
-          setFirstItemIndex((prev) => prev - sorted.length);
-          setMessages((prev) => {
-            const ids = new Set(prev.map((m) => m.messageId));
-            return [...sorted.filter((m) => !ids.has(m.messageId)), ...prev];
-          });
-        } else {
-          setFirstItemIndex(INDEX_OFFSET);
-          setMessages(sorted);
-          setInitState((prev) => ({ ...prev, isMessagesLoaded: true }));
-        }
-
-        setCursor(data.nextCursor);
-        setHasMoreMessages(!!data.nextCursor && messageList.length > 0);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        isLoadingRef.current = false;
-        setIsLoadingMessages(false);
+      if (isLoadMore) {
+        setFirstItemIndex((prev) => prev - sorted.length);
+        setMessages((prev) => {
+          const ids = new Set(prev.map((m) => m.messageId));
+          return [...sorted.filter((m) => !ids.has(m.messageId)), ...prev];
+        });
+      } else {
+        setFirstItemIndex(INDEX_OFFSET);
+        setMessages(sorted);
+        setInitState((prev) => ({ ...prev, isMessagesLoaded: true }));
       }
-    },
-    [roomId]
-  );
+      setCursor(data.nextCursor);
+      setHasMoreMessages(!!data.nextCursor && messageList.length > 0);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      isLoadingRef.current = false;
+      setIsLoadingMessages(false);
+    }
+  }, [roomId]);
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -231,6 +226,24 @@ const ChatRoom = () => {
           : [...prev, received];
         return [...updated].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
       });
+
+      const isMine = received.senderId === currentUserRef.current?.id;
+
+      if (isMine) {
+        setShowScrollButton(false);
+        setNewMessageCount(0);
+        isAtBottomRef.current = true;
+        setTimeout(() => {
+          virtuosoRef.current?.scrollToIndex({ index: 999999, behavior: 'auto' });
+        }, 30);
+      } else if (isAtBottomRef.current) {
+        setTimeout(() => {
+          virtuosoRef.current?.scrollToIndex({ index: 999999, behavior: 'auto' });
+        }, 30);
+      } else {
+        setNewMessageCount((prev) => prev + 1);
+        setShowScrollButton(true);
+      }
     },
     onProfileUpdate: handleProfileUpdate,
     onRoomDeleted: (e) => setDeleteNotification(e.content),
@@ -238,9 +251,7 @@ const ChatRoom = () => {
 
   useEffect(() => {
     if (!inviteCode) { navigate('/error'); return; }
-
     const prevRoomId = prevRoomIdRef.current;
-
     const init = async () => {
       if (prevRoomId) {
         readDoneRef.current = true;
@@ -248,7 +259,6 @@ const ChatRoom = () => {
         window.dispatchEvent(new CustomEvent('room:read', { detail: { roomId: prevRoomId } }));
         readDoneRef.current = false;
       }
-
       setInitState({ isRoomValidated: false, isUserLoaded: false, isMessagesLoaded: false, hasError: false, errorMessage: '' });
       setMessages([]);
       setCursor(null);
@@ -256,11 +266,12 @@ const ChatRoom = () => {
       setIsInitialLoad(true);
       setIsLoadingMessages(false);
       setFirstItemIndex(INDEX_OFFSET);
+      setShowScrollButton(false);
+      setNewMessageCount(0);
+      isAtBottomRef.current = true;
       isLoadingRef.current = false;
-
       const [id] = await Promise.all([fetchRoomInfo(), fetchCurrentUser()]);
       if (!id) { navigate('/error'); return; }
-
       prevRoomIdRef.current = id;
     };
     init();
@@ -274,19 +285,13 @@ const ChatRoom = () => {
   }, [roomId, initState.isRoomValidated, isInitialLoad, fetchMessages]);
 
   useEffect(() => {
-    if (currentUser && roomData?.ownerId) {
-      setIsOwner(currentUser.id === roomData.ownerId);
-    }
+    if (currentUser && roomData?.ownerId) setIsOwner(currentUser.id === roomData.ownerId);
   }, [currentUser, roomData]);
 
-  // ✅ Virtuoso 맨 위 도달 시 이전 메시지 로드
   const handleStartReached = useCallback(() => {
-    if (!isLoadingRef.current && hasMoreMessages && cursor) {
-      fetchMessages(cursor, true);
-    }
+    if (!isLoadingRef.current && hasMoreMessages && cursor) fetchMessages(cursor, true);
   }, [fetchMessages, hasMoreMessages, cursor]);
 
-  // ✅ 검색 결과 메시지로 스크롤
   const scrollToMessage = useCallback((messageId) => {
     const idx = messages.findIndex((m) => m.messageId === messageId);
     if (idx === -1) return;
@@ -300,6 +305,12 @@ const ChatRoom = () => {
       setTimeout(() => { el.style.backgroundColor = ''; el.style.borderRadius = ''; }, 2000);
     }, 300);
   }, [messages]);
+
+  const scrollToBottom = useCallback(() => {
+    virtuosoRef.current?.scrollToIndex({ index: 999999, behavior: 'smooth' });
+    setShowScrollButton(false);
+    setNewMessageCount(0);
+  }, []);
 
   const handleLeaveRoom = async () => {
     try {
@@ -321,10 +332,7 @@ const ChatRoom = () => {
   };
 
   const handleSearch = async (keyword, lastMessageId = null) => {
-    if (!roomId || !initState.isRoomValidated) {
-      setErrorMessage('채팅방이 아직 로딩 중입니다.');
-      return;
-    }
+    if (!roomId || !initState.isRoomValidated) { setErrorMessage('채팅방이 아직 로딩 중입니다.'); return; }
     setIsSearching(true);
     setShowSearchSidebar(true);
     if (keyword !== searchKeyword) { setSearchKeyword(keyword); setSearchTotalCount(null); }
@@ -391,12 +399,10 @@ const ChatRoom = () => {
 
   if (initState.hasError) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f8f8' }}>
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f8f8' }}>
         <div style={{ textAlign: 'center' }}>
           <p style={{ color: '#e01e5a', marginBottom: '16px', fontSize: '15px' }}>{initState.errorMessage}</p>
-          <button onClick={() => navigate('/')} style={{ padding: '8px 20px', backgroundColor: '#1264a3', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}>
-            홈으로
-          </button>
+          <button onClick={() => navigate('/')} style={{ padding: '8px 20px', backgroundColor: '#1264a3', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}>홈으로</button>
         </div>
       </div>
     );
@@ -406,139 +412,151 @@ const ChatRoom = () => {
     <>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
       `}</style>
 
-      <div style={{
-        height: '100%',
-        display: 'flex',
-        backgroundColor: '#ffffff',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-      }}>
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          minWidth: 0,
-          borderRight: showSearchSidebar ? '1px solid #f0f0f0' : 'none',
-        }}>
+      <div style={{ height: '100%', display: 'flex', backgroundColor: '#ffffff', fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif' }}>
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, borderRight: showSearchSidebar ? '1px solid #f0f0f0' : 'none', position: 'relative' }}>
+
           {getAlarmStatus(roomId) !== undefined && (
             <div style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: '#ffffff', flexShrink: 0 }}>
               <RoomHeader
-                roomName={roomName}
-                inviteCode={inviteCode}
-                onSearch={handleSearch}
-                onLeaveRoom={handleLeaveRoom}
-                onDeleteRoom={handleDeleteRoom}
-                isOwner={isOwner}
-                toggleAlarm={toggleAlarm}
-                alarmEnabled={getAlarmStatus(roomId)}
+                roomName={roomName} inviteCode={inviteCode}
+                onSearch={handleSearch} onLeaveRoom={handleLeaveRoom}
+                onDeleteRoom={handleDeleteRoom} isOwner={isOwner}
+                toggleAlarm={toggleAlarm} alarmEnabled={getAlarmStatus(roomId)}
               />
             </div>
           )}
 
-          <div style={{
-            flex: 1,
-            minHeight: 0,
-            position: 'relative',
-            opacity: isFullyLoaded ? 1 : 0.6,
-            transition: 'opacity 0.2s',
-          }}>
+          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+            {/* 로딩 오버레이 */}
             {!isFullyLoaded && (
-              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', zIndex: 10 }}>
-                <div style={{ width: '28px', height: '28px', border: '2.5px solid #e8e8e8', borderTop: '2.5px solid #1264a3', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
-                <div style={{ fontSize: '13px', color: '#aaa' }}>불러오는 중...</div>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', zIndex: 10 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ width: '28px', height: '28px', border: '2.5px solid #e8e8e8', borderTop: '2.5px solid #1264a3', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
+                  <div style={{ fontSize: '13px', color: '#aaa' }}>불러오는 중...</div>
+                </div>
               </div>
             )}
 
-            <Virtuoso
-              ref={virtuosoRef}
-              style={{ height: '100%' }}
-              firstItemIndex={firstItemIndex}
-              initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
-              data={messages}
-              // ✅ 맨 아래에 있을 때만 새 메시지 오면 자동 스크롤
-              followOutput={(isAtBottom) => isAtBottom ? 'smooth' : false}
-              // ✅ 맨 위 도달 시 이전 메시지 로드
-              startReached={handleStartReached}
-              overscan={300}
-              components={{
-                Header: () =>
-                  isLoadingMessages && hasMoreMessages ? (
-                    <div style={{ textAlign: 'center', padding: '6px 14px', color: '#888', fontSize: '12px', backgroundColor: '#f8f8f8', borderRadius: '12px', margin: '8px auto', width: 'fit-content', border: '1px solid #efefef' }}>
-                      메시지 불러오는 중...
-                    </div>
-                  ) : !hasMoreMessages && messages.length > 0 ? (
-                    <div style={{ textAlign: 'center', padding: '6px 14px', color: '#bbb', fontSize: '11px', margin: '8px auto 16px', width: 'fit-content' }}>
-                      채널의 시작입니다
-                    </div>
-                  ) : null,
-              }}
-              itemContent={(index, msg) => {
-                // ✅ Virtuoso index → messages 배열 index 변환
-                const arrayIndex = index - firstItemIndex;
-                const prevMsg = arrayIndex > 0 ? messages[arrayIndex - 1] : null;
-                return (
-                  <VirtuosoMessageItem
-                    msg={msg}
-                    prevMsg={prevMsg}
-                    currentUser={currentUser}
-                    contextMenuId={contextMenuId}
-                    setContextMenuId={setContextMenuId}
-                    setEditMessageId={setEditMessageId}
-                    setEditContent={setEditContent}
-                    handleDeleteMessage={handleDeleteMessage}
-                    editMessageId={editMessageId}
-                    editContent={editContent}
-                    handleEditMessage={handleEditMessage}
-                    onCodeClick={handleCodeClick}
-                  />
-                );
-              }}
-            />
+            {/* 메시지 로드 완료 후에만 Virtuoso 렌더 → initialTopMostItemIndex 정상 동작 */}
+            {messages.length > 0 && (
+              <Virtuoso
+                key={roomId}
+                ref={virtuosoRef}
+                style={{ height: '100%' }}
+                firstItemIndex={firstItemIndex}
+                initialTopMostItemIndex={999999}
+                data={messages}
+                followOutput={false}
+                atBottomStateChange={(isAtBottom) => {
+                  isAtBottomRef.current = isAtBottom;
+                  if (isAtBottom) {
+                    setShowScrollButton(false);
+                    setNewMessageCount(0);
+                  } else {
+                    setShowScrollButton(true);
+                  }
+                }}
+                startReached={handleStartReached}
+                overscan={300}
+                components={{
+                  Header: () =>
+                    isLoadingMessages && hasMoreMessages ? (
+                      <div style={{ textAlign: 'center', padding: '6px 14px', color: '#888', fontSize: '12px', backgroundColor: '#f8f8f8', borderRadius: '12px', margin: '8px auto', width: 'fit-content', border: '1px solid #efefef' }}>
+                        메시지 불러오는 중...
+                      </div>
+                    ) : !hasMoreMessages && messages.length > 0 ? (
+                      <div style={{ textAlign: 'center', padding: '6px 14px', color: '#bbb', fontSize: '11px', margin: '8px auto 16px', width: 'fit-content' }}>
+                        채널의 시작입니다
+                      </div>
+                    ) : null,
+                }}
+                itemContent={(index, msg) => {
+                  const arrayIndex = index - firstItemIndex;
+                  const prevMsg = arrayIndex > 0 ? messages[arrayIndex - 1] : null;
+                  return (
+                    <VirtuosoMessageItem
+                      msg={msg} prevMsg={prevMsg} currentUser={currentUser}
+                      contextMenuId={contextMenuId} setContextMenuId={setContextMenuId}
+                      setEditMessageId={setEditMessageId} setEditContent={setEditContent}
+                      handleDeleteMessage={handleDeleteMessage} editMessageId={editMessageId}
+                      editContent={editContent} handleEditMessage={handleEditMessage}
+                      onCodeClick={handleCodeClick}
+                    />
+                  );
+                }}
+              />
+            )}
           </div>
 
-          <div style={{ padding: '0 20px 16px', backgroundColor: '#ffffff', flexShrink: 0, pointerEvents: isFullyLoaded ? 'auto' : 'none' }}>
+          {showScrollButton && (
+            <div
+              onClick={scrollToBottom}
+              style={{
+                position: 'absolute',
+                bottom: `${inputHeight + 16}px`,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                backgroundColor: '#1264a3',
+                color: 'white',
+                padding: '8px 18px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                zIndex: 10,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                animation: 'fadeIn 0.2s ease',
+                userSelect: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {newMessageCount > 0 && (
+                <span style={{ backgroundColor: '#e01e5a', borderRadius: '10px', padding: '1px 7px', fontSize: '11px', fontWeight: '700' }}>
+                  {newMessageCount > 99 ? '99+' : newMessageCount}
+                </span>
+              )}
+              맨 아래로 가기 ↓
+            </div>
+          )}
+
+          <div ref={inputAreaRef} style={{ padding: '0 20px 16px', backgroundColor: '#ffffff', flexShrink: 0, pointerEvents: isFullyLoaded ? 'auto' : 'none' }}>
             <MessageInput
-              inputMode={inputMode}
-              setInputMode={setInputMode}
-              content={content}
-              setContent={setContent}
-              language={language}
-              setLanguage={setLanguage}
+              inputMode={inputMode} setInputMode={setInputMode}
+              content={content} setContent={setContent}
+              language={language} setLanguage={setLanguage}
               handleUnifiedSend={handleUnifiedSend}
               setImageFile={setImageFile}
-              imagePreviewUrl={imagePreviewUrl}
-              setImagePreviewUrl={setImagePreviewUrl}
+              imagePreviewUrl={imagePreviewUrl} setImagePreviewUrl={setImagePreviewUrl}
             />
           </div>
         </div>
 
         {showSearchSidebar && (
           <SearchSidebar
-            totalCount={searchTotalCount}
-            onSearch={handleSearch}
-            searchKeyword={searchKeyword}
-            searchResults={searchResults}
-            isSearching={isSearching}
-            errorMessage={errorMessage}
-            hasNext={searchHasNext}
-            onClose={() => setShowSearchSidebar(false)}
+            totalCount={searchTotalCount} onSearch={handleSearch}
+            searchKeyword={searchKeyword} searchResults={searchResults}
+            isSearching={isSearching} errorMessage={errorMessage}
+            hasNext={searchHasNext} onClose={() => setShowSearchSidebar(false)}
             onMessageClick={scrollToMessage}
           />
         )}
 
         {showCodeModal && selectedCodeMessage && (
           <CodeReviewModal
-            message={selectedCodeMessage}
-            roomId={roomId}
-            currentUser={currentUser}
+            message={selectedCodeMessage} roomId={roomId} currentUser={currentUser}
             onClose={() => { setShowCodeModal(false); setSelectedCodeMessage(null); }}
           />
         )}
 
         <RoomDeletedModal
-          isOpen={!!deleteNotification}
-          message={deleteNotification}
+          isOpen={!!deleteNotification} message={deleteNotification}
           onClose={() => setDeleteNotification(null)}
         />
       </div>

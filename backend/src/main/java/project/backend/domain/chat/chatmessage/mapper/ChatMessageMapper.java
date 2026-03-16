@@ -4,13 +4,13 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
-import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.github.dto.GitMessageDto;
@@ -111,6 +111,25 @@ public class ChatMessageMapper {
                     .orElse(null)
             )
             .senderId(message.getSender().getId())
+            .messageId(message.getId())
+            .status(message.getStatus())
+            .build();
+    }
+
+    public ChatMessageResponse toResponse(ChatMessage message, MemberDetails memberDetails) {
+        return ChatMessageResponse.builder()
+            .senderName(memberDetails.getNickname())
+            .content(message.getContent())
+            .type(message.getType())
+            .sendAt(message.getSendAt())
+            .language(message.getCodeLanguage())
+            .profileImageUrl(memberDetails.getProfileImg())
+            .chatImageUrl(
+                Optional.ofNullable(message.getChatImage())
+                    .map(ImageFile::getStoreFileName)
+                    .orElse(null)
+            )
+            .senderId(memberDetails.getId())
             .messageId(message.getId())
             .status(message.getStatus())
             .build();

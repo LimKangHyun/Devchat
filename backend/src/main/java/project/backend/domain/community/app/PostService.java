@@ -54,7 +54,7 @@ public class PostService {
     private final ChatRoomService chatRoomService;
 
     public Slice<PostResponse> getPosts(String sort, boolean activeOnly, boolean myApplied,
-                                        int page, int size, MemberDetails memberDetails) {
+        int page, int size, MemberDetails memberDetails) {
 
         PageRequest pageable = PageRequest.of(page, size);
 
@@ -63,20 +63,20 @@ public class PostService {
                 throw new PostException(PostErrorCode.POST_FORBIDDEN);
             }
             return postRepository
-                    .findAppliedByMember(memberDetails.getId(), pageable)
-                    .map(PostResponse::from);
+                .findAppliedByMember(memberDetails.getId(), pageable)
+                .map(PostResponse::from);
         }
 
         Slice<Post> posts;
         if (activeOnly) {
             LocalDate today = LocalDate.now();
             posts = sort.equals("hot")
-                    ? postRepository.findActiveByOrderByViewCountDesc(pageable, today)
-                    : postRepository.findActiveByOrderByCreatedAtDesc(pageable, today);
+                ? postRepository.findActiveByOrderByViewCountDesc(pageable, today)
+                : postRepository.findActiveByOrderByCreatedAtDesc(pageable, today);
         } else {
             posts = sort.equals("hot")
-                    ? postRepository.findAllByOrderByViewCountDesc(pageable)
-                    : postRepository.findAllByOrderByCreatedAtDesc(pageable);
+                ? postRepository.findAllByOrderByViewCountDesc(pageable)
+                : postRepository.findAllByOrderByCreatedAtDesc(pageable);
         }
 
         return posts.map(PostResponse::from);
@@ -104,7 +104,8 @@ public class PostService {
             .orElseThrow(
                 () -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 
-        return PostResponse.from(postRepository.save(CommunityMapper.toPost(request, author, chatRoom)));
+        return PostResponse.from(
+            postRepository.save(CommunityMapper.toPost(request, author, chatRoom)));
     }
 
     // 게시글 수정
@@ -169,10 +170,10 @@ public class PostService {
             throw new PostException(PostErrorCode.CANNOT_APPLY_OWN_POST);
         }
         applicantRepository.findByPost_IdAndMember_Id(postId, member.getId())
-                .ifPresent(existing -> {
-                    existing.validateReapply();
-                    applicantRepository.delete(existing);
-                });
+            .ifPresent(existing -> {
+                existing.validateReapply();
+                applicantRepository.delete(existing);
+            });
 
         eventPublisher.publishEvent(CommunityMapper.toApplyEvent(post, member));
 
@@ -209,8 +210,8 @@ public class PostService {
             post.getChatRoom());
         chatParticipantRepository.save(chatParticipant);
 
-        Long latestMessageId = chatRoomRedisRepository.getLastMessageId(post.getChatRoom().getId());
-        chatParticipant.resetUnreadCount(latestMessageId);
+        Long currentSequence = chatRoomRedisRepository.getSequence(post.getChatRoom().getId());
+        chatParticipant.updateLastReadSequence(currentSequence);
 
         chatRoomService.createAlarm(applicant.getMember().getId(), post.getChatRoom().getId());
 

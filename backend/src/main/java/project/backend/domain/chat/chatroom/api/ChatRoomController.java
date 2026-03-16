@@ -131,6 +131,6 @@ public class ChatRoomController {
     public void updateLastRead(
         @PathVariable Long roomId,
         @AuthenticationPrincipal MemberDetails memberDetails) {
-        chatRoomService.updateLastReadMessageId(roomId, memberDetails.getId());
+        chatRoomService.updateLastReadSequence(roomId, memberDetails.getId());
     }
 }

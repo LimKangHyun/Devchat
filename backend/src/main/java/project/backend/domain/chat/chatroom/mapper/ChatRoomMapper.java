@@ -111,14 +111,4 @@ public class ChatRoomMapper {
             .content("채팅방 '" + deleteEvent.roomName() + "'이 삭제되었습니다.")
             .build();
     }
-
-    public static AllRoomsResponse toDto(ChatRoom room, boolean alarmEnabled, long unreadCount) {
-        return new AllRoomsResponse(
-            room.getId(),
-            room.getInviteCode(),
-            room.getName(),
-            alarmEnabled,
-            unreadCount
-        );
-    }
 }
