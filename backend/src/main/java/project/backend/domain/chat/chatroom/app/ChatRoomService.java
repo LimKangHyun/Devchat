@@ -386,8 +386,24 @@ public class ChatRoomService {
         try {
             return chatRoomRedisRepository.getSequences(roomIds);
         } catch (Exception e) {
-            log.warn("Redis 장애로 인해 시퀀스 조회를 생략합니다. (unreadCount는 null 처리됨)");
-            return null;
+            log.warn("Redis 장애 - DB last_sequence 폴백");
+            return roomIds.stream()
+                    .map(id -> chatRoomRepository.findById(id)
+                            .map(ChatRoom::getLastSequence)
+                            .orElse(0L))
+                    .toList();
+        }
+    }
+
+    @Transactional
+    public void syncSequencesToDb(List<ChatRoom> rooms, List<Long> redisSequences) {
+        for (int i = 0; i < rooms.size(); i++) {
+            Long redisSeq = redisSequences.get(i);
+            ChatRoom room = rooms.get(i);
+
+            if (redisSeq != null && redisSeq > room.getLastSequence()) {
+                room.updateLastSequence(redisSeq);
+            }
         }
     }
 }

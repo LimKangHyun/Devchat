@@ -46,6 +46,9 @@ public class ChatRoom {
     @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChatParticipant> participants = new ArrayList<>();
 
+    @Column(name = "last_sequence")
+    private Long lastSequence = 0L;
+
     @Builder
     public ChatRoom(String name, LocalDateTime createdAt, String repositoryUrl, String inviteCode,
         Long webhookId, List<ChatMessage> messages, List<ChatParticipant> participants) {
@@ -60,6 +63,10 @@ public class ChatRoom {
         if (participants != null) {
             this.participants = participants;
         }
+    }
+
+    public void updateLastSequence(Long sequence) {
+        this.lastSequence = sequence;
     }
 
     public void addParticipant(ChatParticipant chatParticipant) {
