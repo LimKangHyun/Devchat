@@ -79,8 +79,7 @@ public class ChatMessageService {
 
         chatMessageRepository.save(message);
 
-        chatRoomRedisRepository.incrementSequence(roomId);
-        chatRoomRedisRepository.updateRoomRanking(roomId);
+        chatRoomRedisRepository.handleMessageDelivery(roomId);
 
         if (isSearchable(message)) {
             eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));

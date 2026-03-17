@@ -1,9 +1,9 @@
 package project.backend.domain.chat.chatroom.dao;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisCallback;
@@ -15,64 +15,90 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class ChatRoomRedisRepository {
 
-    private static final String ROOM_SEQUENCE_KEY = "room:sequence:";
-    private static final String ROOM_RANKING_KEY = "room:ranking";
+    private static final String ROOM_SEQUENCE_KEY = "room:%d:sequence";
+
+    private static final String UPDATED_ROOMS_KEY = "rooms:updated";
+    private static final String RANKING_ROOMS_KEY = "rooms:ranking";
 
     private final StringRedisTemplate redisTemplate;
 
-    public Long incrementSequence(Long roomId) {
-        return redisTemplate.opsForValue().increment(ROOM_SEQUENCE_KEY + roomId);
+    public void handleMessageDelivery(Long roomId) {
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            String seqKey = String.format(ROOM_SEQUENCE_KEY, roomId);
+            String roomIdStr = String.valueOf(roomId);
+
+            connection.stringCommands().incr(seqKey.getBytes());
+
+            connection.zSetCommands().zAdd(
+                    RANKING_ROOMS_KEY.getBytes(),
+                    System.currentTimeMillis(),
+                    roomIdStr.getBytes()
+            );
+
+            connection.setCommands().sAdd(
+                    UPDATED_ROOMS_KEY.getBytes(),
+                    roomIdStr.getBytes()
+            );
+            return null;
+        });
     }
 
     public Long getSequence(Long roomId) {
-        String value = redisTemplate.opsForValue().get(ROOM_SEQUENCE_KEY + roomId);
+        String key = String.format(ROOM_SEQUENCE_KEY, roomId);
+        String value = redisTemplate.opsForValue().get(key);
         return value == null ? 0L : Long.parseLong(value);
     }
 
     public List<Long> getSequences(List<Long> roomIds) {
+        if (roomIds == null || roomIds.isEmpty()) {
+            return List.of();
+        }
         List<Object> values = redisTemplate.executePipelined(
-            (RedisCallback<Object>) connection -> {
-                roomIds.forEach(roomId -> {
-                    String key = ROOM_SEQUENCE_KEY + roomId;
-                    connection.stringCommands().get(key.getBytes());
+                (RedisCallback<Object>) connection -> {
+                    for (Long roomId : roomIds) {
+                        String key = String.format(ROOM_SEQUENCE_KEY, roomId);
+                        connection.stringCommands().get(key.getBytes());
+                    }
+                    return null;
                 });
-                return null;
-            });
-        return values.stream()
-            .map(val -> val == null ? 0L : Long.parseLong(val.toString()))
-            .toList();
+        List<Long> result = new ArrayList<>(roomIds.size());
+
+        for (Object val : values) {
+            if (val == null) {
+                result.add(0L);
+            } else {
+                result.add(Long.parseLong(new String((byte[]) val)));
+            }
+        }
+        return result;
     }
 
-    public void updateRoomRanking(Long roomId) {
-        redisTemplate.opsForZSet().add(
-            ROOM_RANKING_KEY,
-            String.valueOf(roomId),
-            System.currentTimeMillis()
-        );
-    }
-
-    // 방목록 조회 시 정렬된 roomId 목록 가져오기
     public List<Long> getSortedRoomIds(List<Long> roomIds) {
+        if (roomIds == null || roomIds.isEmpty()) {
+            return List.of();
+        }
         Set<String> ranked = redisTemplate.opsForZSet()
-            .reverseRange(ROOM_RANKING_KEY, 0, -1);
+                .reverseRange(RANKING_ROOMS_KEY, 0, roomIds.size() - 1);
 
         if (ranked == null || ranked.isEmpty()) {
-            return roomIds;
+            return new ArrayList<>(roomIds);
         }
 
-        Set<Long> roomIdSet = new HashSet<>(roomIds);  // O(1) 탐색용
+        Set<Long> roomIdSet = new HashSet<>(roomIds);
+        List<Long> sorted = new ArrayList<>(roomIds.size());
+        for (String r : ranked) {
+            Long id = Long.valueOf(r);
+            if (roomIdSet.contains(id)) {
+                sorted.add(id);
+            }
+        }
 
-        List<Long> sorted = ranked.stream()
-            .map(Long::valueOf)
-            .filter(roomIdSet::contains)  // O(1)
-            .collect(Collectors.toList());
-
-        Set<Long> sortedSet = new HashSet<>(sorted);  // O(1) 탐색용
-        roomIds.stream()
-            .filter(id -> !sortedSet.contains(id))  // O(1)
-            .forEach(sorted::add);
-
+        Set<Long> added = new HashSet<>(sorted);
+        for (Long id : roomIds) {
+            if (!added.contains(id)) {
+                sorted.add(id);
+            }
+        }
         return sorted;
     }
-
 }
