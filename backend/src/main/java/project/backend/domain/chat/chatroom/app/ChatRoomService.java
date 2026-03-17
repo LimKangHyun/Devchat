@@ -386,26 +386,33 @@ public class ChatRoomService {
         try {
             return chatRoomRedisRepository.getSequences(roomIds);
         } catch (Exception e) {
-            log.warn("Redis 장애 - DB last_sequence 폴백");
+            log.warn("Redis 장애 - DB lastSequence 폴백");
+            Map<Long, Long> seqMap = chatRoomRepository.findAllById(roomIds).stream()
+                    .collect(Collectors.toMap(
+                            ChatRoom::getId,
+                            r -> r.getLastSequence() != null ? r.getLastSequence() : 0L
+                    ));
             return roomIds.stream()
-                    .map(id -> chatRoomRepository.findById(id)
-                            .map(ChatRoom::getLastSequence)
-                            .orElse(0L))
+                    .map(id -> seqMap.getOrDefault(id, 0L))
                     .toList();
         }
     }
 
     @Transactional
-    public void syncSequencesToDb(List<ChatRoom> rooms, List<Long> redisSequences) {
+    public void syncSequencesToDb() {
+        List<ChatRoom> rooms = chatRoomRepository.findAll();
+        if (rooms.isEmpty()) return;
+
+        List<Long> roomIds = rooms.stream().map(ChatRoom::getId).toList();
+        List<Long> redisSequences = chatRoomRedisRepository.getSequences(roomIds);
+
         for (int i = 0; i < rooms.size(); i++) {
             Long redisSeq = redisSequences.get(i);
-            ChatRoom room = rooms.get(i);
-
-            long currentSeq = room.getLastSequence() != null ? room.getLastSequence() : 0L;
-
+            long currentSeq = rooms.get(i).getLastSequence() != null ? rooms.get(i).getLastSequence() : 0L;
             if (redisSeq != null && redisSeq > currentSeq) {
-                room.updateLastSequence(redisSeq);
+                rooms.get(i).updateLastSequence(redisSeq);
             }
         }
+        log.info("last_sequence 동기화 완료 - {}개 채팅방", rooms.size());
     }
 }
