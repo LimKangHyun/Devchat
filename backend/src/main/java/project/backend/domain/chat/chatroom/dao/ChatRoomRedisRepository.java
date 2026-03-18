@@ -106,8 +106,7 @@ public class ChatRoomRedisRepository {
                 "if cur == false or tonumber(cur) < tonumber(ARGV[1]) then " +
                 "  redis.call('SET', KEYS[1], ARGV[1]); " +
                 "  redis.call('EXPIRE', KEYS[1], ARGV[2]); " +
-                "end; " +
-                "return tonumber(redis.call('GET', KEYS[1]));";
+                "end; ";
 
         String key = String.format(ROOM_SEQUENCE_KEY, roomId);
         redisTemplate.execute(
