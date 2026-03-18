@@ -24,6 +24,14 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
+const preloadImages = (urls) => {
+  urls.forEach(url => {
+    if (!url) return;
+    const img = new Image();
+    img.src = `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${url}`;
+  });
+};
+
 const VirtuosoMessageItem = React.memo(({
   msg, prevMsg,
   currentUser, contextMenuId, setContextMenuId,
@@ -171,6 +179,10 @@ const ChatRoom = () => {
         .map((msg) => ({ ...msg, sendAt: msg.sendAt && !isNaN(new Date(msg.sendAt).getTime()) ? msg.sendAt : new Date().toISOString() }))
         .sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
 
+      // 메시지 목록의 프로필 이미지 프리로드
+      const uniqueProfileUrls = [...new Set(sorted.map(m => m.profileImageUrl).filter(Boolean))];
+      preloadImages(uniqueProfileUrls);
+
       if (isLoadMore) {
         setFirstItemIndex((prev) => prev - sorted.length);
         setMessages((prev) => {
@@ -196,6 +208,10 @@ const ChatRoom = () => {
     try {
       const res = await axiosInstance.get('/user/details');
       setCurrentUser(res.data);
+      // 내 프로필 이미지 프리로드
+      if (res.data?.profileImageUrl) {
+        preloadImages([res.data.profileImageUrl]);
+      }
     } catch {}
     setInitState((prev) => ({ ...prev, isUserLoaded: true }));
   }, []);
@@ -208,6 +224,10 @@ const ChatRoom = () => {
   };
 
   const handleProfileUpdate = useCallback((data) => {
+    // 업데이트된 프로필 이미지 프리로드
+    if (data?.profileImageUrl) {
+      preloadImages([data.profileImageUrl]);
+    }
     setMessages((prev) =>
       prev.map((msg) =>
         msg.senderId === data.userId
@@ -220,6 +240,11 @@ const ChatRoom = () => {
   const { stompClientRef } = useWebSocket({
     roomId: initState.isRoomValidated ? roomId : null,
     onMessageReceived: (received) => {
+      // 새 메시지 발신자 프로필 이미지 프리로드
+      if (received?.profileImageUrl) {
+        preloadImages([received.profileImageUrl]);
+      }
+
       setMessages((prev) => {
         const updated = prev.some((m) => m.messageId === received.messageId)
           ? prev.map((m) => (m.messageId === received.messageId ? received : m))
@@ -431,7 +456,6 @@ const ChatRoom = () => {
           )}
 
           <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-            {/* 로딩 오버레이 */}
             {!isFullyLoaded && (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', zIndex: 10 }}>
                 <div style={{ textAlign: 'center' }}>
@@ -441,7 +465,6 @@ const ChatRoom = () => {
               </div>
             )}
 
-            {/* 메시지 로드 완료 후에만 Virtuoso 렌더 → initialTopMostItemIndex 정상 동작 */}
             {messages.length > 0 && (
               <Virtuoso
                 key={roomId}

@@ -12,7 +12,6 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
-import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
@@ -46,7 +45,6 @@ public class PostService {
     private final PostRepository postRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
-    private final ChatRoomRedisRepository chatRoomRedisRepository;
     private final ChatParticipantRepository chatParticipantRepository;
     private final ApplicantRepository applicantRepository;
     private final ChatMessageMapper chatMessageMapper;
@@ -82,7 +80,6 @@ public class PostService {
         return posts.map(PostResponse::from);
     }
 
-    // 게시글 상세 조회 + 조회수 증가
     @Transactional
     public PostResponse getPost(Long postId) {
         Post post = postRepository.findById(postId)
@@ -91,7 +88,6 @@ public class PostService {
         return PostResponse.from(post);
     }
 
-    // 게시글 작성
     @Transactional
     public PostResponse createPost(PostCreateRequest request, MemberDetails memberDetails) {
         Member author = Member.of(memberDetails);
@@ -108,7 +104,6 @@ public class PostService {
             postRepository.save(CommunityMapper.toPost(request, author, chatRoom)));
     }
 
-    // 게시글 수정
     @Transactional
     public PostResponse updatePost(Long postId, PostUpdateRequest request,
         MemberDetails memberDetails) {
@@ -138,7 +133,6 @@ public class PostService {
         return PostResponse.from(post);
     }
 
-    // 게시글 삭제
     @Transactional
     public void deletePost(Long postId, MemberDetails memberDetails) {
         Post post = postRepository.findById(postId)
@@ -169,6 +163,12 @@ public class PostService {
         if (post.getAuthor().getId().equals(member.getId())) {
             throw new PostException(PostErrorCode.CANNOT_APPLY_OWN_POST);
         }
+
+        if (chatParticipantRepository.existsByParticipantIdAndChatRoomIdAndIsActiveTrue(
+                member.getId(), post.getChatRoom().getId())) {
+            throw new ChatRoomException(ChatRoomErrorCode.ALREADY_PARTICIPANT);
+        }
+
         applicantRepository.findByPost_IdAndMember_Id(postId, member.getId())
             .ifPresent(existing -> {
                 existing.validateReapply();
@@ -210,7 +210,7 @@ public class PostService {
             post.getChatRoom());
         chatParticipantRepository.save(chatParticipant);
 
-        Long currentSequence = chatRoomRedisRepository.getSequence(post.getChatRoom().getId());
+        Long currentSequence = chatRoomService.getLatestSequence(post.getChatRoom().getId());
         chatParticipant.updateLastReadSequence(currentSequence);
 
         chatRoomService.createAlarm(applicant.getMember().getId(), post.getChatRoom().getId());

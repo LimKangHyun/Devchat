@@ -172,7 +172,7 @@ const EditedLabel = () => (
   <span style={{ marginLeft: '5px', fontSize: '11px', color: '#ccc', fontStyle: 'italic' }}>(수정됨)</span>
 );
 
-/* ── 메시지 아이템 ── ✅ export 추가 */
+/* ── 메시지 아이템 ── */
 export const MessageItem = ({
   msg, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, handleEditMessage,
@@ -196,6 +196,11 @@ export const MessageItem = ({
   const isMenuOpen = contextMenuId === msg.messageId;
   const isOwn = currentUser?.id === msg.senderId;
 
+  // profileImageUrl 없으면 처음부터 fallback → 실패 요청 없음
+  const profileSrc = msg.profileImageUrl
+    ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${msg.profileImageUrl}`
+    : '/images/not-found-profile.png';
+
   return (
     <div
       id={`message-${msg.messageId}`}
@@ -212,12 +217,12 @@ export const MessageItem = ({
         marginBottom: '2px',
       }}
     >
-      {/* 프로필 이미지 */}
       <img
-        src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${msg.profileImageUrl}`}
+        src={profileSrc}
         alt="프로필"
         width={36}
         height={36}
+        loading="eager"
         onError={(e) => { e.currentTarget.src = '/images/not-found-profile.png'; }}
         style={{
           borderRadius: '4px',
@@ -229,7 +234,6 @@ export const MessageItem = ({
       />
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* 발신자 + 시간 */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '3px' }}>
           <span style={{ fontWeight: '700', fontSize: '14px', color: '#1d1c1d' }}>
             {msg.senderName}
@@ -239,7 +243,6 @@ export const MessageItem = ({
           </span>
         </div>
 
-        {/* 메시지 본문 */}
         <MessageContent
           msg={msg}
           editMessageId={editMessageId}
@@ -251,7 +254,6 @@ export const MessageItem = ({
         />
       </div>
 
-      {/* 호버 액션 버튼 (본인 메시지만) */}
       {isOwn && !(msg.status === 'DELETED') && (isHovered || isMenuOpen) && (
         <div style={{
           position: 'absolute',
@@ -311,7 +313,7 @@ const ActionBtn = ({ label, onClick, danger = false }) => {
   );
 };
 
-/* ── 날짜 구분선 ── ✅ export 추가 */
+/* ── 날짜 구분선 ── */
 export const DateDivider = ({ label }) => (
   <div style={{
     display: 'flex', alignItems: 'center',
@@ -330,7 +332,7 @@ export const DateDivider = ({ label }) => (
   </div>
 );
 
-/* ── 메시지 리스트 (기존 사용처 호환용 default export 유지) ── */
+/* ── 메시지 리스트 ── */
 const MessageList = ({
   messages, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, editMessageId, editContent,

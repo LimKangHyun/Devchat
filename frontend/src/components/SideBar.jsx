@@ -39,11 +39,7 @@ const Sidebar = ({ onStartChat }) => {
 
   const [currentUser, setCurrentUser] = useState(null)
   const [roomId, setRoomId] = useState(null)
-
-  const roomIdRef = useRef(null)
-  useEffect(() => {
-    roomIdRef.current = roomId
-  }, [roomId])
+  const roomIdRef = useRef(roomId)
 
   const { getAlarmStatus, alarmStatusMap = {} } = useAlarm()
 
@@ -56,11 +52,16 @@ const Sidebar = ({ onStartChat }) => {
     }
   })
 
+  // roomId 최신값 유지
+  useEffect(() => {
+    roomIdRef.current = roomId
+  }, [roomId])
+
   const handleSidebarMessage = (roomUniqueId, message) => {
     if (Number(roomIdRef.current) !== Number(roomUniqueId)) {
       setAlarmRooms(prev => prev.map(r =>
         Number(r.uniqueId) === Number(roomUniqueId)
-          ? { ...r, unreadCount: r.unreadCount === null ? null : (r.unreadCount ?? 0) + 1 }
+          ? { ...r, unreadCount: (r.unreadCount ?? 0) + 1 }
           : r
       ))
 
@@ -93,26 +94,26 @@ const Sidebar = ({ onStartChat }) => {
     }
   }
 
-  const stompClientRef = useWebSocket({
+  useWebSocket({
     chatRooms: alarmRooms,
     currentRoomId: roomId,
     onSidebarMessage: handleSidebarMessage,
-    onMessageReceived: () => {},
-    roomId: null,
   })
 
-  useEffect(() => {
-    const handleRoomRead = () => fetchAllRooms()
-    window.addEventListener('room:read', handleRoomRead)
-    return () => window.removeEventListener('room:read', handleRoomRead)
-  }, [])
-
+  // 초기 로드 및 탭/알람 변경 시 (inviteCode 제거 → room:read 이벤트로 대체)
   useEffect(() => {
     if (activeTab === "chat") {
       fetchAllRooms()
       fetchCurrentUser()
     }
-  }, [activeTab])
+  }, [activeTab, alarmStatusMap])
+
+  // room:read 이벤트 수신 시 fetchAllRooms → /read API 완료 후 서버 상태 반영
+  useEffect(() => {
+    const handleRoomRead = () => fetchAllRooms()
+    window.addEventListener('room:read', handleRoomRead)
+    return () => window.removeEventListener('room:read', handleRoomRead)
+  }, [])
 
   useEffect(() => {
     if (!inviteCode) {
@@ -125,7 +126,7 @@ const Sidebar = ({ onStartChat }) => {
     } else {
       setRoomId(null)
     }
-  }, [inviteCode, alarmRooms])
+  }, [inviteCode, alarmRooms, alarmStatusMap])
 
   const fetchCurrentUser = async () => {
     try {
@@ -148,19 +149,11 @@ const Sidebar = ({ onStartChat }) => {
         alarmEnabled: room.alarmEnabled ?? true,
         roomName: room.roomName || `Room ${room.roomId || room.id}`,
         inviteCode: room.inviteCode,
-        unreadCount: room.unreadCount !== undefined ? room.unreadCount : null,
+        unreadCount: room.unreadCount ?? 0,
       })).filter(room => room.uniqueId)
 
-      const currentRoomId = roomIdRef.current
-      const correctedRooms = rooms.map(room => {
-        if (currentRoomId && Number(room.uniqueId) === Number(currentRoomId)) {
-          return { ...room, unreadCount: 0 }
-        }
-        return room
-      })
-
-      setAlarmRooms(correctedRooms)
-      localStorage.setItem(CACHE_KEY, JSON.stringify(correctedRooms))
+      setAlarmRooms(rooms)
+      localStorage.setItem(CACHE_KEY, JSON.stringify(rooms))
       setRoomsReady(true)
     } catch (e) {
       console.error('채팅방 목록 로딩 실패', e)
@@ -171,12 +164,14 @@ const Sidebar = ({ onStartChat }) => {
 
   const navigateToRoom = async (id, inviteCode) => {
     if (id) {
-      const prevRoomId = roomIdRef.current
-      if (prevRoomId) {
-        setAlarmRooms(prev => prev.map(r =>
-          Number(r.uniqueId) === Number(prevRoomId) ? { ...r, unreadCount: 0 } : r
-        ))
+      if (roomIdRef.current) {
+        await axiosInstance.post(`/chat-rooms/${roomIdRef.current}/read`).catch((e) => {
+          console.error("read API 실패:", e)
+        })
       }
+      setAlarmRooms(prev => prev.map(r =>
+        Number(r.uniqueId) === Number(roomIdRef.current) ? { ...r, unreadCount: 0 } : r
+      ))
       navigate(`/chat/${inviteCode}`)
     }
   }
@@ -257,24 +252,7 @@ const Sidebar = ({ onStartChat }) => {
 
       const created = res.data
       setShowCreateModal(false)
-      fetchAllRooms()
-
-      if (created) {
-        const newRoom = {
-          ...created,
-          uniqueId: created.id || created.roomId,
-          ownerId: created.ownerId || (currentUser ? currentUser.id : null),
-          participants: [
-            {
-              ...(currentUser || {}),
-              owner: true,
-              nickname: currentUser?.nickname || currentUser?.username || "나",
-            },
-          ],
-        }
-        setAlarmRooms(prev => [newRoom, ...prev.slice(0, 9)])
-        fetchAllRooms()
-      }
+      await fetchAllRooms()
 
       if (created?.id) {
         navigate(`/chat/${created.inviteCode}`)
@@ -288,9 +266,9 @@ const Sidebar = ({ onStartChat }) => {
   const handleJoinRoom = async (inviteCode) => {
     try {
       const res = await axiosInstance.post("/chat-rooms/join", { inviteCode })
-      const joined = await res.data
+      const joined = res.data
       setShowJoinModal(false)
-      fetchAllRooms()
+      await fetchAllRooms()
 
       if (joined?.id) {
         navigate(`/chat/${joined.inviteCode}`)
@@ -319,9 +297,8 @@ const Sidebar = ({ onStartChat }) => {
               const isCurrentRoom = roomId && Number(roomId) === Number(roomUniqueId)
               const isSelectedForModal = selectedRoom && Number(selectedRoom.uniqueId) === Number(roomUniqueId) && showMembersModal
               const roomInviteCode = room.inviteCode
-              const unreadCount = room.unreadCount
-              const isNew = unreadCount === null
-              const hasUnread = (isNew || unreadCount > 0) && !isCurrentRoom
+              const unreadCount = room.unreadCount ?? 0
+              const hasUnread = unreadCount > 0 && !isCurrentRoom
 
               return (
                 <div key={`room-${roomUniqueId}`} className={styles.roomItem}>
@@ -334,7 +311,7 @@ const Sidebar = ({ onStartChat }) => {
                         <FaRegCommentDots size={14} />
                         {hasUnread && (
                           <div className={styles.unreadBadge}>
-                            {isNew ? 'NEW' : unreadCount > 99 ? "99+" : unreadCount}
+                            {unreadCount > 99 ? "99+" : unreadCount}
                           </div>
                         )}
                       </div>
