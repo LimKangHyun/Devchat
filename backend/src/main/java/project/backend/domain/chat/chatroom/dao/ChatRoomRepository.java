@@ -32,14 +32,6 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     Page<ChatRoom> findAllRoomsByOwnerId(Long ownerId, Pageable pageable);
 
     @Query("""
-        SELECT cr
-        FROM ChatRoom cr
-        JOIN cr.participants cp
-        WHERE cp.participant.id = :memberId AND cp.isActive = true
-        """)
-    List<ChatRoom> findAllRoomsByParticipantId(@Param("memberId") Long memberId);
-
-    @Query("""
         SELECT cr.id AS chatRoomId, cr.name AS name, cr.inviteCode AS inviteCode,
         	   cp.lastReadSequence AS lastReadSequence
         FROM ChatRoom cr

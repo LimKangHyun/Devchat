@@ -28,6 +28,7 @@ import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
@@ -36,8 +37,10 @@ import project.backend.domain.member.entity.Member;
 import project.backend.domain.chat.chatmessage.dto.ScrollPaginationCollection;
 import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.errorcode.ChatMessageErrorCode;
+import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.ChatMessageException;
+import project.backend.global.exception.ex.ChatRoomException;
 import project.backend.global.metric.TimeTrace;
 
 @Slf4j
@@ -45,6 +48,7 @@ import project.backend.global.metric.TimeTrace;
 @RequiredArgsConstructor
 public class ChatMessageService {
 
+    private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRedisRepository chatRoomRedisRepository;
     private final ChatMessageSearchRepository chatMessageSearchRepository;
@@ -79,7 +83,17 @@ public class ChatMessageService {
 
         chatMessageRepository.save(message);
 
-        chatRoomRedisRepository.handleMessageDelivery(roomId);
+        Long seq = chatRoomRedisRepository.handleMessageDelivery(roomId);
+
+        if (seq != null && seq == -1L) {
+            ChatRoom findRoom = chatRoomRepository.findById(roomId)
+                    .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+
+            long dbSeq = findRoom.getLastSequence() != null ? findRoom.getLastSequence() : 0L;
+            chatRoomRedisRepository.setSequence(roomId, dbSeq + 1);
+
+            log.warn("Redis sequence 복구 - roomId: {}, dbSeq: {}, 복구값: {}", roomId, dbSeq, dbSeq + 1);
+        }
 
         if (isSearchable(message)) {
             eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
