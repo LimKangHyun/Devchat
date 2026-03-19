@@ -15,6 +15,9 @@ import project.backend.global.exception.ex.ChatRoomException;
 @Component
 public class CustomRejectedExecutionHandler implements RejectedExecutionHandler {
 
+    private static final int MAX_RETRIES = 3;
+    private static final long BASE_DELAY_MS = 100;
+
     private final Counter rejectedTaskCounter;
 
     public CustomRejectedExecutionHandler(MeterRegistry meterRegistry) {
@@ -26,15 +29,12 @@ public class CustomRejectedExecutionHandler implements RejectedExecutionHandler 
 
     @Override
     public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-        int maxRetries = 3;
-        long baseDelay = 100;
-
         int attempt = 0;
         boolean submitted = false;
 
-        while (attempt < maxRetries && !submitted) {
+        while (attempt < MAX_RETRIES && !submitted) {
             if (attempt > 0) {
-                long backoffDelay = baseDelay * (1L << (attempt - 1));
+                long backoffDelay = BASE_DELAY_MS * (1L << (attempt - 1));
                 long jitter = ThreadLocalRandom.current().nextLong(backoffDelay / 2);
                 long sleepTime = backoffDelay + jitter;
 
