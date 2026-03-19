@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -12,43 +13,51 @@ import project.backend.global.exception.ex.ChatRoomException;
 
 @Slf4j
 @Component
-public class RejectExecutionHandler implements RejectedExecutionHandler {
+public class CustomRejectedExecutionHandler implements RejectedExecutionHandler {
 
     private final Counter rejectedTaskCounter;
 
-    public RejectExecutionHandler(MeterRegistry meterRegistry) { // 거절 메트릭 수집
-        this.rejectedTaskCounter = Counter.builder("async_tasks_rejected_total")
-            .description("Total number of async tasks rejected due to thread pool saturation")
-            .register(meterRegistry);
+    public CustomRejectedExecutionHandler(MeterRegistry meterRegistry) {
+        this.rejectedTaskCounter = meterRegistry.counter(
+            "async_tasks_rejected_total",
+            "executor", "chat-room"
+        );
     }
 
     @Override
     public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
         int maxRetries = 3;
-        long retryDelayMillis = 100; // (ms 기준) 보톤 50~200으로 잡음
+        long baseDelay = 100;
 
         int attempt = 0;
         boolean submitted = false;
 
         while (attempt < maxRetries && !submitted) {
-            try {
-                if (attempt > 0) {
-                    log.warn("작업 큐 포화로 인해 재시도 중: {}번째 시도", attempt);
-                    Thread.sleep(retryDelayMillis);
+            if (attempt > 0) {
+                long backoffDelay = baseDelay * (1L << (attempt - 1));
+                long jitter = ThreadLocalRandom.current().nextLong(backoffDelay / 2);
+                long sleepTime = backoffDelay + jitter;
+
+                try {
+                    log.warn("작업 큐 포화 - 재시도 {}회차, 대기 {}ms", attempt, sleepTime);
+                    Thread.sleep(sleepTime);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new ChatRoomException(ChatRoomErrorCode.ASYNC_TASK_REJECTED);
                 }
+            }
+
+            try {
                 executor.execute(r);
                 submitted = true;
             } catch (RejectedExecutionException e) {
                 attempt++;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new ChatRoomException(ChatRoomErrorCode.ASYNC_TASK_REJECTED);
             }
         }
 
         if (!submitted) {
             rejectedTaskCounter.increment();
-            log.error("작업 큐가 가득차 작업 거부됨 - 재시도 실패");
+            log.error("작업 큐 가득 참 - 재시도 최종 실패");
             throw new ChatRoomException(ChatRoomErrorCode.ASYNC_TASK_REJECTED);
         }
     }

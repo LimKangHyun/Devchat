@@ -12,7 +12,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @RequiredArgsConstructor
 public class AsyncConfig {
 
-    private final RejectExecutionHandler rejectExecutionHandler;
+    private final CustomRejectedExecutionHandler customRejectedExecutionHandler;
 
     @Bean(name = "chatRoomEventExecutor")
     public Executor getChatRoomEventExecutor() {
@@ -21,7 +21,7 @@ public class AsyncConfig {
         executor.setMaxPoolSize(20); // 최대 스레드 수
         executor.setQueueCapacity(100); // 작업 대기열
         executor.setThreadNamePrefix("ChatRoomEvent-");
-        executor.setRejectedExecutionHandler(rejectExecutionHandler);
+        executor.setRejectedExecutionHandler(customRejectedExecutionHandler);
         executor.initialize();
         return executor;
     }
@@ -33,7 +33,7 @@ public class AsyncConfig {
         executor.setMaxPoolSize(5);
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("ChatSearchEvent-");
-        executor.setRejectedExecutionHandler(rejectExecutionHandler);
+        executor.setRejectedExecutionHandler(customRejectedExecutionHandler);
         executor.initialize();
         return executor;
     }
