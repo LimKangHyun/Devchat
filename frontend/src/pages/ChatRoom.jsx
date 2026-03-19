@@ -401,7 +401,14 @@ const ChatRoom = () => {
     if (!roomId || !initState.isRoomValidated) { alert('채팅방 로딩 중입니다.'); return; }
     if (!client?.connected) { alert('서버와 연결이 끊어졌습니다.'); return; }
     if (!currentUser) { alert('사용자 정보 로딩 중입니다.'); return; }
-    const base = { content, type: inputMode, sendAt: new Date().toISOString(), ...(inputMode === 'CODE' && { language }) };
+    const base = {
+      content,
+      type: inputMode,
+      sendAt: new Date().toISOString(),
+      senderName: currentUser.nickname,
+      profileImageUrl: currentUser.profileImageUrl,
+      ...(inputMode === 'CODE' && { language }),
+    };
     const msg = override ? { ...base, ...override } : base;
     if (msg.type !== 'IMAGE' && !String(msg.content).trim()) return;
     client.publish({ destination: `/chat/send-message/${roomId}`, body: JSON.stringify(msg) });
