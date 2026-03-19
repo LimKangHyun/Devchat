@@ -143,6 +143,21 @@ const ChatRoom = () => {
     };
   }, []);
 
+  // 프로필 업데이트 이벤트 수신 → currentUser 갱신
+  useEffect(() => {
+    const handler = async () => {
+      try {
+        const res = await axiosInstance.get('/user/details');
+        setCurrentUser(res.data);
+        if (res.data?.profileImageUrl) {
+          preloadImages([res.data.profileImageUrl]);
+        }
+      } catch {}
+    };
+    window.addEventListener('profile-updated', handler);
+    return () => window.removeEventListener('profile-updated', handler);
+  }, []);
+
   const handleCodeClick = (message) => {
     setSelectedCodeMessage(message);
     setShowCodeModal(true);
@@ -179,7 +194,6 @@ const ChatRoom = () => {
         .map((msg) => ({ ...msg, sendAt: msg.sendAt && !isNaN(new Date(msg.sendAt).getTime()) ? msg.sendAt : new Date().toISOString() }))
         .sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
 
-      // 메시지 목록의 프로필 이미지 프리로드
       const uniqueProfileUrls = [...new Set(sorted.map(m => m.profileImageUrl).filter(Boolean))];
       preloadImages(uniqueProfileUrls);
 
@@ -208,7 +222,6 @@ const ChatRoom = () => {
     try {
       const res = await axiosInstance.get('/user/details');
       setCurrentUser(res.data);
-      // 내 프로필 이미지 프리로드
       if (res.data?.profileImageUrl) {
         preloadImages([res.data.profileImageUrl]);
       }
@@ -224,7 +237,6 @@ const ChatRoom = () => {
   };
 
   const handleProfileUpdate = useCallback((data) => {
-    // 업데이트된 프로필 이미지 프리로드
     if (data?.profileImageUrl) {
       preloadImages([data.profileImageUrl]);
     }
@@ -240,7 +252,6 @@ const ChatRoom = () => {
   const { stompClientRef } = useWebSocket({
     roomId: initState.isRoomValidated ? roomId : null,
     onMessageReceived: (received) => {
-      // 새 메시지 발신자 프로필 이미지 프리로드
       if (received?.profileImageUrl) {
         preloadImages([received.profileImageUrl]);
       }
