@@ -90,6 +90,7 @@ const ChatRoom = () => {
   const isLoadingRef = useRef(false);
   const isAtBottomRef = useRef(true);
   const currentUserRef = useRef(null);
+  const lastSequenceRef = useRef(null);
 
   const [roomName, setRoomName] = useState('로딩 중...');
   const [roomId, setRoomId] = useState(null);
@@ -143,7 +144,6 @@ const ChatRoom = () => {
     };
   }, []);
 
-  // 프로필 업데이트 이벤트 수신 → currentUser 갱신
   useEffect(() => {
     const handler = async () => {
       try {
@@ -206,6 +206,13 @@ const ChatRoom = () => {
       } else {
         setFirstItemIndex(INDEX_OFFSET);
         setMessages(sorted);
+        // 초기 로드 시 마지막 메시지의 sequence로 lastSequenceRef 초기화
+        if (sorted.length > 0) {
+          const lastMsg = sorted[sorted.length - 1];
+          if (lastMsg.sequence != null) {
+            lastSequenceRef.current = lastMsg.sequence;
+          }
+        }
         setInitState((prev) => ({ ...prev, isMessagesLoaded: true }));
       }
       setCursor(data.nextCursor);
@@ -215,6 +222,27 @@ const ChatRoom = () => {
     } finally {
       isLoadingRef.current = false;
       setIsLoadingMessages(false);
+    }
+  }, [roomId]);
+
+  const fetchMissingMessages = useCallback(async () => {
+    if (!roomId) return;
+    try {
+      const res = await axiosInstance.get(`/${roomId}/messages`);
+      const data = res.data;
+      const messageList = data.messages || [];
+      const sorted = messageList
+        .map((msg) => ({ ...msg, sendAt: msg.sendAt && !isNaN(new Date(msg.sendAt).getTime()) ? msg.sendAt : new Date().toISOString() }))
+        .sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
+
+      setMessages((prev) => {
+        const ids = new Set(prev.map((m) => m.messageId));
+        const missing = sorted.filter((m) => !ids.has(m.messageId));
+        if (missing.length === 0) return prev;
+        return [...prev, ...missing].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
+      });
+    } catch (e) {
+      console.error('누락 메시지 조회 실패', e);
     }
   }, [roomId]);
 
@@ -254,6 +282,16 @@ const ChatRoom = () => {
     onMessageReceived: (received) => {
       if (received?.profileImageUrl) {
         preloadImages([received.profileImageUrl]);
+      }
+
+      // gap 감지
+      if (received.sequence != null && lastSequenceRef.current != null) {
+        if (received.sequence - lastSequenceRef.current > 1) {
+          fetchMissingMessages();
+        }
+      }
+      if (received.sequence != null) {
+        lastSequenceRef.current = received.sequence;
       }
 
       setMessages((prev) => {
@@ -306,6 +344,7 @@ const ChatRoom = () => {
       setNewMessageCount(0);
       isAtBottomRef.current = true;
       isLoadingRef.current = false;
+      lastSequenceRef.current = null;
       const [id] = await Promise.all([fetchRoomInfo(), fetchCurrentUser()]);
       if (!id) { navigate('/error'); return; }
       prevRoomIdRef.current = id;

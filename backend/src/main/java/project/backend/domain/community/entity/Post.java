@@ -74,6 +74,10 @@ public class Post {
         if (techStacks != null) this.techStacks = techStacks;
     }
 
+    public Long getChatRoomId() {
+        return chatRoom.getId();
+    }
+
     public void close() {
         this.closed = true;
     }

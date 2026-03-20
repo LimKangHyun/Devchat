@@ -1,6 +1,5 @@
 package project.backend.global.asyncConfig;
 
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -18,13 +17,10 @@ public class CustomRejectedExecutionHandler implements RejectedExecutionHandler 
     private static final int MAX_RETRIES = 3;
     private static final long BASE_DELAY_MS = 100;
 
-    private final Counter rejectedTaskCounter;
+    private final MeterRegistry meterRegistry;
 
     public CustomRejectedExecutionHandler(MeterRegistry meterRegistry) {
-        this.rejectedTaskCounter = meterRegistry.counter(
-            "async_tasks_rejected_total",
-            "executor", "chat-room"
-        );
+        this.meterRegistry = meterRegistry;
     }
 
     @Override
@@ -56,8 +52,10 @@ public class CustomRejectedExecutionHandler implements RejectedExecutionHandler 
         }
 
         if (!submitted) {
-            rejectedTaskCounter.increment();
-            log.error("작업 큐 가득 참 - 재시도 최종 실패");
+            String threadName = executor.getThreadFactory()
+                    .newThread(() -> {}).getName().replaceAll("-\\d+$", "");
+            meterRegistry.counter("async_tasks_rejected_total", "executor", threadName).increment();
+            log.error("작업 큐 가득 참 - 재시도 최종 실패 executor: {}", threadName);
             throw new ChatRoomException(ChatRoomErrorCode.ASYNC_TASK_REJECTED);
         }
     }

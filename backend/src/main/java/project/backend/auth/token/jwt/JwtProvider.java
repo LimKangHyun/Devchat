@@ -34,7 +34,7 @@ import project.backend.auth.dto.MemberDetails;
 @RequiredArgsConstructor
 public class JwtProvider {
 
-    public static final Long TOKEN_VALIDATION_SECOND = 10 * 60L;
+    public static final Long TOKEN_VALIDATION_SECOND = 10 * 10 * 60L;
     public static final Long REFRESH_TOKEN_VALIDATION_SECOND = 7 * 24 * 60 * 60L;
 
     private final TokenRedisRepository tokenRedisRepository;

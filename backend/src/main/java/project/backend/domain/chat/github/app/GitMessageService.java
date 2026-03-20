@@ -11,6 +11,7 @@ import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
+import project.backend.domain.chat.chatroom.app.ChatRoomRedisService;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
@@ -40,8 +41,10 @@ public class GitMessageService {
 	private String webhookUrl;
 	@Value("${github.username}")
 	private String githubUsername;
+
 	private final GitHubClient gitHubClient;
 	private final TokenRedisRepository tokenRedisRepository;
+	private final ChatRoomRedisService chatRoomRedisService;
 
 	@Transactional
 	public void handleEvent(Long roomId, String eventType, Map<String, Object> payload) {
@@ -65,7 +68,9 @@ public class GitMessageService {
 	private void sendGitMessage(ChatRoom room, GitMessageDto gitMessage) {
 		Member githubBot = memberService.getMemberByUsername(githubUsername);
 
-		ChatMessage message = chatMessageMapper.toEntityWithGit(gitMessage, githubBot);
+		Long seq = chatRoomRedisService.handleMessageDelivery(room.getId());
+
+		ChatMessage message = chatMessageMapper.toEntityWithGit(gitMessage, githubBot, seq);
 		chatMessageRepository.save(message);
 
 		ChatMessageResponse response = chatMessageMapper.toGitResponse(message);

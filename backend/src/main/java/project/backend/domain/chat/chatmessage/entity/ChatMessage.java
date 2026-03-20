@@ -61,6 +61,8 @@ public class ChatMessage {
     @Enumerated(EnumType.STRING)
     private MessageStatus status = MessageStatus.NO_CHANGE;
 
+    private Long sequence;
+
     public Long getChatRoomId() {
         return chatRoom.getId();
     }

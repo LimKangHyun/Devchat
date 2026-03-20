@@ -21,18 +21,19 @@ import project.backend.domain.member.entity.Member;
 public class ChatMessageMapper {
 
     public ChatMessage toEntityWithText(ChatRoom room, Member sender,
-        ChatMessageRequest request) {
+        ChatMessageRequest request, Long sequence) {
         return ChatMessage.builder()
             .chatRoom(room)
             .sender(sender)
             .content(request.getContent())
             .type(MessageType.TEXT)
             .sendAt(LocalDateTime.now())
+            .sequence(sequence)
             .build();
     }
 
     public ChatMessage toEntityWithCode(ChatRoom room, Member sender,
-        ChatMessageRequest request) {
+        ChatMessageRequest request, Long sequence) {
         return ChatMessage.builder()
             .chatRoom(room)
             .sender(sender)
@@ -40,49 +41,54 @@ public class ChatMessageMapper {
             .type(MessageType.CODE)
             .sendAt(LocalDateTime.now())
             .codeLanguage(request.getLanguage())
+            .sequence(sequence)
             .build();
     }
 
     public ChatMessage toEntityWithImage(ChatRoom room, Member sender,
-        ImageFile chatImage) {
+        ImageFile chatImage, Long sequence) {
         return ChatMessage.builder()
             .chatRoom(room)
             .sender(sender)
             .type(MessageType.IMAGE)
             .sendAt(LocalDateTime.now())
             .chatImage(chatImage)
+            .sequence(sequence)
             .build();
     }
 
-    public ChatMessage toEntityWithGit(GitMessageDto gitMessage, Member githubBot) {
+    public ChatMessage toEntityWithGit(GitMessageDto gitMessage, Member githubBot, Long sequence) {
         return ChatMessage.builder()
             .chatRoom(gitMessage.getRoom())
             .type(MessageType.GIT)
             .content(gitMessage.getContent())
             .sendAt(LocalDateTime.now())
             .sender(githubBot)
+            .sequence(sequence)
             .build();
     }
 
     public ChatMessage toEntityWithJoinEvent(ChatRoom room, Member sender,
-        LocalDateTime now) {
+        LocalDateTime now, Long sequence) {
         return ChatMessage.builder()
             .chatRoom(room)
             .sender(sender)
             .content(sender.getNickname() + "님이 입장했습니다.")
             .type(MessageType.EVENT)
             .sendAt(now)
+            .sequence(sequence)
             .build();
     }
 
     public ChatMessage toEntityWithLeaveEvent(ChatRoom room, Member sender,
-        LeaveChatRoomEvent leaveEvent) {
+        LeaveChatRoomEvent leaveEvent, Long sequence) {
         return ChatMessage.builder()
             .chatRoom(room)
             .sender(sender)
             .content(leaveEvent.nickname() + "님이 나갔습니다.")
             .type(MessageType.EVENT)
             .sendAt(leaveEvent.leaveAt())
+            .sequence(sequence)
             .build();
     }
 
@@ -113,6 +119,7 @@ public class ChatMessageMapper {
             .senderId(message.getSender().getId())
             .messageId(message.getId())
             .status(message.getStatus())
+            .sequence(message.getSequence())
             .build();
     }
 
@@ -132,6 +139,7 @@ public class ChatMessageMapper {
             .senderId(memberDetails.getId())
             .messageId(message.getId())
             .status(message.getStatus())
+            .sequence(message.getSequence())
             .build();
     }
 
