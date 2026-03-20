@@ -18,7 +18,6 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomAlarmRepository;
-import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomWithSequenceProjection;
 import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
@@ -53,7 +52,6 @@ public class ChatRoomService {
     private final PostRepository postRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
-    private final ChatRoomRedisRepository chatRoomRedisRepository;
     private final ChatRoomAlarmRepository chatRoomAlarmRepository;
     private final ChatParticipantRepository chatParticipantRepository;
 
@@ -62,6 +60,7 @@ public class ChatRoomService {
 
     private final MemberService memberService;
     private final GitMessageService gitMessageService;
+    private final ChatRoomRedisService chatRoomRedisService;
 
     private final ApplicationEventPublisher eventPublisher;
 
@@ -114,8 +113,10 @@ public class ChatRoomService {
         handleParticipantJoin(room, member);
         createAlarm(memberId, room.getId());
 
+        Long seq = chatRoomRedisService.handleMessageDelivery(room.getId());
+
         ChatMessage message = chatMessageMapper.toEntityWithJoinEvent(room, member,
-            LocalDateTime.now());
+            LocalDateTime.now(), seq);
         ChatMessage savedMessage = chatMessageRepository.save(message);
 
         eventPublisher.publishEvent(
@@ -232,14 +233,10 @@ public class ChatRoomService {
         ChatRoom room = getByInviteCode(inviteCode);
         validateParticipant(memberId, room.getId());
 
-        try {
-            Long currentSequence = getLatestSequence(room.getId());
-            chatParticipantRepository
+        Long currentSequence = getLatestSequence(room.getId());
+        chatParticipantRepository
                 .findByChatRoomIdAndParticipantIdAndIsActiveTrue(room.getId(), memberId)
                 .ifPresent(p -> p.updateLastReadSequence(currentSequence));
-        } catch (Exception e) {
-            log.warn("Redis 장애 - sequence 업데이트 스킵 roomId={}", room.getId());
-        }
 
         memberService.getMemberById(memberId).setRecentRoomId(room.getId());
 
@@ -323,7 +320,7 @@ public class ChatRoomService {
 
         List<Long> sortedRoomIds;
         try {
-            sortedRoomIds = chatRoomRedisRepository.getSortedRoomIds(roomIds);
+            sortedRoomIds = chatRoomRedisService.getSortedRoomIds(roomIds);
         } catch (Exception e) {
             log.warn("Redis 장애 - 정렬 생략", e);
             sortedRoomIds = roomIds;
@@ -373,7 +370,7 @@ public class ChatRoomService {
 
     private List<Long> getSequencesSafe(List<Long> roomIds) {
         try {
-            return chatRoomRedisRepository.getSequences(roomIds);
+            return chatRoomRedisService.getSequences(roomIds);
         } catch (Exception e) {
             log.warn("Redis 장애 - DB lastSequence 폴백");
             meterRegistry.counter("redis.fallback", "reason", "sequence").increment();
@@ -390,7 +387,7 @@ public class ChatRoomService {
 
     @Transactional
     public void syncSequencesToDb() {
-        Set<String> updatedRoomIds = chatRoomRedisRepository.getAndClearUpdatedRooms();
+        Set<String> updatedRoomIds = chatRoomRedisService.getAndClearUpdatedRooms();
         if (updatedRoomIds.isEmpty()) return;
 
         List<Long> roomIds = updatedRoomIds.stream().map(Long::valueOf).toList();
@@ -398,7 +395,7 @@ public class ChatRoomService {
         if (rooms.isEmpty()) return;
 
         List<Long> targetIds = rooms.stream().map(ChatRoom::getId).toList();
-        List<Long> redisSequences = chatRoomRedisRepository.getSequences(targetIds);
+        List<Long> redisSequences = chatRoomRedisService.getSequences(targetIds);
 
         for (int i = 0; i < rooms.size(); i++) {
             Long redisSeq = redisSequences.get(i);
@@ -411,16 +408,21 @@ public class ChatRoomService {
     }
 
     public Long getLatestSequence(Long roomId) {
-        Long redisSeq = chatRoomRedisRepository.getSequence(roomId);
-
-        if (redisSeq == 0L) {
-            ChatRoom room = chatRoomRepository.findById(roomId)
-                    .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
-
-            long dbSeq = room.getLastSequence();
-            chatRoomRedisRepository.setSequence(roomId, dbSeq);
-            return dbSeq;
+        try {
+            Long redisSeq = chatRoomRedisService.getSequence(roomId);
+            if (redisSeq == 0L) {
+                ChatRoom room = chatRoomRepository.findById(roomId)
+                        .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+                long dbSeq = room.getLastSequence();
+                chatRoomRedisService.setSequence(roomId, dbSeq);
+                return dbSeq;
+            }
+            return redisSeq;
+        } catch (Exception e) {
+            log.warn("Redis 장애 - DB 폴백 roomId={}", roomId);
+            return chatRoomRepository.findById(roomId)
+                    .map(r -> r.getLastSequence() != null ? r.getLastSequence() : 0L)
+                    .orElse(0L);
         }
-        return redisSeq;
     }
 }

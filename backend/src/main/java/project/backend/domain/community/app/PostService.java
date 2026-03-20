@@ -10,6 +10,7 @@ import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
+import project.backend.domain.chat.chatroom.app.ChatRoomRedisService;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
@@ -49,6 +50,8 @@ public class PostService {
     private final ApplicantRepository applicantRepository;
     private final ChatMessageMapper chatMessageMapper;
     private final ApplicationEventPublisher eventPublisher;
+
+    private final ChatRoomRedisService chatRoomRedisService;
     private final ChatRoomService chatRoomService;
 
     public Slice<PostResponse> getPosts(String sort, boolean activeOnly, boolean myApplied,
@@ -215,9 +218,11 @@ public class PostService {
 
         chatRoomService.createAlarm(applicant.getMember().getId(), post.getChatRoom().getId());
 
-        ChatMessage message = chatMessageMapper.toEntityWithJoinEvent(post.getChatRoom(),
-            applicant.getMember(),
-            LocalDateTime.now());
+        Long seq = chatRoomRedisService.handleMessageDelivery(post.getChatRoomId());
+
+        ChatMessage message = chatMessageMapper.toEntityWithJoinEvent(
+                post.getChatRoom(), applicant.getMember(), LocalDateTime.now(), seq);
+
         ChatMessage savedMessage = chatMessageRepository.save(message);
 
         eventPublisher.publishEvent(toJoinChatRoomEvent(post, applicant.getMember(), savedMessage));

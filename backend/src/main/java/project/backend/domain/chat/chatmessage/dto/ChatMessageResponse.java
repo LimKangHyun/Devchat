@@ -20,5 +20,6 @@ public class ChatMessageResponse {
 	private Long senderId;
 	private Long messageId;
 	private MessageStatus status;
+	private Long sequence;
 
 }

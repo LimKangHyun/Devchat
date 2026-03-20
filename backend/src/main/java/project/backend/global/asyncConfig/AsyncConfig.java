@@ -14,6 +14,18 @@ public class AsyncConfig {
 
     private final CustomRejectedExecutionHandler customRejectedExecutionHandler;
 
+    @Bean(name = "chatBroadcastExecutor")
+    public Executor getChatBroadcastExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(10);
+        executor.setMaxPoolSize(50);
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("ChatBroadcast-");
+        executor.setRejectedExecutionHandler(customRejectedExecutionHandler);
+        executor.initialize();
+        return executor;
+    }
+
     @Bean(name = "chatRoomEventExecutor")
     public Executor getChatRoomEventExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
