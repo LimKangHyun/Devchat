@@ -123,14 +123,14 @@ public class ChatMessageMapper {
             .build();
     }
 
-    public ChatMessageResponse toResponse(ChatMessage message, MemberDetails memberDetails) {
+    public ChatMessageResponse toResponse(ChatMessage message, MemberDetails memberDetails, String profileImage) {
         return ChatMessageResponse.builder()
             .senderName(memberDetails.getNickname())
             .content(message.getContent())
             .type(message.getType())
             .sendAt(message.getSendAt())
             .language(message.getCodeLanguage())
-            .profileImageUrl(memberDetails.getProfileImg())
+            .profileImageUrl(profileImage)
             .chatImageUrl(
                 Optional.ofNullable(message.getChatImage())
                     .map(ImageFile::getStoreFileName)

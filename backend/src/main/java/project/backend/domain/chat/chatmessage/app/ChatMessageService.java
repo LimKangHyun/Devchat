@@ -79,12 +79,13 @@ public class ChatMessageService {
         }
 
         chatMessageRepository.save(message);
+        String profileImage = chatRoomRedisService.getProfileImage(memberDetails.getId());
 
         if (isSearchable(message)) {
             eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
         }
-        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails));
-        return messageMapper.toResponse(message, memberDetails);
+        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
+        return messageMapper.toResponse(message, memberDetails, profileImage);
     }
 
     private boolean isSearchable(ChatMessage message) {
@@ -152,7 +153,8 @@ public class ChatMessageService {
                     searchEntity.updateContent(message.getContent());
                 });
         }
-        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails));
+        String profileImage = chatRoomRedisService.getProfileImage(memberDetails.getId());
+        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
     }
 
     @Transactional
@@ -175,7 +177,8 @@ public class ChatMessageService {
             chatMessageSearchRepository.findById(message.getId())
                 .ifPresent(ChatMessageSearch::deleteContent);
         }
-        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails));
+        String profileImage = chatRoomRedisService.getProfileImage(memberDetails.getId());
+        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
     }
 
     @TimeTrace

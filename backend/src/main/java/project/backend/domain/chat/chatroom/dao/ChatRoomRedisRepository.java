@@ -161,8 +161,4 @@ public class ChatRoomRedisRepository {
         redisTemplate.opsForValue().set(key, profileImg, PROFILE_TTL_SEC, java.util.concurrent.TimeUnit.SECONDS);
     }
 
-    public void deleteProfileImage(Long memberId) {
-        String key = String.format(MEMBER_PROFILE_KEY, memberId);
-        redisTemplate.delete(key);
-    }
 }

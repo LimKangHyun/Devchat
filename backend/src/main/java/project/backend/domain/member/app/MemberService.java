@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import project.backend.domain.chat.chatroom.app.ChatRoomRedisService;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.member.dao.MemberRepository;
 import project.backend.domain.member.dto.MemberSearchResponse;
@@ -40,6 +41,7 @@ public class MemberService {
     private final ImageFileService imageFileService;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    private final ChatRoomRedisService chatRoomRedisService;
 
     @Value("${file.images.profile.default}")
     private String defaultProfileImg;
@@ -87,6 +89,8 @@ public class MemberService {
         if (file != null) {
             String profileImage = imageFileService.saveProfileImage(file);
             targetMember.updateProfileImage(profileImage);
+
+            chatRoomRedisService.setProfileImage(targetMember.getId(), profileImage);
         }
     }
 
