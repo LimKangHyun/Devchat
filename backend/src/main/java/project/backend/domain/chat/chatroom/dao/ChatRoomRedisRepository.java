@@ -21,9 +21,11 @@ public class ChatRoomRedisRepository {
     private static final String ROOM_SEQUENCE_KEY = "room:%d:sequence";
     private static final String UPDATED_ROOMS_KEY = "rooms:updated";
     private static final String RANKING_ROOMS_KEY = "rooms:ranking";
+    private static final String MEMBER_PROFILE_KEY = "member:%d:profile";
 
     private static final int MAX_RANKING_SIZE = 1000;
     private static final long SEQUENCE_TTL_SEC = 60 * 60 * 24 * 3; // 3일
+    private static final long PROFILE_TTL_SEC = 60 * 60 * 24; // 1일
 
     private final StringRedisTemplate redisTemplate;
     private final MeterRegistry meterRegistry;
@@ -147,5 +149,20 @@ public class ChatRoomRedisRepository {
 
     private byte[] toBytes(String key) {
         return redisTemplate.getStringSerializer().serialize(key);
+    }
+
+    public String getProfileImage(Long memberId) {
+        String key = String.format(MEMBER_PROFILE_KEY, memberId);
+        return redisTemplate.opsForValue().get(key);
+    }
+
+    public void setProfileImage(Long memberId, String profileImg) {
+        String key = String.format(MEMBER_PROFILE_KEY, memberId);
+        redisTemplate.opsForValue().set(key, profileImg, PROFILE_TTL_SEC, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    public void deleteProfileImage(Long memberId) {
+        String key = String.format(MEMBER_PROFILE_KEY, memberId);
+        redisTemplate.delete(key);
     }
 }

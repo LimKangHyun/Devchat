@@ -22,6 +22,8 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
+      timeout: 500ms
+      connect-timeout: 500ms
 
   security:
     oauth2:

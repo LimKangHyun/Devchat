@@ -21,6 +21,7 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchSlice;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
+import project.backend.domain.chat.chatmessage.dto.event.ChatMessageBroadcastEvent;
 import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSavedEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
@@ -31,7 +32,6 @@ import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
-import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.chat.chatmessage.dto.ScrollPaginationCollection;
 import project.backend.global.exception.errorcode.AuthErrorCode;
@@ -49,7 +49,6 @@ public class ChatMessageService {
     private final ChatMessageSearchRepository chatMessageSearchRepository;
 
     private final ChatRoomService chatRoomService;
-    private final MemberService memberService;
     private final ImageFileService imageFileService;
 
     private final ApplicationEventPublisher eventPublisher;
@@ -84,6 +83,7 @@ public class ChatMessageService {
         if (isSearchable(message)) {
             eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
         }
+        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails));
         return messageMapper.toResponse(message, memberDetails);
     }
 
@@ -126,17 +126,16 @@ public class ChatMessageService {
     }
 
     @Transactional
-    public ChatMessageResponse editMessage(Long roomId, ChatMessageEditRequest request,
-        String username) {
-
-        //유효성 확인
-        memberService.getMemberByUsername(username);
-        chatRoomService.getRoomById(roomId);
+    public void editMessage(Long roomId, ChatMessageEditRequest request, MemberDetails memberDetails) {
 
         ChatMessage message = chatMessageRepository.findById(request.messageId())
             .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-        if (!message.getSender().getUsername().equals(username)) {
+        if (!message.getChatRoom().getId().equals(roomId)) {
+            throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_EDIT);
+        }
+
+        if (!message.getSender().getId().equals(memberDetails.getId())) {
             throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_EDIT);
         }
 
@@ -153,21 +152,20 @@ public class ChatMessageService {
                     searchEntity.updateContent(message.getContent());
                 });
         }
-
-        return messageMapper.toResponse(message);
+        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails));
     }
 
     @Transactional
-    public ChatMessageResponse deleteMessage(Long roomId, Long messageId, String username) {
-
-        //유효성 확인
-        memberService.getMemberByUsername(username);
-        chatRoomService.getRoomById(roomId);
+    public void deleteMessage(Long roomId, Long messageId, MemberDetails memberDetails) {
 
         ChatMessage message = chatMessageRepository.findById(messageId)
             .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-        if (!message.getSender().getUsername().equals(username)) {
+        if (!message.getChatRoom().getId().equals(roomId)) {
+            throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_DELETE);
+        }
+
+        if (!message.getSender().getId().equals(memberDetails.getId())) {
             throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_DELETE);
         }
 
@@ -177,11 +175,9 @@ public class ChatMessageService {
             chatMessageSearchRepository.findById(message.getId())
                 .ifPresent(ChatMessageSearch::deleteContent);
         }
-
-        return messageMapper.toResponse(message);
+        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails));
     }
 
-    // 예외 처리
     @TimeTrace
     @Transactional(readOnly = true)
     public ChatScrollResponse getMessagesByRoomId(Long memberId, Long roomId, Long cursor,
