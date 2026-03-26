@@ -20,11 +20,14 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+      sentinel:
+        master: mymaster
+        nodes: ${REDIS_HOST}:26379,${REDIS_HOST}:26380,${REDIS_HOST}:26381
       timeout: 500ms
       connect-timeout: 500ms
-
+      lettuce:
+        shutdown-timeout: 500ms
+  
   security:
     oauth2:
       client:
