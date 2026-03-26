@@ -57,4 +57,5 @@ public class ChatRoomRedisService {
     public List<Long> getSequences(List<Long> roomIds) {
         return chatRoomRedisRepository.getSequences(roomIds);
     }
+
 }

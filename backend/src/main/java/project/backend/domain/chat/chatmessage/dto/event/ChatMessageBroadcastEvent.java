@@ -8,14 +8,14 @@ public record ChatMessageBroadcastEvent(
     Long roomId,
     ChatMessageResponse response
 ) {
-    public static ChatMessageBroadcastEvent from(ChatMessage message, MemberDetails sender) {
+    public static ChatMessageBroadcastEvent from(ChatMessage message, MemberDetails sender, String profileImage) {
         ChatMessageResponse response = ChatMessageResponse.builder()
                 .senderName(sender.getNickname())
                 .content(message.getContent())
                 .type(message.getType())
                 .sendAt(message.getSendAt())
                 .language(message.getCodeLanguage())
-                .profileImageUrl(sender.getProfileImg())
+                .profileImageUrl(profileImage)
                 .chatImageUrl(
                         message.getChatImage() != null ? message.getChatImage().getStoreFileName() : null
                 )

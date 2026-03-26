@@ -3,7 +3,6 @@ package project.backend.domain.member.app;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +39,7 @@ public class MemberService {
     private final ImageFileService imageFileService;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    private final MemberRedisService memberRedisService;
 
     @Value("${file.images.profile.default}")
     private String defaultProfileImg;
@@ -87,6 +87,8 @@ public class MemberService {
         if (file != null) {
             String profileImage = imageFileService.saveProfileImage(file);
             targetMember.updateProfileImage(profileImage);
+
+            memberRedisService.setProfileImage(targetMember.getId(), profileImage);
         }
     }
 
