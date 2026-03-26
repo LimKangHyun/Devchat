@@ -32,6 +32,7 @@ import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
+import project.backend.domain.member.app.MemberRedisService;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.chat.chatmessage.dto.ScrollPaginationCollection;
 import project.backend.global.exception.errorcode.AuthErrorCode;
@@ -56,6 +57,7 @@ public class ChatMessageService {
     private final EntityManager entityManager;
     private final ChatMessageMapper messageMapper;
     private final ChatRoomRedisService chatRoomRedisService;
+    private final MemberRedisService memberRedisService;
 
     @Transactional
     public ChatMessageResponse save(Long roomId, ChatMessageRequest request,
@@ -79,7 +81,7 @@ public class ChatMessageService {
         }
 
         chatMessageRepository.save(message);
-        String profileImage = chatRoomRedisService.getProfileImage(memberDetails.getId());
+        String profileImage = memberRedisService.getProfileImage(memberDetails.getId());
 
         if (isSearchable(message)) {
             eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
@@ -153,7 +155,7 @@ public class ChatMessageService {
                     searchEntity.updateContent(message.getContent());
                 });
         }
-        String profileImage = chatRoomRedisService.getProfileImage(memberDetails.getId());
+        String profileImage = memberRedisService.getProfileImage(memberDetails.getId());
         eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
     }
 
@@ -177,7 +179,7 @@ public class ChatMessageService {
             chatMessageSearchRepository.findById(message.getId())
                 .ifPresent(ChatMessageSearch::deleteContent);
         }
-        String profileImage = chatRoomRedisService.getProfileImage(memberDetails.getId());
+        String profileImage = memberRedisService.getProfileImage(memberDetails.getId());
         eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
     }
 

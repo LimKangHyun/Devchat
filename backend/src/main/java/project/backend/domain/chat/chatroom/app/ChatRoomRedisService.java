@@ -58,11 +58,4 @@ public class ChatRoomRedisService {
         return chatRoomRedisRepository.getSequences(roomIds);
     }
 
-    public String getProfileImage(Long memberId) {
-        return chatRoomRedisRepository.getProfileImage(memberId);
-    }
-
-    public void setProfileImage(Long memberId, String profileImg) {
-        chatRoomRedisRepository.setProfileImage(memberId, profileImg);
-    }
 }

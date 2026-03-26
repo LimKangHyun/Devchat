@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 import project.backend.auth.dto.MemberDetails;
-import project.backend.domain.member.dao.MemberRepository;
+import project.backend.domain.member.app.MemberRedisService;
 import project.backend.domain.member.entity.Member;
 import project.backend.auth.app.CookieUtils;
 import project.backend.auth.app.OAuthSignUpService;
@@ -31,12 +31,12 @@ import project.backend.auth.token.dao.TokenRedisRepository;
 @RequiredArgsConstructor
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
+    private final MemberRedisService memberRedisService;
     @Value("${jwt.redirection.base}")
     private String baseUrl;
 
     private final JwtProvider jwtProvider;
     private final OAuthSignUpService oAuthSignUpService;
-    private final MemberRepository memberRepository;
     private final TokenRedisRepository tokenRedisRepository;
 
     @Override
@@ -71,6 +71,8 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 githubAccess));
 
         log.info("OAuth 로그인 성공: {}", member.getUsername());
+
+        memberRedisService.setProfileImage(member.getId(), member.getProfileImage());
 
         String redirectUrl = UriComponentsBuilder.fromUriString(baseUrl)
             .build().toUriString();
