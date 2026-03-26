@@ -34,7 +34,7 @@ import project.backend.auth.dto.MemberDetails;
 @RequiredArgsConstructor
 public class JwtProvider {
 
-    public static final Long TOKEN_VALIDATION_SECOND = 10 * 10 * 60L;
+    public static final Long TOKEN_VALIDATION_SECOND = 10 * 60L;
     public static final Long REFRESH_TOKEN_VALIDATION_SECOND = 7 * 24 * 60 * 60L;
 
     private final TokenRedisRepository tokenRedisRepository;
@@ -54,8 +54,7 @@ public class JwtProvider {
         Map<String, String> payload = Map.of(
             "username", memberDetails.getUsername(),
             "id", String.valueOf(memberDetails.getId()),
-            "nickname", memberDetails.getNickname(),
-            "profileImg", memberDetails.getProfileImg() != null ? memberDetails.getProfileImg() : ""
+            "nickname", memberDetails.getNickname()
         );
 
         String accessToken = generateAccessToken(payload);
@@ -79,13 +78,11 @@ public class JwtProvider {
         String username = decodedJWT.getClaim("username").asString();
         String id = decodedJWT.getClaim("id").asString();
         String nickname = decodedJWT.getClaim("nickname").asString();
-        String profileImg = decodedJWT.getClaim("profileImg").asString();
 
         Map<String, String> payload = Map.of(
             "username", username,
             "id", id,
-            "nickname", nickname,
-            "profileImg", profileImg != null ? profileImg : ""
+            "nickname", nickname
         );
         return generateAccessToken(payload);
     }

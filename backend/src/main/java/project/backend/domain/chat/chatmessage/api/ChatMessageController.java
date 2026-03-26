@@ -7,7 +7,6 @@ import org.springframework.data.domain.Slice;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,17 +33,13 @@ public class ChatMessageController {
 
     private final ImageFileService imageFileService;
     private final ChatMessageService chatMessageService;
-    private final SimpMessagingTemplate messagingTemplate;
 
     @MessageMapping("/send-message/{roomId}")
-    public ChatMessageResponse sendMessage(@DestinationVariable Long roomId,
+    public void sendMessage(@DestinationVariable Long roomId,
         @Payload ChatMessageRequest request, Principal principal) {
 
         MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
-        ChatMessageResponse response = chatMessageService.save(roomId, request, userDetails);
-
-        messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
-        return response;
+        chatMessageService.save(roomId, request, userDetails);
     }
 
     @PostMapping("/chat-rooms/{roomId}/messages")
@@ -55,14 +50,10 @@ public class ChatMessageController {
     }
 
     @MessageMapping("/edit-message/{roomId}")
-    public ChatMessageResponse editMessage(@DestinationVariable Long roomId, @Payload
+    public void editMessage(@DestinationVariable Long roomId, @Payload
     ChatMessageEditRequest request, Principal principal) {
-        ChatMessageResponse response = chatMessageService.editMessage(roomId, request,
-            principal.getName());
-
-        messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
-
-        return response;
+        MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
+        chatMessageService.editMessage(roomId, request, userDetails);
     }
 
     @GetMapping("/chat/search/{roomId}")
@@ -92,15 +83,12 @@ public class ChatMessageController {
     }
 
     @MessageMapping("/delete-message/{roomId}")
-    public ChatMessageResponse deleteMessage(@DestinationVariable Long roomId,
-        @Payload Long messageId,
-        Principal principal) {
-        ChatMessageResponse response = chatMessageService.deleteMessage(roomId, messageId,
-            principal.getName());
+    public void deleteMessage(@DestinationVariable Long roomId,
+        @Payload Long messageId, Principal principal) {
 
-        messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
-
-        return response;
+        MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
+        chatMessageService.deleteMessage(roomId, messageId,
+                userDetails);
     }
 
     @PostMapping("/send-image")
