@@ -1,4 +1,9 @@
+server:
+  shutdown: graceful
+
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   session:
     store-type: none
 
