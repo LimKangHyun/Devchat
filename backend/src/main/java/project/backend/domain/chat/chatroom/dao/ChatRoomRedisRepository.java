@@ -59,6 +59,36 @@ public class ChatRoomRedisRepository {
         }
     }
 
+    public Long recoverAndIncr(Long roomId, Long dbSeq) {
+        String script =
+                "redis.call('SET', KEYS[1], ARGV[1], 'NX'); " +
+                        "local seq = redis.call('INCR', KEYS[1]); " +
+                        "redis.call('EXPIRE', KEYS[1], ARGV[2]); " +
+                        "redis.call('ZADD', KEYS[2], ARGV[3], ARGV[4]); " +
+                        "redis.call('ZREMRANGEBYRANK', KEYS[2], 0, ARGV[5]); " +
+                        "redis.call('SADD', KEYS[3], ARGV[4]); " +
+                        "return seq;";
+
+        String seqKey = String.format(ROOM_SEQUENCE_KEY, roomId);
+        String roomIdStr = String.valueOf(roomId);
+
+        try {
+            return redisTemplate.execute(
+                    new DefaultRedisScript<>(script, Long.class),
+                    List.of(seqKey, RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
+                    String.valueOf(dbSeq),
+                    String.valueOf(SEQUENCE_TTL_SEC),
+                    String.valueOf(System.currentTimeMillis()),
+                    roomIdStr,
+                    String.valueOf(-MAX_RANKING_SIZE - 1)
+            );
+        } catch (Exception e) {
+            log.error("recoverAndIncr 오류 - roomId: {}", roomId, e);
+            meterRegistry.counter("redis.fallback", "method", "recoverAndIncr").increment();
+            return null;
+        }
+    }
+
     public List<Long> getSortedRoomIds(List<Long> roomIds) {
         if (roomIds == null || roomIds.isEmpty()) {
             return List.of();
