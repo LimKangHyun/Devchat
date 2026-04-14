@@ -410,7 +410,7 @@ public class ChatRoomService {
     public Long getLatestSequence(Long roomId) {
         try {
             Long redisSeq = chatRoomRedisService.getSequence(roomId);
-            if (redisSeq == 0L) {
+            if (redisSeq == -1L) {
                 ChatRoom room = chatRoomRepository.findById(roomId)
                         .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
                 long dbSeq = room.getLastSequence();

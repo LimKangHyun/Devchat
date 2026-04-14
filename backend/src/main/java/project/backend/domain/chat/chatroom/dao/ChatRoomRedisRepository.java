@@ -124,7 +124,7 @@ public class ChatRoomRedisRepository {
     public Long getSequence(Long roomId) {
         String key = String.format(ROOM_SEQUENCE_KEY, roomId);
         String value = redisTemplate.opsForValue().get(key);
-        return value == null ? 0L : Long.parseLong(value);
+        return value == null ? -1L : Long.parseLong(value);
     }
 
     public List<Long> getSequences(List<Long> roomIds) {

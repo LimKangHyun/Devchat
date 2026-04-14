@@ -29,7 +29,7 @@ export const WebSocketProvider = ({ children }) => {
           client.deactivate()
 
           let retryCount = 0
-          const maxRetry = 3
+          const maxRetry = 5
 
           const reconnect = async () => {
             try {
@@ -44,7 +44,7 @@ export const WebSocketProvider = ({ children }) => {
             } catch (err) {
               if (retryCount < maxRetry) {
                 retryCount++
-                const delay = 1000 * retryCount
+                const delay = 3000 * retryCount
                 console.warn(`⏳ ${delay}ms 후 재시도`)
                 setTimeout(reconnect, delay)
               } else {
