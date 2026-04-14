@@ -8,72 +8,52 @@ const WebSocketContext = createContext(null)
 export const WebSocketProvider = ({ children }) => {
   const stompClientRef = useRef(null)
   const [connected, setConnected] = useState(false)
+  const retryCountRef = useRef(0)
   const navigate = useNavigate()
 
   useEffect(() => {
-    const createClient = () => {
-      const client = new Client({
-        webSocketFactory: () => new WebSocket(process.env.REACT_APP_WEB_SOCKET_URL),
-        heartbeatIncoming: 15000,
-        heartbeatOutgoing: 10000,
-        withCredentials: true,
+    const client = new Client({
+      webSocketFactory: () => new WebSocket(process.env.REACT_APP_WEB_SOCKET_URL),
+      heartbeatIncoming: 15000,
+      heartbeatOutgoing: 10000,
+      reconnectDelay: () => {
+        const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 30000)
+        retryCountRef.current += 1
+        console.warn(`⏳ ${delay}ms 후 재연결 시도 (${retryCountRef.current}번째)`)
+        return delay
+      },
 
-        onConnect: () => {
-          console.log("✅ Connected to WebSocket")
-          setConnected(true)
-        },
-
-        onWebSocketClose: async () => {
-          console.warn("🛑 WebSocket 끊김 → 재연결 시도")
-          setConnected(false)
+      onConnect: async () => {
+        try {
+          await safeRefreshToken()
+        } catch (err) {
+          console.error("❌ 토큰 갱신 실패 → 로그인 페이지로 이동")
+          navigate("/login")
           client.deactivate()
+          return
+        }
 
-          let retryCount = 0
-          const maxRetry = 5
+        console.log("✅ Connected to WebSocket")
+        retryCountRef.current = 0
+        setConnected(true)
+      },
 
-          const reconnect = async () => {
-            try {
-              console.log(`🔄 재연결 시도 (${retryCount + 1}/${maxRetry})`)
-              await safeRefreshToken()
+      onDisconnect: () => {
+        console.warn("🛑 WebSocket 끊김")
+        setConnected(false)
+      },
 
-              // 새 Client 인스턴스 생성
-              const newClient = createClient()
-              newClient.activate()
-              stompClientRef.current = newClient
+      onStompError: (frame) => {
+        console.error("💥 STOMP error:", frame.headers["message"])
+      },
+    })
 
-            } catch (err) {
-              if (retryCount < maxRetry) {
-                retryCount++
-                const delay = 3000 * retryCount
-                console.warn(`⏳ ${delay}ms 후 재시도`)
-                setTimeout(reconnect, delay)
-              } else {
-                console.error("❌ 재연결 최종 실패 → 로그인 페이지로 이동")
-                navigate("/login")
-              }
-            }
-          }
-
-          reconnect()
-        },
-
-        onStompError: (frame) => {
-          console.error("💥 STOMP error:", frame.headers["message"])
-        },
-      })
-
-      return client
-    }
-
-    const client = createClient()
     client.activate()
     stompClientRef.current = client
 
     return () => {
       setConnected(false)
-      if (stompClientRef.current?.active) {
-        stompClientRef.current.deactivate()
-      }
+      if (client.active) client.deactivate()
     }
   }, [navigate])
 
