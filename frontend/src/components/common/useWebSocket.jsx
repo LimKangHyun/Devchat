@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect, useRef } from "react"
 import { useWebSocketContext } from "./WebSocketContext"
 
@@ -18,7 +16,6 @@ const useWebSocket = ({
 }) => {
   const { stompClientRef, connected } = useWebSocketContext()
 
-  // 모든 콜백을 ref로 관리 → 구독 재등록 없이 항상 최신 함수 호출
   const onMessageReceivedRef = useRef(onMessageReceived)
   const onNotificationReceivedRef = useRef(onNotificationReceived)
   const onProfileUpdateRef = useRef(onProfileUpdate)
@@ -35,56 +32,40 @@ const useWebSocket = ({
   useEffect(() => { onDmMessageReceivedRef.current = onDmMessageReceived }, [onDmMessageReceived])
   useEffect(() => { currentRoomIdRef.current = currentRoomId }, [currentRoomId])
 
-  const subscriptionRef = useRef(null)
-  const notificationSubscriptionRef = useRef(null)
-  const profileSubscriptionRef = useRef(null)
-  const deleteSubscriptionRef = useRef(null)
-  const sidebarSubscriptionsRef = useRef(new Map())
-
-  // 채팅방 + 프로필 + 방 삭제 + 알림 구독
-  // 콜백은 ref로 관리하므로 의존성에서 제외 → roomId, connected 바뀔 때만 재구독
+  // 채팅방 메시지 + 방 삭제 구독
   useEffect(() => {
     const client = stompClientRef.current
-    if (!client?.connected) return
+    if (!connected || !client?.connected || !roomId) return
 
-    if (roomId) {
-      subscriptionRef.current?.unsubscribe()
-      subscriptionRef.current = client.subscribe(`/topic/chat/${roomId}`, (message) => {
-        try {
-          const received = JSON.parse(message.body)
-          received.sendAt = received.sendAt || new Date().toISOString()
-          onMessageReceivedRef.current?.(received)
-        } catch (e) {
-          console.error("📛 Failed to parse chat message", e)
-        }
-      })
+    const subs = []
 
-      deleteSubscriptionRef.current?.unsubscribe()
-      deleteSubscriptionRef.current = client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
-        try {
-          onRoomDeletedRef.current?.(JSON.parse(message.body))
-        } catch (e) {
-          console.error("📛 Failed to parse delete message", e)
-        }
-      })
-    }
+    subs.push(client.subscribe(`/topic/chat/${roomId}`, (message) => {
+      try {
+        const received = JSON.parse(message.body)
+        received.sendAt = received.sendAt || new Date().toISOString()
+        onMessageReceivedRef.current?.(received)
+      } catch (e) {
+        console.error("📛 Failed to parse chat message", e)
+      }
+    }))
 
-    if (username) {
-      notificationSubscriptionRef.current?.unsubscribe()
-      notificationSubscriptionRef.current = client.subscribe(`/topic/notifications/${username}`, (message) => {
-        try {
-          const notification = JSON.parse(message.body)
-          notification.timestamp = new Date().toISOString()
-          notification.id = `${Date.now()}-${Math.random()}`
-          onNotificationReceivedRef.current?.(notification)
-        } catch (e) {
-          console.error("📛 Failed to parse notification message", e)
-        }
-      })
-    }
+    subs.push(client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
+      try {
+        onRoomDeletedRef.current?.(JSON.parse(message.body))
+      } catch (e) {
+        console.error("📛 Failed to parse delete message", e)
+      }
+    }))
 
-    profileSubscriptionRef.current?.unsubscribe()
-    profileSubscriptionRef.current = client.subscribe("/topic/profile-update", (message) => {
+    return () => subs.forEach((sub) => sub.unsubscribe())
+  }, [connected, roomId])
+
+  // 프로필 업데이트 구독 - onProfileUpdate가 있을 때만
+  useEffect(() => {
+    const client = stompClientRef.current
+    if (!connected || !client?.connected || !onProfileUpdate) return
+
+    const sub = client.subscribe("/topic/profile-update", (message) => {
       try {
         onProfileUpdateRef.current?.(JSON.parse(message.body))
       } catch (e) {
@@ -92,25 +73,34 @@ const useWebSocket = ({
       }
     })
 
-    return () => {
-      subscriptionRef.current?.unsubscribe()
-      subscriptionRef.current = null
-      deleteSubscriptionRef.current?.unsubscribe()
-      deleteSubscriptionRef.current = null
-      notificationSubscriptionRef.current?.unsubscribe()
-      notificationSubscriptionRef.current = null
-      profileSubscriptionRef.current?.unsubscribe()
-      profileSubscriptionRef.current = null
-    }
-  }, [connected, roomId, username])
+    return () => sub.unsubscribe()
+  }, [connected, onProfileUpdate])
 
-  // 사이드바 구독 (현재 방 제외)
+  // 알림 구독 - username이 있을 때만
   useEffect(() => {
     const client = stompClientRef.current
-    if (!client?.connected || !chatRooms.length) return
+    if (!connected || !client?.connected || !username) return
 
-    sidebarSubscriptionsRef.current.forEach((sub) => sub.unsubscribe())
-    sidebarSubscriptionsRef.current.clear()
+    const sub = client.subscribe(`/topic/notifications/${username}`, (message) => {
+      try {
+        const notification = JSON.parse(message.body)
+        notification.timestamp = new Date().toISOString()
+        notification.id = `${Date.now()}-${Math.random()}`
+        onNotificationReceivedRef.current?.(notification)
+      } catch (e) {
+        console.error("📛 Failed to parse notification message", e)
+      }
+    })
+
+    return () => sub.unsubscribe()
+  }, [connected, username])
+
+  // 사이드바 구독
+  useEffect(() => {
+    const client = stompClientRef.current
+    if (!connected || !client?.connected || !chatRooms.length) return
+
+    const subs = []
 
     chatRooms.forEach((room) => {
       const roomUniqueId = room.uniqueId
@@ -128,21 +118,18 @@ const useWebSocket = ({
         }
       })
 
-      sidebarSubscriptionsRef.current.set(roomUniqueId, sub)
+      subs.push(sub)
     })
 
-    return () => {
-      sidebarSubscriptionsRef.current.forEach((sub) => sub.unsubscribe())
-      sidebarSubscriptionsRef.current.clear()
-    }
+    return () => subs.forEach((sub) => sub.unsubscribe())
   }, [connected, chatRooms, currentRoomId])
 
   // DM 구독
   useEffect(() => {
     const client = stompClientRef.current
-    if (!client?.connected || !dmRoomId) return
+    if (!connected || !client?.connected || !dmRoomId) return
 
-    const subscription = client.subscribe(`/topic/dm/${dmRoomId}`, (message) => {
+    const sub = client.subscribe(`/topic/dm/${dmRoomId}`, (message) => {
       try {
         onDmMessageReceivedRef.current?.(JSON.parse(message.body))
       } catch (e) {
@@ -150,7 +137,7 @@ const useWebSocket = ({
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => sub.unsubscribe()
   }, [connected, dmRoomId])
 
   return { stompClientRef, connected }

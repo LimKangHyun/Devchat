@@ -43,7 +43,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
         @Param("memberId") Long memberId);
 
     @Modifying
-    @Query(value = "UPDATE chat_room SET last_sequence = LAST_INSERT_ID(last_sequence + 1) WHERE id = :roomId", nativeQuery = true)
+    @Query(value = "UPDATE chat_room SET last_sequence = LAST_INSERT_ID(last_sequence + 1) WHERE room_id = :roomId", nativeQuery = true)
     void incrementSequence(@Param("roomId") Long roomId);
 
     @Query(value = "SELECT LAST_INSERT_ID()", nativeQuery = true)
