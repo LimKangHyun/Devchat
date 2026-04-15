@@ -213,4 +213,10 @@ public class ChatRoomService {
         return chatRoomRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
     }
+
+    @Transactional
+    public Long incrementSequenceFromDb(Long roomId) {
+        chatRoomRepository.incrementSequence(roomId);
+        return chatRoomRepository.findLastInsertId();
+    }
 }

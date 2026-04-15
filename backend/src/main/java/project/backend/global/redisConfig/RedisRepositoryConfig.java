@@ -27,19 +27,19 @@ public class RedisRepositoryConfig {
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
         LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
-            .commandTimeout(Duration.ofMillis(500))
-            .clientOptions(ClientOptions.builder()
-                .socketOptions(SocketOptions.builder()
-                    .connectTimeout(Duration.ofMillis(500))
-                    .build())
-                .build())
-            .build();
+                .commandTimeout(Duration.ofMillis(500))
+                .clientOptions(ClientOptions.builder()
+                        .socketOptions(SocketOptions.builder()
+                                .connectTimeout(Duration.ofMillis(500))
+                                .build())
+                        .build())
+                .build();
 
         RedisSentinelConfiguration sentinelConfig = new RedisSentinelConfiguration().master(
-            masterName);
+                masterName);
         Arrays.stream(sentinelNodes.split(","))
-            .map(node -> node.split(":"))
-            .forEach(parts -> sentinelConfig.sentinel(parts[0], Integer.parseInt(parts[1])));
+                .map(node -> node.split(":"))
+                .forEach(parts -> sentinelConfig.sentinel(parts[0], Integer.parseInt(parts[1])));
 
         return new LettuceConnectionFactory(sentinelConfig, clientConfig);
     }
