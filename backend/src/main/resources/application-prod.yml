@@ -62,7 +62,7 @@ resilience4j:
       redis:
         # CLOSED → OPEN 전환 기준
         failure-rate-threshold: 50              # 실패율 50% 초과 시 OPEN
-        minimum-number-of-calls: 5              # 최소 5번 호출 후 실패율 계산
+        minimum-number-of-calls: 10              # 최소 5번 호출 후 실패율 계산
         sliding-window-size: 10                 # 최근 10개 요청 기준
         sliding-window-type: COUNT_BASED        # 횟수 기반
         # OPEN → HALF_OPEN 전환 기준
@@ -71,18 +71,15 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: 3  # 3개 요청 테스트
         # 느린 호출 기준
         slow-call-rate-threshold: 80            # 느린 호출 80% 초과 시 OPEN
-        slow-call-duration-threshold: 2s        # 2초 이상이면 느린 호출
+        slow-call-duration-threshold: 500ms        # 500ms 이상이면 느린 호출
         # 예외 처리
         record-exceptions:
           - org.springframework.data.redis.RedisConnectionFailureException
           - io.lettuce.core.RedisException
           - java.util.concurrent.TimeoutException
-  ratelimiter:
-    instances:
-      redis-fallback:
-        limit-for-period: 100        # 최대 인스턴스 수 기준으로 분할 (global limit ≈ 100)
-        limit-refresh-period: 1s
-        timeout-duration: 0s         # 초과 시 즉시 거절
+          - org.springframework.dao.QueryTimeoutException
+        ignore-exceptions:
+          - project.backend.global.exception.ex.ChatRoomException
 
 file:
   images:

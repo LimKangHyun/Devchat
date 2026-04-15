@@ -10,6 +10,7 @@ import RoomHeader from '../components/chatroom/RoomHeader';
 import RoomDeletedModal from '../components/modals/RoomDeletedModal';
 import CodeReviewModal from '../components/modals/CodeReviewModal.jsx';
 import { useAlarm } from '../context/AlarmContext';
+import { useUser } from '../context/UserContext';
 
 const PAGE_SIZE = 30;
 const INDEX_OFFSET = 100000;
@@ -64,11 +65,11 @@ const VirtuosoMessageItem = React.memo(({
 
 const ChatRoom = () => {
   const { inviteCode } = useParams();
+  const { currentUser } = useUser()
   const [messages, setMessages] = useState([]);
   const [content, setContent] = useState('');
   const [inputMode, setInputMode] = useState('TEXT');
   const [language, setLanguage] = useState('java');
-  const [currentUser, setCurrentUser] = useState(null);
   const [contextMenuId, setContextMenuId] = useState(null);
   const [editMessageId, setEditMessageId] = useState(null);
   const [editContent, setEditContent] = useState('');
@@ -111,19 +112,23 @@ const ChatRoom = () => {
 
   const [initState, setInitState] = useState({
     isRoomValidated: false,
-    isUserLoaded: false,
     isMessagesLoaded: false,
     hasError: false,
     errorMessage: '',
   });
 
-  const isFullyLoaded =
-    initState.isRoomValidated && initState.isUserLoaded && initState.isMessagesLoaded;
+  const isFullyLoaded = initState.isRoomValidated && initState.isMessagesLoaded && !!currentUser;
 
   const { getAlarmStatus, updateAlarm } = useAlarm();
 
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
   useEffect(() => { roomIdRef.current = roomId; }, [roomId]);
+
+  useEffect(() => {
+    if (currentUser?.profileImageUrl) {
+      preloadImages([currentUser.profileImageUrl])
+    }
+  }, [currentUser])
 
   useEffect(() => {
     const el = inputAreaRef.current;
@@ -142,20 +147,6 @@ const ChatRoom = () => {
           .catch(() => {});
       }
     };
-  }, []);
-
-  useEffect(() => {
-    const handler = async () => {
-      try {
-        const res = await axiosInstance.get('/user/details');
-        setCurrentUser(res.data);
-        if (res.data?.profileImageUrl) {
-          preloadImages([res.data.profileImageUrl]);
-        }
-      } catch {}
-    };
-    window.addEventListener('profile-updated', handler);
-    return () => window.removeEventListener('profile-updated', handler);
   }, []);
 
   const handleCodeClick = (message) => {
@@ -206,7 +197,6 @@ const ChatRoom = () => {
       } else {
         setFirstItemIndex(INDEX_OFFSET);
         setMessages(sorted);
-        // 초기 로드 시 마지막 메시지의 sequence로 lastSequenceRef 초기화
         if (sorted.length > 0) {
           const lastMsg = sorted[sorted.length - 1];
           if (lastMsg.sequence != null) {
@@ -246,17 +236,6 @@ const ChatRoom = () => {
     }
   }, [roomId]);
 
-  const fetchCurrentUser = useCallback(async () => {
-    try {
-      const res = await axiosInstance.get('/user/details');
-      setCurrentUser(res.data);
-      if (res.data?.profileImageUrl) {
-        preloadImages([res.data.profileImageUrl]);
-      }
-    } catch {}
-    setInitState((prev) => ({ ...prev, isUserLoaded: true }));
-  }, []);
-
   const toggleAlarm = async () => {
     try {
       const res = await axiosInstance.post(`/chat-rooms/alarm/toggle/${roomId}`);
@@ -284,7 +263,6 @@ const ChatRoom = () => {
         preloadImages([received.profileImageUrl]);
       }
 
-      // gap 감지
       if (received.sequence != null && lastSequenceRef.current != null) {
         if (received.sequence - lastSequenceRef.current > 1) {
           fetchMissingMessages();
@@ -333,7 +311,7 @@ const ChatRoom = () => {
         window.dispatchEvent(new CustomEvent('room:read', { detail: { roomId: prevRoomId } }));
         readDoneRef.current = false;
       }
-      setInitState({ isRoomValidated: false, isUserLoaded: false, isMessagesLoaded: false, hasError: false, errorMessage: '' });
+      setInitState({ isRoomValidated: false, isMessagesLoaded: false, hasError: false, errorMessage: '' });
       setMessages([]);
       setCursor(null);
       setHasMoreMessages(true);
@@ -345,12 +323,12 @@ const ChatRoom = () => {
       isAtBottomRef.current = true;
       isLoadingRef.current = false;
       lastSequenceRef.current = null;
-      const [id] = await Promise.all([fetchRoomInfo(), fetchCurrentUser()]);
+      const id = await fetchRoomInfo();
       if (!id) { navigate('/error'); return; }
       prevRoomIdRef.current = id;
     };
     init();
-  }, [inviteCode, navigate, fetchRoomInfo, fetchCurrentUser]);
+  }, [inviteCode, navigate, fetchRoomInfo]);
 
   useEffect(() => {
     if (roomId && initState.isRoomValidated && isInitialLoad) {
@@ -498,7 +476,6 @@ const ChatRoom = () => {
       `}</style>
 
       <div style={{ height: '100%', display: 'flex', backgroundColor: '#ffffff', fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif' }}>
-
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, borderRight: showSearchSidebar ? '1px solid #f0f0f0' : 'none', position: 'relative' }}>
 
           {getAlarmStatus(roomId) !== undefined && (

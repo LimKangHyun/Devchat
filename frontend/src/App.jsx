@@ -18,6 +18,7 @@ import { WebSocketProvider } from './components/common/WebSocketContext'
 
 import Layout from './Layout';
 import { AlarmProvider } from './context/AlarmContext';
+import { UserProvider } from './context/UserContext'
 
 function App() {
   return (
@@ -25,9 +26,11 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route element={
-            <WebSocketProvider>
-              <Layout />
-            </WebSocketProvider>
+            <UserProvider>
+              <WebSocketProvider>
+                <Layout />
+              </WebSocketProvider>
+            </UserProvider>
           }>
             <Route path="/chat/:inviteCode" element={<ChatRoom />} />
             <Route path="/blank" element={<BlankRoom />} />
