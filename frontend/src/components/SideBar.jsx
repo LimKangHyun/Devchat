@@ -11,6 +11,7 @@ import Toast from "./common/Toast"
 import FriendsSidebar from "./FriendsSidebar"
 import axiosInstance from "./api/axiosInstance"
 import { useAlarm } from '../context/AlarmContext'
+import { useUser } from '../context/UserContext'
 import useWebSocket from './common/useWebSocket'
 import styles from './Sidebar.module.css'
 
@@ -21,8 +22,10 @@ const Sidebar = ({ onStartChat }) => {
   const { inviteCode } = useParams()
   const sidebarRef = useRef(null)
 
-  const [activeTab, setActiveTab] = useState("chat")
+  const { currentUser } = useUser()
+  const { getAlarmStatus } = useAlarm()
 
+  const [activeTab, setActiveTab] = useState("chat")
   const [loading, setLoading] = useState(() => {
     const cached = localStorage.getItem(CACHE_KEY)
     return !cached
@@ -33,15 +36,10 @@ const Sidebar = ({ onStartChat }) => {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [roomsReady, setRoomsReady] = useState(false)
-
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState("")
-
-  const [currentUser, setCurrentUser] = useState(null)
   const [roomId, setRoomId] = useState(null)
   const roomIdRef = useRef(roomId)
-
-  const { getAlarmStatus, alarmStatusMap = {} } = useAlarm()
 
   const [alarmRooms, setAlarmRooms] = useState(() => {
     try {
@@ -52,7 +50,6 @@ const Sidebar = ({ onStartChat }) => {
     }
   })
 
-  // roomId 최신값 유지
   useEffect(() => {
     roomIdRef.current = roomId
   }, [roomId])
@@ -100,15 +97,12 @@ const Sidebar = ({ onStartChat }) => {
     onSidebarMessage: handleSidebarMessage,
   })
 
-  // 초기 로드 및 탭/알람 변경 시 (inviteCode 제거 → room:read 이벤트로 대체)
   useEffect(() => {
     if (activeTab === "chat") {
       fetchAllRooms()
-      fetchCurrentUser()
     }
-  }, [activeTab, alarmStatusMap])
+  }, [activeTab])
 
-  // room:read 이벤트 수신 시 fetchAllRooms → /read API 완료 후 서버 상태 반영
   useEffect(() => {
     const handleRoomRead = () => fetchAllRooms()
     window.addEventListener('room:read', handleRoomRead)
@@ -126,18 +120,10 @@ const Sidebar = ({ onStartChat }) => {
     } else {
       setRoomId(null)
     }
-  }, [inviteCode, alarmRooms, alarmStatusMap])
-
-  const fetchCurrentUser = async () => {
-    try {
-      const res = await axiosInstance.get("/user/details")
-      setCurrentUser(res.data)
-    } catch (err) {
-      console.error("사용자 정보 로딩 오류:", err)
-    }
-  }
+  }, [inviteCode, alarmRooms])
 
   const fetchAllRooms = async () => {
+    console.log('🔄 fetchAllRooms 호출', new Date().toISOString())
     try {
       const cached = localStorage.getItem(CACHE_KEY)
       if (!cached) setLoading(true)
