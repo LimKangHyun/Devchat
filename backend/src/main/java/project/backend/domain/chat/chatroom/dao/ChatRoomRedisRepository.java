@@ -5,7 +5,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisCallback;
@@ -21,42 +20,33 @@ public class ChatRoomRedisRepository {
     private static final String ROOM_SEQUENCE_KEY = "room:%d:sequence";
     private static final String UPDATED_ROOMS_KEY = "rooms:updated";
     private static final String RANKING_ROOMS_KEY = "rooms:ranking";
+    private static final String USER_RATE_LIMIT_KEY = "rate:user:%d";
 
     private static final int MAX_RANKING_SIZE = 1000;
     private static final long SEQUENCE_TTL_SEC = 60 * 60 * 24 * 3; // 3일
 
     private final StringRedisTemplate redisTemplate;
-    private final MeterRegistry meterRegistry;
 
     // 방 시퀀스 INCR -> INCR된 키의 ZSET TTL 초기화 (3일) -> 랭킹 상단 등록 -> 랭킹 MAX 사이즈만큼 자르기 -> ROOM SET 추가
     public Long handleMessageDelivery(Long roomId) {
         String script =
-            "local prev = redis.call('GET', KEYS[1]); " +
-                "local seq = redis.call('INCR', KEYS[1]); " +
-                "redis.call('EXPIRE', KEYS[1], ARGV[1]); " +
-                "redis.call('ZADD', KEYS[2], ARGV[2], ARGV[3]); " +
-                "redis.call('ZREMRANGEBYRANK', KEYS[2], 0, ARGV[4]); " +
-                "redis.call('SADD', KEYS[3], ARGV[3]); " +
-                "if prev == false then return -1 end; " +
-                "return seq;";
+                "local prev = redis.call('GET', KEYS[1]); " +
+                        "local seq = redis.call('INCR', KEYS[1]); " +
+                        "redis.call('EXPIRE', KEYS[1], ARGV[1]); " +
+                        "redis.call('ZADD', KEYS[2], ARGV[2], ARGV[3]); " +
+                        "redis.call('ZREMRANGEBYRANK', KEYS[2], 0, ARGV[4]); " +
+                        "redis.call('SADD', KEYS[3], ARGV[3]); " +
+                        "if prev == false then return -1 end; " +
+                        "return seq;";
 
-        String seqKey = String.format(ROOM_SEQUENCE_KEY, roomId);
-        String roomIdStr = String.valueOf(roomId);
-
-        try {
-            return redisTemplate.execute(
+        return redisTemplate.execute(
                 new DefaultRedisScript<>(script, Long.class),
-                List.of(seqKey, RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
+                List.of(String.format(ROOM_SEQUENCE_KEY, roomId), RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
                 String.valueOf(SEQUENCE_TTL_SEC),
                 String.valueOf(System.currentTimeMillis()),
-                roomIdStr,
+                String.valueOf(roomId),
                 String.valueOf(-MAX_RANKING_SIZE - 1)
-            );
-        } catch (Exception e) {
-            log.error("Lua 스크립트 실행 오류 - roomId: {}", roomId, e);
-            meterRegistry.counter("redis.fallback", "method", "handleMessageDelivery").increment();
-            return null;
-        }
+        );
     }
 
     public Long recoverAndIncr(Long roomId, Long dbSeq) {
@@ -69,24 +59,15 @@ public class ChatRoomRedisRepository {
                         "redis.call('SADD', KEYS[3], ARGV[4]); " +
                         "return seq;";
 
-        String seqKey = String.format(ROOM_SEQUENCE_KEY, roomId);
-        String roomIdStr = String.valueOf(roomId);
-
-        try {
-            return redisTemplate.execute(
-                    new DefaultRedisScript<>(script, Long.class),
-                    List.of(seqKey, RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
-                    String.valueOf(dbSeq),
-                    String.valueOf(SEQUENCE_TTL_SEC),
-                    String.valueOf(System.currentTimeMillis()),
-                    roomIdStr,
-                    String.valueOf(-MAX_RANKING_SIZE - 1)
-            );
-        } catch (Exception e) {
-            log.error("recoverAndIncr 오류 - roomId: {}", roomId, e);
-            meterRegistry.counter("redis.fallback", "method", "recoverAndIncr").increment();
-            return null;
-        }
+        return redisTemplate.execute(
+                new DefaultRedisScript<>(script, Long.class),
+                List.of(String.format(ROOM_SEQUENCE_KEY, roomId), RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
+                String.valueOf(dbSeq),
+                String.valueOf(SEQUENCE_TTL_SEC),
+                String.valueOf(System.currentTimeMillis()),
+                String.valueOf(roomId),
+                String.valueOf(-MAX_RANKING_SIZE - 1)
+        );
     }
 
     public List<Long> getSortedRoomIds(List<Long> roomIds) {
@@ -179,6 +160,18 @@ public class ChatRoomRedisRepository {
             }
         }
         return result;
+    }
+
+    public Long incrementUserRateLimit(Long userId) {
+        String script =
+                "local count = redis.call('INCR', KEYS[1]); " +
+                        "if count == 1 then redis.call('EXPIRE', KEYS[1], 1) end; " +
+                        "return count;";
+
+        return redisTemplate.execute(
+                new DefaultRedisScript<>(script, Long.class),
+                List.of(String.format(USER_RATE_LIMIT_KEY, userId))
+        );
     }
 
     private byte[] toBytes(String key) {

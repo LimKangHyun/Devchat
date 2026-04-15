@@ -62,11 +62,11 @@ class ChatRoomRedisServiceTest {
             given(chatRoomRedisRepository.handleMessageDelivery(10L)).willReturn(-1L);
             given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
             given(chatRoom.getLastSequence()).willReturn(3L);
+            given(chatRoomRedisRepository.recoverAndIncr(10L, 3L)).willReturn(4L);
 
             Long result = chatRoomRedisService.handleMessageDelivery(10L);
 
             assertThat(result).isEqualTo(4L);
-            then(chatRoomRedisRepository).should().setSequence(10L, 4L);
         }
 
         @Test
@@ -75,11 +75,11 @@ class ChatRoomRedisServiceTest {
             given(chatRoomRedisRepository.handleMessageDelivery(10L)).willReturn(-1L);
             given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
             given(chatRoom.getLastSequence()).willReturn(null);
+            given(chatRoomRedisRepository.recoverAndIncr(10L, 0L)).willReturn(1L);
 
             Long result = chatRoomRedisService.handleMessageDelivery(10L);
 
             assertThat(result).isEqualTo(1L);
-            then(chatRoomRedisRepository).should().setSequence(10L, 1L);
         }
 
         @Test

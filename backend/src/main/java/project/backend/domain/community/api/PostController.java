@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import project.backend.auth.dto.MemberDetails;
+import project.backend.domain.community.app.ApplicantService;
 import project.backend.domain.community.app.PostService;
 import project.backend.domain.community.dto.ApplicantResponse;
 import project.backend.domain.community.dto.PostCreateRequest;
@@ -20,8 +21,8 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
+    private final ApplicantService applicantService;
 
-    // 게시글 목록 조회
     @GetMapping
     public ResponseEntity<?> getPosts(
             @RequestParam(defaultValue = "hot") String sort,
@@ -34,78 +35,71 @@ public class PostController {
         return ResponseEntity.ok(postService.getPosts(sort, activeOnly, myApplied, page, size, memberDetails));
     }
 
-    // 게시글 상세 조회
     @GetMapping("/{postId}")
     public ResponseEntity<PostResponse> getPost(@PathVariable Long postId) {
         return ResponseEntity.ok(postService.getPost(postId));
     }
 
-    // 게시글 작성
     @PostMapping
     public ResponseEntity<PostResponse> createPost(
-        @RequestBody @Valid PostCreateRequest request,
-        @AuthenticationPrincipal MemberDetails memberDetails
+            @RequestBody @Valid PostCreateRequest request,
+            @AuthenticationPrincipal MemberDetails memberDetails
     ) {
         return ResponseEntity.ok(postService.createPost(request, memberDetails));
     }
 
-    // 게시글 수정
     @PostMapping("/{postId}")
     public ResponseEntity<PostResponse> updatePost(
-        @PathVariable Long postId,
-        @RequestBody @Valid PostUpdateRequest request,
-        @AuthenticationPrincipal MemberDetails memberDetails
+            @PathVariable Long postId,
+            @RequestBody @Valid PostUpdateRequest request,
+            @AuthenticationPrincipal MemberDetails memberDetails
     ) {
         return ResponseEntity.ok(postService.updatePost(postId, request, memberDetails));
     }
 
     @DeleteMapping("/{postId}")
     public ResponseEntity<Void> deletePost(
-        @PathVariable Long postId,
-        @AuthenticationPrincipal MemberDetails memberDetails
+            @PathVariable Long postId,
+            @AuthenticationPrincipal MemberDetails memberDetails
     ) {
         postService.deletePost(postId, memberDetails);
         return ResponseEntity.noContent().build();
     }
 
-    // 스터디 신청
     @PostMapping("/{postId}/apply")
     public ResponseEntity<Void> apply(
-        @PathVariable Long postId,
-        @AuthenticationPrincipal MemberDetails memberDetails
+            @PathVariable Long postId,
+            @AuthenticationPrincipal MemberDetails memberDetails
     ) {
-        postService.apply(postId, memberDetails);
+        applicantService.apply(postId, memberDetails);
         return ResponseEntity.ok().build();
     }
 
-    // 신청자 목록 조회 (방장만)
     @GetMapping("/{postId}/applicants")
     public ResponseEntity<List<ApplicantResponse>> getApplicants(
-        @PathVariable Long postId,
-        @AuthenticationPrincipal MemberDetails memberDetails
+            @PathVariable Long postId,
+            @AuthenticationPrincipal MemberDetails memberDetails
     ) {
-        return ResponseEntity.ok(postService.getApplicants(postId, memberDetails));
+        return ResponseEntity.ok(applicantService.getApplicants(postId, memberDetails));
     }
 
-    // 신청 승인
     @PostMapping("/{postId}/applicants/{applicantId}/approve")
     public ResponseEntity<Void> approve(
-        @PathVariable Long postId,
-        @PathVariable Long applicantId,
-        @AuthenticationPrincipal MemberDetails memberDetails
+            @PathVariable Long postId,
+            @PathVariable Long applicantId,
+            @AuthenticationPrincipal MemberDetails memberDetails
     ) {
-        postService.approve(postId, applicantId, memberDetails);
+        applicantService.approve(postId, applicantId, memberDetails);
         return ResponseEntity.ok().build();
     }
 
-    // 신청 거절
     @PostMapping("/{postId}/applicants/{applicantId}/reject")
     public ResponseEntity<Void> reject(
-        @PathVariable Long postId,
-        @PathVariable Long applicantId,
-        @AuthenticationPrincipal MemberDetails memberDetails
+            @PathVariable Long postId,
+            @PathVariable Long applicantId,
+            @AuthenticationPrincipal MemberDetails memberDetails
     ) {
-        postService.reject(postId, applicantId, memberDetails);
+        applicantService.reject(postId, applicantId, memberDetails);
         return ResponseEntity.ok().build();
     }
 }

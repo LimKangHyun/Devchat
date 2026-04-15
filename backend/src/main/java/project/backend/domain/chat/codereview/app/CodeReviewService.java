@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
-import project.backend.domain.chat.chatroom.app.ChatRoomService;
+import project.backend.domain.chat.chatroom.app.ChatRoomParticipantService;
 import project.backend.domain.chat.codereview.dao.CodeReviewRepository;
 import project.backend.domain.chat.codereview.dto.CodeReviewCreateRequest;
 import project.backend.domain.chat.codereview.dto.CodeReviewEditRequest;
@@ -29,7 +29,7 @@ public class CodeReviewService {
     private final ChatMessageRepository chatMessageRepository;
     private final MemberService memberService;
     private final CodeReviewMapper codeReviewMapper;
-    private final ChatRoomService chatRoomService;
+    private final ChatRoomParticipantService chatRoomParticipantService;
 
     @Transactional
     public CodeReviewResponse createReview(CodeReviewCreateRequest request, Long authorId) {
@@ -42,7 +42,7 @@ public class CodeReviewService {
             throw new CodeReviewException(CodeReviewErrorCode.INVALID_MESSAGE_TYPE);
         }
 
-        chatRoomService.validateParticipant(authorId, message.getChatRoom().getId());
+        chatRoomParticipantService.validateParticipant(authorId, message.getChatRoom().getId());
 
         CodeReview codeReview = codeReviewMapper.toEntity(request, message, author);
 
@@ -56,7 +56,7 @@ public class CodeReviewService {
         ChatMessage message = chatMessageRepository.findById(messageId)
             .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
-        chatRoomService.validateParticipant(memberId, message.getChatRoom().getId());
+        chatRoomParticipantService.validateParticipant(memberId, message.getChatRoom().getId());
 
         List<CodeReview> reviews = codeReviewRepository
             .findByMessageIdOrderByLineNumberAscCreatedAtAsc(messageId);
@@ -70,7 +70,7 @@ public class CodeReviewService {
     public void deleteReview(Long reviewId, Long authorId) {
         CodeReview codeReview = validateReviewOwnership(reviewId, authorId);
 
-        chatRoomService.validateParticipant(authorId,
+        chatRoomParticipantService.validateParticipant(authorId,
             codeReview.getMessage().getChatRoom().getId());
 
         codeReviewRepository.delete(codeReview);
@@ -81,7 +81,7 @@ public class CodeReviewService {
         Long authorId) {
         CodeReview editCodeReview = validateReviewOwnership(reviewId, authorId);
 
-        chatRoomService.validateParticipant(authorId,
+        chatRoomParticipantService.validateParticipant(authorId,
             editCodeReview.getMessage().getChatRoom().getId());
 
         editCodeReview.editReview(request.content());
