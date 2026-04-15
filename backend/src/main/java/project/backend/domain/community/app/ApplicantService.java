@@ -104,7 +104,7 @@ public class ApplicantService {
 
         chatRoomAlarmService.createAlarm(applicant.getMember().getId(), post.getChatRoom().getId());
 
-        Long seq = chatRoomCacheService.handleMessageDelivery(post.getChatRoomId());
+        Long seq = chatRoomCacheService.handleMessageDelivery(post.getChatRoomId(), memberDetails.getId());
         ChatMessage savedMessage = chatMessageService.saveJoinEvent(post.getChatRoom(), applicant.getMember(), seq);
 
         eventPublisher.publishEvent(toJoinChatRoomEvent(post, applicant.getMember(), savedMessage));

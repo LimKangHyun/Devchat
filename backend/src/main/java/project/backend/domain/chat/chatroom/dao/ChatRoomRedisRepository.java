@@ -20,6 +20,7 @@ public class ChatRoomRedisRepository {
     private static final String ROOM_SEQUENCE_KEY = "room:%d:sequence";
     private static final String UPDATED_ROOMS_KEY = "rooms:updated";
     private static final String RANKING_ROOMS_KEY = "rooms:ranking";
+    private static final String USER_RATE_LIMIT_KEY = "rate:user:%d";
 
     private static final int MAX_RANKING_SIZE = 1000;
     private static final long SEQUENCE_TTL_SEC = 60 * 60 * 24 * 3; // 3일
@@ -159,6 +160,18 @@ public class ChatRoomRedisRepository {
             }
         }
         return result;
+    }
+
+    public Long incrementUserRateLimit(Long userId) {
+        String script =
+                "local count = redis.call('INCR', KEYS[1]); " +
+                        "if count == 1 then redis.call('EXPIRE', KEYS[1], 1) end; " +
+                        "return count;";
+
+        return redisTemplate.execute(
+                new DefaultRedisScript<>(script, Long.class),
+                List.of(String.format(USER_RATE_LIMIT_KEY, userId))
+        );
     }
 
     private byte[] toBytes(String key) {

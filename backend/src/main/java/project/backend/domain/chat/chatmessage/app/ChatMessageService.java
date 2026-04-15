@@ -68,7 +68,7 @@ public class ChatMessageService {
     public ChatMessageResponse save(Long roomId, ChatMessageRequest request,
                                     MemberDetails memberDetails) {
 
-        Long seq = chatRoomCacheService.handleMessageDelivery(roomId);
+        Long seq = chatRoomCacheService.handleMessageDelivery(roomId, memberDetails.getId());
 
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);

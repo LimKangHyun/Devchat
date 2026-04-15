@@ -77,6 +77,12 @@ resilience4j:
           - org.springframework.data.redis.RedisConnectionFailureException
           - io.lettuce.core.RedisException
           - java.util.concurrent.TimeoutException
+  ratelimiter:
+    instances:
+      redis-fallback:
+        limit-for-period: 100        # 최대 인스턴스 수 기준으로 분할 (global limit ≈ 100)
+        limit-refresh-period: 1s
+        timeout-duration: 0s         # 초과 시 즉시 거절
 
 file:
   images:

@@ -86,7 +86,7 @@ public class ChatRoomService {
         chatRoomParticipantService.handleParticipantJoin(room, member);
         chatRoomAlarmService.createAlarm(memberId, room.getId());
 
-        Long seq = chatRoomCacheService.handleMessageDelivery(room.getId());
+        Long seq = chatRoomCacheService.handleMessageDelivery(room.getId(), memberId);
 
         ChatMessage savedMessage = chatMessageService.saveJoinEvent(room, member, seq);
 
