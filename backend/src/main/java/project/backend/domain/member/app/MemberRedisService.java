@@ -1,11 +1,13 @@
 package project.backend.domain.member.app;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MemberRedisService {
@@ -21,7 +23,12 @@ public class MemberRedisService {
     }
 
     public String getProfileImage(Long memberId) {
-        String key = String.format(MEMBER_PROFILE_KEY, memberId);
-        return redisTemplate.opsForValue().get(key);
+        try {
+            String key = String.format(MEMBER_PROFILE_KEY, memberId);
+            return redisTemplate.opsForValue().get(key);
+        } catch (Exception e) {
+            log.warn("Redis 장애 - 프로필 이미지 조회 실패 memberId={}", memberId);
+            return null;
+        }
     }
 }

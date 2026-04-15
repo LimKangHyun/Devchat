@@ -65,12 +65,9 @@ const FriendsSidebar = ({ onStartChat }) => {
   }, [])
 
   useWebSocketNotifications({
-    username: currentUser?.username,
     onNotificationReceived: handleFriendNotification,
-    // other props...
   })
 
-  // Listen for new DM notifications from the header to apply visual effects.
   useEffect(() => {
     const handleNewDmForSidebar = (event) => {
       const { senderUsername } = event.detail
