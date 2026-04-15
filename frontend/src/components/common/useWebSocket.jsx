@@ -60,7 +60,7 @@ const useWebSocket = ({
     return () => subs.forEach((sub) => sub.unsubscribe())
   }, [connected, roomId])
 
-  // 프로필 업데이트 구독 - onProfileUpdate가 있을 때만
+  // 프로필 업데이트 구독
   useEffect(() => {
     const client = stompClientRef.current
     if (!connected || !client?.connected || !onProfileUpdate) return
@@ -76,7 +76,7 @@ const useWebSocket = ({
     return () => sub.unsubscribe()
   }, [connected, onProfileUpdate])
 
-  // 알림 구독 - username이 있을 때만
+  // 알림 구독
   useEffect(() => {
     const client = stompClientRef.current
     if (!connected || !client?.connected || !username) return
@@ -96,6 +96,8 @@ const useWebSocket = ({
   }, [connected, username])
 
   // 사이드바 구독
+  const chatRoomIdsKey = chatRooms.map(r => r.uniqueId).join(',')
+
   useEffect(() => {
     const client = stompClientRef.current
     if (!connected || !client?.connected || !chatRooms.length) return
@@ -122,7 +124,7 @@ const useWebSocket = ({
     })
 
     return () => subs.forEach((sub) => sub.unsubscribe())
-  }, [connected, chatRooms, currentRoomId])
+  }, [connected, chatRoomIdsKey])
 
   // DM 구독
   useEffect(() => {

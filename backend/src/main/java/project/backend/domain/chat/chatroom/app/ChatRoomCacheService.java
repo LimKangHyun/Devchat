@@ -1,5 +1,6 @@
 package project.backend.domain.chat.chatroom.app;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
@@ -38,26 +39,14 @@ public class ChatRoomCacheService {
         return chatRoomRedisService.handleMessageDelivery(roomId);
     }
 
+    public Long handleMessageDeliveryFallback(Long roomId, Long userId, CallNotPermittedException e) {
+        log.warn("Circuit OPEN - handleMessageDelivery 차단 roomId={}", roomId);
+        return doFallback(roomId, userId);
+    }
+
     public Long handleMessageDeliveryFallback(Long roomId, Long userId, Throwable e) {
-        log.warn("Circuit OPEN - handleMessageDelivery 폴백 roomId={}", roomId);
-        meterRegistry.counter("redis.fallback", "method", "handleMessageDelivery").increment();
-
-        if (!userRateLimiter.allow(userId)) {
-            log.warn("Rate Limit 초과 - userId={}", userId);
-            throw new ChatRoomException(ChatRoomErrorCode.TOO_MANY_REQUESTS);
-        }
-
-        if (!fallbackLimiter.tryAcquire()) {
-            log.warn("Fallback 동시 처리 한도 초과 - DB 보호 roomId={}", roomId);
-            meterRegistry.counter("redis.fallback.rejected").increment();
-            throw new ChatRoomException(ChatRoomErrorCode.SERVICE_UNAVAILABLE);
-        }
-
-        try {
-            return incrementSequenceFromDb(roomId);
-        } finally {
-            fallbackLimiter.release();
-        }
+        log.warn("Redis 예외 - handleMessageDelivery 폴백 roomId={}", roomId);
+        return doFallback(roomId, userId);
     }
 
     @Transactional
@@ -117,5 +106,26 @@ public class ChatRoomCacheService {
     public List<Long> getSortedRoomIdsFallback(List<Long> roomIds, Throwable e) {
         log.warn("Circuit OPEN - getSortedRoomIds 폴백");
         return roomIds;
+    }
+
+    private Long doFallback(Long roomId, Long userId) {
+        meterRegistry.counter("redis.fallback", "method", "handleMessageDelivery").increment();
+
+        if (!userRateLimiter.allow(userId)) {
+            log.warn("Rate Limit 초과 - userId={}", userId);
+            throw new ChatRoomException(ChatRoomErrorCode.TOO_MANY_REQUESTS);
+        }
+
+        if (!fallbackLimiter.tryAcquire()) {
+            log.warn("Fallback 동시 처리 한도 초과 - DB 보호 roomId={}", roomId);
+            meterRegistry.counter("redis.fallback.rejected").increment();
+            throw new ChatRoomException(ChatRoomErrorCode.SERVICE_UNAVAILABLE);
+        }
+
+        try {
+            return incrementSequenceFromDb(roomId);
+        } finally {
+            fallbackLimiter.release();
+        }
     }
 }

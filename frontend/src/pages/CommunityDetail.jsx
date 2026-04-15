@@ -4,25 +4,22 @@ import axiosInstance from '../components/api/axiosInstance';
 import styles from './CommunityDetail.module.css';
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useUser } from '../context/UserContext';
 
 const CommunityDetail = () => {
   const navigate = useNavigate();
   const { postId } = useParams();
+  const { currentUser } = useUser()
 
   const [post, setPost] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
   const [isApplying, setIsApplying] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [postRes, userRes] = await Promise.all([
-          axiosInstance.get(`/community/${postId}`),
-          axiosInstance.get('/user/details'),
-        ]);
+        const postRes = await axiosInstance.get(`/community/${postId}`)
         setPost(postRes.data);
-        setCurrentUser(userRes.data);
       } catch (err) {
         alert('게시글을 불러올 수 없습니다.');
         navigate('/community');
@@ -64,7 +61,6 @@ const CommunityDetail = () => {
     <div className={styles.container}>
       <div className={styles.card}>
 
-        {/* 상단 메타 정보 */}
         <div className={styles.cardHeader}>
           <div className={styles.metaRow}>
             <div className={styles.tags}>
@@ -95,13 +91,9 @@ const CommunityDetail = () => {
               <span className={styles.createdAt}>{post.createdAt?.slice(0, 10)}</span>
             </div>
 
-            {/* 방장 버튼 */}
             {isOwner && (
               <div className={styles.ownerButtons}>
-                <button
-                  className={styles.editButton}
-                  onClick={() => navigate(`/community/${postId}/edit`)}
-                >
+                <button className={styles.editButton} onClick={() => navigate(`/community/${postId}/edit`)}>
                   수정
                 </button>
                 <button className={styles.deleteButton} onClick={handleDelete}>
@@ -112,13 +104,10 @@ const CommunityDetail = () => {
           </div>
         </div>
 
-        {/* 모집 정보 카드 */}
         <div className={styles.infoGrid}>
           <div className={styles.infoItem}>
             <span className={styles.infoLabel}>모집 인원</span>
-            <span className={styles.infoValue}>
-              {post.currentCount} / {post.maxCount}명
-            </span>
+            <span className={styles.infoValue}>{post.currentCount} / {post.maxCount}명</span>
           </div>
           {post.deadline && (
             <div className={styles.infoItem}>
@@ -134,7 +123,6 @@ const CommunityDetail = () => {
           )}
         </div>
 
-        {/* 기술 스택 */}
         {techStacks.length > 0 && (
           <div className={styles.techSection}>
             <p className={styles.sectionLabel}>기술 스택</p>
@@ -146,30 +134,28 @@ const CommunityDetail = () => {
           </div>
         )}
 
-        {/* 본문 */}
         <div className={styles.content}>
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                  table: ({node, ...props}) => (
-                      <div className={styles.tableWrapper}>
-                          <table className={styles.table} {...props} />
-                      </div>
-                  ),
-                  thead: ({node, ...props}) => <thead className={styles.thead} {...props} />,
-                  th: ({node, ...props}) => <th className={styles.th} {...props} />,
-                  td: ({node, ...props}) => <td className={styles.td} {...props} />,
-                  tr: ({node, ...props}) => <tr className={styles.tr} {...props} />,
-                  input: ({node, ...props}) => (
-                      <input className={styles.checkbox} {...props} readOnly />
-                  ),
-              }}
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              table: ({node, ...props}) => (
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table} {...props} />
+                </div>
+              ),
+              thead: ({node, ...props}) => <thead className={styles.thead} {...props} />,
+              th: ({node, ...props}) => <th className={styles.th} {...props} />,
+              td: ({node, ...props}) => <td className={styles.td} {...props} />,
+              tr: ({node, ...props}) => <tr className={styles.tr} {...props} />,
+              input: ({node, ...props}) => (
+                <input className={styles.checkbox} {...props} readOnly />
+              ),
+            }}
           >
-              {post.content ?? ""}
+            {post.content ?? ""}
           </ReactMarkdown>
         </div>
 
-        {/* 신청 버튼 */}
         {!isOwner && (
           <div className={styles.applySection}>
             <div className={styles.applyInfo}>
@@ -182,31 +168,20 @@ const CommunityDetail = () => {
               onClick={handleApply}
               disabled={post.closed || hasApplied || isApplying}
             >
-              {post.closed
-                ? '마감된 모집글'
-                : hasApplied
-                  ? '신청 완료'
-                  : isApplying
-                    ? '신청 중...'
-                    : '스터디 신청하기'}
+              {post.closed ? '마감된 모집글' : hasApplied ? '신청 완료' : isApplying ? '신청 중...' : '스터디 신청하기'}
             </button>
           </div>
         )}
 
-        {/* 방장 신청자 관리 */}
         {isOwner && (
           <div className={styles.applicantSection}>
-            <button
-              className={styles.applicantButton}
-              onClick={() => navigate(`/community/${postId}/applicants`)}
-            >
+            <button className={styles.applicantButton} onClick={() => navigate(`/community/${postId}/applicants`)}>
               신청자 관리
             </button>
           </div>
         )}
       </div>
 
-      {/* 뒤로가기 */}
       <button className={styles.backButton} onClick={() => navigate('/community')}>
         ← 목록으로
       </button>

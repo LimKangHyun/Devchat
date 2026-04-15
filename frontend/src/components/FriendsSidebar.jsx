@@ -2,23 +2,24 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { FaUsers, FaSearch } from "react-icons/fa"
-import { MessageCircle } from "lucide-react" // Chat icon
+import { MessageCircle } from "lucide-react"
 import FindUserModal from "./modals/FindUserModal"
 import axiosInstance from "./api/axiosInstance"
+import { useUser } from '../context/UserContext'
 import useWebSocketNotifications from "./common/useWebSocket"
 
 const FriendsSidebar = ({ onStartChat }) => {
-  // This check is important for debugging.
   useEffect(() => {
     if (typeof onStartChat !== "function") {
       console.error("EnhancedFriendsSidebar: CRITICAL - onStartChat prop is NOT A FUNCTION. Chat modals will not open.")
     }
   }, [onStartChat])
 
+  const { currentUser } = useUser()
+
   const [friends, setFriends] = useState([])
   const [loading, setLoading] = useState(false)
   const [showFindUserModal, setShowFindUserModal] = useState(false)
-  const [currentUser, setCurrentUser] = useState(null)
   const [currentPage, setCurrentPage] = useState(0)
   const [hasMoreFriends, setHasMoreFriends] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -75,7 +76,6 @@ const FriendsSidebar = ({ onStartChat }) => {
         setFriendsWithNewMessages((prev) => new Set(prev).add(senderUsername))
       }
     }
-
     window.addEventListener("new-dm-for-sidebar", handleNewDmForSidebar)
     return () => window.removeEventListener("new-dm-for-sidebar", handleNewDmForSidebar)
   }, [])
@@ -84,18 +84,6 @@ const FriendsSidebar = ({ onStartChat }) => {
     const handleFriendRequestAccepted = () => fetchFriends(0, true)
     window.addEventListener("friend-request-accepted", handleFriendRequestAccepted)
     return () => window.removeEventListener("friend-request-accepted", handleFriendRequestAccepted)
-  }, [])
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await axiosInstance.get("/user/details")
-        setCurrentUser(res.data)
-      } catch (err) {
-        console.error("Error loading current user:", err)
-      }
-    }
-    fetchUser()
   }, [])
 
   useEffect(() => {
@@ -156,18 +144,14 @@ const FriendsSidebar = ({ onStartChat }) => {
   const handleSendFriendRequest = (user) => {}
 
   const handleStartChatClick = (e, friend) => {
-    e.stopPropagation() // Prevent any other click events on the row
-    console.log(`Chat icon clicked for ${friend.username}.`)
-
-    // When a chat is opened, remove the new message indicator for that friend.
+    e.stopPropagation()
     setFriendsWithNewMessages((prev) => {
       const newSet = new Set(prev)
       newSet.delete(friend.username)
       return newSet
     })
-
     if (typeof onStartChat === "function") {
-      onStartChat(friend) // This calls the function from ChatManager
+      onStartChat(friend)
     } else {
       console.error(`Cannot start chat for ${friend.username}, onStartChat is not a function!`)
     }
@@ -175,12 +159,9 @@ const FriendsSidebar = ({ onStartChat }) => {
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case "online":
-        return "#4CAF50" // Green
-      case "away":
-        return "#FF9800" // Orange
-      default:
-        return "#9E9E9E" // Grey
+      case "online": return "#4CAF50"
+      case "away": return "#FF9800"
+      default: return "#9E9E9E"
     }
   }
 
@@ -191,10 +172,10 @@ const FriendsSidebar = ({ onStartChat }) => {
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: "transparent", // Base background
+      backgroundColor: "transparent",
       padding: "10px 12px",
       borderRadius: "8px",
-      transition: "background-color 0.3s ease, box-shadow 0.3s ease", // Smooth transition for hover and glow
+      transition: "background-color 0.3s ease, box-shadow 0.3s ease",
       position: "relative",
       animation: hasNewMessage ? "glow-effect 2s infinite ease-in-out" : "none",
     }
@@ -204,22 +185,16 @@ const FriendsSidebar = ({ onStartChat }) => {
         <div
           style={friendItemStyle}
           onMouseEnter={(e) => {
-            if (!hasNewMessage) {
-              // Only apply hover if no new message glow
-              e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"
-            }
+            if (!hasNewMessage) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)"
             const chatIcon = e.currentTarget.querySelector(".chat-icon")
             if (chatIcon) chatIcon.style.opacity = "1"
           }}
           onMouseLeave={(e) => {
-            if (!hasNewMessage) {
-              e.currentTarget.style.backgroundColor = "transparent"
-            }
+            if (!hasNewMessage) e.currentTarget.style.backgroundColor = "transparent"
             const chatIcon = e.currentTarget.querySelector(".chat-icon")
             if (chatIcon) chatIcon.style.opacity = "0"
           }}
         >
-          {/* User avatar and name section */}
           <div style={{ display: "flex", alignItems: "center", flex: 1, overflow: "hidden" }}>
             <div style={{ position: "relative", marginRight: "10px", flexShrink: 0 }}>
               {friend.avatar ? (
@@ -287,17 +262,14 @@ const FriendsSidebar = ({ onStartChat }) => {
             </div>
           </div>
 
-          {/* Status, New Badge, and Chat Icon Section */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {" "}
-            {/* Adjusted gap */}
             <div
               style={{
                 fontSize: "11px",
                 color: getStatusColor(friend.status),
                 fontWeight: "500",
                 textTransform: "capitalize",
-                minWidth: "40px", // Adjusted minWidth
+                minWidth: "40px",
                 textAlign: "right",
               }}
             >
@@ -333,11 +305,7 @@ const FriendsSidebar = ({ onStartChat }) => {
 
   return (
     <>
-      <div
-        ref={friendsContainerRef}
-        className="friends-container"
-        style={{ overflowY: "auto", flex: 1, padding: "5px 0" }}
-      >
+      <div ref={friendsContainerRef} className="friends-container" style={{ overflowY: "auto", flex: 1, padding: "5px 0" }}>
         {loading && friends.length === 0 ? (
           <div style={{ textAlign: "center", padding: "20px", color: "rgba(255,255,255,0.7)" }}>Loading friends...</div>
         ) : !loading && friends.length === 0 ? (
@@ -373,43 +341,35 @@ const FriendsSidebar = ({ onStartChat }) => {
         <FindUserModal onClose={() => setShowFindUserModal(false)} onSendFriendRequest={handleSendFriendRequest} />
       )}
       <style jsx>{`
-      .friends-container::-webkit-scrollbar {
-        display: none;
-      }
-      .new-message-badge-v2 {
-        background: linear-gradient(45deg, #c026d3, #a21caf); /* Fuchsia/Purple gradient for badge */
-        color: white;
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        padding: 3px 7px;
-        border-radius: 4px; 
-        animation: pop-in-badge 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        text-transform: uppercase;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        margin-left: 6px; /* Added margin for spacing from status */
-      }
-      @keyframes pop-in-badge {
-        from {
-          transform: translateY(5px) scale(0.8);
-          opacity: 0;
+        .friends-container::-webkit-scrollbar { display: none; }
+        .new-message-badge-v2 {
+          background: linear-gradient(45deg, #c026d3, #a21caf);
+          color: white;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          padding: 3px 7px;
+          border-radius: 4px;
+          animation: pop-in-badge 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          text-transform: uppercase;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+          margin-left: 6px;
         }
-        to {
-          transform: translateY(0) scale(1);
-          opacity: 1;
+        @keyframes pop-in-badge {
+          from { transform: translateY(5px) scale(0.8); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
         }
-      }
-      @keyframes glow-effect { 
-        0%, 100% {
-          background-color: rgba(168, 85, 247, 0.15); /* Slightly more intense base for glow */
-          box-shadow: 0 0 6px rgba(168, 85, 247, 0.25), inset 0 0 4px rgba(192, 132, 252, 0.15);
+        @keyframes glow-effect {
+          0%, 100% {
+            background-color: rgba(168, 85, 247, 0.15);
+            box-shadow: 0 0 6px rgba(168, 85, 247, 0.25), inset 0 0 4px rgba(192, 132, 252, 0.15);
+          }
+          50% {
+            background-color: rgba(168, 85, 247, 0.25);
+            box-shadow: 0 0 14px rgba(168, 85, 247, 0.45), inset 0 0 7px rgba(192, 132, 252, 0.25);
+          }
         }
-        50% {
-          background-color: rgba(168, 85, 247, 0.25); /* More intense purple tint for glow peak */
-          box-shadow: 0 0 14px rgba(168, 85, 247, 0.45), inset 0 0 7px rgba(192, 132, 252, 0.25);
-        }
-      }
-    `}</style>
+      `}</style>
     </>
   )
 }
