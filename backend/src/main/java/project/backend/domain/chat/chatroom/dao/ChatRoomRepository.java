@@ -5,6 +5,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
@@ -40,5 +41,12 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
         """)
     List<ChatRoomWithSequenceProjection> findAllRoomsWithSequenceByParticipantId(
         @Param("memberId") Long memberId);
+
+    @Modifying
+    @Query(value = "UPDATE chat_room SET last_sequence = LAST_INSERT_ID(last_sequence + 1) WHERE id = :roomId", nativeQuery = true)
+    void incrementSequence(@Param("roomId") Long roomId);
+
+    @Query(value = "SELECT LAST_INSERT_ID()", nativeQuery = true)
+    Long findLastInsertId();
 }
 

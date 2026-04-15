@@ -31,5 +31,7 @@ public interface ChatMessageSearchRepository extends JpaRepository<ChatMessageSe
         AND MATCH(content) AGAINST (:keyword IN NATURAL LANGUAGE MODE)
         """, nativeQuery = true)
     long countByKeywordAndRoomId(@Param("keyword") String keyword, @Param("roomId") Long roomId);
+
+    void deleteByRoomId(Long roomId);
 }
 

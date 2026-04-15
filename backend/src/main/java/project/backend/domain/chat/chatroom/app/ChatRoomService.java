@@ -1,10 +1,8 @@
 package project.backend.domain.chat.chatroom.app;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,27 +11,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
+import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
-import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
-import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
-import project.backend.domain.chat.chatroom.dao.ChatRoomAlarmRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomWithSequenceProjection;
-import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
-import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
-import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
-import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
-import project.backend.domain.chat.chatroom.dto.EntryRoomResponse;
-import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
-import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
-import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
-import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
-import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
-import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
-import project.backend.domain.chat.chatroom.entity.ChatParticipant;
-import project.backend.domain.chat.chatroom.entity.ChatRoom;
-import project.backend.domain.chat.chatroom.entity.ChatRoomAlarm;
+import project.backend.domain.chat.chatroom.dto.*;
+import project.backend.domain.chat.chatroom.dto.event.*;
+import project.backend.domain.chat.chatroom.entity.*;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
 import project.backend.domain.chat.github.app.GitMessageService;
 import project.backend.domain.community.dao.PostRepository;
@@ -51,20 +35,18 @@ public class ChatRoomService {
 
     private final PostRepository postRepository;
     private final ChatRoomRepository chatRoomRepository;
-    private final ChatMessageRepository chatMessageRepository;
-    private final ChatRoomAlarmRepository chatRoomAlarmRepository;
-    private final ChatParticipantRepository chatParticipantRepository;
 
     private final ChatRoomMapper chatRoomMapper;
-    private final ChatMessageMapper chatMessageMapper;
 
     private final MemberService memberService;
+    private final ChatMessageService chatMessageService;
     private final GitMessageService gitMessageService;
-    private final ChatRoomRedisService chatRoomRedisService;
+    private final ChatRoomCacheService chatRoomCacheService;
+    private final ChatRoomAlarmService chatRoomAlarmService;
+    private final ChatRoomSequenceService chatRoomSequenceService;
+    private final ChatRoomParticipantService chatRoomParticipantService;
 
     private final ApplicationEventPublisher eventPublisher;
-
-    private final MeterRegistry meterRegistry;
 
     @Value("${github.username}")
     private String githubUsername;
@@ -72,29 +54,20 @@ public class ChatRoomService {
     @Transactional
     public ChatRoomSimpleResponse createChatRoom(ChatRoomRequest request, Long ownerId) {
         Member owner = memberService.getMemberById(ownerId);
-
         ChatRoom chatRoom = chatRoomMapper.toEntity(request);
-
         ChatParticipant chatParticipant = ChatParticipant.createOwner(owner, chatRoom);
         chatRoom.addParticipant(chatParticipant);
-
         ChatRoom savedRoom = chatRoomRepository.save(chatRoom);
 
-        createAlarm(ownerId, chatRoom.getId());
+        chatRoomAlarmService.createAlarm(ownerId, chatRoom.getId());
 
         if (!request.getRepositoryUrl().isBlank()) {
             gitMessageService.registerWebhook(request.getRepositoryUrl(),
-                savedRoom.getId(), owner.getId()); //웹훅 자동 등록
-            joinGitHubBot(savedRoom); //깃허브봇 채팅 참가
+                    savedRoom.getId(), owner.getId());
+            joinGitHubBot(savedRoom);
         }
 
         return chatRoomMapper.toSimpleResponse(savedRoom, owner);
-    }
-
-    @Transactional
-    public void createAlarm(Long memberId, Long roomId) {
-        ChatRoomAlarm alarm = new ChatRoomAlarm(memberId, roomId);
-        chatRoomAlarmRepository.save(alarm);
     }
 
     private void joinGitHubBot(ChatRoom room) {
@@ -110,45 +83,23 @@ public class ChatRoomService {
         ChatRoom room = getByInviteCode(inviteCode);
         Member member = memberService.getMemberById(memberId);
 
-        handleParticipantJoin(room, member);
-        createAlarm(memberId, room.getId());
+        chatRoomParticipantService.handleParticipantJoin(room, member);
+        chatRoomAlarmService.createAlarm(memberId, room.getId());
 
-        Long seq = chatRoomRedisService.handleMessageDelivery(room.getId());
+        Long seq = chatRoomCacheService.handleMessageDelivery(room.getId());
 
-        ChatMessage message = chatMessageMapper.toEntityWithJoinEvent(room, member,
-            LocalDateTime.now(), seq);
-        ChatMessage savedMessage = chatMessageRepository.save(message);
+        ChatMessage savedMessage = chatMessageService.saveJoinEvent(room, member, seq);
 
         eventPublisher.publishEvent(
-            new JoinChatRoomEvent(room.getId(), memberId, member.getNickname(),
-                savedMessage.getId(), savedMessage.getSendAt()));
+                new JoinChatRoomEvent(room.getId(), memberId, member.getNickname(),
+                        savedMessage.getId(), savedMessage.getSendAt()));
 
         return ChatRoomMapper.toInviteJoinResponse(room.getId(), room.getInviteCode(),
-            room.getName());
-    }
-
-    private void handleParticipantJoin(ChatRoom room, Member member) {
-        //참여중 여부와 관계없이 기존 참가 기록들을 확인
-        Optional<ChatParticipant> existingParticipant =
-            chatParticipantRepository.findByChatRoomIdAndParticipantId(
-                room.getId(), member.getId());
-
-        if (existingParticipant.isPresent()) {
-            ChatParticipant participant = existingParticipant.get();
-            if (participant.isActive()) {
-                throw new ChatRoomException(ChatRoomErrorCode.ALREADY_PARTICIPANT);
-            }
-            participant.rejoin();
-        } else {
-            ChatParticipant chatParticipant = ChatParticipant.of(member, room);
-            room.addParticipant(chatParticipant);
-        }
+                room.getName());
     }
 
     public String getRecentRoomInviteCode(Long memberId) {
         Long roomId = memberService.getMemberById(memberId).getRecentRoomId();
-
-        // 아무 채팅방에도 참여한 적이 없음 → 예외 던지기
         if (roomId == null) {
             throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_EXIST);
         }
@@ -156,101 +107,65 @@ public class ChatRoomService {
     }
 
     public Page<MyChatRoomResponse> findAllRoomsByOwnerId(Long memberId, Pageable pageable) {
-        Page<ChatRoom> allRoomsByOwnerId = chatRoomRepository.findAllRoomsByOwnerId(memberId,
-            pageable);
-
-        return allRoomsByOwnerId.map(ChatRoomMapper::toProfileResponse);
+        return chatRoomRepository.findAllRoomsByOwnerId(memberId, pageable)
+                .map(ChatRoomMapper::toProfileResponse);
     }
 
     public Page<RoomInfoResponse> findChatRoomsByMemberId(Long memberId, Pageable pageable) {
-
-        Page<ChatRoom> chatRooms = chatRoomRepository.findChatRoomsByParticipantId(
-            memberId, pageable);
-
-        return chatRooms.map(ChatRoomMapper::toListResponse);
+        return chatRoomRepository.findChatRoomsByParticipantId(memberId, pageable)
+                .map(ChatRoomMapper::toListResponse);
     }
 
     public List<ChatParticipantResponse> getParticipants(Long memberId, Long roomId) {
-        ChatRoom chatRoom = chatRoomRepository.findById(roomId)
-            .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
-
-        validateParticipant(memberId, roomId);
-
-        List<ChatParticipant> participants = chatParticipantRepository.findByChatRoom(chatRoom);
-
-        return participants.stream()
-            .map(ChatRoomMapper::toParticipantResponse).collect(Collectors.toList());
+        return chatRoomParticipantService.getParticipants(memberId, roomId);
     }
 
     @Transactional
     public void leaveChatRoom(Long roomId, Long memberId) {
-
-        ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantIdAndIsActiveTrue(
-                roomId, memberId)
-            .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
-
-        if (participant.isOwner()) {
-            throw new ChatRoomException(ChatRoomErrorCode.OWNER_CANNOT_LEAVE);
-        }
-
-        participant.leave();
-
         Member member = memberService.getMemberById(memberId);
-
-        eventPublisher.publishEvent(
-            new LeaveChatRoomEvent(roomId, memberId, member.getNickname(),
-                LocalDateTime.now()));
-
+        chatRoomParticipantService.leaveChatRoom(roomId, memberId, member.getNickname());
         updateRecentRoomAfterLeaving(memberId);
     }
 
     private void updateRecentRoomAfterLeaving(Long memberId) {
         Member member = memberService.getMemberById(memberId);
-
-        Optional<ChatParticipant> mostRecentActiveRoom =
-            chatParticipantRepository.findTopByParticipantIdAndIsActiveTrueOrderByJoinAtDesc(
-                memberId);
-
-        if (mostRecentActiveRoom.isPresent()) {
-            member.setRecentRoomId(mostRecentActiveRoom.get().getChatRoom().getId());
-        } else {
-            member.setRecentRoomId(null);
-        }
+        chatRoomParticipantService.findTopRecentActiveRoom(memberId)
+                .ifPresentOrElse(
+                        p -> member.setRecentRoomId(p.getChatRoom().getId()),
+                        () -> member.setRecentRoomId(null)
+                );
     }
 
-    private ChatRoom getByInviteCode(String inviteCode) {
-        return chatRoomRepository.findByInviteCode(inviteCode)
-            .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
-    }
+    public List<AllRoomsResponse> findAllRoomsByMemberId(Long memberId) {
+        List<ChatRoomWithSequenceProjection> roomProjections =
+                chatRoomRepository.findAllRoomsWithSequenceByParticipantId(memberId);
 
-    public ChatRoom getRoomById(Long roomId) {
-        return chatRoomRepository.findById(roomId)
-            .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+        List<Long> roomIds = roomProjections.stream()
+                .map(ChatRoomWithSequenceProjection::getChatRoomId)
+                .collect(Collectors.toList());
+
+        Map<Long, Boolean> alarmEnabledMap = roomIds.isEmpty()
+                ? Collections.emptyMap()
+                : chatRoomAlarmService.findAlarmEnabledMap(memberId, roomIds);
+
+        return chatRoomSequenceService.findAllRoomsWithUnread(memberId, roomProjections, alarmEnabledMap);
     }
 
     @Transactional
     public EntryRoomResponse getEntryInfo(String inviteCode, Long memberId) {
         ChatRoom room = getByInviteCode(inviteCode);
-        validateParticipant(memberId, room.getId());
+        chatRoomParticipantService.validateParticipant(memberId, room.getId());
 
-        Long currentSequence = getLatestSequence(room.getId());
-        chatParticipantRepository
-                .findByChatRoomIdAndParticipantIdAndIsActiveTrue(room.getId(), memberId)
+        Long currentSequence = chatRoomSequenceService.getLatestSequence(room.getId());
+        chatRoomParticipantService.findActiveParticipant(room.getId(), memberId)
                 .ifPresent(p -> p.updateLastReadSequence(currentSequence));
 
         memberService.getMemberById(memberId).setRecentRoomId(room.getId());
 
-        Long ownerId = findOwnerId(room.getId());
-        boolean alarmEnable = chatRoomAlarmRepository
-            .findEnabledByMemberIdAndRoomId(memberId, room.getId());
+        Long ownerId = chatRoomParticipantService.findOwnerId(room.getId());
+        boolean alarmEnable = chatRoomAlarmService.isAlarmEnabled(memberId, room.getId());
 
         return new EntryRoomResponse(room.getId(), room.getName(), ownerId, alarmEnable);
-    }
-
-    private Long findOwnerId(Long roomId) {
-        ChatParticipant owner = chatParticipantRepository.findByChatRoomIdAndIsOwnerTrue(roomId)
-            .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.OWNER_NOT_FOUND));
-        return owner.getParticipant().getId();
     }
 
     public RoomInfoResponse getRoomInfo(String inviteCode, Long memberId) {
@@ -258,171 +173,44 @@ public class ChatRoomService {
         return ChatRoomMapper.toListResponse(room);
     }
 
-    public void validateParticipant(Long memberId, Long roomId) {
-        if (!chatParticipantRepository.
-            existsByParticipantIdAndChatRoomIdAndIsActiveTrue(memberId, roomId)) {
-            throw new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT);
-        }
-    }
-
     @Transactional
     public void deleteChatRoom(Long roomId, Long memberId) {
         ChatRoom room = getRoomById(roomId);
 
-        ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndParticipantIdAndIsActiveTrue(
-                roomId, memberId)
-            .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
+        ChatParticipant participant = chatRoomParticipantService
+                .findActiveParticipant(roomId, memberId)
+                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
 
         if (!participant.isOwner()) {
             throw new ChatRoomException(ChatRoomErrorCode.OWNER_PERMISSION_REQUIRED);
         }
 
         gitMessageService.deleteWebhook(room, memberId);
+        eventPublisher.publishEvent(new DeleteChatRoomEvent(roomId, room.getName()));
 
-        eventPublisher.publishEvent(
-            new DeleteChatRoomEvent(roomId, room.getName())
-        );
-
-        chatParticipantRepository.deleteByChatRoom_Id(roomId);
-        chatMessageRepository.deleteByChatRoom_Id(roomId);
+        chatRoomParticipantService.deleteAllByRoomId(roomId);
+        chatMessageService.deleteByRoomId(roomId);
         postRepository.deleteByChatRoom_Id(roomId);
-
         chatRoomRepository.delete(room);
     }
 
     @Transactional
     public boolean toggleAlarm(Long roomId, Long memberId) {
-        ChatRoomAlarm alarm = chatRoomAlarmRepository.findByIdMemberIdAndIdRoomId(memberId, roomId)
-            .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.ALARM_NOT_FOUND));
-
-        log.debug("Before toggle: {}", alarm.isEnabled());
-        alarm.setEnabled(!alarm.isEnabled());
-        log.debug("After toggle: {}", alarm.isEnabled());
-
-        return alarm.isEnabled();
-    }
-
-    public List<AllRoomsResponse> findAllRoomsByMemberId(Long memberId) {
-        List<ChatRoomWithSequenceProjection> roomProjections =
-            chatRoomRepository.findAllRoomsWithSequenceByParticipantId(memberId);
-
-        List<Long> roomIds = new ArrayList<>(roomProjections.size());
-        Map<Long, ChatRoomWithSequenceProjection> projectionMap = new HashMap<>();
-        Map<Long, Integer> sequenceIndexMap = new HashMap<>();
-
-        for (int i = 0; i < roomProjections.size(); i++) {
-            ChatRoomWithSequenceProjection p = roomProjections.get(i);
-            Long id = p.getChatRoomId();
-            roomIds.add(id);
-            projectionMap.put(id, p);
-            sequenceIndexMap.put(id, i);
-        }
-
-        List<Long> sortedRoomIds;
-        try {
-            sortedRoomIds = chatRoomRedisService.getSortedRoomIds(roomIds);
-        } catch (Exception e) {
-            log.warn("Redis 장애 - 정렬 생략", e);
-            sortedRoomIds = roomIds;
-        }
-
-        Map<Long, Boolean> alarmEnabledMap = roomIds.isEmpty()
-            ? Collections.emptyMap()
-            : fetchAlarmEnabledMap(memberId, roomIds);
-        List<Long> sequences = getSequencesSafe(roomIds);
-
-        return sortedRoomIds.stream().map(roomId -> {
-            ChatRoomWithSequenceProjection p = projectionMap.get(roomId);
-            boolean alarmEnabled = alarmEnabledMap.getOrDefault(roomId, true);
-            Long lastRead = (p.getLastReadSequence() != null) ? p.getLastReadSequence() : 0L;
-
-            Long unreadCount = null;
-            Integer originalIdx = sequenceIndexMap.get(roomId); // 2번에서 만든 맵 사용
-            if (sequences != null && originalIdx != null) {
-                unreadCount = calculateUnread(lastRead, sequences.get(originalIdx));
-            }
-
-            return new AllRoomsResponse(
-                roomId,
-                p.getInviteCode(),
-                p.getName(),
-                alarmEnabled,
-                unreadCount
-            );
-        }).toList();
-    }
-
-    private Map<Long, Boolean> fetchAlarmEnabledMap(Long memberId, List<Long> roomIds) {
-        return chatRoomAlarmRepository.findEnabledMap(memberId, roomIds);
-    }
-
-    private long calculateUnread(long lastReadSequence, long lastMessageSequence) {
-        return Math.max(0, lastMessageSequence - lastReadSequence);
+        return chatRoomAlarmService.toggleAlarm(roomId, memberId);
     }
 
     @Transactional
     public void updateLastReadSequence(Long roomId, Long memberId) {
-        Long currentSequence = getLatestSequence(roomId);
-        chatParticipantRepository
-            .findByChatRoomIdAndParticipantIdAndIsActiveTrue(roomId, memberId)
-            .ifPresent(p -> p.updateLastReadSequence(currentSequence));
+        chatRoomSequenceService.updateLastReadSequence(roomId, memberId);
     }
 
-    private List<Long> getSequencesSafe(List<Long> roomIds) {
-        try {
-            return chatRoomRedisService.getSequences(roomIds);
-        } catch (Exception e) {
-            log.warn("Redis 장애 - DB lastSequence 폴백");
-            meterRegistry.counter("redis.fallback", "reason", "sequence").increment();
-            Map<Long, Long> seqMap = chatRoomRepository.findAllById(roomIds).stream()
-                    .collect(Collectors.toMap(
-                            ChatRoom::getId,
-                            r -> r.getLastSequence() != null ? r.getLastSequence() : 0L
-                    ));
-            return roomIds.stream()
-                    .map(id -> seqMap.getOrDefault(id, 0L))
-                    .toList();
-        }
+    public ChatRoom getRoomById(Long roomId) {
+        return chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
     }
 
-    @Transactional
-    public void syncSequencesToDb() {
-        Set<String> updatedRoomIds = chatRoomRedisService.getAndClearUpdatedRooms();
-        if (updatedRoomIds.isEmpty()) return;
-
-        List<Long> roomIds = updatedRoomIds.stream().map(Long::valueOf).toList();
-        List<ChatRoom> rooms = chatRoomRepository.findAllById(roomIds);
-        if (rooms.isEmpty()) return;
-
-        List<Long> targetIds = rooms.stream().map(ChatRoom::getId).toList();
-        List<Long> redisSequences = chatRoomRedisService.getSequences(targetIds);
-
-        for (int i = 0; i < rooms.size(); i++) {
-            Long redisSeq = redisSequences.get(i);
-            long currentSeq = rooms.get(i).getLastSequence() != null ? rooms.get(i).getLastSequence() : 0L;
-            if (redisSeq != null && redisSeq > currentSeq) {
-                rooms.get(i).updateLastSequence(redisSeq);
-            }
-        }
-        log.info("last_sequence 동기화 완료 - {}개 채팅방", rooms.size());
-    }
-
-    public Long getLatestSequence(Long roomId) {
-        try {
-            Long redisSeq = chatRoomRedisService.getSequence(roomId);
-            if (redisSeq == -1L) {
-                ChatRoom room = chatRoomRepository.findById(roomId)
-                        .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
-                long dbSeq = room.getLastSequence();
-                chatRoomRedisService.setSequence(roomId, dbSeq);
-                return dbSeq;
-            }
-            return redisSeq;
-        } catch (Exception e) {
-            log.warn("Redis 장애 - DB 폴백 roomId={}", roomId);
-            return chatRoomRepository.findById(roomId)
-                    .map(r -> r.getLastSequence() != null ? r.getLastSequence() : 0L)
-                    .orElse(0L);
-        }
+    private ChatRoom getByInviteCode(String inviteCode) {
+        return chatRoomRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
     }
 }

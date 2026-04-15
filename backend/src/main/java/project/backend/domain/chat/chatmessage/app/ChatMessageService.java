@@ -2,6 +2,8 @@ package project.backend.domain.chat.chatmessage.app;
 
 import jakarta.persistence.EntityManager;
 import jakarta.validation.Valid;
+
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +29,10 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
+import project.backend.domain.chat.chatroom.app.ChatRoomCacheService;
+import project.backend.domain.chat.chatroom.app.ChatRoomParticipantService;
 import project.backend.domain.chat.chatroom.app.ChatRoomRedisService;
-import project.backend.domain.chat.chatroom.app.ChatRoomService;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
@@ -49,21 +53,22 @@ public class ChatMessageService {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageSearchRepository chatMessageSearchRepository;
 
-    private final ChatRoomService chatRoomService;
+    private final ChatRoomParticipantService chatRoomParticipantService;
+    private final ChatRoomRepository chatRoomRepository;
     private final ImageFileService imageFileService;
 
     private final ApplicationEventPublisher eventPublisher;
 
     private final EntityManager entityManager;
     private final ChatMessageMapper messageMapper;
-    private final ChatRoomRedisService chatRoomRedisService;
+    private final ChatRoomCacheService chatRoomCacheService;
     private final MemberRedisService memberRedisService;
 
     @Transactional
     public ChatMessageResponse save(Long roomId, ChatMessageRequest request,
-        MemberDetails memberDetails) {
+                                    MemberDetails memberDetails) {
 
-        Long seq = chatRoomRedisService.handleMessageDelivery(roomId);
+        Long seq = chatRoomCacheService.handleMessageDelivery(roomId);
 
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);
@@ -96,15 +101,15 @@ public class ChatMessageService {
 
     @Transactional(readOnly = true)
     public Slice<ChatMessageSearchResponse> searchMessages(Long memberId, Long roomId,
-        @Valid ChatMessageSearchRequest request) {
+                                                           @Valid ChatMessageSearchRequest request) {
 
-        chatRoomService.validateParticipant(memberId, roomId);
+        chatRoomParticipantService.validateParticipant(memberId, roomId);
 
         List<Long> messageIds = chatMessageSearchRepository.searchIdsByKeywordAndRoomIdWithCursor(
-            request.getKeyword(),
-            roomId,
-            request.getLastMessageId(),
-            request.getPageSize() + 1
+                request.getKeyword(),
+                roomId,
+                request.getLastMessageId(),
+                request.getPageSize() + 1
         );
 
         boolean hasNext = messageIds.size() > request.getPageSize();
@@ -115,24 +120,24 @@ public class ChatMessageService {
         Long totalCount = null;
         if (request.getLastMessageId() == null) {
             totalCount = chatMessageSearchRepository.countByKeywordAndRoomId(
-                request.getKeyword(), roomId);
+                    request.getKeyword(), roomId);
         }
 
         List<ChatMessageSearchResponse> resultList = chatMessageRepository.findByIdIn(messageIds)
-            .stream()
-            .sorted(Comparator.comparingInt(cm -> messageIds.indexOf(cm.getId())))
-            .map(messageMapper::toSearchResponse)
-            .toList();
+                .stream()
+                .sorted(Comparator.comparingInt(cm -> messageIds.indexOf(cm.getId())))
+                .map(messageMapper::toSearchResponse)
+                .toList();
 
         return new ChatMessageSearchSlice(resultList,
-            PageRequest.of(0, request.getPageSize()), hasNext, totalCount);
+                PageRequest.of(0, request.getPageSize()), hasNext, totalCount);
     }
 
     @Transactional
     public void editMessage(Long roomId, ChatMessageEditRequest request, MemberDetails memberDetails) {
 
         ChatMessage message = chatMessageRepository.findById(request.messageId())
-            .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
+                .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
         if (!message.getChatRoom().getId().equals(roomId)) {
             throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_EDIT);
@@ -144,16 +149,15 @@ public class ChatMessageService {
 
         message.updateContent(request.content());
 
-        //현재 코드 언어 변경은 받지 않고 있음 (확장성 고려)
         if (message.getType().equals(MessageType.CODE)) {
             message.updateLanguage(request.language());
         }
 
         if (isSearchable(message)) {
             chatMessageSearchRepository.findById(message.getId())
-                .ifPresent(searchEntity -> {
-                    searchEntity.updateContent(message.getContent());
-                });
+                    .ifPresent(searchEntity -> {
+                        searchEntity.updateContent(message.getContent());
+                    });
         }
         String profileImage = memberRedisService.getProfileImage(memberDetails.getId());
         eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
@@ -163,7 +167,7 @@ public class ChatMessageService {
     public void deleteMessage(Long roomId, Long messageId, MemberDetails memberDetails) {
 
         ChatMessage message = chatMessageRepository.findById(messageId)
-            .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
+                .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
 
         if (!message.getChatRoom().getId().equals(roomId)) {
             throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_DELETE);
@@ -177,7 +181,7 @@ public class ChatMessageService {
 
         if (isSearchable(message)) {
             chatMessageSearchRepository.findById(message.getId())
-                .ifPresent(ChatMessageSearch::deleteContent);
+                    .ifPresent(ChatMessageSearch::deleteContent);
         }
         String profileImage = memberRedisService.getProfileImage(memberDetails.getId());
         eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
@@ -186,28 +190,40 @@ public class ChatMessageService {
     @TimeTrace
     @Transactional(readOnly = true)
     public ChatScrollResponse getMessagesByRoomId(Long memberId, Long roomId, Long cursor,
-        int size) {
-        chatRoomService.getRoomById(roomId);
-        chatRoomService.validateParticipant(memberId, roomId);
+                                                  int size) {
+        chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
+        chatRoomParticipantService.validateParticipant(memberId, roomId);
 
         PageRequest pageRequest = PageRequest.of(0, size + 1);
         List<ChatMessage> result;
 
         if (cursor == null) {
             result = chatMessageRepository.findByChatRoom_IdOrderByIdDesc(
-                roomId, pageRequest);
+                    roomId, pageRequest);
         } else {
             result = chatMessageRepository.findByChatRoom_IdAndIdLessThanOrderByIdDesc(
-                roomId, cursor, pageRequest);
+                    roomId, cursor, pageRequest);
         }
         ScrollPaginationCollection<ChatMessage> scroll = ScrollPaginationCollection.of(result,
-            size);
+                size);
 
         List<ChatMessageResponse> responses = scroll.getCurrentScrollItems().stream()
-            .map(messageMapper::toResponse).toList();
+                .map(messageMapper::toResponse).toList();
 
         Long nextCursor = scroll.isLastScroll() ? null : scroll.getNextCursor().getId();
 
         return new ChatScrollResponse(responses, nextCursor);
+    }
+
+    public ChatMessage saveJoinEvent(ChatRoom room, Member member, Long seq) {
+        ChatMessage message = messageMapper.toEntityWithJoinEvent(room, member, LocalDateTime.now(), seq);
+        return chatMessageRepository.save(message);
+    }
+
+    @Transactional
+    public void deleteByRoomId(Long roomId) {
+        chatMessageRepository.deleteByChatRoom_Id(roomId);
+        chatMessageSearchRepository.deleteByRoomId(roomId);
     }
 }

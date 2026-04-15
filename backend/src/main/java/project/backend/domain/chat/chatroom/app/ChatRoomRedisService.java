@@ -27,8 +27,7 @@ public class ChatRoomRedisService {
             ChatRoom findRoom = chatRoomRepository.findById(roomId)
                     .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 
-            long dbSeq = findRoom.getLastSequence();
-
+            long dbSeq = findRoom.getLastSequence() != null ? findRoom.getLastSequence() : 0L;
             Long recoveredSeq = chatRoomRedisRepository.recoverAndIncr(roomId, dbSeq);
 
             log.warn("Redis sequence 복구 - roomId: {}, dbSeq: {}, 복구값: {}", roomId, dbSeq, recoveredSeq);
@@ -57,5 +56,4 @@ public class ChatRoomRedisService {
     public List<Long> getSequences(List<Long> roomIds) {
         return chatRoomRedisRepository.getSequences(roomIds);
     }
-
 }
