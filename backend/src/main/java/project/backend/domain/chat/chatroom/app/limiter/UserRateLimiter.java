@@ -16,7 +16,8 @@ public class UserRateLimiter {
 
     private final ChatRoomRedisRepository chatRoomRedisRepository;
 
-    private static final int MAX_REQUESTS_PER_SECOND = 5;
+    private static final int MAX_REQUESTS_PER_SECOND_NORMAL = 5;
+    private static final int MAX_REQUESTS_PER_SECOND_STRICT = 2;
 
     private final ConcurrentHashMap<Long, AtomicInteger> userCounter = new ConcurrentHashMap<>();
 
@@ -29,7 +30,7 @@ public class UserRateLimiter {
     public boolean allow(Long userId) {
         try {
             Long count = chatRoomRedisRepository.incrementUserRateLimit(userId);
-            return count <= MAX_REQUESTS_PER_SECOND;
+            return count <= MAX_REQUESTS_PER_SECOND_NORMAL;
         } catch (Exception e) {
             log.warn("Redis Rate Limit 실패 - 메모리 기반으로 전환 userId={}", userId);
             return allowWithMemory(userId);
@@ -38,6 +39,21 @@ public class UserRateLimiter {
 
     private boolean allowWithMemory(Long userId) {
         userCounter.putIfAbsent(userId, new AtomicInteger(0));
-        return userCounter.get(userId).incrementAndGet() <= MAX_REQUESTS_PER_SECOND;
+        return userCounter.get(userId).incrementAndGet() <= MAX_REQUESTS_PER_SECOND_NORMAL;
+    }
+
+    public boolean allowStrict(Long userId) {
+        try {
+            Long count = chatRoomRedisRepository.incrementUserRateLimit(userId);
+            return count <= MAX_REQUESTS_PER_SECOND_STRICT;
+        } catch (Exception e) {
+            log.warn("Redis Rate Limit 실패 - STRICT memory fallback userId={}", userId);
+            return allowWithMemoryStrict(userId);
+        }
+    }
+
+    private boolean allowWithMemoryStrict(Long userId) {
+        userCounter.putIfAbsent(userId, new AtomicInteger(0));
+        return userCounter.get(userId).incrementAndGet() <= MAX_REQUESTS_PER_SECOND_STRICT;
     }
 }
