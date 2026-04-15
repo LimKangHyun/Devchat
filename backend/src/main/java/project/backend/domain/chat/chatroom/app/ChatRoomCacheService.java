@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public class ChatRoomCacheService {
 
     private final ChatRoomRedisService chatRoomRedisService;
-    private final ChatRoomService chatRoomService;
+    private final ChatRoomSequenceWriter chatRoomSequenceWriter;
     private final ChatRoomRepository chatRoomRepository;
     private final MeterRegistry meterRegistry;
     private final UserRateLimiter userRateLimiter;
@@ -117,7 +117,7 @@ public class ChatRoomCacheService {
         }
 
         try {
-            return chatRoomService.incrementSequenceFromDb(roomId);
+            return chatRoomSequenceWriter.incrementSequenceFromDb(roomId);
         } finally {
             fallbackLimiter.release();
         }
