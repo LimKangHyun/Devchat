@@ -27,7 +27,6 @@ public class DmMessageController {
 
 	private final DmMessageService dmMessageService;
 
-	@Operation(summary = "DM 전송 (WebSocket)")
 	@MessageMapping("/send/{roomId}")
 	public DmMessageResponse sendMessage(@DestinationVariable Long roomId,
 		@Payload DmMessageRequest request, Authentication authentication) {
