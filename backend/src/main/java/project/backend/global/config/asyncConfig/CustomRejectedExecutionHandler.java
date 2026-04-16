@@ -1,4 +1,4 @@
-package project.backend.global.asyncConfig;
+package project.backend.global.config.asyncConfig;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.RejectedExecutionException;

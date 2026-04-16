@@ -1,5 +1,7 @@
 package project.backend.auth.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +14,7 @@ import project.backend.auth.app.CookieUtils;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.auth.token.dao.TokenRedisRepository;
 
+@Tag(name = "Auth", description = "인증 / 로그아웃 API")
 @Slf4j
 @RestController
 @RequestMapping("/logout")
@@ -20,6 +23,7 @@ public class LogoutController {
 
 	private final TokenRedisRepository tokenRedisRepository;
 
+	@Operation(summary = "로그아웃")
 	@PostMapping
 	public void logout(@AuthenticationPrincipal MemberDetails memberDetails,
 		HttpServletResponse response) {

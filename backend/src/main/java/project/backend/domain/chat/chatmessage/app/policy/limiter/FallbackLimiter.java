@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatroom.app.limiter;
+package project.backend.domain.chat.chatmessage.app.policy.limiter;
 
 import org.springframework.stereotype.Component;
 

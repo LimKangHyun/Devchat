@@ -39,7 +39,7 @@ public class MemberService {
     private final ImageFileService imageFileService;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
-    private final MemberRedisService memberRedisService;
+    private final ProfileImageCache profileImageCache;
 
     @Value("${file.images.profile.default}")
     private String defaultProfileImg;
@@ -88,7 +88,7 @@ public class MemberService {
             String profileImage = imageFileService.saveProfileImage(file);
             targetMember.updateProfileImage(profileImage);
 
-            memberRedisService.setProfileImage(targetMember.getId(), profileImage);
+            profileImageCache.setProfileImage(targetMember.getId(), profileImage);
         }
     }
 

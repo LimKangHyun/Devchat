@@ -64,14 +64,9 @@ public class ChatRoomParticipantService {
 
     public List<ChatParticipantResponse> getParticipants(Long memberId, Long roomId) {
         validateParticipant(memberId, roomId);
-        ChatParticipant owner = chatParticipantRepository
-                .findByChatRoomIdAndIsOwnerTrue(roomId)
-                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.OWNER_NOT_FOUND));
-
-        return chatParticipantRepository
-                .findByChatRoom(owner.getChatRoom()).stream()
+        return chatParticipantRepository.findByChatRoomId(roomId).stream()
                 .map(ChatRoomMapper::toParticipantResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Long findOwnerId(Long roomId) {

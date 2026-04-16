@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatmessage.dto.event;
+package project.backend.domain.chat.chatmessage.app.event;
 
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;

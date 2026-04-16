@@ -1,5 +1,7 @@
 package project.backend.domain.chat.codereview.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import project.backend.domain.chat.codereview.dto.CodeReviewCreateRequest;
 import project.backend.domain.chat.codereview.dto.CodeReviewEditRequest;
 import project.backend.domain.chat.codereview.dto.CodeReviewResponse;
 
+@Tag(name = "Code Review", description = "코드리뷰 API")
 @RestController
 @RequestMapping("/code-reviews")
 @RequiredArgsConstructor
@@ -25,6 +28,7 @@ public class CodeReviewController {
 
 	private final CodeReviewService codeReviewService;
 
+	@Operation(summary = "코드리뷰 생성", description = "특정 메시지에 대한 코드리뷰 작성")
 	@PostMapping
 	public CodeReviewResponse createReview(
 		@Valid @RequestBody CodeReviewCreateRequest request,
@@ -32,18 +36,21 @@ public class CodeReviewController {
 		return codeReviewService.createReview(request, memberDetails.getId());
 	}
 
+	@Operation(summary = "코드리뷰 조회", description = "메시지 기준 코드리뷰 목록 조회")
 	@GetMapping("/{messageId}")
 	public List<CodeReviewResponse> getReviews(@PathVariable Long messageId,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		return codeReviewService.getReviewsByMessageId(messageId, memberDetails.getId());
 	}
 
+	@Operation(summary = "코드리뷰 삭제")
 	@DeleteMapping("/{reviewId}")
 	public void deleteReview(@PathVariable Long reviewId,
 		@AuthenticationPrincipal MemberDetails memberDetails) {
 		codeReviewService.deleteReview(reviewId, memberDetails.getId());
 	}
 
+	@Operation(summary = "코드리뷰 수정")
 	@PutMapping("/{reviewId}")
 	public CodeReviewResponse editReview(@PathVariable Long reviewId,
 		@Valid @RequestBody CodeReviewEditRequest request,

@@ -3,11 +3,7 @@ package project.backend.domain.chat.chatroom.app;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
-import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
-import project.backend.domain.chat.chatroom.entity.ChatRoom;
-import project.backend.global.exception.errorcode.ChatRoomErrorCode;
-import project.backend.global.exception.ex.ChatRoomException;
+import project.backend.domain.chat.chatroom.dao.redis.ChatRoomRedisRepository;
 
 import java.util.List;
 import java.util.Set;
@@ -18,22 +14,13 @@ import java.util.Set;
 public class ChatRoomRedisService {
 
     private final ChatRoomRedisRepository chatRoomRedisRepository;
-    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomSyncService chatRoomSyncService;
 
-    public Long handleMessageDelivery(Long roomId) {
-        Long seq = chatRoomRedisRepository.handleMessageDelivery(roomId);
-
-        if (seq != null && seq == -1L) {
-            ChatRoom findRoom = chatRoomRepository.findById(roomId)
-                    .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
-
-            long dbSeq = findRoom.getLastSequence() != null ? findRoom.getLastSequence() : 0L;
-            Long recoveredSeq = chatRoomRedisRepository.recoverAndIncr(roomId, dbSeq);
-
-            log.warn("Redis sequence 복구 - roomId: {}, dbSeq: {}, 복구값: {}", roomId, dbSeq, recoveredSeq);
-            return recoveredSeq;
+    public Long genMessageSeq(Long roomId) {
+        Long seq = chatRoomRedisRepository.genMessageSeq(roomId);
+        if (seq == -1L) {
+            return chatRoomSyncService.recoverFromDb(roomId);
         }
-
         return seq;
     }
 

@@ -23,31 +23,27 @@ const CommunityApplicants = () => {
         setLoading(false);
       }
     };
+
     fetchApplicants();
   }, [postId]);
 
-  const handleApprove = async (applicantId) => {
+  // ✅ 통합된 상태 변경 함수
+  const updateStatus = async (applicantId, status) => {
     try {
       setProcessingId(applicantId);
-      await axiosInstance.post(`/community/${postId}/applicants/${applicantId}/approve`);
-      setApplicants(prev => prev.filter(a => a.id !== applicantId));
-      alert('승인되었습니다.');
-    } catch (err) {
-      alert(err.response?.data?.message || '승인에 실패했습니다.');
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
-  const handleReject = async (applicantId) => {
-    if (!window.confirm('거절하시겠습니까?')) return;
-    try {
-      setProcessingId(applicantId);
-      await axiosInstance.post(`/community/${postId}/applicants/${applicantId}/reject`);
-      setApplicants(prev => prev.filter(a => a.id !== applicantId));
-      alert('거절되었습니다.');
+      await axiosInstance.patch(
+        `/community/${postId}/applicants/${applicantId}`,
+        { status }
+      );
+
+      setApplicants(prev =>
+        prev.filter(a => a.id !== applicantId)
+      );
+
+      alert(status === 'APPROVED' ? '승인되었습니다.' : '거절되었습니다.');
     } catch (err) {
-      alert(err.response?.data?.message || '거절에 실패했습니다.');
+      alert(err.response?.data?.message || '처리에 실패했습니다.');
     } finally {
       setProcessingId(null);
     }
@@ -78,15 +74,22 @@ const CommunityApplicants = () => {
                 <li key={applicant.id} className={styles.item}>
                   <div className={styles.userInfo}>
                     <img
-                      src={applicant.profileImage
-                        ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${applicant.profileImage}`
-                        : '/images/not-found-profile.png'}
+                      src={
+                        applicant.profileImage
+                          ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${applicant.profileImage}`
+                          : '/images/not-found-profile.png'
+                      }
                       alt={applicant.nickname}
                       className={styles.avatar}
-                      onError={(e) => { e.target.src = '/images/not-found-profile.png'; }}
+                      onError={(e) => {
+                        e.target.src = '/images/not-found-profile.png';
+                      }}
                     />
+
                     <div className={styles.userMeta}>
-                      <span className={styles.nickname}>{applicant.nickname}</span>
+                      <span className={styles.nickname}>
+                        {applicant.nickname}
+                      </span>
                       <span className={styles.appliedAt}>
                         {applicant.appliedAt?.slice(0, 10) ?? ''}
                       </span>
@@ -96,14 +99,15 @@ const CommunityApplicants = () => {
                   <div className={styles.actions}>
                     <button
                       className={styles.approveButton}
-                      onClick={() => handleApprove(applicant.id)}
+                      onClick={() => updateStatus(applicant.id, 'APPROVED')}
                       disabled={processingId === applicant.id}
                     >
                       {processingId === applicant.id ? '처리 중...' : '승인'}
                     </button>
+
                     <button
                       className={styles.rejectButton}
-                      onClick={() => handleReject(applicant.id)}
+                      onClick={() => updateStatus(applicant.id, 'REJECTED')}
                       disabled={processingId === applicant.id}
                     >
                       거절
@@ -117,7 +121,10 @@ const CommunityApplicants = () => {
 
       </div>
 
-      <button className={styles.backButton} onClick={() => navigate(`/community/${postId}`)}>
+      <button
+        className={styles.backButton}
+        onClick={() => navigate(`/community/${postId}`)}
+      >
         ← 게시글로
       </button>
     </div>

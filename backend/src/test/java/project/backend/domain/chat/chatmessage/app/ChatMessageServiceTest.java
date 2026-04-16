@@ -37,20 +37,18 @@ import project.backend.domain.chat.chatmessage.dao.ChatMessageSearchRepository;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageEditRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
-import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
-import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSavedEvent;
+import project.backend.domain.chat.chatmessage.app.event.ChatMessageSavedEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
-import project.backend.domain.chat.chatroom.app.ChatRoomCacheService;
+import project.backend.domain.chat.chatroom.app.ChatRoomSequenceService;
 import project.backend.domain.chat.chatroom.app.ChatRoomParticipantService;
-import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
-import project.backend.domain.member.app.MemberRedisService;
+import project.backend.domain.member.app.ProfileImageCache;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.ChatMessageException;
@@ -64,13 +62,12 @@ class ChatMessageServiceTest {
     @Mock private ChatMessageRepository chatMessageRepository;
     @Mock private ChatMessageSearchRepository chatMessageSearchRepository;
     @Mock private ChatRoomParticipantService chatRoomParticipantService;
-    @Mock private ChatRoomRepository chatRoomRepository;
     @Mock private ImageFileService imageFileService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private EntityManager entityManager;
     @Mock private ChatMessageMapper messageMapper;
-    @Mock private ChatRoomCacheService chatRoomCacheService;
-    @Mock private MemberRedisService memberRedisService;
+    @Mock private ChatRoomSequenceService chatRoomSequenceService;
+    @Mock private ProfileImageCache profileImageCache;
 
     private Member sender;
     private ChatRoom chatRoom;
@@ -101,14 +98,16 @@ class ChatMessageServiceTest {
             ChatMessageRequest request = mock(ChatMessageRequest.class);
             given(request.getType()).willReturn(TEXT);
 
-            given(chatRoomCacheService.handleMessageDelivery(10L)).willReturn(3L);
+            given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(3L);
             given(entityManager.getReference(Member.class, 1L)).willReturn(sender);
             given(entityManager.getReference(ChatRoom.class, 10L)).willReturn(chatRoom);
             given(messageMapper.toEntityWithText(chatRoom, sender, request, 3L)).willReturn(textMessage);
             given(textMessage.getType()).willReturn(TEXT);
+
             given(textMessage.getChatRoom()).willReturn(chatRoom);
             given(chatRoom.getId()).willReturn(10L);
-            given(memberRedisService.getProfileImage(1L)).willReturn("profile.png");
+
+            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
             given(messageMapper.toResponse(eq(textMessage), eq(memberDetails), anyString()))
                     .willReturn(mock(ChatMessageResponse.class));
 
@@ -128,7 +127,7 @@ class ChatMessageServiceTest {
             given(request.getType()).willReturn(IMAGE);
             given(request.getImageFileId()).willReturn(99L);
 
-            given(chatRoomCacheService.handleMessageDelivery(10L)).willReturn(1L);
+            given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(1L);
             given(entityManager.getReference(Member.class, 1L)).willReturn(sender);
             given(entityManager.getReference(ChatRoom.class, 10L)).willReturn(chatRoom);
 
@@ -136,9 +135,11 @@ class ChatMessageServiceTest {
             given(imageFileService.getImageById(99L)).willReturn(imageFile);
             given(messageMapper.toEntityWithImage(chatRoom, sender, imageFile, 1L)).willReturn(imageMessage);
             given(imageMessage.getType()).willReturn(IMAGE);
+
             given(imageMessage.getChatRoom()).willReturn(chatRoom);
             given(chatRoom.getId()).willReturn(10L);
-            given(memberRedisService.getProfileImage(1L)).willReturn("profile.png");
+
+            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
             given(messageMapper.toResponse(eq(imageMessage), eq(memberDetails), anyString()))
                     .willReturn(mock(ChatMessageResponse.class));
 
@@ -155,14 +156,16 @@ class ChatMessageServiceTest {
             ChatMessageRequest request = mock(ChatMessageRequest.class);
             given(request.getType()).willReturn(CODE);
 
-            given(chatRoomCacheService.handleMessageDelivery(10L)).willReturn(2L);
+            given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(2L);
             given(entityManager.getReference(Member.class, 1L)).willReturn(sender);
             given(entityManager.getReference(ChatRoom.class, 10L)).willReturn(chatRoom);
             given(messageMapper.toEntityWithCode(chatRoom, sender, request, 2L)).willReturn(codeMessage);
             given(codeMessage.getType()).willReturn(CODE);
+
             given(codeMessage.getChatRoom()).willReturn(chatRoom);
             given(chatRoom.getId()).willReturn(10L);
-            given(memberRedisService.getProfileImage(1L)).willReturn("profile.png");
+
+            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
             given(messageMapper.toResponse(eq(codeMessage), eq(memberDetails), anyString()))
                     .willReturn(mock(ChatMessageResponse.class));
 
@@ -179,11 +182,6 @@ class ChatMessageServiceTest {
         @Test
         @DisplayName("첫 페이지 검색 시 totalCount가 포함된 결과를 반환한다")
         void searchMessages_firstPage_returnsTotalCount() {
-            ChatMessageSearchRequest request = mock(ChatMessageSearchRequest.class);
-            given(request.getKeyword()).willReturn("hello");
-            given(request.getLastMessageId()).willReturn(null);
-            given(request.getPageSize()).willReturn(10);
-
             List<Long> ids = new ArrayList<>(List.of(1L, 2L, 3L));
             given(chatMessageSearchRepository.searchIdsByKeywordAndRoomIdWithCursor(
                     "hello", 10L, null, 11)).willReturn(ids);
@@ -200,7 +198,8 @@ class ChatMessageServiceTest {
             given(messageMapper.toSearchResponse(any())).willReturn(mock(ChatMessageSearchResponse.class));
             willDoNothing().given(chatRoomParticipantService).validateParticipant(1L, 10L);
 
-            Slice<ChatMessageSearchResponse> result = chatMessageService.searchMessages(1L, 10L, request);
+            Slice<ChatMessageSearchResponse> result = chatMessageService.searchMessages(
+                    1L, 10L, "hello", null, 10);
 
             assertThat(result.getContent()).hasSize(3);
             assertThat(result.hasNext()).isFalse();
@@ -209,11 +208,6 @@ class ChatMessageServiceTest {
         @Test
         @DisplayName("다음 페이지가 있을 때 hasNext=true를 반환한다")
         void searchMessages_hasNextPage_returnsHasNextTrue() {
-            ChatMessageSearchRequest request = mock(ChatMessageSearchRequest.class);
-            given(request.getKeyword()).willReturn("hello");
-            given(request.getLastMessageId()).willReturn(50L);
-            given(request.getPageSize()).willReturn(2);
-
             List<Long> ids = new ArrayList<>(List.of(10L, 20L, 30L));
             given(chatMessageSearchRepository.searchIdsByKeywordAndRoomIdWithCursor(
                     "hello", 10L, 50L, 3)).willReturn(ids);
@@ -227,7 +221,8 @@ class ChatMessageServiceTest {
             given(messageMapper.toSearchResponse(any())).willReturn(mock(ChatMessageSearchResponse.class));
             willDoNothing().given(chatRoomParticipantService).validateParticipant(1L, 10L);
 
-            Slice<ChatMessageSearchResponse> result = chatMessageService.searchMessages(1L, 10L, request);
+            Slice<ChatMessageSearchResponse> result = chatMessageService.searchMessages(
+                    1L, 10L, "hello", 50L, 2);
 
             assertThat(result.hasNext()).isTrue();
             assertThat(result.getContent()).hasSize(2);
@@ -254,9 +249,10 @@ class ChatMessageServiceTest {
             given(chatMessageRepository.findById(100L)).willReturn(Optional.of(textMessage));
             ChatMessageSearch searchEntity = mock(ChatMessageSearch.class);
             given(chatMessageSearchRepository.findById(100L)).willReturn(Optional.of(searchEntity));
-            given(memberRedisService.getProfileImage(1L)).willReturn("profile.png");
+            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
 
-            chatMessageService.editMessage(10L, new ChatMessageEditRequest(100L, "updated", TEXT, null), memberDetails);
+            chatMessageService.editMessage(10L,
+                    new ChatMessageEditRequest(100L, "updated", TEXT, null), memberDetails);
 
             then(textMessage).should().updateContent("updated");
             then(searchEntity).should().updateContent("hello");
@@ -277,9 +273,10 @@ class ChatMessageServiceTest {
             given(chatMessageRepository.findById(300L)).willReturn(Optional.of(codeMessage));
             ChatMessageSearch searchEntity = mock(ChatMessageSearch.class);
             given(chatMessageSearchRepository.findById(300L)).willReturn(Optional.of(searchEntity));
-            given(memberRedisService.getProfileImage(1L)).willReturn("profile.png");
+            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
 
-            chatMessageService.editMessage(10L, new ChatMessageEditRequest(300L, "int x=0;", CODE, "JAVA"), memberDetails);
+            chatMessageService.editMessage(10L,
+                    new ChatMessageEditRequest(300L, "int x=0;", CODE, "JAVA"), memberDetails);
 
             then(codeMessage).should().updateContent("int x=0;");
             then(codeMessage).should().updateLanguage("JAVA");
@@ -325,7 +322,7 @@ class ChatMessageServiceTest {
             given(memberDetails.getId()).willReturn(1L);
 
             given(chatMessageRepository.findById(200L)).willReturn(Optional.of(imageMessage));
-            given(memberRedisService.getProfileImage(1L)).willReturn("profile.png");
+            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
 
             chatMessageService.editMessage(10L,
                     new ChatMessageEditRequest(200L, "", IMAGE, null), memberDetails);
@@ -352,7 +349,7 @@ class ChatMessageServiceTest {
             given(chatMessageRepository.findById(100L)).willReturn(Optional.of(textMessage));
             ChatMessageSearch searchEntity = mock(ChatMessageSearch.class);
             given(chatMessageSearchRepository.findById(100L)).willReturn(Optional.of(searchEntity));
-            given(memberRedisService.getProfileImage(1L)).willReturn("profile.png");
+            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
 
             chatMessageService.deleteMessage(10L, 100L, memberDetails);
 
@@ -396,7 +393,7 @@ class ChatMessageServiceTest {
             given(memberDetails.getId()).willReturn(1L);
 
             given(chatMessageRepository.findById(200L)).willReturn(Optional.of(imageMessage));
-            given(memberRedisService.getProfileImage(1L)).willReturn("profile.png");
+            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
 
             chatMessageService.deleteMessage(10L, 200L, memberDetails);
 
@@ -412,7 +409,6 @@ class ChatMessageServiceTest {
         @Test
         @DisplayName("cursor가 null이면 최신 메시지부터 조회한다")
         void getMessages_noCursor_fetchFromLatest() {
-            given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
             willDoNothing().given(chatRoomParticipantService).validateParticipant(1L, 10L);
             given(chatMessageRepository.findByChatRoom_IdOrderByIdDesc(eq(10L), any(PageRequest.class)))
                     .willReturn(List.of(textMessage));
@@ -429,7 +425,6 @@ class ChatMessageServiceTest {
         @Test
         @DisplayName("cursor가 있으면 해당 cursor 이전 메시지를 조회한다")
         void getMessages_withCursor_fetchBeforeCursor() {
-            given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
             willDoNothing().given(chatRoomParticipantService).validateParticipant(1L, 10L);
             given(chatMessageRepository.findByChatRoom_IdAndIdLessThanOrderByIdDesc(
                     eq(10L), eq(50L), any(PageRequest.class)))
@@ -446,7 +441,6 @@ class ChatMessageServiceTest {
         @Test
         @DisplayName("size+1개가 조회되면 nextCursor를 반환한다")
         void getMessages_hasMore_returnsNextCursor() {
-            given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
             willDoNothing().given(chatRoomParticipantService).validateParticipant(1L, 10L);
 
             ChatMessage msg1 = mock(ChatMessage.class);

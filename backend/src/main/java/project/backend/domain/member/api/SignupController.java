@@ -1,5 +1,7 @@
 package project.backend.domain.member.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
@@ -14,6 +16,7 @@ import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.dto.MemberResponse;
 import project.backend.domain.member.dto.SignUpRequest;
 
+@Tag(name = "Auth", description = "회원가입 API")
 @Slf4j
 @RestController
 @RequestMapping("/signup")
@@ -22,6 +25,7 @@ public class SignupController {
 
 	private final MemberService memberService;
 
+	@Operation(summary = "회원가입")
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public MemberResponse signup(@RequestBody @Valid SignUpRequest request) {

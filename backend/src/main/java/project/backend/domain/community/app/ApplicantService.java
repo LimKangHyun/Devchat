@@ -8,8 +8,8 @@ import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatroom.app.ChatRoomAlarmService;
-import project.backend.domain.chat.chatroom.app.ChatRoomCacheService;
 import project.backend.domain.chat.chatroom.app.ChatRoomSequenceService;
+import project.backend.domain.chat.chatroom.app.ChatRoomReadService;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.community.dao.ApplicantRepository;
@@ -39,12 +39,12 @@ public class ApplicantService {
     private final ApplicationEventPublisher eventPublisher;
 
     private final ChatMessageService chatMessageService;
-    private final ChatRoomCacheService chatRoomCacheService;
-    private final ChatRoomAlarmService chatRoomAlarmService;
     private final ChatRoomSequenceService chatRoomSequenceService;
+    private final ChatRoomAlarmService chatRoomAlarmService;
+    private final ChatRoomReadService chatRoomReadService;
 
     public List<ApplicantResponse> getApplicants(Long postId, MemberDetails memberDetails) {
-        Post post = getPostAndValidateOwner(postId, memberDetails);
+        getPostAndValidateOwner(postId, memberDetails);
 
         return applicantRepository.findByPost_IdAndStatus(postId, ApplicantStatus.PENDING)
                 .stream()
@@ -57,23 +57,9 @@ public class ApplicantService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new PostException(PostErrorCode.POST_NOT_FOUND));
 
-        if (post.isClosed()) {
-            throw new PostException(PostErrorCode.POST_ALREADY_CLOSED);
-        }
-        if (post.isFull()) {
-            throw new PostException(PostErrorCode.POST_ALREADY_FULL);
-        }
+        validateApply(post, memberDetails);
 
         Member member = Member.of(memberDetails);
-
-        if (post.getAuthor().getId().equals(member.getId())) {
-            throw new PostException(PostErrorCode.CANNOT_APPLY_OWN_POST);
-        }
-
-        if (chatParticipantRepository.existsByParticipantIdAndChatRoomIdAndIsActiveTrue(
-                member.getId(), post.getChatRoom().getId())) {
-            throw new ChatRoomException(ChatRoomErrorCode.ALREADY_PARTICIPANT);
-        }
 
         applicantRepository.findByPost_IdAndMember_Id(postId, member.getId())
                 .ifPresent(existing -> {
@@ -85,38 +71,63 @@ public class ApplicantService {
         applicantRepository.save(Applicant.of(post, member));
     }
 
+    private void validateApply(Post post, MemberDetails memberDetails) {
+        if (post.isClosed()) {
+            throw new PostException(PostErrorCode.POST_ALREADY_CLOSED);
+        }
+        if (post.isFull()) {
+            throw new PostException(PostErrorCode.POST_ALREADY_FULL);
+        }
+        if (post.getAuthor().getId().equals(memberDetails.getId())) {
+            throw new PostException(PostErrorCode.CANNOT_APPLY_OWN_POST);
+        }
+        if (chatParticipantRepository.existsByParticipantIdAndChatRoomIdAndIsActiveTrue(
+                memberDetails.getId(), post.getChatRoom().getId())) {
+            throw new ChatRoomException(ChatRoomErrorCode.ALREADY_PARTICIPANT);
+        }
+    }
+
     @Transactional
-    public void approve(Long postId, Long applicantId, MemberDetails memberDetails) {
+    public void updateStatus(Long postId, Long applicantId, ApplicantStatus status, MemberDetails memberDetails) {
+
         Post post = getPostAndValidateOwner(postId, memberDetails);
         Applicant applicant = getApplicant(applicantId);
 
+        switch (status) {
+            case APPROVED -> handleApprove(post, applicant, memberDetails);
+            case REJECTED -> handleReject(post, applicant);
+        }
+    }
+
+    private ChatMessage joinChatRoom(Member member, Post post, Long requesterId) {
+        Long currentSequence = chatRoomReadService.getLatestSequence(post.getChatRoom().getId());
+
+        ChatParticipant participant = ChatParticipant.of(member, post.getChatRoom());
+        participant.updateLastReadSequence(currentSequence);
+        chatParticipantRepository.save(participant);
+
+        chatRoomAlarmService.createAlarm(member.getId(), post.getChatRoom().getId());
+
+        Long seq = chatRoomSequenceService.genMessageSeq(post.getChatRoomId(), requesterId);
+        return chatMessageService.saveJoinEvent(post.getChatRoom(), member, seq);
+    }
+
+    private void handleApprove(Post post, Applicant applicant, MemberDetails memberDetails) {
         applicant.approve();
         post.incrementCurrentCount();
+
         if (post.isFull()) {
             post.close();
         }
 
-        ChatParticipant chatParticipant = ChatParticipant.of(applicant.getMember(), post.getChatRoom());
-        chatParticipantRepository.save(chatParticipant);
+        ChatMessage joinMessage = joinChatRoom(applicant.getMember(), post, memberDetails.getId());
 
-        Long currentSequence = chatRoomSequenceService.getLatestSequence(post.getChatRoom().getId());
-        chatParticipant.updateLastReadSequence(currentSequence);
-
-        chatRoomAlarmService.createAlarm(applicant.getMember().getId(), post.getChatRoom().getId());
-
-        Long seq = chatRoomCacheService.handleMessageDelivery(post.getChatRoomId(), memberDetails.getId());
-        ChatMessage savedMessage = chatMessageService.saveJoinEvent(post.getChatRoom(), applicant.getMember(), seq);
-
-        eventPublisher.publishEvent(toJoinChatRoomEvent(post, applicant.getMember(), savedMessage));
+        eventPublisher.publishEvent(toJoinChatRoomEvent(post, applicant.getMember(), joinMessage));
         eventPublisher.publishEvent(toApplicantResultEvent(post, applicant, true));
     }
 
-    @Transactional
-    public void reject(Long postId, Long applicantId, MemberDetails memberDetails) {
-        Post post = getPostAndValidateOwner(postId, memberDetails);
-        Applicant applicant = getApplicant(applicantId);
+    private void handleReject(Post post, Applicant applicant) {
         applicant.reject();
-
         eventPublisher.publishEvent(toApplicantResultEvent(post, applicant, false));
     }
 

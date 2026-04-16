@@ -23,8 +23,8 @@ import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatroom.app.ChatRoomAlarmService;
-import project.backend.domain.chat.chatroom.app.ChatRoomCacheService;
 import project.backend.domain.chat.chatroom.app.ChatRoomSequenceService;
+import project.backend.domain.chat.chatroom.app.ChatRoomReadService;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
@@ -49,8 +49,8 @@ class ApplicantServiceTest {
     @Mock private ChatParticipantRepository chatParticipantRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private ChatMessageService chatMessageService;
-    @Mock private ChatRoomCacheService chatRoomCacheService;
     @Mock private ChatRoomSequenceService chatRoomSequenceService;
+    @Mock private ChatRoomReadService chatRoomReadService;
     @Mock private ChatRoomAlarmService chatRoomAlarmService;
 
     private Post post;
@@ -191,33 +191,24 @@ class ApplicantServiceTest {
             given(ownerDetails.getId()).willReturn(1L);
             given(author.getId()).willReturn(1L);
             given(applicantMember.getId()).willReturn(2L);
-            given(applicantMember.getUsername()).willReturn("applicantUser");
-            given(applicantMember.getNickname()).willReturn("applicantNick");
 
             Applicant applicant = mock(Applicant.class);
             given(applicant.getMember()).willReturn(applicantMember);
             given(post.getAuthor()).willReturn(author);
-            given(post.getId()).willReturn(1L);
-            given(post.getTitle()).willReturn("테스트 게시글");
-            given(post.isFull()).willReturn(false);
             given(post.getChatRoom()).willReturn(chatRoom);
             given(post.getChatRoomId()).willReturn(10L);
+            given(post.isFull()).willReturn(false);
             given(chatRoom.getId()).willReturn(10L);
 
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
             given(applicantRepository.findById(10L)).willReturn(Optional.of(applicant));
-
-            ChatParticipant chatParticipant = mock(ChatParticipant.class);
-            given(chatParticipantRepository.save(any(ChatParticipant.class))).willReturn(chatParticipant);
-            given(chatRoomSequenceService.getLatestSequence(10L)).willReturn(5L);
-            given(chatRoomCacheService.handleMessageDelivery(10L)).willReturn(6L);
+            given(chatRoomReadService.getLatestSequence(10L)).willReturn(5L);
+            given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(6L); // 수정
 
             ChatMessage joinMessage = mock(ChatMessage.class);
-            given(joinMessage.getId()).willReturn(100L);
-            given(joinMessage.getSendAt()).willReturn(java.time.LocalDateTime.now());
             given(chatMessageService.saveJoinEvent(chatRoom, applicantMember, 6L)).willReturn(joinMessage);
 
-            applicantService.approve(1L, 10L, ownerDetails);
+            applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails);
 
             then(applicant).should().approve();
             then(post).should().incrementCurrentCount();
@@ -231,33 +222,24 @@ class ApplicantServiceTest {
             given(ownerDetails.getId()).willReturn(1L);
             given(author.getId()).willReturn(1L);
             given(applicantMember.getId()).willReturn(2L);
-            given(applicantMember.getUsername()).willReturn("applicantUser");
-            given(applicantMember.getNickname()).willReturn("applicantNick");
 
             Applicant applicant = mock(Applicant.class);
             given(applicant.getMember()).willReturn(applicantMember);
             given(post.getAuthor()).willReturn(author);
-            given(post.getId()).willReturn(1L);
-            given(post.getTitle()).willReturn("테스트 게시글");
             given(post.getChatRoom()).willReturn(chatRoom);
             given(post.getChatRoomId()).willReturn(10L);
-            given(chatRoom.getId()).willReturn(10L);
             given(post.isFull()).willReturn(true);
+            given(chatRoom.getId()).willReturn(10L);
 
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
             given(applicantRepository.findById(10L)).willReturn(Optional.of(applicant));
-
-            ChatParticipant chatParticipant = mock(ChatParticipant.class);
-            given(chatParticipantRepository.save(any())).willReturn(chatParticipant);
-            given(chatRoomSequenceService.getLatestSequence(10L)).willReturn(3L);
-            given(chatRoomCacheService.handleMessageDelivery(10L)).willReturn(4L);
+            given(chatRoomReadService.getLatestSequence(10L)).willReturn(3L);
+            given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(4L); // 수정
 
             ChatMessage joinMessage = mock(ChatMessage.class);
-            given(joinMessage.getId()).willReturn(200L);
-            given(joinMessage.getSendAt()).willReturn(java.time.LocalDateTime.now());
             given(chatMessageService.saveJoinEvent(chatRoom, applicantMember, 4L)).willReturn(joinMessage);
 
-            applicantService.approve(1L, 10L, ownerDetails);
+            applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails);
 
             then(post).should().close();
         }
@@ -270,7 +252,7 @@ class ApplicantServiceTest {
             given(post.getAuthor()).willReturn(author);
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
 
-            assertThatThrownBy(() -> applicantService.approve(1L, 10L, ownerDetails))
+            assertThatThrownBy(() -> applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails))
                     .isInstanceOf(PostException.class);
         }
 
@@ -281,9 +263,9 @@ class ApplicantServiceTest {
             given(author.getId()).willReturn(1L);
             given(post.getAuthor()).willReturn(author);
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
-            given(applicantRepository.findById(999L)).willReturn(Optional.empty());
+            given(applicantRepository.findById(10L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> applicantService.approve(1L, 999L, ownerDetails))
+            assertThatThrownBy(() -> applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails))
                     .isInstanceOf(PostException.class);
         }
     }
@@ -304,7 +286,7 @@ class ApplicantServiceTest {
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
             given(applicantRepository.findById(10L)).willReturn(Optional.of(applicant));
 
-            applicantService.reject(1L, 10L, ownerDetails);
+            applicantService.updateStatus(1L, 10L, ApplicantStatus.REJECTED, ownerDetails);
 
             then(applicant).should().reject();
             then(eventPublisher).should(times(1)).publishEvent(any(Object.class));
@@ -318,7 +300,7 @@ class ApplicantServiceTest {
             given(post.getAuthor()).willReturn(author);
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
 
-            assertThatThrownBy(() -> applicantService.reject(1L, 10L, ownerDetails))
+            assertThatThrownBy(() -> applicantService.updateStatus(1L, 10L, ApplicantStatus.REJECTED, ownerDetails))
                     .isInstanceOf(PostException.class);
         }
     }
