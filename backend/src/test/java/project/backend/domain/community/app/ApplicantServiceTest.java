@@ -208,7 +208,7 @@ class ApplicantServiceTest {
             ChatMessage joinMessage = mock(ChatMessage.class);
             given(chatMessageService.saveJoinEvent(chatRoom, applicantMember, 6L)).willReturn(joinMessage);
 
-            applicantService.approve(1L, 10L, ownerDetails);
+            applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails);
 
             then(applicant).should().approve();
             then(post).should().incrementCurrentCount();
@@ -239,7 +239,7 @@ class ApplicantServiceTest {
             ChatMessage joinMessage = mock(ChatMessage.class);
             given(chatMessageService.saveJoinEvent(chatRoom, applicantMember, 4L)).willReturn(joinMessage);
 
-            applicantService.approve(1L, 10L, ownerDetails);
+            applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails);
 
             then(post).should().close();
         }
@@ -252,7 +252,7 @@ class ApplicantServiceTest {
             given(post.getAuthor()).willReturn(author);
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
 
-            assertThatThrownBy(() -> applicantService.approve(1L, 10L, ownerDetails))
+            assertThatThrownBy(() -> applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails))
                     .isInstanceOf(PostException.class);
         }
 
@@ -263,9 +263,9 @@ class ApplicantServiceTest {
             given(author.getId()).willReturn(1L);
             given(post.getAuthor()).willReturn(author);
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
-            given(applicantRepository.findById(999L)).willReturn(Optional.empty());
+            given(applicantRepository.findById(10L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> applicantService.approve(1L, 999L, ownerDetails))
+            assertThatThrownBy(() -> applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails))
                     .isInstanceOf(PostException.class);
         }
     }
@@ -286,7 +286,7 @@ class ApplicantServiceTest {
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
             given(applicantRepository.findById(10L)).willReturn(Optional.of(applicant));
 
-            applicantService.reject(1L, 10L, ownerDetails);
+            applicantService.updateStatus(1L, 10L, ApplicantStatus.REJECTED, ownerDetails);
 
             then(applicant).should().reject();
             then(eventPublisher).should(times(1)).publishEvent(any(Object.class));
@@ -300,7 +300,7 @@ class ApplicantServiceTest {
             given(post.getAuthor()).willReturn(author);
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
 
-            assertThatThrownBy(() -> applicantService.reject(1L, 10L, ownerDetails))
+            assertThatThrownBy(() -> applicantService.updateStatus(1L, 10L, ApplicantStatus.REJECTED, ownerDetails))
                     .isInstanceOf(PostException.class);
         }
     }
