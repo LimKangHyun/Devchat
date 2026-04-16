@@ -36,8 +36,6 @@ https://thedevchat.duckdns.org
 |MySQL Connector| 9.1.0|
 |Redis | 3.0.504|
 |React | 19.1.0 |
-|HTML5|  - |
-|javascript| - |
 
 </div>
     
@@ -83,7 +81,7 @@ https://thedevchat.duckdns.org
 |이 름|GitHub|역할|
 |:---:|---|---|
 |[TL]배문성|[gitHub](https://github.com/heets-blue)|-**문서**: 리드미, 와이어프레임 <br> -**기능**: 인증 구현(JWT 토큰), 토큰 동시성 문제 개선, 친구기능 및 유저 검색 API 구현, 수신함 구현, DM 구현, 알림기능 구현|
-|임강현|[gitHub](https://github.com/LimKangHyun)|-**문서**: 시스템 구성도, 플로우차트  <br>   -**기능**: 프로필 업데이트 API 구현, 채팅 검색 API 구현, 메시지 비동기 처리, 조회 성능 최적화, CI/CD 구축, 무중단 배포|                                
+|임강현|[gitHub](https://github.com/LimKangHyun)|-**문서**: 시스템 구성도, 플로우차트  <br>   -**기능**: 프로필 업데이트 API 구현, 채팅 검색 API 구현, 메시지 비동기 처리, 조회 성능 최적화, CI/CD 구축, Blue/Green 배포|                                
 |임창인|[gitHub](https://github.com/cba700)|-**문서**: 발표자료 <br>-**기능**: 채팅방 생성,초대,입장 구현, url 보안 강화|
 |남지은|[gitHub](https://github.com/zie-ning)|-**문서**: 기획서 <br>-**기능**: 웹소켓을 통한 실시간 통신 구현, 깃허브 이벤트 메세지 제작, 채팅방 알림 구현|
 
@@ -102,11 +100,10 @@ https://thedevchat.duckdns.org
 <br>
 
 ## 🧾API 명세
-Swagger를 사용하여 API명세서를 제작 <br>
-![image](https://github.com/user-attachments/assets/d3867fcc-1198-4908-946a-6ecb98ed3a6b)
-*Swagger명세 개요 이미지*
+> 👉 **[Swagger UI 바로가기](https://thedevchat.duckdns.org/api/swagger-ui/index.html#/)**
 
 <br>
 
 ## 🌐시스템 구성도
-<img width="4540" height="3008" alt="devchat_시스템_아키텍처" src="https://github.com/user-attachments/assets/a1451e54-e729-4b55-b3de-2b091775fda9" />
+<img width="3304" height="2086" alt="Devchat_아키텍처_다이어그램" src="https://github.com/user-attachments/assets/3261f71a-02f7-43db-9c49-55fe457b9261" />
+
