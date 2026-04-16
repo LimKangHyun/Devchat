@@ -1,4 +1,4 @@
-package project.backend.global.asyncConfig;
+package project.backend.global.config.asyncConfig;
 
 import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;

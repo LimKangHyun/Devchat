@@ -11,9 +11,5 @@ public class ChatRoomSequenceWriter {
 
     private final ChatRoomRepository chatRoomRepository;
 
-    @Transactional
-    public Long incrementSequenceFromDb(Long roomId) {
-        chatRoomRepository.incrementSequence(roomId);
-        return chatRoomRepository.findLastInsertId();
-    }
+
 }

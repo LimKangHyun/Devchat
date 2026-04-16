@@ -1,4 +1,4 @@
-package project.backend.global.redisConfig;
+package project.backend.global.config;
 
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.SocketOptions;
@@ -16,7 +16,7 @@ import java.time.Duration;
 import java.util.Arrays;
 
 @Configuration
-public class RedisRepositoryConfig {
+public class RedisConfig {
 
     @Value("${spring.data.redis.sentinel.master}")
     private String masterName;

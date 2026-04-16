@@ -1,4 +1,4 @@
-package project.backend.global.webconfig;
+package project.backend.global.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

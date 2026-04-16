@@ -101,4 +101,10 @@ public class ChatRoomSequenceService {
     private long calculateUnread(long lastReadSequence, long lastMessageSequence) {
         return Math.max(0, lastMessageSequence - lastReadSequence);
     }
+
+    @Transactional
+    public Long incrementSequenceFromDb(Long roomId) {
+        chatRoomRepository.incrementSequence(roomId);
+        return chatRoomRepository.findLastInsertId();
+    }
 }
