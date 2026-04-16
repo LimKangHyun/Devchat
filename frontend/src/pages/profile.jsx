@@ -35,7 +35,7 @@ const ProfilePage = () => {
 
     const fetchUserRooms = async () => {
       try {
-        const res = await axiosInstance.get(`/chat-rooms/mine/${userDetails.id}`);
+        const res = await axiosInstance.get(`/chat-rooms/mine`);
         setUserRooms(res.data.content);
       } catch (error) {
         if (!alertShownRef.current) {

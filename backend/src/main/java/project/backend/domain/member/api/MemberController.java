@@ -1,5 +1,7 @@
 package project.backend.domain.member.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,7 @@ import project.backend.domain.member.dto.MemberInfoUpdateRequest;
 import project.backend.domain.member.dto.MemberSearchResponse;
 import project.backend.domain.member.dto.PasswordChangeRequest;
 
+@Tag(name = "Member", description = "회원 관리 API")
 @Slf4j
 @RestController
 @RequestMapping("/user")
@@ -22,11 +25,13 @@ public class MemberController {
 
     private final MemberService memberService;
 
+    @Operation(summary = "내 정보 조회")
     @GetMapping("/details")
     public MemberResponse getMemberDetails(Authentication authentication) {
         return memberService.getMemberDetails(authentication);
     }
 
+    @Operation(summary = "회원 정보 수정")
     @PutMapping(value = "/info", consumes = "multipart/form-data")
     public MemberResponse updateMemberInfo(
         Authentication authentication,
@@ -36,12 +41,14 @@ public class MemberController {
         return memberService.updateMemberInfo(authentication, request, profileImg);
     }
 
+    @Operation(summary = "비밀번호 변경 (Form 회원가입의 경우)")
     @PutMapping("/password")
     public void updatePassword(Authentication authentication,
         @RequestBody @Valid PasswordChangeRequest request) {
         memberService.updatePassword(authentication, request);
     }
 
+    @Operation(summary = "유저 검색")
     @GetMapping("/search")
     public Page<MemberSearchResponse> searchUsers(
         Authentication auth,

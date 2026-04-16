@@ -6,7 +6,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import project.backend.domain.chat.chatmessage.dto.event.ChatMessageBroadcastEvent;
+import project.backend.domain.chat.chatmessage.app.event.ChatMessageBroadcastEvent;
 
 @Component
 @RequiredArgsConstructor

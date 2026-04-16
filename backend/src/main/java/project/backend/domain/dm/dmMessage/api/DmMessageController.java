@@ -1,5 +1,7 @@
 package project.backend.domain.dm.dmMessage.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -16,6 +18,7 @@ import project.backend.domain.dm.dmMessage.app.DmMessageService;
 import project.backend.domain.dm.dmMessage.dto.DmMessageRequest;
 import project.backend.domain.dm.dmMessage.dto.DmMessageResponse;
 
+@Tag(name = "Direct Message", description = "DM API")
 @Slf4j
 @RestController
 @RequestMapping("/dm")
@@ -24,12 +27,14 @@ public class DmMessageController {
 
 	private final DmMessageService dmMessageService;
 
+	@Operation(summary = "DM 전송 (WebSocket)")
 	@MessageMapping("/send/{roomId}")
 	public DmMessageResponse sendMessage(@DestinationVariable Long roomId,
 		@Payload DmMessageRequest request, Authentication authentication) {
 		return dmMessageService.save(roomId, request, authentication);
 	}
 
+	@Operation(summary = "DM 채팅 내역 조회")
 	@GetMapping("/history/{roomId}")
 	public Page<DmMessageResponse> getDmMessages(@PathVariable Long roomId,
 		Authentication auth,

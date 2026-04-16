@@ -10,12 +10,12 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ChatRoomSequenceScheduler {
 
-    private final ChatRoomSequenceService ChatRoomSequenceService;
+    private final ChatRoomSyncService chatRoomSyncService;
 
     @Scheduled(fixedRate = 60000)
     public void syncLastSequence() {
         try {
-            ChatRoomSequenceService.syncSequencesToDb();
+            chatRoomSyncService.syncToDb();
             log.info("last_sequence 동기화 배치 완료");
         } catch (Exception e) {
             log.error("시퀀스 동기화 배치 중 에러 발생: {}", e.getMessage());

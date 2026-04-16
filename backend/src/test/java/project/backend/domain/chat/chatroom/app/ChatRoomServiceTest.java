@@ -56,9 +56,9 @@ class ChatRoomServiceTest {
     @Mock private MemberService memberService;
     @Mock private ChatMessageService chatMessageService;
     @Mock private GitMessageService gitMessageService;
-    @Mock private ChatRoomCacheService chatRoomCacheService;
-    @Mock private ChatRoomAlarmService chatRoomAlarmService;
     @Mock private ChatRoomSequenceService chatRoomSequenceService;
+    @Mock private ChatRoomAlarmService chatRoomAlarmService;
+    @Mock private ChatRoomReadService chatRoomReadService;
     @Mock private ChatRoomParticipantService chatRoomParticipantService;
     @Mock private ApplicationEventPublisher eventPublisher;
 
@@ -135,7 +135,7 @@ class ChatRoomServiceTest {
 
             given(chatRoomRepository.findByInviteCode("INVITE-CODE")).willReturn(Optional.of(chatRoom));
             given(memberService.getMemberById(2L)).willReturn(joiner);
-            given(chatRoomCacheService.handleMessageDelivery(10L)).willReturn(1L);
+            given(chatRoomSequenceService.genMessageSeq(10L, 2L)).willReturn(1L); // 수정: memberId 추가
 
             ChatMessage joinMessage = mock(ChatMessage.class);
             given(joinMessage.getId()).willReturn(500L);
@@ -168,7 +168,7 @@ class ChatRoomServiceTest {
         void leaveChatRoom_normalMember_success() {
             Member leavingMember = mock(Member.class);
             given(leavingMember.getNickname()).willReturn("leaverNick");
-            given(memberService.getMemberById(2L)).willReturn(leavingMember);
+            given(memberService.getMemberById(2L)).willReturn(leavingMember); // 2번 호출되므로 한 번 설정으로 커버
             given(chatRoomParticipantService.findTopRecentActiveRoom(2L)).willReturn(Optional.empty());
 
             chatRoomService.leaveChatRoom(10L, 2L);
@@ -259,7 +259,7 @@ class ChatRoomServiceTest {
                     .willReturn(Map.of(10L, true));
 
             AllRoomsResponse expected = mock(AllRoomsResponse.class);
-            given(chatRoomSequenceService.findAllRoomsWithUnread(any(), any(), any()))
+            given(chatRoomReadService.findAllRoomsWithUnread(any(), any(), any()))
                     .willReturn(List.of(expected));
 
             List<AllRoomsResponse> result = chatRoomService.findAllRoomsByMemberId(1L);
@@ -273,7 +273,7 @@ class ChatRoomServiceTest {
         void findAllRooms_empty_returnsEmptyList() {
             given(chatRoomRepository.findAllRoomsWithSequenceByParticipantId(1L))
                     .willReturn(Collections.emptyList());
-            given(chatRoomSequenceService.findAllRoomsWithUnread(any(), any(), any()))
+            given(chatRoomReadService.findAllRoomsWithUnread(any(), any(), any()))
                     .willReturn(Collections.emptyList());
 
             List<AllRoomsResponse> result = chatRoomService.findAllRoomsByMemberId(1L);

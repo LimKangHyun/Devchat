@@ -41,9 +41,9 @@ public class ChatRoomService {
     private final MemberService memberService;
     private final ChatMessageService chatMessageService;
     private final GitMessageService gitMessageService;
-    private final ChatRoomCacheService chatRoomCacheService;
-    private final ChatRoomAlarmService chatRoomAlarmService;
     private final ChatRoomSequenceService chatRoomSequenceService;
+    private final ChatRoomAlarmService chatRoomAlarmService;
+    private final ChatRoomReadService chatRoomReadService;
     private final ChatRoomParticipantService chatRoomParticipantService;
 
     private final ApplicationEventPublisher eventPublisher;
@@ -86,7 +86,7 @@ public class ChatRoomService {
         chatRoomParticipantService.handleParticipantJoin(room, member);
         chatRoomAlarmService.createAlarm(memberId, room.getId());
 
-        Long seq = chatRoomCacheService.handleMessageDelivery(room.getId(), memberId);
+        Long seq = chatRoomSequenceService.genMessageSeq(room.getId(), memberId);
 
         ChatMessage savedMessage = chatMessageService.saveJoinEvent(room, member, seq);
 
@@ -114,10 +114,6 @@ public class ChatRoomService {
     public Page<RoomInfoResponse> findChatRoomsByMemberId(Long memberId, Pageable pageable) {
         return chatRoomRepository.findChatRoomsByParticipantId(memberId, pageable)
                 .map(ChatRoomMapper::toListResponse);
-    }
-
-    public List<ChatParticipantResponse> getParticipants(Long memberId, Long roomId) {
-        return chatRoomParticipantService.getParticipants(memberId, roomId);
     }
 
     @Transactional
@@ -148,17 +144,18 @@ public class ChatRoomService {
                 ? Collections.emptyMap()
                 : chatRoomAlarmService.findAlarmEnabledMap(memberId, roomIds);
 
-        return chatRoomSequenceService.findAllRoomsWithUnread(memberId, roomProjections, alarmEnabledMap);
+        return chatRoomReadService.findAllRoomsWithUnread(memberId, roomProjections, alarmEnabledMap);
     }
 
-    @Transactional
     public EntryRoomResponse getEntryInfo(String inviteCode, Long memberId) {
         ChatRoom room = getByInviteCode(inviteCode);
-        chatRoomParticipantService.validateParticipant(memberId, room.getId());
 
-        Long currentSequence = chatRoomSequenceService.getLatestSequence(room.getId());
-        chatRoomParticipantService.findActiveParticipant(room.getId(), memberId)
-                .ifPresent(p -> p.updateLastReadSequence(currentSequence));
+        ChatParticipant participant = chatRoomParticipantService
+                .findActiveParticipant(room.getId(), memberId)
+                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT));
+
+        Long currentSequence = chatRoomReadService.getLatestSequence(room.getId());
+        participant.updateLastReadSequence(currentSequence);
 
         memberService.getMemberById(memberId).setRecentRoomId(room.getId());
 
@@ -201,7 +198,7 @@ public class ChatRoomService {
 
     @Transactional
     public void updateLastReadSequence(Long roomId, Long memberId) {
-        chatRoomSequenceService.updateLastReadSequence(roomId, memberId);
+        chatRoomReadService.updateLastReadSequence(roomId, memberId);
     }
 
     public ChatRoom getRoomById(Long roomId) {

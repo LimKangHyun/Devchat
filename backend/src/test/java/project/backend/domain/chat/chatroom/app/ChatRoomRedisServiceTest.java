@@ -8,7 +8,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,9 +17,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
+import project.backend.domain.chat.chatroom.dao.redis.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
+import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.ex.ChatRoomException;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +33,8 @@ class ChatRoomRedisServiceTest {
     private ChatRoomRedisRepository chatRoomRedisRepository;
     @Mock
     private ChatRoomRepository chatRoomRepository;
+    @Mock
+    private ChatRoomSyncService chatRoomSyncService;
 
     private ChatRoom chatRoom;
 
@@ -42,29 +44,27 @@ class ChatRoomRedisServiceTest {
     }
 
     @Nested
-    @DisplayName("handleMessageDelivery() - 메시지 seq 채번")
+    @DisplayName("genMessageSeq() - 메시지 seq 채번")
     class HandleMessageDelivery {
 
         @Test
         @DisplayName("Redis에서 정상 seq를 반환하면 그대로 반환한다")
         void handleMessageDelivery_normalSeq_returnsAsIs() {
-            given(chatRoomRedisRepository.handleMessageDelivery(10L)).willReturn(5L);
+            given(chatRoomRedisRepository.genMessageSeq(10L)).willReturn(5L);
 
-            Long result = chatRoomRedisService.handleMessageDelivery(10L);
+            Long result = chatRoomRedisService.genMessageSeq(10L);
 
             assertThat(result).isEqualTo(5L);
-            then(chatRoomRepository).should(never()).findById(10L);
+            then(chatRoomSyncService).should(never()).recoverFromDb(10L);
         }
 
         @Test
         @DisplayName("Redis가 -1을 반환하면 DB에서 복구 후 dbSeq+1을 반환한다")
         void handleMessageDelivery_minusOne_recoversFromDb() {
-            given(chatRoomRedisRepository.handleMessageDelivery(10L)).willReturn(-1L);
-            given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
-            given(chatRoom.getLastSequence()).willReturn(3L);
-            given(chatRoomRedisRepository.recoverAndIncr(10L, 3L)).willReturn(4L);
+            given(chatRoomRedisRepository.genMessageSeq(10L)).willReturn(-1L);
+            given(chatRoomSyncService.recoverFromDb(10L)).willReturn(4L);
 
-            Long result = chatRoomRedisService.handleMessageDelivery(10L);
+            Long result = chatRoomRedisService.genMessageSeq(10L);
 
             assertThat(result).isEqualTo(4L);
         }
@@ -72,12 +72,10 @@ class ChatRoomRedisServiceTest {
         @Test
         @DisplayName("Redis가 -1이고 DB lastSequence가 null이면 1을 반환한다")
         void handleMessageDelivery_minusOne_nullDbSeq_returnsOne() {
-            given(chatRoomRedisRepository.handleMessageDelivery(10L)).willReturn(-1L);
-            given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
-            given(chatRoom.getLastSequence()).willReturn(null);
-            given(chatRoomRedisRepository.recoverAndIncr(10L, 0L)).willReturn(1L);
+            given(chatRoomRedisRepository.genMessageSeq(10L)).willReturn(-1L);
+            given(chatRoomSyncService.recoverFromDb(10L)).willReturn(1L);
 
-            Long result = chatRoomRedisService.handleMessageDelivery(10L);
+            Long result = chatRoomRedisService.genMessageSeq(10L);
 
             assertThat(result).isEqualTo(1L);
         }
@@ -85,11 +83,11 @@ class ChatRoomRedisServiceTest {
         @Test
         @DisplayName("Redis가 -1인데 채팅방이 없으면 예외를 던진다")
         void handleMessageDelivery_minusOne_roomNotFound_throwsException() {
-            given(chatRoomRedisRepository.handleMessageDelivery(10L)).willReturn(-1L);
-            given(chatRoomRepository.findById(10L)).willReturn(Optional.empty());
+            given(chatRoomRedisRepository.genMessageSeq(10L)).willReturn(-1L);
+            given(chatRoomSyncService.recoverFromDb(10L)).willThrow(new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 
-            assertThatThrownBy(() -> chatRoomRedisService.handleMessageDelivery(10L))
-                .isInstanceOf(ChatRoomException.class);
+            assertThatThrownBy(() -> chatRoomRedisService.genMessageSeq(10L))
+                    .isInstanceOf(ChatRoomException.class);
         }
     }
 

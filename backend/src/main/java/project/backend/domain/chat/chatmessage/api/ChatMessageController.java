@@ -1,7 +1,11 @@
 package project.backend.domain.chat.chatmessage.api;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.security.Principal;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Slice;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -9,24 +13,21 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageEditRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
-import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
 
+@Tag(name = "Chat Message", description = "채팅 메시지 API")
+@Validated
 @RestController
 @RequiredArgsConstructor
 public class ChatMessageController {
@@ -56,22 +57,19 @@ public class ChatMessageController {
         chatMessageService.editMessage(roomId, request, userDetails);
     }
 
+    @Operation(summary = "메시지 검색")
     @GetMapping("/chat/search/{roomId}")
     public Slice<ChatMessageSearchResponse> searchMessages(
-        @AuthenticationPrincipal MemberDetails memberDetails,
-        @PathVariable("roomId") Long roomId,
-        @RequestParam("keyword") String keyword,
-        @RequestParam(required = false) Long lastMessageId,
-        @RequestParam(defaultValue = "10") int size
-    ) throws JsonProcessingException {  // writeValueAsString 때문에 예외 선언 필요
-        ChatMessageSearchRequest request = ChatMessageSearchRequest.of(keyword, lastMessageId,
-            size);
-        Slice<ChatMessageSearchResponse> result = chatMessageService.searchMessages(
-            memberDetails.getId(), roomId, request);
+            @AuthenticationPrincipal MemberDetails memberDetails,
+            @PathVariable Long roomId,
+            @RequestParam @NotBlank(message = "검색어를 입력해주세요.") String keyword,
+            @RequestParam(required = false) Long lastMessageId,
+            @RequestParam(defaultValue = "10") @Min(value = 1) int pageSize) {
 
-        return result;
+        return chatMessageService.searchMessages(memberDetails.getId(), roomId, keyword, lastMessageId, pageSize);
     }
 
+    @Operation(summary = "메시지 스크롤 조회")
     @GetMapping("/{roomId}/messages")
     public ChatScrollResponse getMessages(
         @AuthenticationPrincipal MemberDetails memberDetails,
@@ -91,6 +89,7 @@ public class ChatMessageController {
                 userDetails);
     }
 
+    @Operation(summary = "이미지 업로드")
     @PostMapping("/send-image")
     public Long uploadImage(@RequestParam MultipartFile image) {
         ImageFile imageFile = imageFileService.saveChatImage(image);

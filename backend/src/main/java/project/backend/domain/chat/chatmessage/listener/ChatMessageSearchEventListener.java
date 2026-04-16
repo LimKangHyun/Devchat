@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageSearchRepository;
-import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSavedEvent;
+import project.backend.domain.chat.chatmessage.app.event.ChatMessageSavedEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 
 @Slf4j

@@ -15,7 +15,7 @@ import project.backend.auth.dto.MemberDetails;
 import project.backend.auth.token.jwt.Token;
 import project.backend.auth.token.dao.TokenRedisRepository;
 import project.backend.auth.token.entity.TokenRedis;
-import project.backend.domain.member.app.MemberRedisService;
+import project.backend.domain.member.app.ProfileImageCache;
 
 @Slf4j
 @Component
@@ -24,7 +24,7 @@ public class FormSuccessHandler implements AuthenticationSuccessHandler {
 
 	private final JwtProvider jwtProvider;
 	private final TokenRedisRepository tokenRedisRepository;
-	private final MemberRedisService memberRedisService;
+	private final ProfileImageCache profileImageCache;
 
 	@Override
 	public void onAuthenticationSuccess(HttpServletRequest request,
@@ -42,7 +42,7 @@ public class FormSuccessHandler implements AuthenticationSuccessHandler {
 				null)
 		);
 
-		memberRedisService.setProfileImage(memberDetails.getId(), memberDetails.getProfileImg());
+		profileImageCache.setProfileImage(memberDetails.getId(), memberDetails.getProfileImg());
 
 		response.setStatus(HttpServletResponse.SC_OK);
 		response.setContentType("application/json");

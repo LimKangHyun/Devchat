@@ -1,110 +1,116 @@
 package project.backend.domain.chat.chatroom.app;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
+import project.backend.domain.chat.chatmessage.app.policy.MessageSendPolicySelector;
+import project.backend.domain.chat.chatmessage.app.policy.limiter.FallbackLimiter;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
-import project.backend.domain.chat.chatroom.dao.ChatRoomWithSequenceProjection;
-import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
+import project.backend.global.exception.errorcode.ChatRoomErrorCode;
+import project.backend.global.exception.ex.ChatRoomException;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class ChatRoomSequenceService {
 
-    private final ChatRoomRepository chatRoomRepository;
-    private final ChatParticipantRepository chatParticipantRepository;
-    private final ChatRoomCacheService chatRoomCacheService;
     private final ChatRoomRedisService chatRoomRedisService;
+    private final ChatRoomSyncService chatRoomSyncService;
+    private final ChatRoomRepository chatRoomRepository;
+    private final MeterRegistry meterRegistry;
+    private final MessageSendPolicySelector policySelector;
+    private final FallbackLimiter fallbackLimiter;
 
-    public List<AllRoomsResponse> findAllRoomsWithUnread(Long memberId,
-                                                         List<ChatRoomWithSequenceProjection> roomProjections,
-                                                         Map<Long, Boolean> alarmEnabledMap) {
-
-        List<Long> roomIds = new ArrayList<>(roomProjections.size());
-        Map<Long, ChatRoomWithSequenceProjection> projectionMap = new HashMap<>();
-        Map<Long, Integer> sequenceIndexMap = new HashMap<>();
-
-        for (int i = 0; i < roomProjections.size(); i++) {
-            ChatRoomWithSequenceProjection p = roomProjections.get(i);
-            Long id = p.getChatRoomId();
-            roomIds.add(id);
-            projectionMap.put(id, p);
-            sequenceIndexMap.put(id, i);
+    @CircuitBreaker(name = "redis", fallbackMethod = "genMessageSeqFallback")
+    public Long genMessageSeq(Long roomId, Long userId) {
+        if (!policySelector.select().canSend(userId)) {
+            throw new ChatRoomException(ChatRoomErrorCode.TOO_MANY_REQUESTS);
         }
-
-        List<Long> sortedRoomIds = chatRoomCacheService.getSortedRoomIds(roomIds);
-        List<Long> sequences = chatRoomCacheService.getSequences(roomIds);
-
-        return sortedRoomIds.stream().map(roomId -> {
-            ChatRoomWithSequenceProjection p = projectionMap.get(roomId);
-            boolean alarmEnabled = alarmEnabledMap.getOrDefault(roomId, true);
-            Long lastRead = (p.getLastReadSequence() != null) ? p.getLastReadSequence() : 0L;
-
-            Long unreadCount = null;
-            Integer originalIdx = sequenceIndexMap.get(roomId);
-            if (sequences != null && originalIdx != null) {
-                unreadCount = calculateUnread(lastRead, sequences.get(originalIdx));
-            }
-
-            return new AllRoomsResponse(
-                    roomId,
-                    p.getInviteCode(),
-                    p.getName(),
-                    alarmEnabled,
-                    unreadCount
-            );
-        }).toList();
+        return chatRoomRedisService.genMessageSeq(roomId);
     }
 
-    @Transactional
-    public void updateLastReadSequence(Long roomId, Long memberId) {
-        Long currentSequence = chatRoomCacheService.getLatestSequence(roomId);
-        chatParticipantRepository
-                .findByChatRoomIdAndParticipantIdAndIsActiveTrue(roomId, memberId)
-                .ifPresent(p -> p.updateLastReadSequence(currentSequence));
+    public Long genMessageSeqFallback(Long roomId, Long userId, CallNotPermittedException e) {
+        log.warn("Circuit OPEN - genMessageSeq 차단 roomId={}", roomId);
+        if (!policySelector.select().canSend(userId)) {
+            log.warn("Circuit OPEN - RateLimit 초과 userId={}", userId);
+            throw new ChatRoomException(ChatRoomErrorCode.TOO_MANY_REQUESTS);
+        }
+        return doFallback(roomId, userId);
     }
 
+    public Long genMessageSeqFallback(Long roomId, Long userId, Throwable e) {
+        log.warn("Redis 예외 - genMessageSeq 폴백 roomId={}", roomId);
+        return doFallback(roomId, userId);
+    }
+
+    @CircuitBreaker(name = "redis", fallbackMethod = "getLatestSequenceFallback")
     public Long getLatestSequence(Long roomId) {
-        return chatRoomCacheService.getLatestSequence(roomId);
-    }
-
-    @Transactional
-    public void syncSequencesToDb() {
-        Set<String> updatedRoomIds = chatRoomRedisService.getAndClearUpdatedRooms();
-        if (updatedRoomIds.isEmpty()) return;
-
-        List<Long> roomIds = updatedRoomIds.stream().map(Long::valueOf).toList();
-        List<ChatRoom> rooms = chatRoomRepository.findAllById(roomIds);
-        if (rooms.isEmpty()) return;
-
-        List<Long> targetIds = rooms.stream().map(ChatRoom::getId).toList();
-        List<Long> redisSequences = chatRoomRedisService.getSequences(targetIds);
-
-        for (int i = 0; i < rooms.size(); i++) {
-            Long redisSeq = redisSequences.get(i);
-            long currentSeq = rooms.get(i).getLastSequence() != null
-                    ? rooms.get(i).getLastSequence() : 0L;
-            if (redisSeq != null && redisSeq > currentSeq) {
-                rooms.get(i).updateLastSequence(redisSeq);
-            }
+        Long redisSeq = chatRoomRedisService.getSequence(roomId);
+        if (redisSeq == -1L) {
+            ChatRoom room = chatRoomRepository.findById(roomId)
+                    .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+            long dbSeq = room.getLastSequence();
+            chatRoomRedisService.setSequence(roomId, dbSeq);
+            return dbSeq;
         }
-        log.info("last_sequence 동기화 완료 - {}개 채팅방", rooms.size());
+        return redisSeq;
     }
 
-    private long calculateUnread(long lastReadSequence, long lastMessageSequence) {
-        return Math.max(0, lastMessageSequence - lastReadSequence);
+    public Long getLatestSequenceFallback(Long roomId, Throwable e) {
+        log.warn("Circuit OPEN - getLatestSequence 폴백 roomId={}", roomId);
+        meterRegistry.counter("redis.fallback", "reason", "latestSequence").increment();
+        return chatRoomRepository.findById(roomId)
+                .map(ChatRoom::getLastSequence)
+                .orElse(0L);
     }
 
-    @Transactional
-    public Long incrementSequenceFromDb(Long roomId) {
-        chatRoomRepository.incrementSequence(roomId);
-        return chatRoomRepository.findLastInsertId();
+    @CircuitBreaker(name = "redis", fallbackMethod = "getSequencesFallback")
+    public List<Long> getSequences(List<Long> roomIds) {
+        return chatRoomRedisService.getSequences(roomIds);
+    }
+
+    public List<Long> getSequencesFallback(List<Long> roomIds, Throwable e) {
+        log.warn("Circuit OPEN - getSequences 폴백");
+        meterRegistry.counter("redis.fallback", "reason", "sequence").increment();
+        Map<Long, Long> seqMap = chatRoomRepository.findAllById(roomIds).stream()
+                .collect(Collectors.toMap(
+                        ChatRoom::getId,
+                        ChatRoom::getLastSequence
+                ));
+        return roomIds.stream()
+                .map(id -> seqMap.getOrDefault(id, 0L))
+                .toList();
+    }
+
+    @CircuitBreaker(name = "redis", fallbackMethod = "getSortedRoomIdsFallback")
+    public List<Long> getSortedRoomIds(List<Long> roomIds) {
+        return chatRoomRedisService.getSortedRoomIds(roomIds);
+    }
+
+    public List<Long> getSortedRoomIdsFallback(List<Long> roomIds, Throwable e) {
+        log.warn("Circuit OPEN - getSortedRoomIds 폴백");
+        return roomIds;
+    }
+
+    private Long doFallback(Long roomId, Long userId) {
+        meterRegistry.counter("redis.fallback", "method", "genMessageSeq").increment();
+        if (!fallbackLimiter.tryAcquire()) {
+            log.warn("Fallback 동시 처리 한도 초과 - DB 보호 roomId={}", roomId);
+            meterRegistry.counter("redis.fallback.rejected").increment();
+            throw new ChatRoomException(ChatRoomErrorCode.SERVICE_UNAVAILABLE);
+        }
+        try {
+            return chatRoomSyncService.incrementSequenceFromDb(roomId);
+        } finally {
+            fallbackLimiter.release();
+        }
     }
 }

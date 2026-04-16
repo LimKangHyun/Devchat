@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
-import project.backend.domain.chat.chatroom.entity.ChatRoom;
 
 public interface ChatParticipantRepository extends JpaRepository<ChatParticipant, Long> {
 
@@ -14,10 +13,10 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
     @Query("""
         SELECT cp 
         FROM ChatParticipant cp 
-        WHERE cp.chatRoom = :chatRoom 
+        WHERE cp.chatRoom.id = :chatRoomId 
           AND cp.isActive = true
-        """)
-    List<ChatParticipant> findByChatRoom(ChatRoom chatRoom);
+    """)
+    List<ChatParticipant> findByChatRoomId(Long chatRoomId);
 
     Optional<ChatParticipant> findByChatRoomIdAndParticipantIdAndIsActiveTrue(Long chatRoomId,
         Long participantId);
