@@ -43,6 +43,7 @@ public class ChatMessageController {
         chatMessageService.save(roomId, request, userDetails);
     }
 
+    @Operation(summary = "메시지 저장 - TEST")
     @PostMapping("/chat-rooms/{roomId}/messages")
     public ChatMessageResponse saveMessage(@PathVariable Long roomId,
         @RequestBody ChatMessageRequest request, Principal principal) {
