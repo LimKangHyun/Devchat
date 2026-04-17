@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 # 현재 active color 읽어서 NEW_COLOR 결정
 ACTIVE_COLOR_FILE="/home/ubuntu/NBE5-7-2-TEAM08/deployment/active_color.txt"
 CURRENT_COLOR=$(cat "$ACTIVE_COLOR_FILE" 2>/dev/null || echo "blue")
