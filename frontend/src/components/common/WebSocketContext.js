@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { Client } from "@stomp/stompjs"
-import { useNavigate } from "react-router-dom"
+import axiosInstance from "../api/axiosInstance"
 
 const WebSocketContext = createContext(null)
 
@@ -8,13 +8,19 @@ export const WebSocketProvider = ({ children }) => {
   const stompClientRef = useRef(null)
   const retryCountRef = useRef(0)
   const [connected, setConnected] = useState(false)
-  const navigate = useNavigate()
 
   useEffect(() => {
     const client = new Client({
-      webSocketFactory: () => {
-        console.log("🔌 webSocketFactory 호출")
-        return new WebSocket(process.env.REACT_APP_WEB_SOCKET_URL)
+      webSocketFactory: async () => {
+        try {
+          const res = await axiosInstance.get('/token/ws-token')
+          const token = res.data
+          console.log("🔌 webSocketFactory 호출")
+          return new WebSocket(`${process.env.REACT_APP_WEB_SOCKET_URL}?token=${token}`)
+        } catch (err) {
+          console.error("❌ WS 토큰 발급 실패")
+          return new WebSocket(process.env.REACT_APP_WEB_SOCKET_URL)
+        }
       },
       heartbeatIncoming: 15000,
       heartbeatOutgoing: 10000,
