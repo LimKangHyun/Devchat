@@ -1,6 +1,5 @@
 package project.backend.global.security.interceptor;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -13,11 +12,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
-import project.backend.auth.app.CookieUtils;
 import project.backend.auth.token.jwt.JwtProvider;
 import project.backend.auth.token.jwt.TokenStatus;
-import project.backend.global.exception.errorcode.TokenErrorCode;
-import project.backend.global.exception.ex.CustomJwtException;
 
 @Slf4j
 @Component
@@ -33,31 +29,30 @@ public class WebSocketHandShakeInterceptor implements HandshakeInterceptor {
 		if (request instanceof ServletServerHttpRequest servletRequest) {
 			HttpServletRequest httpServletRequest = servletRequest.getServletRequest();
 
-			Cookie cookie = CookieUtils.getCookie(httpServletRequest,
-					"accessToken")
-				.orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));
-			String accessToken = cookie.getValue();
+			String token = httpServletRequest.getParameter("token");
 
-			// 토큰 검증
-			TokenStatus tokenStatus = jwtProvider.validateAccessToken(accessToken);
-
-			if (tokenStatus == TokenStatus.VALID) {
-				log.info("[JWT] 유효한 토큰");
-				Authentication authentication = jwtProvider.getAuthentication(accessToken);
-				// 이후 ChannelInterceptor에서 꺼내쓰기 위해 attributes에 저장
-				attributes.put("auth", authentication);
-
-			} else {
-				return false; //handshake 허용x
+			if (token == null || token.isBlank()) {
+				log.warn("[WS] 토큰 없음 - 핸드셰이크 거부");
+				return false;
 			}
 
+			TokenStatus tokenStatus = jwtProvider.validateWsToken(token);
+
+			if (tokenStatus == TokenStatus.VALID) {
+				log.info("[WS] 유효한 WS 토큰 - 핸드셰이크 허용");
+				Authentication authentication = jwtProvider.getAuthenticationFromWsToken(token);
+				attributes.put("auth", authentication);
+			} else {
+				log.warn("[WS] 유효하지 않은 WS 토큰 - 핸드셰이크 거부");
+				return false;
+			}
 		}
-		return true; // handshake 허용
+		return true;
 	}
 
 	@Override
 	public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response,
 		WebSocketHandler wsHandler, Exception exception) {
-		SecurityContextHolder.clearContext(); //cleanup
+		SecurityContextHolder.clearContext();
 	}
 }

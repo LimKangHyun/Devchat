@@ -63,8 +63,8 @@ public class SecurityConfig {
 					.requestMatchers("/signup", "/login", "/login/oauth2/**", "/error")
 					.anonymous()
 
-					.requestMatchers("/token/**", "/github/**", "/images/**", "/actuator/health",
-						"/actuator/prometheus", "/ws", "/swagger-ui/**", "/swagger-ui.html",
+					.requestMatchers("/token/refresh", "/github/**", "/images/**", "/actuator/health",
+						"/actuator/prometheus", "/ws",  "/swagger-ui/**", "/swagger-ui.html",
 							"/v3/api-docs/**")
 					.permitAll()
 
