@@ -51,8 +51,7 @@ public class SecurityConfig {
 				session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
 			.formLogin(form -> {
-				form.loginPage("/login")
-					.usernameParameter("username")
+				form.usernameParameter("username")
 					.passwordParameter("password")
 					.failureHandler(formFailureHandler)
 					.successHandler(formSuccessHandler)
