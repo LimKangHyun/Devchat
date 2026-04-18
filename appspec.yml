@@ -4,6 +4,9 @@ files:
   - source: /deployment
     destination: /home/ubuntu/NBE5-7-2-TEAM08/deployment
     overwrite: yes
+  - source: /scripts
+    destination: /home/ubuntu/NBE5-7-2-TEAM08/scripts
+    overwrite: yes
   - source: /docker-compose.yml
     destination: /home/ubuntu
     overwrite: yes
