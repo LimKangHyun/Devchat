@@ -58,7 +58,7 @@ jobs:
           aws-region: ap-northeast-2
       - name: Zip deployment files
         run: |
-          zip -r deploy.zip deployment scripts appspec.yml
+          zip -r deploy.zip deployment scripts appspec.yml docker-compose.yml
       - name: Upload to S3
         run: |
           aws s3 cp deploy.zip s3://devchat-codedeploy-bucket/deploy.zip
