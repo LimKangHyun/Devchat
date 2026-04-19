@@ -61,7 +61,7 @@ public class ChatRoomSequenceService {
         Long redisSeq = chatRoomRedisService.getSequence(roomId);
         if (redisSeq == -1L) {
             ChatRoom room = chatRoomRepository.findById(roomId)
-                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+                    .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
             long dbSeq = room.getLastSequence();
             chatRoomRedisService.setSequence(roomId, dbSeq);
             return dbSeq;
@@ -73,8 +73,8 @@ public class ChatRoomSequenceService {
         log.warn("Circuit OPEN - getLatestSequence 폴백 roomId={}", roomId);
         meterRegistry.counter("redis.fallback", "reason", "latestSequence").increment();
         return chatRoomRepository.findById(roomId)
-            .map(ChatRoom::getLastSequence)
-            .orElse(0L);
+                .map(ChatRoom::getLastSequence)
+                .orElse(0L);
     }
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getSequencesFallback")
@@ -86,13 +86,13 @@ public class ChatRoomSequenceService {
         log.warn("Circuit OPEN - getSequences 폴백");
         meterRegistry.counter("redis.fallback", "reason", "sequence").increment();
         Map<Long, Long> seqMap = chatRoomRepository.findAllById(roomIds).stream()
-            .collect(Collectors.toMap(
-                ChatRoom::getId,
-                ChatRoom::getLastSequence
-            ));
+                .collect(Collectors.toMap(
+                        ChatRoom::getId,
+                        ChatRoom::getLastSequence
+                ));
         return roomIds.stream()
-            .map(id -> seqMap.getOrDefault(id, 0L))
-            .toList();
+                .map(id -> seqMap.getOrDefault(id, 0L))
+                .toList();
     }
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getSortedRoomIdsFallback")
