@@ -38,16 +38,16 @@ public class ChatRoomSequenceService {
     }
 
     public Long genMessageSeqFallback(Long roomId, Long userId, CallNotPermittedException e) {
-        log.warn("Circuit OPEN - genMessageSeq 차단 roomId={}", roomId);
+        log.warn("Circuit OPEN - genMessageSeq 차단 roomId={}", roomId, e.getCause());
         if (!policySelector.select().canSend(userId)) {
-            log.warn("Circuit OPEN - RateLimit 초과 userId={}", userId);
+            log.warn("Circuit OPEN - RateLimit 초과 userId={}", userId, e.getCause());
             throw new ChatRoomException(ChatRoomErrorCode.TOO_MANY_REQUESTS);
         }
         return doFallback(roomId, userId);
     }
 
     public Long genMessageSeqFallback(Long roomId, Long userId, Throwable e) {
-        log.warn("Redis 예외 - genMessageSeq 폴백 roomId={}", roomId);
+        log.warn("Redis 예외 - genMessageSeq 폴백 roomId={} 예외={}", roomId, e.getMessage());
         return doFallback(roomId, userId);
     }
 
