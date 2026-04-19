@@ -13,6 +13,7 @@ const useWebSocket = ({
   onRoomDeleted,
   dmRoomId,
   onDmMessageReceived,
+  onError,
 }) => {
   const { stompClientRef, connected } = useWebSocketContext()
 
@@ -23,6 +24,7 @@ const useWebSocket = ({
   const onSidebarMessageRef = useRef(onSidebarMessage)
   const onDmMessageReceivedRef = useRef(onDmMessageReceived)
   const currentRoomIdRef = useRef(currentRoomId)
+  const onErrorRef = useRef(onError)
 
   useEffect(() => { onMessageReceivedRef.current = onMessageReceived }, [onMessageReceived])
   useEffect(() => { onNotificationReceivedRef.current = onNotificationReceived }, [onNotificationReceived])
@@ -31,6 +33,7 @@ const useWebSocket = ({
   useEffect(() => { onSidebarMessageRef.current = onSidebarMessage }, [onSidebarMessage])
   useEffect(() => { onDmMessageReceivedRef.current = onDmMessageReceived }, [onDmMessageReceived])
   useEffect(() => { currentRoomIdRef.current = currentRoomId }, [currentRoomId])
+  useEffect(() => { onErrorRef.current = onError }, [onError])
 
   // 채팅방 메시지 + 방 삭제 구독
   useEffect(() => {
@@ -141,6 +144,23 @@ const useWebSocket = ({
 
     return () => sub.unsubscribe()
   }, [connected, dmRoomId])
+
+  // 에러 구독
+  useEffect(() => {
+    const client = stompClientRef.current
+    if (!connected || !client?.connected) return
+
+    const sub = client.subscribe(`/user/queue/errors`, (message) => {
+      try {
+        const error = JSON.parse(message.body)
+        onErrorRef.current?.(error.message)
+      } catch (e) {
+        console.error("📛 Failed to parse error message", e)
+      }
+    })
+
+    return () => sub.unsubscribe()
+  }, [connected])
 
   return { stompClientRef, connected }
 }
