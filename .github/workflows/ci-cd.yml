@@ -30,7 +30,6 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
-    needs: frontend  # ← 프론트 빌드 완료 후 실행
     env:
       RDS_USERNAME: ${{ secrets.RDS_USERNAME }}
       RDS_PASSWORD: ${{ secrets.RDS_PASSWORD }}
@@ -67,7 +66,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: backend  # backend(→frontend) 완료 후 실행
+    needs: [frontend, backend]  # 둘 다 끝나면 실행
     if: github.ref == 'refs/heads/prod'
     steps:
       - name: Checkout repository
@@ -88,7 +87,7 @@ jobs:
         run: |
           aws s3 cp deploy.zip s3://devchat-codedeploy-bucket/deploy.zip
 
-      - name: Deploy via CodeDeploy
+      - name: Deploy backend via CodeDeploy
         run: |
           DEPLOYMENT_ID=$(aws deploy create-deployment \
             --application-name devchat-backend \
@@ -99,13 +98,12 @@ jobs:
 
           echo "Deployment ID: $DEPLOYMENT_ID"
 
-          # CodeDeploy 완료까지 대기 (최대 10분)
+          # 백엔드 헬스체크 완료까지 대기 (최대 10분)
           aws deploy wait deployment-successful \
             --deployment-id $DEPLOYMENT_ID
 
-          echo "배포 완료!"
+          echo "백엔드 배포 완료!"
 
-      # 프론트엔드는 백엔드 배포 완료 후 교체
       - name: Deploy frontend to EC2
         uses: appleboy/ssh-action@v0.1.6
         with:
@@ -118,11 +116,10 @@ jobs:
             docker rm dev-chat-frontend || true
             cd /home/ubuntu
             docker-compose up -d dev-chat-frontend
-            
-            # 프론트 헬스체크
+
             echo "프론트엔드 헬스체크 중..."
             for i in {1..30}; do
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:80)
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001)
               if [ "$STATUS" == "200" ]; then
                 echo "프론트엔드 정상 기동!"
                 exit 0
