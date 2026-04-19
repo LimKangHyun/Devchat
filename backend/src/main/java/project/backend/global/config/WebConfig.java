@@ -17,7 +17,7 @@ public class WebConfig implements WebMvcConfigurer {
 	@Override
 	public void addCorsMappings(CorsRegistry registry) {
 		registry.addMapping("/**") // 모든 경로 허용
-			.allowedOrigins(domainUrl, imageUrl, "https://devchat-iota.vercel.app")
+			.allowedOrigins(domainUrl, imageUrl)
 			.allowedMethods("*")
 			.allowedHeaders("*")
 			.allowCredentials(true);

@@ -36,10 +36,8 @@ public class JwtProvider {
 
     public static final Long TOKEN_VALIDATION_SECOND = 10 * 60L;
     public static final Long REFRESH_TOKEN_VALIDATION_SECOND = 7 * 24 * 60 * 60L;
-    public static final Long WS_TOKEN_VALIDATION_SECOND = 60L; // 1분
 
     private final TokenRedisRepository tokenRedisRepository;
-    private final MemberRepository memberRepository;
 
     @Value("${jwt.info.secret}")
     private String SECRET_KEY;
@@ -190,34 +188,5 @@ public class JwtProvider {
             log.error(e.getMessage());
             throw new CustomJwtException(TokenErrorCode.UNKNOWN_ERROR);
         }
-    }
-
-    public String generateWsToken(MemberDetails memberDetails) {
-        Map<String, String> payload = Map.of(
-            "username", memberDetails.getUsername(),
-            "id", String.valueOf(memberDetails.getId()),
-            "nickname", memberDetails.getNickname()
-        );
-        return doGenerateToken(WS_TOKEN_VALIDATION_SECOND, payload);
-    }
-
-    public TokenStatus validateWsToken(String token) {
-        try {
-            getJwtVerifier(WS_TOKEN_VALIDATION_SECOND).verify(token);
-            return TokenStatus.VALID;
-        } catch (TokenExpiredException e) {
-            return TokenStatus.EXPIRED;
-        } catch (Exception e) {
-            return TokenStatus.UNKNOWN_ERROR;
-        }
-    }
-
-    public Authentication getAuthenticationFromWsToken(String token) {
-        DecodedJWT decodedJWT = getJwtVerifier(WS_TOKEN_VALIDATION_SECOND).verify(token);
-        Long id = Long.valueOf(decodedJWT.getClaim("id").asString());
-        String username = decodedJWT.getClaim("username").asString();
-        String nickname = decodedJWT.getClaim("nickname").asString();
-        MemberDetails memberDetails = new MemberDetails(id, username, nickname, null);
-        return new UsernamePasswordAuthenticationToken(memberDetails, token, memberDetails.getAuthorities());
     }
 }

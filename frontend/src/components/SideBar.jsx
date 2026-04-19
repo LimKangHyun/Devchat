@@ -11,7 +11,6 @@ import Toast from "./common/Toast"
 import FriendsSidebar from "./FriendsSidebar"
 import axiosInstance from "./api/axiosInstance"
 import { useAlarm } from '../context/AlarmContext'
-import { useUser } from '../context/UserContext'
 import useWebSocket from './common/useWebSocket'
 import styles from './Sidebar.module.css'
 
@@ -22,10 +21,8 @@ const Sidebar = ({ onStartChat }) => {
   const { inviteCode } = useParams()
   const sidebarRef = useRef(null)
 
-  const { currentUser } = useUser()
-  const { getAlarmStatus } = useAlarm()
-
   const [activeTab, setActiveTab] = useState("chat")
+
   const [loading, setLoading] = useState(() => {
     const cached = localStorage.getItem(CACHE_KEY)
     return !cached
@@ -36,10 +33,14 @@ const Sidebar = ({ onStartChat }) => {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [roomsReady, setRoomsReady] = useState(false)
+
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState("")
+
+  const [currentUser, setCurrentUser] = useState(null)
   const [roomId, setRoomId] = useState(null)
-  const roomIdRef = useRef(roomId)
+
+  const { getAlarmStatus, alarmStatusMap = {} } = useAlarm()
 
   const [alarmRooms, setAlarmRooms] = useState(() => {
     try {
@@ -50,12 +51,8 @@ const Sidebar = ({ onStartChat }) => {
     }
   })
 
-  useEffect(() => {
-    roomIdRef.current = roomId
-  }, [roomId])
-
   const handleSidebarMessage = (roomUniqueId, message) => {
-    if (Number(roomIdRef.current) !== Number(roomUniqueId)) {
+    if (Number(roomId) !== Number(roomUniqueId)) {
       setAlarmRooms(prev => prev.map(r =>
         Number(r.uniqueId) === Number(roomUniqueId)
           ? { ...r, unreadCount: (r.unreadCount ?? 0) + 1 }
@@ -91,23 +88,28 @@ const Sidebar = ({ onStartChat }) => {
     }
   }
 
-  useWebSocket({
+  const stompClientRef = useWebSocket({
     chatRooms: alarmRooms,
     currentRoomId: roomId,
     onSidebarMessage: handleSidebarMessage,
+    onMessageReceived: () => {},
+    roomId: null,
   })
 
-  useEffect(() => {
-    if (activeTab === "chat") {
-      fetchAllRooms()
-    }
-  }, [activeTab])
-
+  // read API 완료 후 fetchAllRooms 실행
   useEffect(() => {
     const handleRoomRead = () => fetchAllRooms()
     window.addEventListener('room:read', handleRoomRead)
     return () => window.removeEventListener('room:read', handleRoomRead)
   }, [])
+
+  // inviteCode에서 제거 (room:read 이벤트로 대체)
+  useEffect(() => {
+    if (activeTab === "chat") {
+      fetchAllRooms()
+      fetchCurrentUser()
+    }
+  }, [activeTab, alarmStatusMap])
 
   useEffect(() => {
     if (!inviteCode) {
@@ -120,10 +122,18 @@ const Sidebar = ({ onStartChat }) => {
     } else {
       setRoomId(null)
     }
-  }, [inviteCode, alarmRooms])
+  }, [inviteCode, alarmRooms, alarmStatusMap])
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await axiosInstance.get("/user/details")
+      setCurrentUser(res.data)
+    } catch (err) {
+      console.error("사용자 정보 로딩 오류:", err)
+    }
+  }
 
   const fetchAllRooms = async () => {
-    console.log('🔄 fetchAllRooms 호출', new Date().toISOString())
     try {
       const cached = localStorage.getItem(CACHE_KEY)
       if (!cached) setLoading(true)
@@ -150,13 +160,8 @@ const Sidebar = ({ onStartChat }) => {
 
   const navigateToRoom = async (id, inviteCode) => {
     if (id) {
-      if (roomIdRef.current) {
-        await axiosInstance.post(`/chat-rooms/${roomIdRef.current}/read`).catch((e) => {
-          console.error("read API 실패:", e)
-        })
-      }
       setAlarmRooms(prev => prev.map(r =>
-        Number(r.uniqueId) === Number(roomIdRef.current) ? { ...r, unreadCount: 0 } : r
+        Number(r.uniqueId) === Number(roomId) ? { ...r, unreadCount: 0 } : r
       ))
       navigate(`/chat/${inviteCode}`)
     }
@@ -238,7 +243,24 @@ const Sidebar = ({ onStartChat }) => {
 
       const created = res.data
       setShowCreateModal(false)
-      await fetchAllRooms()
+      fetchAllRooms()
+
+      if (created) {
+        const newRoom = {
+          ...created,
+          uniqueId: created.id || created.roomId,
+          ownerId: created.ownerId || (currentUser ? currentUser.id : null),
+          participants: [
+            {
+              ...(currentUser || {}),
+              owner: true,
+              nickname: currentUser?.nickname || currentUser?.username || "나",
+            },
+          ],
+        }
+        setAlarmRooms(prev => [newRoom, ...prev.slice(0, 9)])
+        fetchAllRooms()
+      }
 
       if (created?.id) {
         navigate(`/chat/${created.inviteCode}`)
@@ -252,9 +274,9 @@ const Sidebar = ({ onStartChat }) => {
   const handleJoinRoom = async (inviteCode) => {
     try {
       const res = await axiosInstance.post("/chat-rooms/join", { inviteCode })
-      const joined = res.data
+      const joined = await res.data
       setShowJoinModal(false)
-      await fetchAllRooms()
+      fetchAllRooms()
 
       if (joined?.id) {
         navigate(`/chat/${joined.inviteCode}`)
