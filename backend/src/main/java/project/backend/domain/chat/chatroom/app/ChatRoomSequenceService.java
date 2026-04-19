@@ -10,7 +10,9 @@ import project.backend.domain.chat.chatmessage.app.policy.MessageSendPolicySelec
 import project.backend.domain.chat.chatmessage.app.policy.limiter.FallbackLimiter;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
+import project.backend.global.exception.errorcode.ChatMessageErrorCode;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
+import project.backend.global.exception.ex.ChatMessageException;
 import project.backend.global.exception.ex.ChatRoomException;
 
 import java.util.List;
@@ -32,21 +34,24 @@ public class ChatRoomSequenceService {
     @CircuitBreaker(name = "redis", fallbackMethod = "genMessageSeqFallback")
     public Long genMessageSeq(Long roomId, Long userId) {
         if (!policySelector.select().canSend(userId)) {
-            throw new ChatRoomException(ChatRoomErrorCode.TOO_MANY_REQUESTS);
+            throw new ChatMessageException(ChatMessageErrorCode.TOO_MANY_REQUESTS);
         }
         return chatRoomRedisService.genMessageSeq(roomId);
     }
 
     public Long genMessageSeqFallback(Long roomId, Long userId, CallNotPermittedException e) {
-        log.warn("Circuit OPEN - genMessageSeq 차단 roomId={}", roomId, e.getCause());
+        log.warn("Circuit OPEN - genMessageSeq 차단 roomId={}", roomId);
         if (!policySelector.select().canSend(userId)) {
-            log.warn("Circuit OPEN - RateLimit 초과 userId={}", userId, e.getCause());
-            throw new ChatRoomException(ChatRoomErrorCode.TOO_MANY_REQUESTS);
+            log.warn("Circuit OPEN - RateLimit 초과 userId={}", userId);
+            throw new ChatMessageException(ChatMessageErrorCode.TOO_MANY_REQUESTS);
         }
         return doFallback(roomId, userId);
     }
 
     public Long genMessageSeqFallback(Long roomId, Long userId, Throwable e) {
+        if (e instanceof ChatMessageException) {
+            throw (ChatMessageException) e;
+        }
         log.warn("Redis 예외 - genMessageSeq 폴백 roomId={} 예외={}", roomId, e.getMessage());
         return doFallback(roomId, userId);
     }
@@ -56,7 +61,7 @@ public class ChatRoomSequenceService {
         Long redisSeq = chatRoomRedisService.getSequence(roomId);
         if (redisSeq == -1L) {
             ChatRoom room = chatRoomRepository.findById(roomId)
-                    .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
             long dbSeq = room.getLastSequence();
             chatRoomRedisService.setSequence(roomId, dbSeq);
             return dbSeq;
@@ -68,8 +73,8 @@ public class ChatRoomSequenceService {
         log.warn("Circuit OPEN - getLatestSequence 폴백 roomId={}", roomId);
         meterRegistry.counter("redis.fallback", "reason", "latestSequence").increment();
         return chatRoomRepository.findById(roomId)
-                .map(ChatRoom::getLastSequence)
-                .orElse(0L);
+            .map(ChatRoom::getLastSequence)
+            .orElse(0L);
     }
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getSequencesFallback")
@@ -81,13 +86,13 @@ public class ChatRoomSequenceService {
         log.warn("Circuit OPEN - getSequences 폴백");
         meterRegistry.counter("redis.fallback", "reason", "sequence").increment();
         Map<Long, Long> seqMap = chatRoomRepository.findAllById(roomIds).stream()
-                .collect(Collectors.toMap(
-                        ChatRoom::getId,
-                        ChatRoom::getLastSequence
-                ));
+            .collect(Collectors.toMap(
+                ChatRoom::getId,
+                ChatRoom::getLastSequence
+            ));
         return roomIds.stream()
-                .map(id -> seqMap.getOrDefault(id, 0L))
-                .toList();
+            .map(id -> seqMap.getOrDefault(id, 0L))
+            .toList();
     }
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getSortedRoomIdsFallback")
