@@ -38,7 +38,6 @@ public class JwtProvider {
     public static final Long REFRESH_TOKEN_VALIDATION_SECOND = 7 * 24 * 60 * 60L;
 
     private final TokenRedisRepository tokenRedisRepository;
-    private final MemberRepository memberRepository;
 
     @Value("${jwt.info.secret}")
     private String SECRET_KEY;
@@ -189,6 +188,5 @@ public class JwtProvider {
             log.error(e.getMessage());
             throw new CustomJwtException(TokenErrorCode.UNKNOWN_ERROR);
         }
-
     }
 }

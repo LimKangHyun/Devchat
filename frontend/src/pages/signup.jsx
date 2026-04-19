@@ -61,7 +61,7 @@ function App() {
       <div className="form-container">
         <div className="logo-container">
           <a href="/">
-            <img src="/images/devchat-logo.png" alt="DevChat Logo" className="logo-image" />
+            <img src="/images/devchat-logo.webp" alt="DevChat Logo" className="logo-image" />
           </a>
         </div>
 
@@ -139,7 +139,7 @@ function App() {
       </div>
 
       <div className="background-container">
-        <img src="/images/signup-background.png" alt="Background" className="background-image" />
+        <img src="/images/signup-background.webp" alt="Background" className="background-image" />
       </div>
     </div>
   )

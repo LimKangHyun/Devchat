@@ -482,7 +482,7 @@ export function HeaderWithNotifications() {
         <div className={styles.container}>
           <div className={styles.leftSection}>
             <Link to="/" className={styles.logoLink}>
-              <img src="/images/devchat-logo.png" alt="DevChat Logo" className={styles.headerLogoImage} />
+              <img src="/images/devchat-logo.webp" alt="DevChat Logo" className={styles.headerLogoImage} />
             </Link>
             <div className={styles.divider} />
             <Link

@@ -1,20 +1,32 @@
-# 1단계: 빌드 스테이지
-FROM node:22-alpine AS build-stage
+# 1단계: 빌드
+FROM node:22-alpine AS build
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm install
 
-COPY .env.production .env
+# GitHub Actions에서 전달받을 값들
+ARG REACT_APP_BASE_API_URL
+ARG REACT_APP_WEB_SOCKET_URL
+ARG REACT_APP_PROFILE_IMAGE_URL
+ARG REACT_APP_CHAT_IMAGE_URL
+ARG REACT_APP_DEBUG
+ARG CI
 
 COPY . .
-RUN npm run build
 
-# 2단계: Nginx에 빌드 결과물 복사하고 서빙
+# 빌드 시 env 주입
+RUN REACT_APP_BASE_API_URL=$REACT_APP_BASE_API_URL \
+    REACT_APP_WEB_SOCKET_URL=$REACT_APP_WEB_SOCKET_URL \
+    REACT_APP_PROFILE_IMAGE_URL=$REACT_APP_PROFILE_IMAGE_URL \
+    REACT_APP_CHAT_IMAGE_URL=$REACT_APP_CHAT_IMAGE_URL \
+    REACT_APP_DEBUG=$REACT_APP_DEBUG \
+    CI=$CI \
+    npm run build
+
+# 2단계: nginx
 FROM nginx:stable-alpine
-COPY --from=build-stage /app/build /usr/share/nginx/html
-
-# 필요하면 nginx 설정파일 덮어쓰기 가능
-# COPY nginx.conf /etc/nginx/nginx.conf
+COPY --from=build /app/build /usr/share/nginx/html
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

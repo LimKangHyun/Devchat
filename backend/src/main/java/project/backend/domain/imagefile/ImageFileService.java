@@ -63,6 +63,7 @@ public class ImageFileService {
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentType(file.getContentType());
             metadata.setContentLength(file.getSize());
+            metadata.setCacheControl("public, max-age=31536000, immutable"); // 1년
 
             // 업로드 실행
             amazonS3.putObject(

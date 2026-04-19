@@ -1,84 +1,74 @@
 services:
-
-  dev-chat-backend-blue:
-    image: limkanghyun/dev-chat-backend:blue
-    container_name: dev-chat-backend-blue
-    ports:
-      - "8081:8080" # 내부는 8080이지만 외부는 8082
-    environment:
-      - TZ=Asia/Seoul
-      - JWT_SECRET=${JWT_SECRET}
-      - RDS_USERNAME=${RDS_USERNAME}
-      - RDS_PASSWORD=${RDS_PASSWORD}
-      - RDS_ENDPOINT=${RDS_ENDPOINT}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
-      - OAUTH_GITHUB_SECRET=${OAUTH_GITHUB_SECRET}
-      - DOMAIN_URL=${DOMAIN_URL}
-      - IMAGE_URL=${IMAGE_URL}
-      - WEBHOOK_URL=${WEBHOOK_URL}
-      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
-      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
-    depends_on:
-      - prometheus
-    networks:
-      - dev-chat-network
-
-  dev-chat-backend-green:
-    image: limkanghyun/dev-chat-backend:green
-    container_name: dev-chat-backend-green
-    ports:
-      - "8082:8080"  # 내부는 8080이지만 외부는 8082
-    environment:
-      - TZ=Asia/Seoul
-      - JWT_SECRET=${JWT_SECRET}
-      - RDS_USERNAME=${RDS_USERNAME}
-      - RDS_PASSWORD=${RDS_PASSWORD}
-      - RDS_ENDPOINT=${RDS_ENDPOINT}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
-      - OAUTH_GITHUB_SECRET=${OAUTH_GITHUB_SECRET}
-      - DOMAIN_URL=${DOMAIN_URL}
-      - IMAGE_URL=${IMAGE_URL}
-      - WEBHOOK_URL=${WEBHOOK_URL}
-      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
-      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
-    depends_on:
-      - prometheus
-    networks:
-      - dev-chat-network
-
-  dev-chat-frontend-blue:
-    image: limkanghyun/dev-chat-frontend:blue
-    container_name: dev-chat-frontend-blue
-    ports:
-      - "3000:80"
-    networks:
-      - dev-chat-network
-
-  dev-chat-frontend-green:
-    image: limkanghyun/dev-chat-frontend:green
-    container_name: dev-chat-frontend-green
+  dev-chat-frontend:
+    image: limkanghyun/dev-chat-frontend:latest
+    container_name: dev-chat-frontend
     ports:
       - "3001:80"
     networks:
       - dev-chat-network
 
+  dev-chat-backend-blue:
+    image: limkanghyun/dev-chat-backend:latest
+    container_name: dev-chat-backend-blue
+    ports:
+      - "8081:8080"
+    environment:
+      - TZ=Asia/Seoul
+      - JWT_SECRET=${JWT_SECRET}
+      - RDS_USERNAME=${RDS_USERNAME}
+      - RDS_PASSWORD=${RDS_PASSWORD}
+      - RDS_ENDPOINT=${RDS_ENDPOINT}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_SECRET=${OAUTH_GITHUB_SECRET}
+      - DOMAIN_URL=${DOMAIN_URL}
+      - IMAGE_URL=${IMAGE_URL}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+    depends_on:
+      - prometheus
+    networks:
+      - dev-chat-network
+      - redis-cluster_redis-net
+
+  dev-chat-backend-green:
+    image: limkanghyun/dev-chat-backend:latest
+    container_name: dev-chat-backend-green
+    ports:
+      - "8082:8080"
+    environment:
+      - TZ=Asia/Seoul
+      - JWT_SECRET=${JWT_SECRET}
+      - RDS_USERNAME=${RDS_USERNAME}
+      - RDS_PASSWORD=${RDS_PASSWORD}
+      - RDS_ENDPOINT=${RDS_ENDPOINT}
+      - OAUTH_GITHUB_CLIENT_ID=${OAUTH_GITHUB_CLIENT_ID}
+      - OAUTH_GITHUB_SECRET=${OAUTH_GITHUB_SECRET}
+      - DOMAIN_URL=${DOMAIN_URL}
+      - IMAGE_URL=${IMAGE_URL}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+    depends_on:
+      - prometheus
+    networks:
+      - dev-chat-network
+      - redis-cluster_redis-net
+
   nginx_proxy:
     image: nginx:latest
     container_name: nginx_proxy
     volumes:
-      - ./nginx_proxy/nginx.conf:/etc/nginx/nginx.conf
-      - /etc/letsencrypt/archive/thedevchat.duckdns.org/fullchain1.pem:/etc/letsencrypt/live/thedevchat.duckdns.org/fullchain.pem:ro
-      - /etc/letsencrypt/archive/thedevchat.duckdns.org/privkey1.pem:/etc/letsencrypt/live/thedevchat.duckdns.org/privkey.pem:ro
+      - ./NBE5-7-2-TEAM08/deployment/nginx_proxy/nginx.conf:/etc/nginx/nginx.conf
+      - ./NBE5-7-2-TEAM08/deployment/nginx_proxy/conf.d:/etc/nginx/conf.d
+      - ./www/certbot:/var/www/certbot
+      - /etc/letsencrypt:/etc/letsencrypt
     ports:
       - "80:80"
       - "443:443"
+    command: ["nginx", "-g", "daemon off;"]
     depends_on:
-      - dev-chat-frontend-blue
-      - dev-chat-frontend-green
+      - dev-chat-frontend
       - dev-chat-backend-blue
       - dev-chat-backend-green
     networks:
@@ -110,3 +100,6 @@ services:
 networks:
   dev-chat-network:
     driver: bridge
+  redis-cluster_redis-net:
+    external: true
+    name: redis-cluster_redis-net

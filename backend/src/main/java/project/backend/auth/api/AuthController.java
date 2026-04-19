@@ -32,5 +32,4 @@ public class AuthController {
 			.status(HttpStatus.OK)
 			.body("토큰 재발급 성공");
 	}
-
 }
