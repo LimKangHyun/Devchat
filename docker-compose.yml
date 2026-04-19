@@ -1,4 +1,11 @@
 services:
+  dev-chat-frontend:
+    image: limkanghyun/dev-chat-frontend:latest
+    container_name: dev-chat-frontend
+    ports:
+      - "3001:80"
+    networks:
+      - dev-chat-network
 
   dev-chat-backend-blue:
     image: limkanghyun/dev-chat-backend:latest
@@ -18,7 +25,6 @@ services:
       - WEBHOOK_URL=${WEBHOOK_URL}
       - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
-
     depends_on:
       - prometheus
     networks:
@@ -29,7 +35,7 @@ services:
     image: limkanghyun/dev-chat-backend:latest
     container_name: dev-chat-backend-green
     ports:
-      - "8082:8080"  # 내부는 8080이지만 외부는 8082
+      - "8082:8080"
     environment:
       - TZ=Asia/Seoul
       - JWT_SECRET=${JWT_SECRET}
@@ -43,7 +49,6 @@ services:
       - WEBHOOK_URL=${WEBHOOK_URL}
       - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
-
     depends_on:
       - prometheus
     networks:
@@ -61,8 +66,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    command: ["nginx", "-g", "daemon off;"]    
+    command: ["nginx", "-g", "daemon off;"]
     depends_on:
+      - dev-chat-frontend
       - dev-chat-backend-blue
       - dev-chat-backend-green
     networks:
