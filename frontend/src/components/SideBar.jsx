@@ -11,6 +11,7 @@ import Toast from "./common/Toast"
 import FriendsSidebar from "./FriendsSidebar"
 import axiosInstance from "./api/axiosInstance"
 import { useAlarm } from '../context/AlarmContext'
+import { useUser } from "../context/UserContext"
 import useWebSocket from './common/useWebSocket'
 import styles from './Sidebar.module.css'
 
@@ -37,7 +38,7 @@ const Sidebar = ({ onStartChat }) => {
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState("")
 
-  const [currentUser, setCurrentUser] = useState(null)
+  const { currentUser } = useUser()
   const [roomId, setRoomId] = useState(null)
 
   const { getAlarmStatus, alarmStatusMap = {} } = useAlarm()
@@ -103,14 +104,6 @@ const Sidebar = ({ onStartChat }) => {
     return () => window.removeEventListener('room:read', handleRoomRead)
   }, [])
 
-  // inviteCode에서 제거 (room:read 이벤트로 대체)
-  useEffect(() => {
-    if (activeTab === "chat") {
-      fetchAllRooms()
-      fetchCurrentUser()
-    }
-  }, [activeTab, alarmStatusMap])
-
   useEffect(() => {
     if (!inviteCode) {
       setRoomId(null)
@@ -123,15 +116,6 @@ const Sidebar = ({ onStartChat }) => {
       setRoomId(null)
     }
   }, [inviteCode, alarmRooms, alarmStatusMap])
-
-  const fetchCurrentUser = async () => {
-    try {
-      const res = await axiosInstance.get("/user/details")
-      setCurrentUser(res.data)
-    } catch (err) {
-      console.error("사용자 정보 로딩 오류:", err)
-    }
-  }
 
   const fetchAllRooms = async () => {
     try {
