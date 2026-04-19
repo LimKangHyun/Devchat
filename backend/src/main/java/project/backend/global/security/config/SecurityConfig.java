@@ -51,7 +51,8 @@ public class SecurityConfig {
 				session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
 			.formLogin(form -> {
-				form.usernameParameter("username")
+				form.loginPage("/login")
+					.usernameParameter("username")
 					.passwordParameter("password")
 					.failureHandler(formFailureHandler)
 					.successHandler(formSuccessHandler)
@@ -64,8 +65,7 @@ public class SecurityConfig {
 					.anonymous()
 
 					.requestMatchers("/token/**", "/github/**", "/images/**", "/actuator/health",
-						"/actuator/prometheus", "/ws", "/swagger-ui/**", "/swagger-ui.html",
-							"/v3/api-docs/**")
+						"/actuator/prometheus", "/ws")
 					.permitAll()
 
 					.anyRequest()
