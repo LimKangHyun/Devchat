@@ -15,6 +15,9 @@ import { useUser } from '../context/UserContext';
 const PAGE_SIZE = 30;
 const INDEX_OFFSET = 100000;
 
+// 모듈 레벨 캐시 — 같은 URL은 최초 1번만 프리로드
+const preloadedCache = new Set();
+
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   const today = new Date();
@@ -28,6 +31,8 @@ const formatDate = (dateString) => {
 const preloadImages = (urls) => {
   urls.forEach(url => {
     if (!url) return;
+    if (preloadedCache.has(url)) return; // 이미 로드한 URL은 스킵
+    preloadedCache.add(url);
     const img = new Image();
     img.src = `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${url}`;
   });
