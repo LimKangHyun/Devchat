@@ -50,7 +50,7 @@ const handleGithubLogin = () => {
         <div className="logo-container">
           <a href="/">
             <img
-              src="/images/devchat-logo.png"
+              src="/images/devchat-logo.webp"
               alt="DevChat Logo"
               className="logo-image"
             />
@@ -97,7 +97,7 @@ const handleGithubLogin = () => {
             onClick={handleGithubLogin}
           >
             <img
-              src="/images/github-mark.png"
+              src="/images/github-mark.webp"
               alt="GitHub"
               className="oauth-icon"
             />
@@ -107,7 +107,7 @@ const handleGithubLogin = () => {
       </div>
       <div className="background-container">
         <img
-          src="/images/signup-background.png"
+          src="/images/signup-background.webp"
           alt="Background"
           className="background-image"
         />
