@@ -1,7 +1,7 @@
 package project.backend.domain.chat.chatmessage.dao;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
 
@@ -11,7 +11,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RateLimitRedisRepository {
 
-    private final StringRedisTemplate redisTemplate;
+    private final RedisTemplate<String, String> redisTemplate;
 
     private static final String TOKEN_BUCKET_KEY = "token_bucket:%d";
 
