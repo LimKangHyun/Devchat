@@ -44,6 +44,7 @@ export const WebSocketProvider = ({ children }) => {
     console.log("🚀 client.activate() 호출")
     client.activate()
     stompClientRef.current = client
+    window.__stompClient = client
 
     return () => {
       console.log("🧹 cleanup - deactivate")
