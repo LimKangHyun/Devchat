@@ -11,6 +11,7 @@ import RoomDeletedModal from '../components/modals/RoomDeletedModal';
 import CodeReviewModal from '../components/modals/CodeReviewModal.jsx';
 import { useAlarm } from '../context/AlarmContext';
 import { useUser } from '../context/UserContext';
+import Toast from '../components/common/Toast';
 
 const PAGE_SIZE = 30;
 const INDEX_OFFSET = 100000;
@@ -86,6 +87,7 @@ const ChatRoom = () => {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const [inputHeight, setInputHeight] = useState(0);
+  const [toast, setToast] = useState({ open: false, message: '' })
 
   const virtuosoRef = useRef(null);
   const inputAreaRef = useRef(null);
@@ -265,46 +267,46 @@ const ChatRoom = () => {
     roomId: initState.isRoomValidated ? roomId : null,
     onMessageReceived: (received) => {
       if (received?.profileImageUrl) {
-        preloadImages([received.profileImageUrl]);
+        preloadImages([received.profileImageUrl])
       }
-
       if (received.sequence != null && lastSequenceRef.current != null) {
         if (received.sequence - lastSequenceRef.current > 1) {
-          fetchMissingMessages();
+          fetchMissingMessages()
         }
       }
       if (received.sequence != null) {
-        lastSequenceRef.current = received.sequence;
+        lastSequenceRef.current = received.sequence
       }
-
       setMessages((prev) => {
         const updated = prev.some((m) => m.messageId === received.messageId)
           ? prev.map((m) => (m.messageId === received.messageId ? received : m))
-          : [...prev, received];
-        return [...updated].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
-      });
-
-      const isMine = received.senderId === currentUserRef.current?.id;
-
+          : [...prev, received]
+        return [...updated].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt))
+      })
+      const isMine = received.senderId === currentUserRef.current?.id
       if (isMine) {
-        setShowScrollButton(false);
-        setNewMessageCount(0);
-        isAtBottomRef.current = true;
+        setShowScrollButton(false)
+        setNewMessageCount(0)
+        isAtBottomRef.current = true
         setTimeout(() => {
-          virtuosoRef.current?.scrollToIndex({ index: 999999, behavior: 'auto' });
-        }, 30);
+          virtuosoRef.current?.scrollToIndex({ index: 999999, behavior: 'auto' })
+        }, 30)
       } else if (isAtBottomRef.current) {
         setTimeout(() => {
-          virtuosoRef.current?.scrollToIndex({ index: 999999, behavior: 'auto' });
-        }, 30);
+          virtuosoRef.current?.scrollToIndex({ index: 999999, behavior: 'auto' })
+        }, 30)
       } else {
-        setNewMessageCount((prev) => prev + 1);
-        setShowScrollButton(true);
+        setNewMessageCount((prev) => prev + 1)
+        setShowScrollButton(true)
       }
     },
     onProfileUpdate: handleProfileUpdate,
     onRoomDeleted: (e) => setDeleteNotification(e.content),
-  });
+    onError: (message) => {
+      setToast({ open: true, message })
+      setTimeout(() => setToast({ open: false, message: '' }), 3000)
+    },
+  })
 
   useEffect(() => {
     if (!inviteCode) { navigate('/error'); return; }
@@ -621,6 +623,8 @@ const ChatRoom = () => {
           isOpen={!!deleteNotification} message={deleteNotification}
           onClose={() => setDeleteNotification(null)}
         />
+
+        <Toast open={toast.open} message={toast.message} />
       </div>
     </>
   );
