@@ -51,6 +51,7 @@ public class GitMessageService {
 			case "issues" -> GitMessageDto.fromIssue(payload);
 			case "pull_request" -> GitMessageDto.fromPullRequest(payload);
 			case "pull_request_review" -> GitMessageDto.fromPullRequestReview(payload);
+			case "workflow_run" -> GitMessageDto.fromWorkflowRun(payload);
 			default -> null;
 		};
 

@@ -36,9 +36,9 @@ public class ChatRoomSequenceService {
     @CircuitBreaker(name = "redis", fallbackMethod = "genMessageSeqFallback")
     public Long genMessageSeq(Long roomId, Long userId) {
         log.info("genMessageSeq 진입 - circuitBreaker state={}",
-                registry.circuitBreaker("redis").getState()); // 추가
+                registry.circuitBreaker("redis").getState());
         if (!policySelector.select().canSend(userId)) {
-            log.info("레이트 리밋 초과 - 예외 던짐 userId={}", userId); // 추가
+            log.info("레이트 리밋 초과 - 예외 던짐 userId={}", userId);
             throw new ChatMessageException(ChatMessageErrorCode.TOO_MANY_REQUESTS);
         }
         return chatRoomRedisService.genMessageSeq(roomId);
