@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useCallback } from "react"
+import { createContext, useContext, useEffect, useCallback } from "react"
 import { useWebSocketContext } from "../components/common/WebSocketContext"
 import { useAlarm } from "./AlarmContext"
 
@@ -7,10 +7,7 @@ export const useChatSubscription = () => useContext(ChatSubscriptionContext)
 
 export const ChatSubscriptionProvider = ({ children }) => {
   const { stompClientRef, connected } = useWebSocketContext()
-  const { alarmRooms, currentRoomId, incrementUnread, bringRoomToTop, getAlarmStatus } = useAlarm()
-
-  const currentRoomIdRef = useRef(currentRoomId)
-  useEffect(() => { currentRoomIdRef.current = currentRoomId }, [currentRoomId])
+  const { alarmRooms, currentRoomIdRef, incrementUnread, bringRoomToTop, getAlarmStatus } = useAlarm()
 
   const chatRoomIdsKey = alarmRooms.map(r => r.uniqueId).join(',')
 
@@ -30,8 +27,11 @@ export const ChatSubscriptionProvider = ({ children }) => {
         try {
           const received = JSON.parse(message.body)
           if (received.type === "EVENT") return
-          if (Number(currentRoomIdRef.current) === Number(room.uniqueId)) return
-
+          if (Number(currentRoomIdRef.current) === Number(room.uniqueId)) {
+            console.log('현재 방 무시 roomId=', room.uniqueId)
+            return
+          }
+          console.log('incrementUnread 호출 roomId=', room.uniqueId, 'currentRoomIdRef=', currentRoomIdRef.current)
           incrementUnread(room.uniqueId)
           bringRoomToTop(room.uniqueId)
 

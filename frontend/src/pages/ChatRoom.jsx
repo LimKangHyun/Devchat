@@ -71,7 +71,7 @@ const VirtuosoMessageItem = React.memo(({
 const ChatRoom = () => {
   const { inviteCode } = useParams();
   const { currentUser } = useUser();
-  const { getAlarmStatus, updateAlarm } = useAlarm();
+  const { getAlarmStatus, updateAlarm, enterRoom, clearUnread } = useAlarm();
 
   const [messages, setMessages] = useState([]);
   const [content, setContent] = useState('');
@@ -152,6 +152,13 @@ const ChatRoom = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (roomId) {
+      enterRoom(roomId)
+      clearUnread(roomId)
+    }
+  }, [roomId, enterRoom, clearUnread])
 
   const handleCodeClick = (message) => {
     setSelectedCodeMessage(message);
