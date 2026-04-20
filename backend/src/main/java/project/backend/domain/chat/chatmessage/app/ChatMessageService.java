@@ -60,11 +60,8 @@ public class ChatMessageService {
     private final ProfileImageCache profileImageCache;
 
     @Transactional
-    public ChatMessageResponse save(Long roomId, ChatMessageRequest request,
-                                    MemberDetails memberDetails) {
-
-        Long seq = chatRoomSequenceService.genMessageSeq(roomId, memberDetails.getId());
-
+    public ChatMessageResponse saveWithSeq(Long roomId, ChatMessageRequest request,
+                                           MemberDetails memberDetails, Long seq) {
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);
 

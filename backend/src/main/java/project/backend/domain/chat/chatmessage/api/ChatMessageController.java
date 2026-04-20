@@ -17,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import project.backend.auth.dto.MemberDetails;
+import project.backend.domain.chat.chatmessage.app.ChatMessageFacade;
 import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageEditRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
@@ -34,13 +35,14 @@ public class ChatMessageController {
 
     private final ImageFileService imageFileService;
     private final ChatMessageService chatMessageService;
+    private final ChatMessageFacade chatMessageFacade;
 
     @MessageMapping("/send-message/{roomId}")
     public void sendMessage(@DestinationVariable Long roomId,
-        @Payload ChatMessageRequest request, Principal principal) {
+                            @Payload ChatMessageRequest request, Principal principal) {
 
         MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
-        chatMessageService.save(roomId, request, userDetails);
+        chatMessageFacade.save(roomId, request, userDetails);
     }
 
     @Operation(summary = "메시지 저장 - TEST")
@@ -48,7 +50,7 @@ public class ChatMessageController {
     public ChatMessageResponse saveMessage(@PathVariable Long roomId,
         @RequestBody ChatMessageRequest request, Principal principal) {
         MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
-        return chatMessageService.save(roomId, request, userDetails);
+        return chatMessageFacade.save(roomId, request, userDetails);
     }
 
     @MessageMapping("/edit-message/{roomId}")
