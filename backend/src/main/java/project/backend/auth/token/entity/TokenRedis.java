@@ -14,7 +14,6 @@ public class TokenRedis {
 	@Id
 	private Long id;
 
-	@Indexed
 	private String accessToken;
 
 	private String refreshToken;

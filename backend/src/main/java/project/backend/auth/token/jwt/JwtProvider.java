@@ -156,8 +156,11 @@ public class JwtProvider {
     public void replaceAccessToken(HttpServletResponse response,
         String token) {
         try {
-            TokenRedis tokenRedis = tokenRedisRepository.findByAccessToken(token)
-                .orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));
+            DecodedJWT decoded = JWT.decode(token);
+            Long memberId = Long.valueOf(decoded.getClaim("id").asString());
+
+            TokenRedis tokenRedis = tokenRedisRepository.findById(memberId)
+                    .orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));
 
             String refreshToken = tokenRedis.getRefreshToken();
 
