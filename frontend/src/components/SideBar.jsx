@@ -1,6 +1,4 @@
-"use client"
-
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { FaRegCommentDots, FaInfoCircle, FaComments, FaPlus, FaUsers } from "react-icons/fa"
 
@@ -12,7 +10,6 @@ import FriendsSidebar from "./FriendsSidebar"
 import axiosInstance from "./api/axiosInstance"
 import { useAlarm } from '../context/AlarmContext'
 import { useUser } from "../context/UserContext"
-import useWebSocket from './common/useWebSocket'
 import styles from './Sidebar.module.css'
 
 const CACHE_KEY = 'sidebar_rooms_cache'
@@ -23,86 +20,17 @@ const Sidebar = ({ onStartChat }) => {
   const sidebarRef = useRef(null)
 
   const [activeTab, setActiveTab] = useState("chat")
-
-  const [loading, setLoading] = useState(() => {
-    const cached = localStorage.getItem(CACHE_KEY)
-    return !cached
-  })
-
+  const [loading, setLoading] = useState(() => !localStorage.getItem(CACHE_KEY))
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
-  const [roomsReady, setRoomsReady] = useState(false)
-
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState("")
-
-  const { currentUser } = useUser()
   const [roomId, setRoomId] = useState(null)
 
-  const { getAlarmStatus, alarmStatusMap = {} } = useAlarm()
-
-  const [alarmRooms, setAlarmRooms] = useState(() => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY)
-      return cached ? JSON.parse(cached) : []
-    } catch {
-      return []
-    }
-  })
-
-  const handleSidebarMessage = (roomUniqueId, message) => {
-    if (Number(roomId) !== Number(roomUniqueId)) {
-      setAlarmRooms(prev => prev.map(r =>
-        Number(r.uniqueId) === Number(roomUniqueId)
-          ? { ...r, unreadCount: (r.unreadCount ?? 0) + 1 }
-          : r
-      ))
-
-      const room = alarmRooms.find(r => r.uniqueId === roomUniqueId)
-
-      if (room) {
-        setAlarmRooms(prev => {
-          const updated = prev.filter(r => r.uniqueId !== roomUniqueId)
-          const updatedRoom = prev.find(r => r.uniqueId === roomUniqueId)
-          return [updatedRoom, ...updated]
-        })
-      }
-
-      const isAlarmEnabled = getAlarmStatus(roomUniqueId)
-      if (isAlarmEnabled === false) return
-
-      window.dispatchEvent(
-        new CustomEvent("chat:notify", {
-          detail: {
-            senderNickname: message.senderName,
-            body: message.content,
-            senderImg: message.profileImageUrl,
-            url: room?.inviteCode ? `/chat/${room.inviteCode}` : undefined,
-            tag: `room-${Date.now()}`,
-            silent: false,
-            roomName: room?.roomName || `Room ${roomUniqueId}`
-          },
-        })
-      )
-    }
-  }
-
-  const stompClientRef = useWebSocket({
-    chatRooms: alarmRooms,
-    currentRoomId: roomId,
-    onSidebarMessage: handleSidebarMessage,
-    onMessageReceived: () => {},
-    roomId: null,
-  })
-
-  // read API 완료 후 fetchAllRooms 실행
-  useEffect(() => {
-    const handleRoomRead = () => fetchAllRooms()
-    window.addEventListener('room:read', handleRoomRead)
-    return () => window.removeEventListener('room:read', handleRoomRead)
-  }, [])
+  const { currentUser } = useUser()
+  const { getAlarmStatus, alarmStatusMap, alarmRooms, updateRooms, clearUnread } = useAlarm()
 
   useEffect(() => {
     if (!inviteCode) {
@@ -110,18 +38,12 @@ const Sidebar = ({ onStartChat }) => {
       return
     }
     const foundRoom = alarmRooms.find(room => room.inviteCode === inviteCode)
-    if (foundRoom) {
-      setRoomId(foundRoom.uniqueId)
-    } else {
-      setRoomId(null)
-    }
+    setRoomId(foundRoom ? foundRoom.uniqueId : null)
   }, [inviteCode, alarmRooms, alarmStatusMap])
 
-  const fetchAllRooms = async () => {
+  const fetchAllRooms = useCallback(async () => {
     try {
-      const cached = localStorage.getItem(CACHE_KEY)
-      if (!cached) setLoading(true)
-
+      if (!localStorage.getItem(CACHE_KEY)) setLoading(true)
       const res = await axiosInstance.get('/chat-rooms/all')
       const rooms = res.data.map(room => ({
         ...room,
@@ -131,22 +53,27 @@ const Sidebar = ({ onStartChat }) => {
         inviteCode: room.inviteCode,
         unreadCount: room.unreadCount ?? 0,
       })).filter(room => room.uniqueId)
-
-      setAlarmRooms(rooms)
-      localStorage.setItem(CACHE_KEY, JSON.stringify(rooms))
-      setRoomsReady(true)
+      updateRooms(rooms)
     } catch (e) {
       console.error('채팅방 목록 로딩 실패', e)
     } finally {
       setLoading(false)
     }
-  }
+  }, [updateRooms])
 
-  const navigateToRoom = async (id, inviteCode) => {
+  useEffect(() => {
+    fetchAllRooms()
+  }, [fetchAllRooms])
+
+  useEffect(() => {
+    const handleRoomRead = () => fetchAllRooms()
+    window.addEventListener('room:read', handleRoomRead)
+    return () => window.removeEventListener('room:read', handleRoomRead)
+  }, [fetchAllRooms])
+
+  const navigateToRoom = (id, inviteCode) => {
     if (id) {
-      setAlarmRooms(prev => prev.map(r =>
-        Number(r.uniqueId) === Number(roomId) ? { ...r, unreadCount: 0 } : r
-      ))
+      clearUnread(id)
       navigate(`/chat/${inviteCode}`)
     }
   }
@@ -155,7 +82,6 @@ const Sidebar = ({ onStartChat }) => {
     try {
       const existingRoom = alarmRooms.find(room => Number(room.uniqueId) === Number(roomId))
       if (!existingRoom) return null
-
       if (!existingRoom.participants || !existingRoom.participants.some((p) => p.owner)) {
         return {
           ...existingRoom,
@@ -189,7 +115,6 @@ const Sidebar = ({ onStartChat }) => {
     ) {
       enhancedRoom.participants = enhancedRoom.participants || []
       const existingUserIndex = enhancedRoom.participants.findIndex((p) => p.id === currentUser.id)
-
       if (existingUserIndex >= 0) {
         enhancedRoom.participants[existingUserIndex] = {
           ...enhancedRoom.participants[existingUserIndex],
@@ -206,10 +131,6 @@ const Sidebar = ({ onStartChat }) => {
 
     setSelectedRoom(enhancedRoom)
     setShowMembersModal(true)
-
-    setAlarmRooms(prev => prev.map(r =>
-      Number(r.uniqueId) === Number(enhancedRoom.uniqueId) ? enhancedRoom : r
-    ))
   }
 
   const showToastMessage = (message) => {
@@ -224,31 +145,10 @@ const Sidebar = ({ onStartChat }) => {
         name: roomName,
         repositoryUrl: repoUrl,
       })
-
       const created = res.data
       setShowCreateModal(false)
-      fetchAllRooms()
-
-      if (created) {
-        const newRoom = {
-          ...created,
-          uniqueId: created.id || created.roomId,
-          ownerId: created.ownerId || (currentUser ? currentUser.id : null),
-          participants: [
-            {
-              ...(currentUser || {}),
-              owner: true,
-              nickname: currentUser?.nickname || currentUser?.username || "나",
-            },
-          ],
-        }
-        setAlarmRooms(prev => [newRoom, ...prev.slice(0, 9)])
-        fetchAllRooms()
-      }
-
-      if (created?.id) {
-        navigate(`/chat/${created.inviteCode}`)
-      }
+      await fetchAllRooms()
+      if (created?.id) navigate(`/chat/${created.inviteCode}`)
     } catch (err) {
       alert(err.response?.data?.message || err.message || "방 생성에 실패했습니다.")
       throw err
@@ -258,13 +158,10 @@ const Sidebar = ({ onStartChat }) => {
   const handleJoinRoom = async (inviteCode) => {
     try {
       const res = await axiosInstance.post("/chat-rooms/join", { inviteCode })
-      const joined = await res.data
+      const joined = res.data
       setShowJoinModal(false)
-      fetchAllRooms()
-
-      if (joined?.id) {
-        navigate(`/chat/${joined.inviteCode}`)
-      }
+      await fetchAllRooms()
+      if (joined?.id) navigate(`/chat/${joined.inviteCode}`)
     } catch (err) {
       alert(err.response?.data?.message || err.message || "채팅방 참여에 실패했습니다.")
       throw err
@@ -311,7 +208,6 @@ const Sidebar = ({ onStartChat }) => {
                         {room.name || room.roomName || `Room ${roomUniqueId}`}
                       </span>
                     </div>
-
                     <button
                       onClick={() => showMembersInfo(room)}
                       className={`${styles.roomInfoButton} ${isSelectedForModal ? styles.roomInfoButtonActive : ''}`}
@@ -347,7 +243,6 @@ const Sidebar = ({ onStartChat }) => {
           <h3 className={styles.sidebarTitle}>
             {activeTab === "chat" ? "채팅방" : "친구"}
           </h3>
-
           <div className={styles.tabNav}>
             <button
               onClick={() => setActiveTab("chat")}
@@ -365,7 +260,6 @@ const Sidebar = ({ onStartChat }) => {
             </button>
           </div>
         </div>
-
         {renderTabContent()}
       </div>
 
@@ -377,7 +271,6 @@ const Sidebar = ({ onStartChat }) => {
           showToast={showToastMessage}
         />
       )}
-
       {showCreateModal && <CreateRoomModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreateRoom} />}
       {showJoinModal && <JoinRoomModal onClose={() => setShowJoinModal(false)} onSubmit={handleJoinRoom} />}
       {showToast && <Toast message={toastMessage} />}

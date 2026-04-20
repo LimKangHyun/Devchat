@@ -37,7 +37,7 @@ public class ChatMessageController {
 
     @MessageMapping("/send-message/{roomId}")
     public void sendMessage(@DestinationVariable Long roomId,
-        @Payload ChatMessageRequest request, Principal principal) {
+                            @Payload ChatMessageRequest request, Principal principal) {
 
         MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
         chatMessageService.save(roomId, request, userDetails);

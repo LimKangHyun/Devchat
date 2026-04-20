@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatroom.dao.redis;
+package project.backend.domain.chat.chatroom.dao;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,13 +22,17 @@ public class ChatRoomRedisRepository {
     private static final String RANKING_ROOMS_KEY = "rooms:ranking";
 
     private static final int MAX_RANKING_SIZE = 1000;
-    private static final long SEQUENCE_TTL_SEC = 60 * 60 * 24 * 3; // 3일
+    private static final long SEQUENCE_TTL_SEC = 60 * 60 * 24 * 3;
 
     private final StringRedisTemplate redisTemplate;
+    private final DefaultRedisScript<Long> genMessageSeqScript;
+    private final DefaultRedisScript<Long> recoverAndIncrScript;
+    private final DefaultRedisScript<List> getAndClearUpdatedRoomsScript;
+    private final DefaultRedisScript<Long> setSequenceScript;
 
     public Long genMessageSeq(Long roomId) {
         return redisTemplate.execute(
-                new DefaultRedisScript<>(ChatRoomLuaScripts.GEN_MESSAGE_SEQ, Long.class),
+                genMessageSeqScript,
                 List.of(String.format(ROOM_SEQUENCE_KEY, roomId), RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
                 String.valueOf(SEQUENCE_TTL_SEC),
                 String.valueOf(System.currentTimeMillis()),
@@ -39,7 +43,7 @@ public class ChatRoomRedisRepository {
 
     public Long recoverAndIncr(Long roomId, Long dbSeq) {
         return redisTemplate.execute(
-                new DefaultRedisScript<>(ChatRoomLuaScripts.RECOVER_AND_INCR, Long.class),
+                recoverAndIncrScript,
                 List.of(String.format(ROOM_SEQUENCE_KEY, roomId), RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
                 String.valueOf(dbSeq),
                 String.valueOf(SEQUENCE_TTL_SEC),
@@ -75,7 +79,7 @@ public class ChatRoomRedisRepository {
     @SuppressWarnings("unchecked")
     public Set<String> getAndClearUpdatedRooms() {
         List<String> result = redisTemplate.execute(
-                new DefaultRedisScript<>(ChatRoomLuaScripts.GET_AND_CLEAR_UPDATED_ROOMS, List.class),
+                getAndClearUpdatedRoomsScript,
                 List.of(UPDATED_ROOMS_KEY)
         );
         return new HashSet<>(result);
@@ -83,7 +87,7 @@ public class ChatRoomRedisRepository {
 
     public void setSequence(Long roomId, Long sequence) {
         redisTemplate.execute(
-                new DefaultRedisScript<>(ChatRoomLuaScripts.SET_SEQUENCE, Long.class),
+                setSequenceScript,
                 List.of(String.format(ROOM_SEQUENCE_KEY, roomId)),
                 String.valueOf(sequence),
                 String.valueOf(SEQUENCE_TTL_SEC)

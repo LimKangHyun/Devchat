@@ -55,9 +55,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.setApplicationDestinationPrefixes("/chat",
             "/dm"); //클라이언트 -> 서버, 클라이언트에서 SEND 요청을 처리
         //서버 -> 클라이언트, 해당 경로를 SUBSCRIBE하는 클라이언트에게 메세지를 전달
-        registry.enableSimpleBroker("/topic")
+        registry.enableSimpleBroker("/topic", "/queue")
             .setHeartbeatValue(new long[]{10000, 20000})
             .setTaskScheduler(customWebSocketTaskScheduler());
+        registry.setUserDestinationPrefix("/user");
     }
 
     @Bean

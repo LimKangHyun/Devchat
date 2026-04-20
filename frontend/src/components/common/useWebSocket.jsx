@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useCallback } from "react"
 import { useWebSocketContext } from "./WebSocketContext"
 
 const useWebSocket = ({
@@ -6,9 +6,6 @@ const useWebSocket = ({
   username,
   onMessageReceived,
   onNotificationReceived,
-  chatRooms = [],
-  currentRoomId,
-  onSidebarMessage,
   onProfileUpdate,
   onRoomDeleted,
   dmRoomId,
@@ -21,47 +18,48 @@ const useWebSocket = ({
   const onNotificationReceivedRef = useRef(onNotificationReceived)
   const onProfileUpdateRef = useRef(onProfileUpdate)
   const onRoomDeletedRef = useRef(onRoomDeleted)
-  const onSidebarMessageRef = useRef(onSidebarMessage)
   const onDmMessageReceivedRef = useRef(onDmMessageReceived)
-  const currentRoomIdRef = useRef(currentRoomId)
   const onErrorRef = useRef(onError)
 
   useEffect(() => { onMessageReceivedRef.current = onMessageReceived }, [onMessageReceived])
   useEffect(() => { onNotificationReceivedRef.current = onNotificationReceived }, [onNotificationReceived])
   useEffect(() => { onProfileUpdateRef.current = onProfileUpdate }, [onProfileUpdate])
   useEffect(() => { onRoomDeletedRef.current = onRoomDeleted }, [onRoomDeleted])
-  useEffect(() => { onSidebarMessageRef.current = onSidebarMessage }, [onSidebarMessage])
   useEffect(() => { onDmMessageReceivedRef.current = onDmMessageReceived }, [onDmMessageReceived])
-  useEffect(() => { currentRoomIdRef.current = currentRoomId }, [currentRoomId])
   useEffect(() => { onErrorRef.current = onError }, [onError])
+
+  const safeUnsubscribe = useCallback((subs) => {
+    subs.forEach((sub) => {
+      try { sub?.unsubscribe() } catch (e) {}
+    })
+  }, [])
 
   // 채팅방 메시지 + 방 삭제 구독
   useEffect(() => {
     const client = stompClientRef.current
     if (!connected || !client?.connected || !roomId) return
 
-    const subs = []
+    const subs = [
+      client.subscribe(`/topic/chat/${roomId}`, (message) => {
+        try {
+          const received = JSON.parse(message.body)
+          received.sendAt = received.sendAt || new Date().toISOString()
+          onMessageReceivedRef.current?.(received)
+        } catch (e) {
+          console.error("📛 Failed to parse chat message", e)
+        }
+      }),
+      client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
+        try {
+          onRoomDeletedRef.current?.(JSON.parse(message.body))
+        } catch (e) {
+          console.error("📛 Failed to parse delete message", e)
+        }
+      }),
+    ]
 
-    subs.push(client.subscribe(`/topic/chat/${roomId}`, (message) => {
-      try {
-        const received = JSON.parse(message.body)
-        received.sendAt = received.sendAt || new Date().toISOString()
-        onMessageReceivedRef.current?.(received)
-      } catch (e) {
-        console.error("📛 Failed to parse chat message", e)
-      }
-    }))
-
-    subs.push(client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
-      try {
-        onRoomDeletedRef.current?.(JSON.parse(message.body))
-      } catch (e) {
-        console.error("📛 Failed to parse delete message", e)
-      }
-    }))
-
-    return () => subs.forEach((sub) => sub.unsubscribe())
-  }, [connected, roomId])
+    return () => safeUnsubscribe(subs)
+  }, [connected, roomId, safeUnsubscribe])
 
   // 프로필 업데이트 구독
   useEffect(() => {
@@ -76,8 +74,8 @@ const useWebSocket = ({
       }
     })
 
-    return () => sub.unsubscribe()
-  }, [connected, onProfileUpdate])
+    return () => safeUnsubscribe([sub])
+  }, [connected, onProfileUpdate, safeUnsubscribe])
 
   // 알림 구독
   useEffect(() => {
@@ -95,39 +93,8 @@ const useWebSocket = ({
       }
     })
 
-    return () => sub.unsubscribe()
-  }, [connected, username])
-
-  // 사이드바 구독
-  const chatRoomIdsKey = chatRooms.map(r => r.uniqueId).join(',')
-
-  useEffect(() => {
-    const client = stompClientRef.current
-    if (!connected || !client?.connected || !chatRooms.length) return
-
-    const subs = []
-
-    chatRooms.forEach((room) => {
-      const roomUniqueId = room.uniqueId
-      if (!roomUniqueId) return
-      if (Number(currentRoomIdRef.current) === Number(roomUniqueId)) return
-
-      const sub = client.subscribe(`/topic/chat/${roomUniqueId}`, (message) => {
-        try {
-          const received = JSON.parse(message.body)
-          if (received.type !== "EVENT" && Number(currentRoomIdRef.current) !== Number(roomUniqueId)) {
-            onSidebarMessageRef.current?.(roomUniqueId, received)
-          }
-        } catch (e) {
-          console.error("📛 Failed to parse sidebar message", e)
-        }
-      })
-
-      subs.push(sub)
-    })
-
-    return () => subs.forEach((sub) => sub.unsubscribe())
-  }, [connected, chatRoomIdsKey])
+    return () => safeUnsubscribe([sub])
+  }, [connected, username, safeUnsubscribe])
 
   // DM 구독
   useEffect(() => {
@@ -142,13 +109,13 @@ const useWebSocket = ({
       }
     })
 
-    return () => sub.unsubscribe()
-  }, [connected, dmRoomId])
+    return () => safeUnsubscribe([sub])
+  }, [connected, dmRoomId, safeUnsubscribe])
 
-  // 에러 구독
+  // 에러 구독 - onError 있을 때만
   useEffect(() => {
     const client = stompClientRef.current
-    if (!connected || !client?.connected) return
+    if (!connected || !client?.connected || !onErrorRef.current) return
 
     const sub = client.subscribe(`/user/queue/errors`, (message) => {
       try {
@@ -159,8 +126,8 @@ const useWebSocket = ({
       }
     })
 
-    return () => sub.unsubscribe()
-  }, [connected])
+    return () => safeUnsubscribe([sub])
+  }, [connected, safeUnsubscribe])
 
   return { stompClientRef, connected }
 }
