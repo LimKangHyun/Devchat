@@ -28,6 +28,7 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomParticipantService;
+import project.backend.domain.chat.chatroom.app.ChatRoomSequenceService;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
@@ -49,6 +50,7 @@ public class ChatMessageService {
     private final ChatMessageSearchRepository chatMessageSearchRepository;
 
     private final ChatRoomParticipantService chatRoomParticipantService;
+    private final ChatRoomSequenceService chatRoomSequenceService;
     private final ImageFileService imageFileService;
 
     private final ApplicationEventPublisher eventPublisher;
@@ -58,8 +60,10 @@ public class ChatMessageService {
     private final ProfileImageCache profileImageCache;
 
     @Transactional
-    public ChatMessageResponse saveWithSeq(Long roomId, ChatMessageRequest request,
-                                           MemberDetails memberDetails, Long seq) {
+    public ChatMessageResponse save(Long roomId, ChatMessageRequest request,
+                                    MemberDetails memberDetails) {
+        Long seq = chatRoomSequenceService.genMessageSeq(roomId, memberDetails.getId());
+
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);
 

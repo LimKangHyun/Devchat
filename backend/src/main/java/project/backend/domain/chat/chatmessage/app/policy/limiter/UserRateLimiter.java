@@ -11,10 +11,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class UserRateLimiter {
 
-    private static final int REFILL_RATE = 5;
+    private static final int REFILL_RATE = 1;
     private static final int BUCKET_CAPACITY = 10;
     private static final int STRICT_COST = 2;
     private static final long BUCKET_TTL_MS = 60_000; // 1분 미사용 시 제거
+
+    private static final int COOLDOWN_SECONDS = 5;
 
     private final RateLimitRedisRepository rateLimitRedisRepository;
     private final ConcurrentHashMap<Long, TokenBucket> memoryBuckets = new ConcurrentHashMap<>();
@@ -32,7 +34,7 @@ public class UserRateLimiter {
         } catch (Exception e) {
             log.warn("Redis Rate Limit 실패 - 메모리 fallback userId={}", userId);
             return memoryBuckets
-                .computeIfAbsent(userId, id -> new TokenBucket(BUCKET_CAPACITY, REFILL_RATE))
+                .computeIfAbsent(userId, id -> new TokenBucket(BUCKET_CAPACITY, REFILL_RATE, COOLDOWN_SECONDS))
                 .tryConsume(1);
         }
     }
@@ -43,7 +45,7 @@ public class UserRateLimiter {
         } catch (Exception e) {
             log.warn("Redis Rate Limit 실패 - STRICT memory fallback userId={}", userId);
             return memoryBuckets
-                .computeIfAbsent(userId, id -> new TokenBucket(BUCKET_CAPACITY, REFILL_RATE))
+                .computeIfAbsent(userId, id -> new TokenBucket(BUCKET_CAPACITY, REFILL_RATE, COOLDOWN_SECONDS))
                 .tryConsume(STRICT_COST);
         }
     }

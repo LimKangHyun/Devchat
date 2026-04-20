@@ -1,4 +1,4 @@
-package project.backend.global.exception.handler;
+package project.backend.global.security.handler;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;

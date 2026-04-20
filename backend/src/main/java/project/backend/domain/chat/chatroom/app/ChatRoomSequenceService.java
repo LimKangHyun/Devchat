@@ -1,6 +1,7 @@
 package project.backend.domain.chat.chatroom.app;
 
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
@@ -30,10 +31,14 @@ public class ChatRoomSequenceService {
     private final MeterRegistry meterRegistry;
     private final MessageSendPolicySelector policySelector;
     private final FallbackLimiter fallbackLimiter;
+    private final CircuitBreakerRegistry registry;
 
     @CircuitBreaker(name = "redis", fallbackMethod = "genMessageSeqFallback")
     public Long genMessageSeq(Long roomId, Long userId) {
+        log.info("genMessageSeq 진입 - circuitBreaker state={}",
+                registry.circuitBreaker("redis").getState()); // 추가
         if (!policySelector.select().canSend(userId)) {
+            log.info("레이트 리밋 초과 - 예외 던짐 userId={}", userId); // 추가
             throw new ChatMessageException(ChatMessageErrorCode.TOO_MANY_REQUESTS);
         }
         return chatRoomRedisService.genMessageSeq(roomId);

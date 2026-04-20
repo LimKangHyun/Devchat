@@ -15,7 +15,7 @@ import MyPage from './pages/profile';
 import EditProfilePage from './pages/editprofile';
 import ErrorPage from './pages/ErrorPage';
 import { WebSocketProvider } from './components/common/WebSocketContext'
-
+import { ChatSubscriptionProvider } from './context/ChatSubscriptionProvider'
 import Layout from './Layout';
 import { AlarmProvider } from './context/AlarmContext';
 import { UserProvider } from './context/UserContext'
@@ -28,7 +28,9 @@ function App() {
           <Route element={
             <UserProvider>
               <WebSocketProvider>
-                <Layout />
+                <ChatSubscriptionProvider>
+                  <Layout />
+                </ChatSubscriptionProvider>
               </WebSocketProvider>
             </UserProvider>
           }>

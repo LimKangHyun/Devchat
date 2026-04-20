@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.backend.domain.chat.chatroom.dao.redis.ChatRoomRedisRepository;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;

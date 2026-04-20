@@ -3,7 +3,7 @@ package project.backend.domain.chat.chatroom.app;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import project.backend.domain.chat.chatroom.dao.redis.ChatRoomRedisRepository;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 
 import java.util.List;
 import java.util.Set;
