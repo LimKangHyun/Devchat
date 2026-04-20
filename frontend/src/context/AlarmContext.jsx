@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from "react"
+import { createContext, useContext, useState, useRef, useCallback } from "react"
 
 const AlarmContext = createContext()
 
@@ -7,6 +7,8 @@ export const useAlarm = () => useContext(AlarmContext)
 export const AlarmProvider = ({ children }) => {
   const [alarmStatusMap, setAlarmStatusMap] = useState({})
   const [currentRoomId, setCurrentRoomId] = useState(null)
+  const currentRoomIdRef = useRef(null)
+
   const [alarmRooms, setAlarmRooms] = useState(() => {
     try {
       const cached = localStorage.getItem('sidebar_rooms_cache')
@@ -28,7 +30,6 @@ export const AlarmProvider = ({ children }) => {
     setAlarmRooms(prev => {
       return rooms.map(r => {
         const existing = prev.find(p => Number(p.uniqueId) === Number(r.uniqueId))
-        // 서버 unreadCount가 있으면 서버값 사용, 없으면 기존값 유지
         return {
           ...r,
           unreadCount: r.unreadCount ?? existing?.unreadCount ?? 0
@@ -39,6 +40,7 @@ export const AlarmProvider = ({ children }) => {
   }, [])
 
   const incrementUnread = useCallback((roomUniqueId) => {
+    console.trace('incrementUnread 호출 roomId=', roomUniqueId)
     setAlarmRooms(prev => prev.map(r =>
       Number(r.uniqueId) === Number(roomUniqueId)
         ? { ...r, unreadCount: (r.unreadCount ?? 0) + 1 }
@@ -63,10 +65,12 @@ export const AlarmProvider = ({ children }) => {
   }, [])
 
   const enterRoom = useCallback((roomId) => {
+    currentRoomIdRef.current = roomId  // 즉시 동기 업데이트
     setCurrentRoomId(roomId)
   }, [])
 
   const leaveRoom = useCallback(() => {
+    currentRoomIdRef.current = null  // 즉시 동기 업데이트
     setCurrentRoomId(null)
   }, [])
 
@@ -75,6 +79,7 @@ export const AlarmProvider = ({ children }) => {
       alarmStatusMap,
       alarmRooms,
       currentRoomId,
+      currentRoomIdRef,
       updateAlarm,
       getAlarmStatus,
       updateRooms,
