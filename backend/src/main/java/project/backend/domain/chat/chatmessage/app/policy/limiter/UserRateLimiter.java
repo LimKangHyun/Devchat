@@ -26,7 +26,9 @@ public class UserRateLimiter {
     public boolean allow(Long userId) {
         log.info("allow 호출 userId={}", userId);
         try {
-            return rateLimitRedisRepository.tryConsume(userId, 1, REFILL_RATE, BUCKET_CAPACITY);
+            boolean result =  rateLimitRedisRepository.tryConsume(userId, 1, REFILL_RATE, BUCKET_CAPACITY);
+            log.info("allow 결과 userId={} result={}", userId, result);
+            return result;
         } catch (Exception e) {
             log.warn("Redis Rate Limit 실패 - 메모리 fallback userId={}", userId);
             return memoryBuckets
