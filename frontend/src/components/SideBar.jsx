@@ -30,7 +30,7 @@ const Sidebar = ({ onStartChat }) => {
   const [roomId, setRoomId] = useState(null)
 
   const { currentUser } = useUser()
-  const { getAlarmStatus, alarmStatusMap, alarmRooms, updateRooms, clearUnread } = useAlarm()
+  const { getAlarmStatus, alarmStatusMap, alarmRooms, updateRooms, clearUnread, enterRoom } = useAlarm()
 
   useEffect(() => {
     if (!inviteCode) {
@@ -73,6 +73,8 @@ const Sidebar = ({ onStartChat }) => {
 
   const navigateToRoom = (id, inviteCode) => {
     if (id) {
+      console.log('navigateToRoom enterRoom 호출 id=', id)
+      enterRoom(id)
       clearUnread(id)
       navigate(`/chat/${inviteCode}`)
     }
