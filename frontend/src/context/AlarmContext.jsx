@@ -26,15 +26,14 @@ export const AlarmProvider = ({ children }) => {
 
   const updateRooms = useCallback((rooms) => {
     setAlarmRooms(prev => {
-      const prevIds = prev.map(r => r.uniqueId).join(',')
-      const nextIds = rooms.map(r => r.uniqueId).join(',')
-      if (prevIds === nextIds) {
-        return rooms.map(r => {
-          const existing = prev.find(p => p.uniqueId === r.uniqueId)
-          return existing ? { ...r, unreadCount: existing.unreadCount } : r
-        })
-      }
-      return rooms
+      return rooms.map(r => {
+        const existing = prev.find(p => Number(p.uniqueId) === Number(r.uniqueId))
+        // 서버 unreadCount가 있으면 서버값 사용, 없으면 기존값 유지
+        return {
+          ...r,
+          unreadCount: r.unreadCount ?? existing?.unreadCount ?? 0
+        }
+      })
     })
     localStorage.setItem('sidebar_rooms_cache', JSON.stringify(rooms))
   }, [])
