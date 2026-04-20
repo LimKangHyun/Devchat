@@ -27,7 +27,6 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
-import project.backend.domain.chat.chatroom.app.ChatRoomSequenceService;
 import project.backend.domain.chat.chatroom.app.ChatRoomParticipantService;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
@@ -56,7 +55,6 @@ public class ChatMessageService {
 
     private final EntityManager entityManager;
     private final ChatMessageMapper messageMapper;
-    private final ChatRoomSequenceService chatRoomSequenceService;
     private final ProfileImageCache profileImageCache;
 
     @Transactional

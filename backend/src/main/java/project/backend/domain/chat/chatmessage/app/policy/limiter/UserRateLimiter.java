@@ -24,6 +24,7 @@ public class UserRateLimiter {
     }
 
     public boolean allow(Long userId) {
+        log.info("allow 호출 userId={}", userId);
         try {
             return rateLimitRedisRepository.tryConsume(userId, 1, REFILL_RATE, BUCKET_CAPACITY);
         } catch (Exception e) {
