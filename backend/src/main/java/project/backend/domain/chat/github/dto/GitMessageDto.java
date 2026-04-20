@@ -88,6 +88,35 @@ public class GitMessageDto {
 			content);
 	}
 
+	public static GitMessageDto fromWorkflowRun(Map<String, Object> payload) {
+		Map<String, Object> workflowRun = (Map<String, Object>) payload.get("workflow_run");
+		if (workflowRun == null) return null;
+
+		String action = (String) payload.get("action");
+		if (!"completed".equals(action)) return null;
+
+		String name = (String) workflowRun.get("name");
+		String conclusion = (String) workflowRun.get("conclusion");
+		String url = (String) workflowRun.get("html_url");
+		String branch = (String) workflowRun.get("head_branch");
+		Map<String, Object> actor = (Map<String, Object>) workflowRun.get("triggering_actor");
+		String triggerBy = actor != null ? (String) actor.get("login") : "unknown";
+
+		String emoji = switch (conclusion) {
+			case "success" -> "✅";
+			case "failure" -> "❌";
+			case "cancelled" -> "⚠️";
+			default -> "❓";
+		};
+
+		String content = emoji + " [" + name + "] " + conclusion.toUpperCase()
+				+ " by " + triggerBy
+				+ " (branch: " + branch + ")"
+				+ "\n" + url;
+
+		return GitMessageDto.of(GitEventType.WORKFLOW_RUN, triggerBy, content);
+	}
+
 	public static GitMessageDto of(GitEventType type, String actor,
 		String content) {
 		return GitMessageDto.builder()
