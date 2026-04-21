@@ -76,6 +76,7 @@ const Sidebar = ({ onStartChat }) => {
       console.log('navigateToRoom enterRoom 호출 id=', id)
       enterRoom(id)
       clearUnread(id)
+      enterRoom(id)
       navigate(`/chat/${inviteCode}`)
     }
   }
