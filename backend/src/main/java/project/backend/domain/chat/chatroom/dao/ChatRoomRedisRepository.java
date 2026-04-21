@@ -1,9 +1,6 @@
 package project.backend.domain.chat.chatroom.dao;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +26,7 @@ public class ChatRoomRedisRepository {
     private final DefaultRedisScript<Long> recoverAndIncrScript;
     private final DefaultRedisScript<List> getAndClearUpdatedRoomsScript;
     private final DefaultRedisScript<Long> setSequenceScript;
+    private final DefaultRedisScript<Void> bulkSetSequenceScript;
 
     public Long genMessageSeq(Long roomId) {
         return redisTemplate.execute(
@@ -94,6 +92,19 @@ public class ChatRoomRedisRepository {
         );
     }
 
+    public void bulkSetSequences(Map<Long, Long> sequences) {
+        if (sequences == null || sequences.isEmpty()) return;
+
+        List<String> keys = new ArrayList<>();
+        List<String> args = new ArrayList<>();
+
+        sequences.forEach((roomId, seq) -> keys.add(String.format(ROOM_SEQUENCE_KEY, roomId)));
+        sequences.forEach((roomId, seq) -> args.add(String.valueOf(seq)));
+        sequences.forEach((roomId, seq) -> args.add(String.valueOf(SEQUENCE_TTL_SEC)));
+
+        redisTemplate.execute(bulkSetSequenceScript, keys, args.toArray(new String[0]));
+    }
+
     public Long getSequence(Long roomId) {
         String value = redisTemplate.opsForValue().get(String.format(ROOM_SEQUENCE_KEY, roomId));
         return value == null ? -1L : Long.parseLong(value);
@@ -112,7 +123,7 @@ public class ChatRoomRedisRepository {
         List<Long> result = new ArrayList<>(roomIds.size());
         for (Object val : values) {
             if (val == null) {
-                result.add(0L);
+                result.add(null);
             } else {
                 String strVal = val instanceof byte[] ? new String((byte[]) val) : val.toString();
                 result.add(Long.parseLong(strVal));
