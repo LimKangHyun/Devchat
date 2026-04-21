@@ -70,10 +70,8 @@ export function HeaderWithNotifications() {
 
   const fetchUnreadCount = async () => {
     try {
-      console.log("📊 Fetching unread notification count...")
       const response = await axiosInstance.get("/notification/unread?page=0&size=1")
       setUnreadNotificationCount(response.data.totalElements)
-      console.log("📊 Unread count updated:", response.data.totalElements)
     } catch (err) {
       console.error("Error fetching unread count:", err)
     }
@@ -83,7 +81,6 @@ export function HeaderWithNotifications() {
 
   useEffect(() => {
     if (currentUser?.username) {
-      console.log("🔌 Initializing for user:", currentUser.username)
       fetchUnreadCount()
     }
   }, [currentUser?.username])

@@ -12,10 +12,12 @@ export const ChatSubscriptionProvider = ({ children }) => {
   const chatRoomIdsKey = alarmRooms.map(r => r.uniqueId).join(',')
 
   const safeUnsubscribe = useCallback((subs) => {
+    const client = stompClientRef.current
+    if (!client?.connected) return
     subs.forEach(sub => {
       try { sub?.unsubscribe() } catch (e) {}
     })
-  }, [])
+  }, [stompClientRef])
 
   useEffect(() => {
     const client = stompClientRef.current
@@ -28,7 +30,6 @@ export const ChatSubscriptionProvider = ({ children }) => {
           const received = JSON.parse(message.body)
           if (received.type === "EVENT") return
           if (Number(currentRoomIdRef.current) === Number(room.uniqueId)) {
-            console.log('현재 방 무시 roomId=', room.uniqueId)
             return
           }
           console.log('incrementUnread 호출 roomId=', room.uniqueId, 'currentRoomIdRef=', currentRoomIdRef.current)

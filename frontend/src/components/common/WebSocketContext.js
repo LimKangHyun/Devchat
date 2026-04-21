@@ -25,6 +25,7 @@ export const WebSocketProvider = ({ children }) => {
       onConnect: () => {
         console.log("✅ WebSocket Connected")
         setConnected(true)
+        client.reconnectDelay = 0
       },
       onWebSocketClose: (event) => {
         console.warn("🛑 WebSocket 끊김", event.code, event.reason)

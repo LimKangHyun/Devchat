@@ -29,10 +29,12 @@ const useWebSocket = ({
   useEffect(() => { onErrorRef.current = onError }, [onError])
 
   const safeUnsubscribe = useCallback((subs) => {
+    const client = stompClientRef.current
+    if (!client?.connected) return
     subs.forEach((sub) => {
       try { sub?.unsubscribe() } catch (e) {}
     })
-  }, [])
+  }, [stompClientRef])
 
   // 채팅방 메시지 + 방 삭제 구독
   useEffect(() => {
