@@ -32,7 +32,6 @@ export const ChatSubscriptionProvider = ({ children }) => {
           if (Number(currentRoomIdRef.current) === Number(room.uniqueId)) {
             return
           }
-          console.log('incrementUnread 호출 roomId=', room.uniqueId, 'currentRoomIdRef=', currentRoomIdRef.current)
           incrementUnread(room.uniqueId)
           bringRoomToTop(room.uniqueId)
 
