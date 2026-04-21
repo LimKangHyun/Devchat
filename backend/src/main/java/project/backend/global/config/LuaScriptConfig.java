@@ -32,6 +32,14 @@ public class LuaScriptConfig {
     }
 
     @Bean
+    public DefaultRedisScript<Void> bulkSetSequenceScript() {
+        DefaultRedisScript<Void> script = new DefaultRedisScript<>();
+        script.setLocation(new ClassPathResource("scripts/bulk_set_sequence.lua"));
+        script.setResultType(Void.class);
+        return script;
+    }
+
+    @Bean
     public DefaultRedisScript<Long> tokenBucketScript() {
         return loadScript("scripts/token_bucket.lua", Long.class);
     }

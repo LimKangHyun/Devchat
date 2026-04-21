@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -34,6 +35,10 @@ public class ChatRoomRedisService {
 
     public void setSequence(Long roomId, Long sequence) {
         chatRoomRedisRepository.setSequence(roomId, sequence);
+    }
+
+    public void bulkSetSequences(Map<Long, Long> sequences) {
+        chatRoomRedisRepository.bulkSetSequences(sequences);
     }
 
     public Long getSequence(Long roomId) {

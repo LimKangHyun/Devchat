@@ -16,6 +16,7 @@ import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.ex.ChatMessageException;
 import project.backend.global.exception.ex.ChatRoomException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -84,7 +85,30 @@ public class ChatRoomSequenceService {
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getSequencesFallback")
     public List<Long> getSequences(List<Long> roomIds) {
-        return chatRoomRedisService.getSequences(roomIds);
+        List<Long> sequences = chatRoomRedisService.getSequences(roomIds);
+
+        List<Long> missingRoomIds = new ArrayList<>();
+        for (int i = 0; i < roomIds.size(); i++) {
+            if (sequences.get(i) == null) {
+                missingRoomIds.add(roomIds.get(i));
+            }
+        }
+
+        if (!missingRoomIds.isEmpty()) {
+            Map<Long, Long> dbSequences = chatRoomRepository.findAllById(missingRoomIds)
+                    .stream()
+                    .collect(Collectors.toMap(ChatRoom::getId, ChatRoom::getLastSequence));
+
+            chatRoomRedisService.bulkSetSequences(dbSequences);
+
+            for (int i = 0; i < roomIds.size(); i++) {
+                if (sequences.get(i) == null) {
+                    sequences.set(i, dbSequences.getOrDefault(roomIds.get(i), 0L));
+                }
+            }
+        }
+
+        return sequences;
     }
 
     public List<Long> getSequencesFallback(List<Long> roomIds, Throwable e) {
