@@ -19,23 +19,19 @@ public class ChatRoomReadService {
     private final ChatParticipantRepository chatParticipantRepository;
     private final ChatRoomSequenceService chatRoomSequenceService;
 
-    public List<AllRoomsResponse> findAllRoomsWithUnread(Long memberId,
-                                                         List<ChatRoomWithSequenceProjection> roomProjections,
+    public List<AllRoomsResponse> findAllRoomsWithUnread(List<ChatRoomWithSequenceProjection> roomProjections,
                                                          Map<Long, Boolean> alarmEnabledMap) {
         List<Long> roomIds = new ArrayList<>(roomProjections.size());
         Map<Long, ChatRoomWithSequenceProjection> projectionMap = new HashMap<>();
-        Map<Long, Integer> sequenceIndexMap = new HashMap<>();
 
-        for (int i = 0; i < roomProjections.size(); i++) {
-            ChatRoomWithSequenceProjection p = roomProjections.get(i);
+        for (ChatRoomWithSequenceProjection p : roomProjections) {
             Long id = p.getChatRoomId();
             roomIds.add(id);
             projectionMap.put(id, p);
-            sequenceIndexMap.put(id, i);
         }
 
         List<Long> sortedRoomIds = chatRoomSequenceService.getSortedRoomIds(roomIds);
-        List<Long> sequences = chatRoomSequenceService.getSequences(roomIds);
+        Map<Long, Long> sequenceMap = chatRoomSequenceService.getSequences(roomIds);
 
         return sortedRoomIds.stream().map(roomId -> {
             ChatRoomWithSequenceProjection p = projectionMap.get(roomId);
@@ -43,9 +39,9 @@ public class ChatRoomReadService {
             long lastRead = p.getLastReadSequence() != null ? p.getLastReadSequence() : 0L;
 
             Long unreadCount = null;
-            Integer originalIdx = sequenceIndexMap.get(roomId);
-            if (sequences != null && originalIdx != null) {
-                unreadCount = calculateUnread(lastRead, sequences.get(originalIdx));
+            if (sequenceMap != null) {
+                Long seq = sequenceMap.get(roomId);
+                if (seq != null) unreadCount = calculateUnread(lastRead, seq);
             }
 
             return new AllRoomsResponse(

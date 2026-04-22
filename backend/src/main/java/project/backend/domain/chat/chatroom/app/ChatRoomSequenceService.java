@@ -17,6 +17,7 @@ import project.backend.global.exception.ex.ChatMessageException;
 import project.backend.global.exception.ex.ChatRoomException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -84,13 +85,17 @@ public class ChatRoomSequenceService {
     }
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getSequencesFallback")
-    public List<Long> getSequences(List<Long> roomIds) {
+    public Map<Long, Long> getSequences(List<Long> roomIds) {
         List<Long> sequences = chatRoomRedisService.getSequences(roomIds);
 
+        Map<Long, Long> result = new HashMap<>();
         List<Long> missingRoomIds = new ArrayList<>();
+
         for (int i = 0; i < roomIds.size(); i++) {
             if (sequences.get(i) == null) {
                 missingRoomIds.add(roomIds.get(i));
+            } else {
+                result.put(roomIds.get(i), sequences.get(i));
             }
         }
 
@@ -100,28 +105,17 @@ public class ChatRoomSequenceService {
                     .collect(Collectors.toMap(ChatRoom::getId, ChatRoom::getLastSequence));
 
             chatRoomRedisService.bulkSetSequences(dbSequences);
-
-            for (int i = 0; i < roomIds.size(); i++) {
-                if (sequences.get(i) == null) {
-                    sequences.set(i, dbSequences.getOrDefault(roomIds.get(i), 0L));
-                }
-            }
+            result.putAll(dbSequences);
         }
 
-        return sequences;
+        return result;
     }
 
-    public List<Long> getSequencesFallback(List<Long> roomIds, Throwable e) {
+    public Map<Long, Long> getSequencesFallback(List<Long> roomIds, Throwable e) {
         log.warn("Circuit OPEN - getSequences 폴백");
         meterRegistry.counter("redis.fallback", "reason", "sequence").increment();
-        Map<Long, Long> seqMap = chatRoomRepository.findAllById(roomIds).stream()
-                .collect(Collectors.toMap(
-                        ChatRoom::getId,
-                        ChatRoom::getLastSequence
-                ));
-        return roomIds.stream()
-                .map(id -> seqMap.getOrDefault(id, 0L))
-                .toList();
+        return chatRoomRepository.findAllById(roomIds).stream()
+                .collect(Collectors.toMap(ChatRoom::getId, ChatRoom::getLastSequence));
     }
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getSortedRoomIdsFallback")

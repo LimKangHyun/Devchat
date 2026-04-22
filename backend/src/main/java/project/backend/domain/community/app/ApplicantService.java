@@ -108,8 +108,8 @@ public class ApplicantService {
 
         chatRoomAlarmService.createAlarm(member.getId(), post.getChatRoom().getId());
 
-        Long seq = chatRoomSequenceService.genMessageSeq(post.getChatRoomId(), requesterId);
-        return chatMessageService.saveJoinEvent(post.getChatRoom(), member, seq);
+        chatRoomSequenceService.genMessageSeq(post.getChatRoomId(), requesterId);
+        return chatMessageService.saveJoinEvent(post.getChatRoom(), member);
     }
 
     private void handleApprove(Post post, Applicant applicant, MemberDetails memberDetails) {

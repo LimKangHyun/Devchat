@@ -68,9 +68,9 @@ public class GitMessageService {
 	private void sendGitMessage(ChatRoom room, GitMessageDto gitMessage) {
 		Member githubBot = memberService.getMemberByUsername(githubUsername);
 
-		Long seq = chatRoomRedisService.genMessageSeq(room.getId());
+		chatRoomRedisService.genMessageSeq(room.getId());
 
-		ChatMessage message = chatMessageMapper.toEntityWithGit(gitMessage, githubBot, seq);
+		ChatMessage message = chatMessageMapper.toEntityWithGit(gitMessage, githubBot);
 		chatMessageRepository.save(message);
 
 		ChatMessageResponse response = chatMessageMapper.toGitResponse(message);

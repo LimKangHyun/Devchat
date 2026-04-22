@@ -206,7 +206,7 @@ class ApplicantServiceTest {
             given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(6L); // 수정
 
             ChatMessage joinMessage = mock(ChatMessage.class);
-            given(chatMessageService.saveJoinEvent(chatRoom, applicantMember, 6L)).willReturn(joinMessage);
+            given(chatMessageService.saveJoinEvent(chatRoom, applicantMember)).willReturn(joinMessage);
 
             applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails);
 
@@ -234,10 +234,10 @@ class ApplicantServiceTest {
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
             given(applicantRepository.findById(10L)).willReturn(Optional.of(applicant));
             given(chatRoomReadService.getLatestSequence(10L)).willReturn(3L);
-            given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(4L); // 수정
+            given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(4L);
 
             ChatMessage joinMessage = mock(ChatMessage.class);
-            given(chatMessageService.saveJoinEvent(chatRoom, applicantMember, 4L)).willReturn(joinMessage);
+            given(chatMessageService.saveJoinEvent(chatRoom, applicantMember)).willReturn(joinMessage);
 
             applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails);
 

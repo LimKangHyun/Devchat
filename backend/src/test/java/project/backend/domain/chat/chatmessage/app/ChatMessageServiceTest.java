@@ -101,7 +101,7 @@ class ChatMessageServiceTest {
             given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(3L);
             given(entityManager.getReference(Member.class, 1L)).willReturn(sender);
             given(entityManager.getReference(ChatRoom.class, 10L)).willReturn(chatRoom);
-            given(messageMapper.toEntityWithText(chatRoom, sender, request, 3L)).willReturn(textMessage);
+            given(messageMapper.toEntityWithText(chatRoom, sender, request)).willReturn(textMessage);
             given(textMessage.getType()).willReturn(TEXT);
 
             given(textMessage.getChatRoom()).willReturn(chatRoom);
@@ -133,7 +133,7 @@ class ChatMessageServiceTest {
 
             ImageFile imageFile = mock(ImageFile.class);
             given(imageFileService.getImageById(99L)).willReturn(imageFile);
-            given(messageMapper.toEntityWithImage(chatRoom, sender, imageFile, 1L)).willReturn(imageMessage);
+            given(messageMapper.toEntityWithImage(chatRoom, sender, imageFile)).willReturn(imageMessage);
             given(imageMessage.getType()).willReturn(IMAGE);
 
             given(imageMessage.getChatRoom()).willReturn(chatRoom);
@@ -159,7 +159,7 @@ class ChatMessageServiceTest {
             given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(2L);
             given(entityManager.getReference(Member.class, 1L)).willReturn(sender);
             given(entityManager.getReference(ChatRoom.class, 10L)).willReturn(chatRoom);
-            given(messageMapper.toEntityWithCode(chatRoom, sender, request, 2L)).willReturn(codeMessage);
+            given(messageMapper.toEntityWithCode(chatRoom, sender, request)).willReturn(codeMessage);
             given(codeMessage.getType()).willReturn(CODE);
 
             given(codeMessage.getChatRoom()).willReturn(chatRoom);
