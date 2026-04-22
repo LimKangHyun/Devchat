@@ -140,7 +140,7 @@ class ChatRoomServiceTest {
             ChatMessage joinMessage = mock(ChatMessage.class);
             given(joinMessage.getId()).willReturn(500L);
             given(joinMessage.getSendAt()).willReturn(java.time.LocalDateTime.now());
-            given(chatMessageService.saveJoinEvent(chatRoom, joiner, 1L)).willReturn(joinMessage);
+            given(chatMessageService.saveJoinEvent(chatRoom, joiner)).willReturn(joinMessage);
 
             InviteJoinResponse result = chatRoomService.joinChatRoom("INVITE-CODE", 2L);
 
@@ -259,7 +259,7 @@ class ChatRoomServiceTest {
                     .willReturn(Map.of(10L, true));
 
             AllRoomsResponse expected = mock(AllRoomsResponse.class);
-            given(chatRoomReadService.findAllRoomsWithUnread(any(), any(), any()))
+            given(chatRoomReadService.findAllRoomsWithUnread(any(), any()))
                     .willReturn(List.of(expected));
 
             List<AllRoomsResponse> result = chatRoomService.findAllRoomsByMemberId(1L);
@@ -273,7 +273,7 @@ class ChatRoomServiceTest {
         void findAllRooms_empty_returnsEmptyList() {
             given(chatRoomRepository.findAllRoomsWithSequenceByParticipantId(1L))
                     .willReturn(Collections.emptyList());
-            given(chatRoomReadService.findAllRoomsWithUnread(any(), any(), any()))
+            given(chatRoomReadService.findAllRoomsWithUnread(any(), any()))
                     .willReturn(Collections.emptyList());
 
             List<AllRoomsResponse> result = chatRoomService.findAllRoomsByMemberId(1L);

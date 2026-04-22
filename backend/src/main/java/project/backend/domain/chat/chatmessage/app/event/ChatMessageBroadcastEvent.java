@@ -22,7 +22,6 @@ public record ChatMessageBroadcastEvent(
                 .senderId(sender.getId())
                 .messageId(message.getId())
                 .status(message.getStatus())
-                .sequence(message.getSequence())
                 .build();
 
         return new ChatMessageBroadcastEvent(message.getChatRoom().getId(), response);

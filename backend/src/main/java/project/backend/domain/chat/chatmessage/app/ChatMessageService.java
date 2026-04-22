@@ -67,7 +67,7 @@ public class ChatMessageService {
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);
 
-        ChatMessage message = createMessage(room, sender, request, seq);
+        ChatMessage message = createMessage(room, sender, request);
         chatMessageRepository.save(message);
 
         String profileImage = profileImageCache.getProfileImage(memberDetails.getId());
@@ -77,14 +77,14 @@ public class ChatMessageService {
     }
 
     private ChatMessage createMessage(ChatRoom room, Member sender,
-                                      ChatMessageRequest request, Long seq) {
+                                      ChatMessageRequest request) {
         return switch (request.getType()) {
             case IMAGE -> {
                 ImageFile findImage = imageFileService.getImageById(request.getImageFileId());
-                yield messageMapper.toEntityWithImage(room, sender, findImage, seq);
+                yield messageMapper.toEntityWithImage(room, sender, findImage);
             }
-            case TEXT -> messageMapper.toEntityWithText(room, sender, request, seq);
-            case CODE -> messageMapper.toEntityWithCode(room, sender, request, seq);
+            case TEXT -> messageMapper.toEntityWithText(room, sender, request);
+            case CODE -> messageMapper.toEntityWithCode(room, sender, request);
             default -> throw new ChatMessageException(ChatMessageErrorCode.INVALID_ROUTE);
         };
     }
@@ -214,8 +214,8 @@ public class ChatMessageService {
         return new ChatScrollResponse(responses, nextCursor);
     }
 
-    public ChatMessage saveJoinEvent(ChatRoom room, Member member, Long seq) {
-        ChatMessage message = messageMapper.toEntityWithJoinEvent(room, member, LocalDateTime.now(), seq);
+    public ChatMessage saveJoinEvent(ChatRoom room, Member member) {
+        ChatMessage message = messageMapper.toEntityWithJoinEvent(room, member, LocalDateTime.now());
         return chatMessageRepository.save(message);
     }
 

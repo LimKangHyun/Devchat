@@ -86,9 +86,9 @@ public class ChatRoomService {
         chatRoomParticipantService.handleParticipantJoin(room, member);
         chatRoomAlarmService.createAlarm(memberId, room.getId());
 
-        Long seq = chatRoomSequenceService.genMessageSeq(room.getId(), memberId);
+        chatRoomSequenceService.genMessageSeq(room.getId(), memberId);
 
-        ChatMessage savedMessage = chatMessageService.saveJoinEvent(room, member, seq);
+        ChatMessage savedMessage = chatMessageService.saveJoinEvent(room, member);
 
         eventPublisher.publishEvent(
                 new JoinChatRoomEvent(room.getId(), memberId, member.getNickname(),
@@ -144,7 +144,7 @@ public class ChatRoomService {
                 ? Collections.emptyMap()
                 : chatRoomAlarmService.findAlarmEnabledMap(memberId, roomIds);
 
-        return chatRoomReadService.findAllRoomsWithUnread(memberId, roomProjections, alarmEnabledMap);
+        return chatRoomReadService.findAllRoomsWithUnread(roomProjections, alarmEnabledMap);
     }
 
     public EntryRoomResponse getEntryInfo(String inviteCode, Long memberId) {

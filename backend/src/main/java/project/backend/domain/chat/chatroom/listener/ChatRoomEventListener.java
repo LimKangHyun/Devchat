@@ -63,10 +63,10 @@ public class ChatRoomEventListener {
         ChatRoom chatRoom = chatRoomService.getRoomById(leaveEvent.roomId());
         Member member = memberService.getMemberById(leaveEvent.memberId());
 
-        Long seq = chatRoomRedisService.genMessageSeq(leaveEvent.roomId());
+        chatRoomRedisService.genMessageSeq(leaveEvent.roomId());
 
         ChatMessage message = chatMessageMapper.toEntityWithLeaveEvent(chatRoom, member,
-            leaveEvent, seq);
+            leaveEvent);
         ChatMessage savedMessage = chatMessageRepository.save(message);
 
         EventMessageResponse eventMessageResponse = ChatRoomMapper.toLeaveEventMessageResponse(

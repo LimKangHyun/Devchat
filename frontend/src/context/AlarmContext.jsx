@@ -40,7 +40,6 @@ export const AlarmProvider = ({ children }) => {
   }, [])
 
   const incrementUnread = useCallback((roomUniqueId) => {
-    console.trace('incrementUnread 호출 roomId=', roomUniqueId)
     setAlarmRooms(prev => prev.map(r =>
       Number(r.uniqueId) === Number(roomUniqueId)
         ? { ...r, unreadCount: (r.unreadCount ?? 0) + 1 }
