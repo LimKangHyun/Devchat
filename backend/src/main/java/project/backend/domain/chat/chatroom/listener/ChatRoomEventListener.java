@@ -9,8 +9,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
-import project.backend.domain.chat.chatroom.app.ChatRoomRedisService;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
 import project.backend.domain.chat.chatmessage.app.event.EventMessageResponse;
 import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
@@ -31,7 +31,7 @@ public class ChatRoomEventListener {
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final ChatMessageRepository chatMessageRepository;
 
-    private final ChatRoomRedisService chatRoomRedisService;
+    private final ChatRoomRedisRepository chatRoomRedisRepository;
     private final ChatRoomService chatRoomService;
     private final MemberService memberService;
 
@@ -63,7 +63,7 @@ public class ChatRoomEventListener {
         ChatRoom chatRoom = chatRoomService.getRoomById(leaveEvent.roomId());
         Member member = memberService.getMemberById(leaveEvent.memberId());
 
-        chatRoomRedisService.genMessageSeq(leaveEvent.roomId());
+        chatRoomRedisRepository.genMessageSeq(leaveEvent.roomId());
 
         ChatMessage message = chatMessageMapper.toEntityWithLeaveEvent(chatRoom, member,
             leaveEvent);
