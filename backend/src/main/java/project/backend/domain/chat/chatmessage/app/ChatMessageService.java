@@ -62,7 +62,7 @@ public class ChatMessageService {
     @Transactional
     public ChatMessageResponse save(Long roomId, ChatMessageRequest request,
                                     MemberDetails memberDetails) {
-        Long seq = chatRoomSequenceService.genMessageSeq(roomId, memberDetails.getId());
+        chatRoomSequenceService.genMessageSeq(roomId, memberDetails.getId());
 
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);

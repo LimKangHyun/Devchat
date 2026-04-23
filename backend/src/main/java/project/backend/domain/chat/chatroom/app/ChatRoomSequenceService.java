@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import project.backend.domain.chat.chatmessage.app.policy.MessageSendPolicySelector;
 import project.backend.domain.chat.chatmessage.app.policy.limiter.FallbackLimiter;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.global.exception.errorcode.ChatMessageErrorCode;
@@ -27,7 +28,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatRoomSequenceService {
 
-    private final ChatRoomRedisService chatRoomRedisService;
+    private final ChatRoomRedisRepository chatRoomRedisRepository;
     private final ChatRoomSyncService chatRoomSyncService;
     private final ChatRoomRepository chatRoomRepository;
     private final MeterRegistry meterRegistry;
@@ -43,7 +44,7 @@ public class ChatRoomSequenceService {
             log.info("레이트 리밋 초과 - 예외 던짐 userId={}", userId);
             throw new ChatMessageException(ChatMessageErrorCode.TOO_MANY_REQUESTS);
         }
-        return chatRoomRedisService.genMessageSeq(roomId);
+        return chatRoomSyncService.getOrRecoverSeq(roomId);
     }
 
     public Long genMessageSeqFallback(Long roomId, Long userId, CallNotPermittedException e) {
@@ -56,21 +57,19 @@ public class ChatRoomSequenceService {
     }
 
     public Long genMessageSeqFallback(Long roomId, Long userId, Throwable e) {
-        if (e instanceof ChatMessageException) {
-            throw (ChatMessageException) e;
-        }
+        if (e instanceof ChatMessageException) throw (ChatMessageException) e;
         log.warn("Redis 예외 - genMessageSeq 폴백 roomId={} 예외={}", roomId, e.getMessage());
         return doFallback(roomId, userId);
     }
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getLatestSequenceFallback")
     public Long getLatestSequence(Long roomId) {
-        Long redisSeq = chatRoomRedisService.getSequence(roomId);
+        Long redisSeq = chatRoomRedisRepository.getSequence(roomId);
         if (redisSeq == -1L) {
             ChatRoom room = chatRoomRepository.findById(roomId)
                     .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
             long dbSeq = room.getLastSequence();
-            chatRoomRedisService.setSequence(roomId, dbSeq);
+            chatRoomRedisRepository.setSequence(roomId, dbSeq);
             return dbSeq;
         }
         return redisSeq;
@@ -86,7 +85,7 @@ public class ChatRoomSequenceService {
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getSequencesFallback")
     public Map<Long, Long> getSequences(List<Long> roomIds) {
-        List<Long> sequences = chatRoomRedisService.getSequences(roomIds);
+        List<Long> sequences = chatRoomRedisRepository.getSequences(roomIds);
 
         Map<Long, Long> result = new HashMap<>();
         List<Long> missingRoomIds = new ArrayList<>();
@@ -104,7 +103,7 @@ public class ChatRoomSequenceService {
                     .stream()
                     .collect(Collectors.toMap(ChatRoom::getId, ChatRoom::getLastSequence));
 
-            chatRoomRedisService.bulkSetSequences(dbSequences);
+            chatRoomRedisRepository.bulkSetSequences(dbSequences);
             result.putAll(dbSequences);
         }
 
@@ -120,7 +119,7 @@ public class ChatRoomSequenceService {
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getSortedRoomIdsFallback")
     public List<Long> getSortedRoomIds(List<Long> roomIds) {
-        return chatRoomRedisService.getSortedRoomIds(roomIds);
+        return chatRoomRedisRepository.getSortedRoomIds(roomIds);
     }
 
     public List<Long> getSortedRoomIdsFallback(List<Long> roomIds, Throwable e) {

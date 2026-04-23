@@ -10,7 +10,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.community.entity.Post;
 
