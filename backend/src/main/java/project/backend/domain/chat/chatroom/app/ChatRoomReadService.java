@@ -39,10 +39,8 @@ public class ChatRoomReadService {
             long lastRead = p.getLastReadSequence() != null ? p.getLastReadSequence() : 0L;
 
             Long unreadCount = null;
-            if (sequenceMap != null) {
-                Long seq = sequenceMap.get(roomId);
-                if (seq != null) unreadCount = calculateUnread(lastRead, seq);
-            }
+            Long seq = sequenceMap.get(roomId);
+            if (seq != null) unreadCount = calculateUnread(lastRead, seq);
 
             return new AllRoomsResponse(
                     roomId,
