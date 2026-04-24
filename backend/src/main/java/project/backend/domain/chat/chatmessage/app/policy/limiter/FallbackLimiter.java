@@ -7,7 +7,7 @@ import java.util.concurrent.Semaphore;
 @Component
 public class FallbackLimiter {
 
-    private static final int MAX_CONCURRENT_FALLBACK = 10;
+    private static final int MAX_CONCURRENT_FALLBACK = 9; // 커넥션 풀(15)의 70%
     private final Semaphore semaphore = new Semaphore(MAX_CONCURRENT_FALLBACK);
 
     public boolean tryAcquire() {
