@@ -69,7 +69,6 @@ public class JwtProvider {
 
     public JWTVerifier getJwtVerifier() {
         return JWT.require(getSignatureAlgorithm())
-                .acceptExpiresAt(TOKEN_VALIDATION_SECOND)
                 .build();
     }
 
@@ -119,6 +118,6 @@ public class JwtProvider {
                 .withIssuedAt(new Date(now))
                 .withExpiresAt(new Date(now + expiration * 1000))
                 .withPayload(payload)
-                .sign(getSignatureAlgorithm()); // ✅ ISSUER 제거
+                .sign(getSignatureAlgorithm());
     }
 }
