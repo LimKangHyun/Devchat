@@ -6,13 +6,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import project.backend.auth.app.CookieUtils;
+import project.backend.auth.app.AuthTokenService;
+import project.backend.global.util.CookieUtils;
 import project.backend.auth.dto.MemberDetails;
-import project.backend.auth.token.dao.TokenRedisRepository;
 
 @Tag(name = "Auth", description = "인증 / 로그아웃 API")
 @Slf4j
@@ -21,19 +20,21 @@ import project.backend.auth.token.dao.TokenRedisRepository;
 @RequiredArgsConstructor
 public class LogoutController {
 
-	private final TokenRedisRepository tokenRedisRepository;
+	private final AuthTokenService authTokenService;
 
 	@Operation(summary = "로그아웃")
 	@PostMapping
 	public void logout(@AuthenticationPrincipal MemberDetails memberDetails,
-		HttpServletResponse response) {
+					   HttpServletResponse response) {
 
-		SecurityContextHolder.clearContext();
-		CookieUtils.deleteCookie(response);
-		tokenRedisRepository.deleteById(memberDetails.getId());
-		log.info("[로그아웃] {}", memberDetails.getNickname());
+		if (memberDetails != null) {
+			authTokenService.logout(memberDetails.getId());
+			log.info("[로그아웃] {}", memberDetails.getNickname());
+		}
+
+		CookieUtils.deleteAccessTokenCookie(response);
+		CookieUtils.deleteRefreshTokenCookie(response);
 		response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-
 	}
 
 }

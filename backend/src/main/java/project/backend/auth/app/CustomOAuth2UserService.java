@@ -13,7 +13,6 @@ import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.backend.domain.chat.github.GitHubClient;
 import project.backend.auth.dto.CustomOAuth2User;
 import project.backend.auth.dto.OAuth2Attribute;
 
@@ -22,8 +21,6 @@ import project.backend.auth.dto.OAuth2Attribute;
 @Transactional
 @RequiredArgsConstructor
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
-
-	private final GitHubClient gitHubClient;
 
 	@Override
 	public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -34,7 +31,6 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
 		String registrationId = userRequest.getClientRegistration().getRegistrationId();
 
-		//login임 식별자 역할
 		String userNameAttributeName = userRequest.getClientRegistration().getProviderDetails()
 			.getUserInfoEndpoint().getUserNameAttributeName();
 

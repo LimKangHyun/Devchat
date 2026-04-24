@@ -72,7 +72,7 @@ spring:
         format_sql: true
 
 resilience4j:
-  circuitbreaker:
+  circuit breaker:
     instances:
       redis:
         failure-rate-threshold: 50
@@ -124,6 +124,9 @@ jwt:
     base: ${DOMAIN_URL}
   info:
     secret: ${JWT_SECRET}
+
+encrypt:
+  secret: ${ENCRYPT_SECRET}
 
 logging:
   level:

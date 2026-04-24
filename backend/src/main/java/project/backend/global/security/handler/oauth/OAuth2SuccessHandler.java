@@ -3,9 +3,7 @@ package project.backend.global.security.handler.oauth;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
 import java.io.IOException;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,74 +13,64 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
+import project.backend.auth.app.AuthTokenService;
+import project.backend.global.util.CookieUtils;
+import project.backend.auth.app.OAuthSignUpService;
 import project.backend.auth.dto.MemberDetails;
+import project.backend.auth.dto.OAuthMemberDto;
+import project.backend.auth.jwt.JwtProvider;
+import project.backend.auth.jwt.Token;
 import project.backend.domain.member.app.ProfileImageCache;
 import project.backend.domain.member.entity.Member;
-import project.backend.auth.app.CookieUtils;
-import project.backend.auth.app.OAuthSignUpService;
-import project.backend.auth.dto.OAuthMemberDto;
-import project.backend.auth.token.jwt.JwtProvider;
-import project.backend.auth.token.jwt.Token;
-import project.backend.auth.token.entity.TokenRedis;
-import project.backend.auth.token.dao.TokenRedisRepository;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    private final ProfileImageCache profileImageCache;
     @Value("${jwt.redirection.base}")
     private String baseUrl;
 
     private final JwtProvider jwtProvider;
     private final OAuthSignUpService oAuthSignUpService;
-    private final TokenRedisRepository tokenRedisRepository;
+    private final AuthTokenService authTokenService;
+    private final ProfileImageCache profileImageCache;
 
     @Override
     @Transactional
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
-        Authentication authentication) throws IOException, ServletException {
+                                        Authentication authentication) throws IOException, ServletException {
 
         var oAuth2User = (OAuth2User) authentication.getPrincipal();
 
-        log.info("oAuth2User = {}", oAuth2User);
-
         OAuthMemberDto userDto = new OAuthMemberDto(
-            (String) oAuth2User.getAttributes().get("email"),
-            (String) oAuth2User.getAttributes().get("name"),
-            (String) oAuth2User.getAttributes().get("login"));
+                (String) oAuth2User.getAttributes().get("email"),
+                (String) oAuth2User.getAttributes().get("name"),
+                (String) oAuth2User.getAttributes().get("login"));
 
-        // 기존에 없는 email이면 회원가입
         Member member = oAuthSignUpService.OAuthSignUp(userDto);
 
-        Token token = jwtProvider.generateTokenPair(
-            new MemberDetails(member.getId(), member.getUsername(), member.getNickname(),
-                member.getProfileImage()));
+        MemberDetails memberDetails = new MemberDetails(
+                member.getId(), member.getUsername(),
+                member.getNickname(), member.getProfileImage());
 
-        //쿠키 생성 및 저장
-        CookieUtils.saveCookie(response, token.accessToken());
+        Token token = jwtProvider.generateTokenPair(memberDetails);
 
-        // 깃허브 엑세스 토큰
-        var githubAccess = (String) oAuth2User.getAttributes().get("githubAccess");
+        String githubAccessToken = (String) oAuth2User.getAttributes().get("githubAccess");
 
-        tokenRedisRepository.save(
-            new TokenRedis(member.getId(), token.accessToken(), token.refreshToken(),
-                githubAccess));
+        authTokenService.saveToken(member.getId(), token.refreshToken(), githubAccessToken);
 
-        log.info("OAuth 로그인 성공: {}", member.getUsername());
+        CookieUtils.saveAccessTokenCookie(response, token.accessToken());
+
+        CookieUtils.saveRefreshTokenCookie(response, token.refreshToken());
 
         profileImageCache.setProfileImage(member.getId(), member.getProfileImage());
 
+        log.info("OAuth 로그인 성공: {}", member.getUsername());
+
         String redirectUrl = UriComponentsBuilder.fromUriString(baseUrl)
-            .build().toUriString();
+                .build().toUriString();
 
-        log.info("OAuth 로그인 후 리다이렉트 URL = {}", redirectUrl);
-        response.setStatus(HttpServletResponse.SC_OK);
-        response.setContentType("application/json");
         response.sendRedirect(redirectUrl);
-
     }
-
-
 }

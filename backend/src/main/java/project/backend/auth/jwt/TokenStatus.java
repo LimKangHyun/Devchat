@@ -1,4 +1,4 @@
-package project.backend.auth.token.jwt;
+package project.backend.auth.jwt;
 
 public enum TokenStatus {
 	VALID,

@@ -13,9 +13,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
-import project.backend.auth.app.CookieUtils;
-import project.backend.auth.token.jwt.JwtProvider;
-import project.backend.auth.token.jwt.TokenStatus;
+import project.backend.global.util.CookieUtils;
+import project.backend.auth.jwt.JwtProvider;
+import project.backend.auth.jwt.TokenStatus;
 import project.backend.global.exception.errorcode.TokenErrorCode;
 import project.backend.global.exception.ex.CustomJwtException;
 
