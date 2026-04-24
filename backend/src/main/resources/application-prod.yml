@@ -21,7 +21,7 @@ spring:
     password: ${RDS_PASSWORD}
     url: jdbc:mysql://${RDS_ENDPOINT}:3306/FLYING_TRUCK_PROJECT
     hikari:
-      maximum-pool-size: 15
+      maximum-pool-size: 10
       minimum-idle: 5
       connection-timeout: 3000
       idle-timeout: 600000
