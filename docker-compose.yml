@@ -23,6 +23,7 @@ services:
       - DOMAIN_URL=${DOMAIN_URL}
       - IMAGE_URL=${IMAGE_URL}
       - WEBHOOK_URL=${WEBHOOK_URL}
+      - ENCRYPT_SECRET=${ENCRYPT_SECRET}
       - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
     depends_on:
@@ -47,6 +48,7 @@ services:
       - DOMAIN_URL=${DOMAIN_URL}
       - IMAGE_URL=${IMAGE_URL}
       - WEBHOOK_URL=${WEBHOOK_URL}
+      - ENCRYPT_SECRET=${ENCRYPT_SECRET}
       - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
     depends_on:
