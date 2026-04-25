@@ -46,7 +46,7 @@ public class ChatMessage {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    private LocalDateTime sendAt;
+    private LocalDateTime createdAt;
 
     @Enumerated(EnumType.STRING)
     private MessageType type;
