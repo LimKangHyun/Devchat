@@ -23,7 +23,7 @@ public class EventMessageResponse {
 
 	private String content;
 
-	private LocalDateTime sendAt;
+	private LocalDateTime createdAt;
 
 }
 

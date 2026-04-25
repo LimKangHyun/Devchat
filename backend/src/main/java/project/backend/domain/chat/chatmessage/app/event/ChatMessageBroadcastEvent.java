@@ -13,7 +13,7 @@ public record ChatMessageBroadcastEvent(
                 .senderName(sender.getNickname())
                 .content(message.getContent())
                 .type(message.getType())
-                .sendAt(message.getSendAt())
+                .createdAt(message.getCreatedAt())
                 .language(message.getCodeLanguage())
                 .profileImageUrl(profileImage)
                 .chatImageUrl(

@@ -92,7 +92,7 @@ public class ChatRoomService {
 
         eventPublisher.publishEvent(
                 new JoinChatRoomEvent(room.getId(), memberId, member.getNickname(),
-                        savedMessage.getId(), savedMessage.getSendAt()));
+                        savedMessage.getId(), savedMessage.getCreatedAt()));
 
         return ChatRoomMapper.toInviteJoinResponse(room.getId(), room.getInviteCode(),
                 room.getName());

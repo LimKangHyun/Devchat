@@ -27,7 +27,7 @@ public class ChatMessageMapper {
             .sender(sender)
             .content(request.getContent())
             .type(MessageType.TEXT)
-            .sendAt(LocalDateTime.now())
+            .createdAt(LocalDateTime.now())
             .build();
     }
 
@@ -38,7 +38,7 @@ public class ChatMessageMapper {
             .sender(sender)
             .content(request.getContent())
             .type(MessageType.CODE)
-            .sendAt(LocalDateTime.now())
+            .createdAt(LocalDateTime.now())
             .codeLanguage(request.getLanguage())
             .build();
     }
@@ -49,7 +49,7 @@ public class ChatMessageMapper {
             .chatRoom(room)
             .sender(sender)
             .type(MessageType.IMAGE)
-            .sendAt(LocalDateTime.now())
+            .createdAt(LocalDateTime.now())
             .chatImage(chatImage)
             .build();
     }
@@ -59,7 +59,7 @@ public class ChatMessageMapper {
             .chatRoom(gitMessage.getRoom())
             .type(MessageType.GIT)
             .content(gitMessage.getContent())
-            .sendAt(LocalDateTime.now())
+            .createdAt(LocalDateTime.now())
             .sender(githubBot)
             .build();
     }
@@ -71,7 +71,7 @@ public class ChatMessageMapper {
             .sender(sender)
             .content(sender.getNickname() + "님이 입장했습니다.")
             .type(MessageType.EVENT)
-            .sendAt(now)
+            .createdAt(now)
             .build();
     }
 
@@ -82,7 +82,7 @@ public class ChatMessageMapper {
             .sender(sender)
             .content(leaveEvent.nickname() + "님이 나갔습니다.")
             .type(MessageType.EVENT)
-            .sendAt(leaveEvent.leaveAt())
+            .createdAt(leaveEvent.leaveAt())
             .build();
     }
 
@@ -102,7 +102,7 @@ public class ChatMessageMapper {
             .senderName(senderName)
             .content(message.getContent())
             .type(message.getType())
-            .sendAt(message.getSendAt())
+            .createdAt(message.getCreatedAt())
             .language(message.getCodeLanguage())
             .profileImageUrl(message.getSender().getProfileImage())
             .chatImageUrl(
@@ -121,7 +121,7 @@ public class ChatMessageMapper {
             .senderName(memberDetails.getNickname())
             .content(message.getContent())
             .type(message.getType())
-            .sendAt(message.getSendAt())
+            .createdAt(message.getCreatedAt())
             .language(message.getCodeLanguage())
             .profileImageUrl(profileImage)
             .chatImageUrl(
@@ -141,7 +141,7 @@ public class ChatMessageMapper {
             .content(message.getContent())
             .senderName(message.getSender().getNickname())
             .profileImageUrl(message.getSender().getProfileImage())
-            .sendAt(message.getSendAt())
+            .sendAt(message.getCreatedAt())
             .type(message.getType())
             .build();
     }
@@ -154,7 +154,7 @@ public class ChatMessageMapper {
             .senderName("깃허브봇")
             .content(message.getContent())
             .type(message.getType())
-            .sendAt(message.getSendAt())
+            .createdAt(message.getCreatedAt())
             .messageId(message.getId())
             .profileImageUrl(githubProfile)
             .build();

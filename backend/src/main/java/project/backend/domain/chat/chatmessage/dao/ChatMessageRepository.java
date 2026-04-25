@@ -23,7 +23,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @Query("""
         SELECT cm FROM ChatMessage cm
         LEFT JOIN ChatMessageSearch cms ON cm.id = cms.id
-        WHERE cm.sendAt > :from
+        WHERE cm.createdAt > :from
         AND cms.id IS NULL
         """)
     List<ChatMessage> findMissingSearchIndex(@Param("from") LocalDateTime from, Pageable pageable);

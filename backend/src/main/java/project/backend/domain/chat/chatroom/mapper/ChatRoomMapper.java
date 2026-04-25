@@ -86,7 +86,7 @@ public class ChatRoomMapper {
             .roomId(joinEvent.roomId())
             .sender(joinEvent.nickname())
             .content(joinEvent.nickname() + "님이 입장했습니다.")
-            .sendAt(joinEvent.joinAt())
+            .createdAt(joinEvent.joinAt())
             .build();
     }
 
@@ -98,7 +98,7 @@ public class ChatRoomMapper {
             .roomId(leaveEvent.roomId())
             .sender(leaveEvent.nickname())
             .content(leaveEvent.nickname() + "님이 나갔습니다.")
-            .sendAt(leaveEvent.leaveAt())
+            .createdAt(leaveEvent.leaveAt())
             .build();
     }
 

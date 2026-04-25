@@ -12,7 +12,7 @@ public class ChatMessageResponse {
 
 	private String content;
 	private String senderName;
-	private LocalDateTime sendAt;
+	private LocalDateTime createdAt;
 	private MessageType type;
 	private String language;
 	private String profileImageUrl;

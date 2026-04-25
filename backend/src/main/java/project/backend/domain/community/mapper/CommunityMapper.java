@@ -59,7 +59,7 @@ public class CommunityMapper {
                 member.getId(),
                 member.getNickname(),
                 savedMessage.getId(),
-                savedMessage.getSendAt()
+                savedMessage.getCreatedAt()
         );
     }
 }
