@@ -45,7 +45,7 @@ const useWebSocket = ({
       client.subscribe(`/topic/chat/${roomId}`, (message) => {
         try {
           const received = JSON.parse(message.body)
-          received.sendAt = received.sendAt || new Date().toISOString()
+          received.createdAt = received.createdAt || new Date().toISOString()
           onMessageReceivedRef.current?.(received)
         } catch (e) {
           console.error("📛 Failed to parse chat message", e)

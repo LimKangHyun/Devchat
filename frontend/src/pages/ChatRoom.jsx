@@ -45,8 +45,8 @@ const VirtuosoMessageItem = React.memo(({
   handleDeleteMessage, editMessageId, editContent,
   handleEditMessage, onCodeClick,
 }) => {
-  const msgDate = formatDate(msg.sendAt || msg.joinAt);
-  const prevDate = prevMsg ? formatDate(prevMsg.sendAt || prevMsg.joinAt) : null;
+  const msgDate = formatDate(msg.createdAt || msg.joinAt);
+  const prevDate = prevMsg ? formatDate(prevMsg.createdAt || prevMsg.joinAt) : null;
 
   return (
     <div>
@@ -193,8 +193,8 @@ const ChatRoom = () => {
       const data = res.data;
       const messageList = data.messages || [];
       const sorted = messageList
-        .map((msg) => ({ ...msg, sendAt: msg.sendAt && !isNaN(new Date(msg.sendAt).getTime()) ? msg.sendAt : new Date().toISOString() }))
-        .sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
+        .map((msg) => ({ ...msg, createdAt: msg.createdAt && !isNaN(new Date(msg.createdAt).getTime()) ? msg.createdAt : new Date().toISOString() }))
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
       const uniqueProfileUrls = [...new Set(sorted.map(m => m.profileImageUrl).filter(Boolean))];
       preloadImages(uniqueProfileUrls);
@@ -231,14 +231,14 @@ const ChatRoom = () => {
       const data = res.data;
       const messageList = data.messages || [];
       const sorted = messageList
-        .map((msg) => ({ ...msg, sendAt: msg.sendAt && !isNaN(new Date(msg.sendAt).getTime()) ? msg.sendAt : new Date().toISOString() }))
-        .sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
+        .map((msg) => ({ ...msg, createdAt: msg.createdAt && !isNaN(new Date(msg.createdAt).getTime()) ? msg.createdAt : new Date().toISOString() }))
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
       setMessages((prev) => {
         const ids = new Set(prev.map((m) => m.messageId));
         const missing = sorted.filter((m) => !ids.has(m.messageId));
         if (missing.length === 0) return prev;
-        return [...prev, ...missing].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
+        return [...prev, ...missing].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       });
     } catch (e) {
       console.error('누락 메시지 조회 실패', e);
@@ -276,7 +276,7 @@ const ChatRoom = () => {
         const updated = prev.some((m) => m.messageId === received.messageId)
           ? prev.map((m) => (m.messageId === received.messageId ? received : m))
           : [...prev, received];
-        return [...updated].sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
+        return [...updated].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       });
 
       const isMine = received.senderId === currentUserRef.current?.id;
@@ -396,7 +396,7 @@ const ChatRoom = () => {
       const data = res.data;
       setSearchResults((data.content || []).map((msg) => ({
         ...msg,
-        sendAt: msg.sendAt && !isNaN(new Date(msg.sendAt)) ? msg.sendAt : new Date().toISOString(),
+        createdAt: msg.createdAt && !isNaN(new Date(msg.createdAt)) ? msg.createdAt : new Date().toISOString(),
       })));
       setSearchHasNext(!data.last);
       if (!lastMessageId && data.totalCount !== undefined) setSearchTotalCount(data.totalCount);
@@ -431,7 +431,7 @@ const ChatRoom = () => {
     const base = {
       content,
       type: inputMode,
-      sendAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       senderName: currentUser.nickname,
       profileImageUrl: currentUser.profileImageUrl,
       ...(inputMode === 'CODE' && { language }),

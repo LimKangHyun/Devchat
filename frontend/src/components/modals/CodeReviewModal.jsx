@@ -462,7 +462,7 @@ const CodeReviewModal = ({ message, onClose }) => {
         }}>
           <span style={{ fontWeight: '500' }}>{message.senderName}</span>
           <span style={{ margin: '0 8px', color: '#a0aec0' }}>•</span>
-          <span>{new Date(message.sendAt).toLocaleString('ko-KR')}</span>
+          <span>{new Date(message.createdAt).toLocaleString('ko-KR')}</span>
         </div>
 
         {/* 코드 영역 */}

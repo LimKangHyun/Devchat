@@ -179,7 +179,7 @@ const SearchSidebar = ({
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                     <strong style={{ fontSize: '16px', color: '#333' }}>{msg.senderName}</strong>
                     <span style={{ fontSize: '12px', color: '#888' }}>
-                      {new Date(msg.sendAt).toLocaleString('ko-KR', { 
+                      {new Date(msg.createdAt).toLocaleString('ko-KR', { 
                         year: 'numeric', 
                         month: '2-digit', 
                         day: '2-digit', 

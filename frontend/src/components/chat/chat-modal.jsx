@@ -136,7 +136,7 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
         // id: received.messageId || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         content: received.content,
         sender: received.senderNickName,
-        timestamp: received.sendAt || new Date().toISOString(),
+        timestamp: received.createdAt || new Date().toISOString(),
         isOwn: received.senderNickName === currentUser?.nickname,
         type: received.type,
         messageId: received.messageId,
@@ -181,7 +181,7 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
         id: msg.messageId, // Use messageId as the unique key
         content: msg.content,
         sender: msg.senderNickName,
-        timestamp: msg.sendAt,
+        timestamp: msg.createdAt,
         isOwn: msg.senderNickName === currentUser?.nickname,
         messageId: msg.messageId,
       }))
@@ -322,7 +322,7 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
           id: msg.messageId,
           content: msg.content,
           sender: msg.senderNickName,
-          timestamp: msg.sendAt,
+          timestamp: msg.createdAt,
           isOwn: msg.senderNickName === currentUser.nickname,
           messageId: msg.messageId,
         }))

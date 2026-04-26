@@ -153,7 +153,7 @@ const MessageContent = ({ msg, editMessageId, editContent, setEditContent, handl
           <FaUserPlus size={11} color="#aaa" />
           <span>{msg.content}</span>
           <span style={{ color: '#ccc', marginLeft: '2px' }}>
-            {formatTime(msg.sendAt || msg.joinAt)}
+            {formatTime(msg.createdAt || msg.joinAt)}
           </span>
         </div>
       </div>
@@ -239,7 +239,7 @@ export const MessageItem = ({
             {msg.senderName}
           </span>
           <span style={{ fontSize: '11px', color: '#aaa' }}>
-            {formatTime(msg.sendAt)}
+            {formatTime(msg.createdAt)}
           </span>
         </div>
 
@@ -344,7 +344,7 @@ const MessageList = ({
   let currentDate = null;
 
   messages.forEach((msg, index) => {
-    const label = formatDate(msg.sendAt || msg.joinAt);
+    const label = formatDate(msg.createdAt || msg.joinAt);
     if (label !== currentDate) {
       currentDate = label;
       result.push(<DateDivider key={`date-${index}`} label={label} />);
