@@ -12,7 +12,7 @@ public interface ChatMessageSearchRepository extends JpaRepository<ChatMessageSe
         SELECT id
         FROM chat_message_search
         WHERE room_id = :roomId
-        AND MATCH(content) AGAINST (:keyword IN NATURAL LANGUAGE MODE)
+        AND MATCH(content) AGAINST (:keyword IN BOOLEAN MODE)
         AND (:lastMessageId IS NULL OR id < :lastMessageId)
         ORDER BY id DESC
         LIMIT :limit
@@ -28,7 +28,7 @@ public interface ChatMessageSearchRepository extends JpaRepository<ChatMessageSe
         SELECT COUNT(*)
         FROM chat_message_search
         WHERE room_id = :roomId
-        AND MATCH(content) AGAINST (:keyword IN NATURAL LANGUAGE MODE)
+        AND MATCH(content) AGAINST (:keyword IN BOOLEAN MODE)
         """, nativeQuery = true)
     long countByKeywordAndRoomId(@Param("keyword") String keyword, @Param("roomId") Long roomId);
 
