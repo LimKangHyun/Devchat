@@ -17,7 +17,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 import org.springframework.web.socket.handler.WebSocketHandlerDecorator;
 import project.backend.global.security.handler.JwtHandshakeHandler;
-import project.backend.global.security.interceptor.StompHandler;
+import project.backend.global.security.handler.StompHandler;
 import project.backend.global.security.interceptor.WebSocketHandShakeInterceptor;
 
 @Configuration
