@@ -23,7 +23,7 @@ import project.backend.auth.dto.MemberDetails;
 @RequiredArgsConstructor
 public class JwtProvider {
 
-    public static final Long TOKEN_VALIDATION_SECOND = 1 * 60L;
+    public static final Long TOKEN_VALIDATION_SECOND = 10 * 60L;
     public static final Long REFRESH_TOKEN_VALIDATION_SECOND = 14 * 24 * 60 * 60L; // 2주
 
     @Value("${jwt.info.secret}")
