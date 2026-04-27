@@ -7,12 +7,14 @@ import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link } from "react-router-dom"
 import { useUser } from '../context/UserContext'
+import { useAlarm } from '../context/AlarmContext'
 import useWebSocketNotifications from "./common/useWebSocket"
 
 window.__devchatActiveNoti ??= null;
 
 export function HeaderWithNotifications() {
   const { currentUser, isLoading } = useUser()
+  const { currentRoomId } = useAlarm()
 
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const profileDropdownRef = useRef(null)
@@ -432,6 +434,25 @@ export function HeaderWithNotifications() {
     fetchNotifications(0, true, newFilter)
   }
 
+  const handleLogout = async () => {
+    try {
+      // 현재 채팅방에 있으면 안읽음 카운트 동기화
+      if (currentRoomId) {
+        await axiosInstance.post(`/chat-rooms/${currentRoomId}/read`).catch(() => {})
+      }
+      const response = await axiosInstance.post("/logout", {})
+      if (response.status === 204) {
+        alert("로그아웃 되었습니다.")
+        window.location.href = "/login"
+      } else {
+        alert("로그아웃 실패")
+      }
+    } catch (error) {
+      console.error("로그아웃 요청 실패:", error)
+      alert("서버 오류로 로그아웃 실패")
+    }
+  }
+
   const displayCount = unreadNotificationCount + realtimeNotificationCount
 
   useEffect(() => {
@@ -590,20 +611,7 @@ export function HeaderWithNotifications() {
                   <div className={styles.profileDropdownDivider} />
                   <button
                     className={`${styles.profileDropdownItem} ${styles.profileDropdownLogout}`}
-                    onClick={async () => {
-                      try {
-                        const response = await axiosInstance.post("/logout", {})
-                        if (response.status === 204) {
-                          alert("로그아웃 되었습니다.")
-                          window.location.href = "/login"
-                        } else {
-                          alert("로그아웃 실패")
-                        }
-                      } catch (error) {
-                        console.error("로그아웃 요청 실패:", error)
-                        alert("서버 오류로 로그아웃 실패")
-                      }
-                    }}
+                    onClick={handleLogout}
                   >
                     <span className={styles.profileDropdownIcon}>🚪</span>
                     로그아웃
