@@ -16,8 +16,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import project.backend.global.util.CookieUtils;
 import project.backend.auth.jwt.JwtProvider;
 import project.backend.auth.jwt.TokenStatus;
-import project.backend.global.exception.errorcode.TokenErrorCode;
-import project.backend.global.exception.ex.CustomJwtException;
 
 @Slf4j
 @Component
@@ -42,15 +40,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		String requestURI = request.getRequestURI();
 		log.info("[JWT Filter] 요청 URI: {}", requestURI);
 
-		if (requestURI.startsWith("/github/") || WHITE_LIST.contains(requestURI)) {
+		if (isWhitelisted(requestURI)) {
 			filterChain.doFilter(request, response);
 			return;
 		}
 
-		log.info("JWT필터 도달 = {}", requestURI);
+		Cookie cookie = CookieUtils.getCookie(request, "accessToken").orElse(null);
 
-		Cookie cookie = CookieUtils.getCookie(request, "accessToken")
-				.orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));
+		if (cookie == null) {
+			sendUnauthorized(response, "토큰이 없습니다.");
+			return;
+		}
 
 		String accessToken = cookie.getValue();
 		TokenStatus tokenStatus = jwtProvider.validateAccessToken(accessToken);
@@ -60,9 +60,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			Authentication authentication = jwtProvider.getAuthentication(accessToken);
 			SecurityContextHolder.getContext().setAuthentication(authentication);
 		} else {
+			log.warn("[JWT] 유효하지 않은 토큰 - status: {}", tokenStatus);
 			SecurityContextHolder.clearContext();
+			sendUnauthorized(response, "토큰이 만료되었거나 유효하지 않습니다.");
+			return;
 		}
 
 		filterChain.doFilter(request, response);
+	}
+
+	private boolean isWhitelisted(String requestURI) {
+		return requestURI.startsWith("/github/") || WHITE_LIST.contains(requestURI);
+	}
+
+	private void sendUnauthorized(HttpServletResponse response, String message) throws IOException {
+		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+		response.setContentType("application/json; charset=utf-8");
+		response.getWriter().write("{\"message\":\"" + message + "\"}");
 	}
 }
