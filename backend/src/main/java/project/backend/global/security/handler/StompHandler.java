@@ -1,4 +1,4 @@
-package project.backend.global.security.interceptor;
+package project.backend.global.security.handler;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.Message;
@@ -50,6 +50,10 @@ public class StompHandler implements ChannelInterceptor {
             if (!exists) {
                 throw new ChatRoomException(ChatRoomErrorCode.NOT_PARTICIPANT);
             }
+
+            accessor.getSessionAttributes().put("currentRoomId", roomId);
+            accessor.getSessionAttributes().put("memberId", memberId);
+
         }
 
         return message;
