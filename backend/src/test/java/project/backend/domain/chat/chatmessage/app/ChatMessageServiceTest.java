@@ -39,7 +39,8 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
-import project.backend.domain.chat.chatmessage.app.event.ChatMessageSavedEvent;
+import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSavedEvent;
+import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSearchEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
@@ -91,22 +92,19 @@ class ChatMessageServiceTest {
     class Save {
 
         @Test
-        @DisplayName("TEXT 메시지 저장 시 seq를 먼저 채번하고 이벤트가 발행된다")
+        @DisplayName("TEXT 메시지 저장 시 이벤트가 발행된다")
         void save_textMessage_success() {
             given(memberDetails.getId()).willReturn(1L);
 
             ChatMessageRequest request = mock(ChatMessageRequest.class);
             given(request.getType()).willReturn(TEXT);
 
-            given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(3L);
             given(entityManager.getReference(Member.class, 1L)).willReturn(sender);
             given(entityManager.getReference(ChatRoom.class, 10L)).willReturn(chatRoom);
             given(messageMapper.toEntityWithText(chatRoom, sender, request)).willReturn(textMessage);
             given(textMessage.getType()).willReturn(TEXT);
-
             given(textMessage.getChatRoom()).willReturn(chatRoom);
             given(chatRoom.getId()).willReturn(10L);
-
             given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
             given(messageMapper.toResponse(eq(textMessage), eq(memberDetails), anyString()))
                     .willReturn(mock(ChatMessageResponse.class));
@@ -127,7 +125,6 @@ class ChatMessageServiceTest {
             given(request.getType()).willReturn(IMAGE);
             given(request.getImageFileId()).willReturn(99L);
 
-            given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(1L);
             given(entityManager.getReference(Member.class, 1L)).willReturn(sender);
             given(entityManager.getReference(ChatRoom.class, 10L)).willReturn(chatRoom);
 
@@ -135,17 +132,16 @@ class ChatMessageServiceTest {
             given(imageFileService.getImageById(99L)).willReturn(imageFile);
             given(messageMapper.toEntityWithImage(chatRoom, sender, imageFile)).willReturn(imageMessage);
             given(imageMessage.getType()).willReturn(IMAGE);
-
             given(imageMessage.getChatRoom()).willReturn(chatRoom);
             given(chatRoom.getId()).willReturn(10L);
-
             given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
             given(messageMapper.toResponse(eq(imageMessage), eq(memberDetails), anyString()))
                     .willReturn(mock(ChatMessageResponse.class));
 
             chatMessageService.save(10L, request, memberDetails);
 
-            then(eventPublisher).should(never()).publishEvent(any(ChatMessageSavedEvent.class));
+            then(eventPublisher).should(never()).publishEvent(any(ChatMessageSearchEvent.class));
+            then(eventPublisher).should().publishEvent(any(ChatMessageSavedEvent.class));
         }
 
         @Test
@@ -156,15 +152,12 @@ class ChatMessageServiceTest {
             ChatMessageRequest request = mock(ChatMessageRequest.class);
             given(request.getType()).willReturn(CODE);
 
-            given(chatRoomSequenceService.genMessageSeq(10L, 1L)).willReturn(2L);
             given(entityManager.getReference(Member.class, 1L)).willReturn(sender);
             given(entityManager.getReference(ChatRoom.class, 10L)).willReturn(chatRoom);
             given(messageMapper.toEntityWithCode(chatRoom, sender, request)).willReturn(codeMessage);
             given(codeMessage.getType()).willReturn(CODE);
-
             given(codeMessage.getChatRoom()).willReturn(chatRoom);
             given(chatRoom.getId()).willReturn(10L);
-
             given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
             given(messageMapper.toResponse(eq(codeMessage), eq(memberDetails), anyString()))
                     .willReturn(mock(ChatMessageResponse.class));

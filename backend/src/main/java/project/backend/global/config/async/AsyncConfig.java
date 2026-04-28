@@ -1,18 +1,23 @@
-package project.backend.global.config.asyncConfig;
+package project.backend.global.config.async;
 
 import java.util.concurrent.Executor;
+
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+@Slf4j
 @Configuration
 @EnableAsync
 @RequiredArgsConstructor
 public class AsyncConfig {
 
     private final CustomRejectedExecutionHandler customRejectedExecutionHandler;
+    private final MeterRegistry meterRegistry;
 
     @Bean(name = "chatBroadcastExecutor")
     public Executor getChatBroadcastExecutor() {
@@ -46,6 +51,21 @@ public class AsyncConfig {
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("ChatSearchEvent-");
         executor.setRejectedExecutionHandler(customRejectedExecutionHandler);
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean(name = "chatSeqExecutor")
+    public Executor getChatSeqExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(5);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("ChatSeq-");
+        executor.setRejectedExecutionHandler((r, e) -> {
+                meterRegistry.counter("chat.seq.executor.rejected").increment();
+                log.warn("seq 채번 큐 포화 - 드랍 처리 (풀 크기 조정 필요)");
+        });
         executor.initialize();
         return executor;
     }

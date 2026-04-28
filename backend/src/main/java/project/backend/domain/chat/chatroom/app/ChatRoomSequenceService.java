@@ -7,14 +7,11 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import project.backend.domain.chat.chatmessage.app.policy.MessageSendPolicySelector;
-import project.backend.domain.chat.chatmessage.app.policy.limiter.FallbackLimiter;
+import project.backend.global.ratelimit.FallbackLimiter;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
-import project.backend.global.exception.errorcode.ChatMessageErrorCode;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
-import project.backend.global.exception.ex.ChatMessageException;
 import project.backend.global.exception.ex.ChatRoomException;
 
 import java.util.ArrayList;
@@ -32,34 +29,26 @@ public class ChatRoomSequenceService {
     private final ChatRoomSyncService chatRoomSyncService;
     private final ChatRoomRepository chatRoomRepository;
     private final MeterRegistry meterRegistry;
-    private final MessageSendPolicySelector policySelector;
     private final FallbackLimiter fallbackLimiter;
     private final CircuitBreakerRegistry registry;
 
     @CircuitBreaker(name = "redis", fallbackMethod = "genMessageSeqFallback")
-    public Long genMessageSeq(Long roomId, Long userId) {
+    public Long genMessageSeq(Long roomId) {
         log.info("genMessageSeq 진입 - circuitBreaker state={}",
                 registry.circuitBreaker("redis").getState());
-        if (!policySelector.select().canSend(userId)) {
-            log.info("레이트 리밋 초과 - 예외 던짐 userId={}", userId);
-            throw new ChatMessageException(ChatMessageErrorCode.TOO_MANY_REQUESTS);
-        }
         return chatRoomSyncService.getOrRecoverSeq(roomId);
     }
 
-    public Long genMessageSeqFallback(Long roomId, Long userId, CallNotPermittedException e) {
+    public Long genMessageSeqFallback(Long roomId, CallNotPermittedException e) {
         log.warn("Circuit OPEN - genMessageSeq 차단 roomId={}", roomId);
-        if (!policySelector.select().canSend(userId)) {
-            log.warn("Circuit OPEN - RateLimit 초과 userId={}", userId);
-            throw new ChatMessageException(ChatMessageErrorCode.TOO_MANY_REQUESTS);
-        }
-        return doFallback(roomId, userId);
+        meterRegistry.counter("chat.seq.fallback", "reason", "circuit_open").increment();
+        return doFallback(roomId);
     }
 
-    public Long genMessageSeqFallback(Long roomId, Long userId, Throwable e) {
-        if (e instanceof ChatMessageException) throw (ChatMessageException) e;
+    public Long genMessageSeqFallback(Long roomId, Throwable e) {
         log.warn("Redis 예외 - genMessageSeq 폴백 roomId={} 예외={}", roomId, e.getMessage());
-        return doFallback(roomId, userId);
+        meterRegistry.counter("chat.seq.fallback", "reason", "redis_error").increment();
+        return doFallback(roomId);
     }
 
     @CircuitBreaker(name = "redis", fallbackMethod = "getLatestSequenceFallback")
@@ -127,7 +116,7 @@ public class ChatRoomSequenceService {
         return roomIds;
     }
 
-    private Long doFallback(Long roomId, Long userId) {
+    private Long doFallback(Long roomId) {
         meterRegistry.counter("redis.fallback", "method", "genMessageSeq").increment();
         if (!fallbackLimiter.tryAcquire()) {
             log.warn("Fallback 동시 처리 한도 초과 - DB 보호 roomId={}", roomId);

@@ -3,7 +3,7 @@ package project.backend.domain.chat.chatroom.mapper;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import project.backend.domain.chat.chatmessage.app.event.EventMessageResponse;
+import project.backend.domain.chat.chatmessage.dto.event.EventMessageResponse;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
