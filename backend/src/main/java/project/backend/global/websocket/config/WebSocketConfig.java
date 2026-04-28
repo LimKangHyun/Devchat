@@ -1,4 +1,4 @@
-package project.backend.global.config;
+package project.backend.global.websocket.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,9 +16,10 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 import org.springframework.web.socket.handler.WebSocketHandlerDecorator;
-import project.backend.global.security.handler.JwtHandshakeHandler;
-import project.backend.global.security.handler.StompHandler;
-import project.backend.global.security.interceptor.WebSocketHandShakeInterceptor;
+import project.backend.global.websocket.handler.JwtHandshakeHandler;
+import project.backend.global.websocket.handler.StompHandler;
+import project.backend.global.websocket.interceptor.RateLimitChannelInterceptor;
+import project.backend.global.websocket.interceptor.WebSocketHandShakeInterceptor;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -29,6 +30,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final WebSocketHandShakeInterceptor handShakeInterceptor;
     private final JwtHandshakeHandler jwtHandshakeHandler;
     private final StompHandler stompHandler;
+    private final RateLimitChannelInterceptor rateLimitChannelInterceptor;
 
     @Value("${url.domain-url}")
     private String domainUrl;
@@ -47,7 +49,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureClientInboundChannel(
         ChannelRegistration registration) {
 
-        registration.interceptors(stompHandler);
+        registration.interceptors(stompHandler, rateLimitChannelInterceptor);
     }
 
     @Override
