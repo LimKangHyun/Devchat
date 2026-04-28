@@ -1,9 +1,8 @@
-package project.backend.domain.chat.chatmessage.app.policy.limiter;
+package project.backend.global.ratelimit;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import project.backend.domain.chat.chatmessage.dao.RateLimitRedisRepository;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,17 +17,17 @@ public class UserRateLimiter {
 
     private static final int COOLDOWN_SECONDS = 5;
 
-    private final RateLimitRedisRepository rateLimitRedisRepository;
+    private final RateLimitRedisClient rateLimitRedisClient;
     private final ConcurrentHashMap<Long, TokenBucket> memoryBuckets = new ConcurrentHashMap<>();
 
-    public UserRateLimiter(RateLimitRedisRepository rateLimitRedisRepository) {
-        this.rateLimitRedisRepository = rateLimitRedisRepository;
+    public UserRateLimiter(RateLimitRedisClient rateLimitRedisClient) {
+        this.rateLimitRedisClient = rateLimitRedisClient;
     }
 
     public boolean allow(Long userId) {
         log.info("allow 호출 userId={}", userId);
         try {
-            boolean result =  rateLimitRedisRepository.tryConsume(userId, 1, REFILL_RATE, BUCKET_CAPACITY);
+            boolean result =  rateLimitRedisClient.tryConsume(userId, 1, REFILL_RATE, BUCKET_CAPACITY);
             log.info("allow 결과 userId={} result={}", userId, result);
             return result;
         } catch (Exception e) {
@@ -41,7 +40,7 @@ public class UserRateLimiter {
 
     public boolean allowStrict(Long userId) {
         try {
-            return rateLimitRedisRepository.tryConsume(userId, STRICT_COST, REFILL_RATE, BUCKET_CAPACITY);
+            return rateLimitRedisClient.tryConsume(userId, STRICT_COST, REFILL_RATE, BUCKET_CAPACITY);
         } catch (Exception e) {
             log.warn("Redis Rate Limit 실패 - STRICT memory fallback userId={}", userId);
             return memoryBuckets

@@ -21,14 +21,14 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchSlice;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
-import project.backend.domain.chat.chatmessage.app.event.ChatMessageBroadcastEvent;
-import project.backend.domain.chat.chatmessage.app.event.ChatMessageSavedEvent;
+import project.backend.domain.chat.chatmessage.dto.event.ChatMessageBroadcastEvent;
+import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSavedEvent;
+import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSearchEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomParticipantService;
-import project.backend.domain.chat.chatroom.app.ChatRoomSequenceService;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
@@ -50,7 +50,6 @@ public class ChatMessageService {
     private final ChatMessageSearchRepository chatMessageSearchRepository;
 
     private final ChatRoomParticipantService chatRoomParticipantService;
-    private final ChatRoomSequenceService chatRoomSequenceService;
     private final ImageFileService imageFileService;
 
     private final ApplicationEventPublisher eventPublisher;
@@ -62,7 +61,6 @@ public class ChatMessageService {
     @Transactional
     public ChatMessageResponse save(Long roomId, ChatMessageRequest request,
                                     MemberDetails memberDetails) {
-        chatRoomSequenceService.genMessageSeq(roomId, memberDetails.getId());
 
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);
@@ -91,8 +89,10 @@ public class ChatMessageService {
 
     private void publishEvents(ChatMessage message, MemberDetails memberDetails,
                                String profileImage) {
+
+        eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
         if (isSearchable(message)) {
-            eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
+            eventPublisher.publishEvent(ChatMessageSearchEvent.from(message));
         }
         eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
     }

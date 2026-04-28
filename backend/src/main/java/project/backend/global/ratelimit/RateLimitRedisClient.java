@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatmessage.dao;
+package project.backend.global.ratelimit;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +12,7 @@ import java.util.List;
 
 @Repository
 @RequiredArgsConstructor
-public class RateLimitRedisRepository {
+public class RateLimitRedisClient {
 
     private static final String TOKEN_BUCKET_KEY = "token_bucket:%d";
     private static final int COOLDOWN_SECONDS = 5;

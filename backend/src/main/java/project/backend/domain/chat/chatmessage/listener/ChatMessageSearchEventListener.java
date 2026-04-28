@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageSearchRepository;
-import project.backend.domain.chat.chatmessage.app.event.ChatMessageSavedEvent;
+import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSearchEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
 
 @Slf4j
@@ -21,7 +21,7 @@ public class ChatMessageSearchEventListener {
 
     @Async("chatSearchEventExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handleSearchIndex(ChatMessageSavedEvent event) {
+    public void handleSearchIndex(ChatMessageSearchEvent event) {
         try {
             chatMessageSearchRepository.save(
                 ChatMessageSearch.builder()

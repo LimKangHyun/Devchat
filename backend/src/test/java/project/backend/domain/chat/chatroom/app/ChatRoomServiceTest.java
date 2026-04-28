@@ -135,11 +135,11 @@ class ChatRoomServiceTest {
 
             given(chatRoomRepository.findByInviteCode("INVITE-CODE")).willReturn(Optional.of(chatRoom));
             given(memberService.getMemberById(2L)).willReturn(joiner);
-            given(chatRoomSequenceService.genMessageSeq(10L, 2L)).willReturn(1L); // 수정: memberId 추가
+            given(chatRoomSequenceService.genMessageSeq(10L)).willReturn(1L); // 수정: memberId 추가
 
             ChatMessage joinMessage = mock(ChatMessage.class);
             given(joinMessage.getId()).willReturn(500L);
-            given(joinMessage.getSendAt()).willReturn(java.time.LocalDateTime.now());
+            given(joinMessage.getCreatedAt()).willReturn(java.time.LocalDateTime.now());
             given(chatMessageService.saveJoinEvent(chatRoom, joiner)).willReturn(joinMessage);
 
             InviteJoinResponse result = chatRoomService.joinChatRoom("INVITE-CODE", 2L);

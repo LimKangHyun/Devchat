@@ -1,4 +1,4 @@
-package project.backend.global.security.interceptor;
+package project.backend.global.websocket.interceptor;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;

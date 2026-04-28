@@ -42,7 +42,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     List<ChatRoomWithSequenceProjection> findAllRoomsWithSequenceByParticipantId(
         @Param("memberId") Long memberId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query(value = "UPDATE chat_room SET last_sequence = LAST_INSERT_ID(last_sequence + 1) WHERE room_id = :roomId", nativeQuery = true)
     void incrementSequence(@Param("roomId") Long roomId);
 

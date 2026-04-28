@@ -94,12 +94,12 @@ public class ApplicantService {
         Applicant applicant = getApplicant(applicantId);
 
         switch (status) {
-            case APPROVED -> handleApprove(post, applicant, memberDetails);
+            case APPROVED -> handleApprove(post, applicant);
             case REJECTED -> handleReject(post, applicant);
         }
     }
 
-    private ChatMessage joinChatRoom(Member member, Post post, Long requesterId) {
+    private ChatMessage joinChatRoom(Member member, Post post) {
         Long currentSequence = chatRoomReadService.getLatestSequence(post.getChatRoom().getId());
 
         ChatParticipant participant = ChatParticipant.of(member, post.getChatRoom());
@@ -108,11 +108,11 @@ public class ApplicantService {
 
         chatRoomAlarmService.createAlarm(member.getId(), post.getChatRoom().getId());
 
-        chatRoomSequenceService.genMessageSeq(post.getChatRoomId(), requesterId);
+        chatRoomSequenceService.genMessageSeq(post.getChatRoomId());
         return chatMessageService.saveJoinEvent(post.getChatRoom(), member);
     }
 
-    private void handleApprove(Post post, Applicant applicant, MemberDetails memberDetails) {
+    private void handleApprove(Post post, Applicant applicant) {
         applicant.approve();
         post.incrementCurrentCount();
 
@@ -120,7 +120,7 @@ public class ApplicantService {
             post.close();
         }
 
-        ChatMessage joinMessage = joinChatRoom(applicant.getMember(), post, memberDetails.getId());
+        ChatMessage joinMessage = joinChatRoom(applicant.getMember(), post);
 
         eventPublisher.publishEvent(toJoinChatRoomEvent(post, applicant.getMember(), joinMessage));
         eventPublisher.publishEvent(toApplicantResultEvent(post, applicant, true));
