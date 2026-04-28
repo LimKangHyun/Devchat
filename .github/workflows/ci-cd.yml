@@ -20,13 +20,18 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Docker build & push
-        run: |
-          docker build --platform linux/amd64 --no-cache \
-            --build-arg REACT_APP_BASE_API_URL=${{ secrets.REACT_APP_BASE_API_URL }} \
-            --build-arg REACT_APP_WEB_SOCKET_URL=${{ secrets.REACT_APP_WEB_SOCKET_URL }} \
-            --build-arg REACT_APP_PROFILE_IMAGE_URL=${{ secrets.REACT_APP_PROFILE_IMAGE_URL }} \
-            -t limkanghyun/dev-chat-frontend:latest .
-          docker push limkanghyun/dev-chat-frontend:latest
+        uses: docker/build-push-action@v5
+        with:
+          context: frontend
+          platforms: linux/amd64
+          push: true
+          tags: limkanghyun/dev-chat-frontend:latest
+          build-args: |
+            REACT_APP_BASE_API_URL=${{ secrets.REACT_APP_BASE_API_URL }}
+            REACT_APP_WEB_SOCKET_URL=${{ secrets.REACT_APP_WEB_SOCKET_URL }}
+            REACT_APP_PROFILE_IMAGE_URL=${{ secrets.REACT_APP_PROFILE_IMAGE_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   backend:
     runs-on: ubuntu-latest
@@ -52,6 +57,15 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      - name: Gradle 캐시
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
       - run: chmod +x ./gradlew
       - run: ./gradlew clean build -x test
       - name: Login to Docker Hub
@@ -60,9 +74,14 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Docker build & push
-        run: |
-          docker build --platform linux/amd64 --no-cache -t limkanghyun/dev-chat-backend:latest .
-          docker push limkanghyun/dev-chat-backend:latest
+        uses: docker/build-push-action@v5
+        with:
+          context: backend
+          platforms: linux/amd64
+          push: true
+          tags: limkanghyun/dev-chat-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     runs-on: ubuntu-latest
