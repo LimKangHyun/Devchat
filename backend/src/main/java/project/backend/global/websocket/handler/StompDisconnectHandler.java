@@ -1,4 +1,4 @@
-package project.backend.global.security.handler;
+package project.backend.global.websocket.handler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
