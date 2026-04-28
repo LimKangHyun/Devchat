@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatmessage.app.policy.limiter;
+package project.backend.global.ratelimit;
 
 public class TokenBucket {
 
