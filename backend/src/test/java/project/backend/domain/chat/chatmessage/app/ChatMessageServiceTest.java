@@ -33,23 +33,22 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
-import project.backend.domain.chat.chatmessage.dao.ChatMessageSearchRepository;
+import project.backend.domain.chat.chatsearch.dao.ChatMessageSearchRepository;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageEditRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSavedEvent;
-import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSearchEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
-import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
+import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
+import project.backend.domain.chat.chatmessage.entity.ChatMessageIndexStatus;
+import project.backend.domain.chat.chatmessage.dao.ChatMessageIndexStatusRepository;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
-import project.backend.domain.chat.chatroom.app.ChatRoomSequenceService;
 import project.backend.domain.chat.chatroom.app.ChatRoomParticipantService;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
-import project.backend.domain.member.app.ProfileImageCache;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.ChatMessageException;
@@ -62,13 +61,12 @@ class ChatMessageServiceTest {
 
     @Mock private ChatMessageRepository chatMessageRepository;
     @Mock private ChatMessageSearchRepository chatMessageSearchRepository;
+    @Mock private ChatMessageIndexStatusRepository chatMessageIndexStatusRepository;
     @Mock private ChatRoomParticipantService chatRoomParticipantService;
     @Mock private ImageFileService imageFileService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private EntityManager entityManager;
     @Mock private ChatMessageMapper messageMapper;
-    @Mock private ChatRoomSequenceService chatRoomSequenceService;
-    @Mock private ProfileImageCache profileImageCache;
 
     private Member sender;
     private ChatRoom chatRoom;
@@ -105,20 +103,18 @@ class ChatMessageServiceTest {
             given(textMessage.getType()).willReturn(TEXT);
             given(textMessage.getChatRoom()).willReturn(chatRoom);
             given(chatRoom.getId()).willReturn(10L);
-            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
-            given(messageMapper.toResponse(eq(textMessage), eq(memberDetails), anyString()))
-                    .willReturn(mock(ChatMessageResponse.class));
+            given(messageMapper.toIndexStatus(textMessage)).willReturn(mock(ChatMessageIndexStatus.class));
 
-            ChatMessageResponse result = chatMessageService.save(10L, request, memberDetails);
+            chatMessageService.save(10L, request, memberDetails);
 
-            assertThat(result).isNotNull();
             then(chatMessageRepository).should().save(textMessage);
             then(eventPublisher).should().publishEvent(any(ChatMessageSavedEvent.class));
+            then(chatMessageIndexStatusRepository).should().save(any(ChatMessageIndexStatus.class));
         }
 
         @Test
-        @DisplayName("IMAGE 메시지를 저장하면 검색 이벤트가 발행되지 않는다")
-        void save_imageMessage_noSearchEvent() {
+        @DisplayName("IMAGE 메시지를 저장하면 색인 상태가 저장되지 않는다")
+        void save_imageMessage_noIndexStatus() {
             given(memberDetails.getId()).willReturn(1L);
 
             ChatMessageRequest request = mock(ChatMessageRequest.class);
@@ -134,13 +130,10 @@ class ChatMessageServiceTest {
             given(imageMessage.getType()).willReturn(IMAGE);
             given(imageMessage.getChatRoom()).willReturn(chatRoom);
             given(chatRoom.getId()).willReturn(10L);
-            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
-            given(messageMapper.toResponse(eq(imageMessage), eq(memberDetails), anyString()))
-                    .willReturn(mock(ChatMessageResponse.class));
 
             chatMessageService.save(10L, request, memberDetails);
 
-            then(eventPublisher).should(never()).publishEvent(any(ChatMessageSearchEvent.class));
+            then(chatMessageIndexStatusRepository).should(never()).save(any());
             then(eventPublisher).should().publishEvent(any(ChatMessageSavedEvent.class));
         }
 
@@ -158,13 +151,12 @@ class ChatMessageServiceTest {
             given(codeMessage.getType()).willReturn(CODE);
             given(codeMessage.getChatRoom()).willReturn(chatRoom);
             given(chatRoom.getId()).willReturn(10L);
-            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
-            given(messageMapper.toResponse(eq(codeMessage), eq(memberDetails), anyString()))
-                    .willReturn(mock(ChatMessageResponse.class));
+            given(messageMapper.toIndexStatus(codeMessage)).willReturn(mock(ChatMessageIndexStatus.class));
 
             chatMessageService.save(10L, request, memberDetails);
 
             then(eventPublisher).should().publishEvent(any(ChatMessageSavedEvent.class));
+            then(chatMessageIndexStatusRepository).should().save(any(ChatMessageIndexStatus.class));
         }
     }
 
@@ -242,7 +234,6 @@ class ChatMessageServiceTest {
             given(chatMessageRepository.findById(100L)).willReturn(Optional.of(textMessage));
             ChatMessageSearch searchEntity = mock(ChatMessageSearch.class);
             given(chatMessageSearchRepository.findById(100L)).willReturn(Optional.of(searchEntity));
-            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
 
             chatMessageService.editMessage(10L,
                     new ChatMessageEditRequest(100L, "updated", TEXT, null), memberDetails);
@@ -266,7 +257,6 @@ class ChatMessageServiceTest {
             given(chatMessageRepository.findById(300L)).willReturn(Optional.of(codeMessage));
             ChatMessageSearch searchEntity = mock(ChatMessageSearch.class);
             given(chatMessageSearchRepository.findById(300L)).willReturn(Optional.of(searchEntity));
-            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
 
             chatMessageService.editMessage(10L,
                     new ChatMessageEditRequest(300L, "int x=0;", CODE, "JAVA"), memberDetails);
@@ -315,7 +305,6 @@ class ChatMessageServiceTest {
             given(memberDetails.getId()).willReturn(1L);
 
             given(chatMessageRepository.findById(200L)).willReturn(Optional.of(imageMessage));
-            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
 
             chatMessageService.editMessage(10L,
                     new ChatMessageEditRequest(200L, "", IMAGE, null), memberDetails);
@@ -342,7 +331,6 @@ class ChatMessageServiceTest {
             given(chatMessageRepository.findById(100L)).willReturn(Optional.of(textMessage));
             ChatMessageSearch searchEntity = mock(ChatMessageSearch.class);
             given(chatMessageSearchRepository.findById(100L)).willReturn(Optional.of(searchEntity));
-            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
 
             chatMessageService.deleteMessage(10L, 100L, memberDetails);
 
@@ -386,7 +374,6 @@ class ChatMessageServiceTest {
             given(memberDetails.getId()).willReturn(1L);
 
             given(chatMessageRepository.findById(200L)).willReturn(Optional.of(imageMessage));
-            given(profileImageCache.getProfileImage(1L)).willReturn("profile.png");
 
             chatMessageService.deleteMessage(10L, 200L, memberDetails);
 
