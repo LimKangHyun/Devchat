@@ -13,8 +13,9 @@ import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.auth.dto.MemberDetails;
+import project.backend.domain.chat.chatmessage.dao.ChatMessageIndexStatusRepository;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
-import project.backend.domain.chat.chatmessage.dao.ChatMessageSearchRepository;
+import project.backend.domain.chat.chatsearch.dao.ChatMessageSearchRepository;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageEditRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
@@ -23,16 +24,14 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchSlice;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.backend.domain.chat.chatmessage.dto.event.ChatMessageBroadcastEvent;
 import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSavedEvent;
-import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSearchEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
-import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
+import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomParticipantService;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.imagefile.ImageFileService;
-import project.backend.domain.member.app.ProfileImageCache;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.chat.chatmessage.dto.ScrollPaginationCollection;
 import project.backend.global.exception.errorcode.AuthErrorCode;
@@ -48,6 +47,7 @@ public class ChatMessageService {
 
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageSearchRepository chatMessageSearchRepository;
+    private final ChatMessageIndexStatusRepository chatMessageIndexStatusRepository;
 
     private final ChatRoomParticipantService chatRoomParticipantService;
     private final ImageFileService imageFileService;
@@ -56,10 +56,9 @@ public class ChatMessageService {
 
     private final EntityManager entityManager;
     private final ChatMessageMapper messageMapper;
-    private final ProfileImageCache profileImageCache;
 
     @Transactional
-    public ChatMessageResponse save(Long roomId, ChatMessageRequest request,
+    public void save(Long roomId, ChatMessageRequest request,
                                     MemberDetails memberDetails) {
 
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
@@ -68,10 +67,10 @@ public class ChatMessageService {
         ChatMessage message = createMessage(room, sender, request);
         chatMessageRepository.save(message);
 
-        String profileImage = profileImageCache.getProfileImage(memberDetails.getId());
-        publishEvents(message, memberDetails, profileImage);
-
-        return messageMapper.toResponse(message, memberDetails, profileImage);
+        if (isSearchable(message)) {
+            chatMessageIndexStatusRepository.save(messageMapper.toIndexStatus(message));
+        }
+        publishEvents(message, memberDetails);
     }
 
     private ChatMessage createMessage(ChatRoom room, Member sender,
@@ -87,14 +86,10 @@ public class ChatMessageService {
         };
     }
 
-    private void publishEvents(ChatMessage message, MemberDetails memberDetails,
-                               String profileImage) {
+    private void publishEvents(ChatMessage message, MemberDetails memberDetails) {
 
         eventPublisher.publishEvent(ChatMessageSavedEvent.from(message));
-        if (isSearchable(message)) {
-            eventPublisher.publishEvent(ChatMessageSearchEvent.from(message));
-        }
-        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
+        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails));
     }
 
     private boolean isSearchable(ChatMessage message) {
@@ -159,8 +154,7 @@ public class ChatMessageService {
                         searchEntity.updateContent(message.getContent());
                     });
         }
-        String profileImage = profileImageCache.getProfileImage(memberDetails.getId());
-        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
+        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails));
     }
 
     @Transactional
@@ -183,8 +177,7 @@ public class ChatMessageService {
             chatMessageSearchRepository.findById(message.getId())
                     .ifPresent(ChatMessageSearch::deleteContent);
         }
-        String profileImage = profileImageCache.getProfileImage(memberDetails.getId());
-        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails, profileImage));
+        eventPublisher.publishEvent(ChatMessageBroadcastEvent.from(message, memberDetails));
     }
 
     @TimeTrace
