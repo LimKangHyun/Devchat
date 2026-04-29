@@ -20,7 +20,6 @@ import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageEditRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
-import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.backend.domain.imagefile.ImageFile;
@@ -45,10 +44,10 @@ public class ChatMessageController {
 
     @Operation(summary = "메시지 저장 - TEST")
     @PostMapping("/chat-rooms/{roomId}/messages")
-    public ChatMessageResponse saveMessage(@PathVariable Long roomId,
+    public void saveMessage(@PathVariable Long roomId,
         @RequestBody ChatMessageRequest request, Principal principal) {
         MemberDetails userDetails = (MemberDetails) ((Authentication) principal).getPrincipal();
-        return chatMessageService.save(roomId, request, userDetails);
+        chatMessageService.save(roomId, request, userDetails);
     }
 
     @MessageMapping("/edit-message/{roomId}")

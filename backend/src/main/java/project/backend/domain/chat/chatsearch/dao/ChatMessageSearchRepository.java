@@ -1,10 +1,10 @@
-package project.backend.domain.chat.chatmessage.dao;
+package project.backend.domain.chat.chatsearch.dao;
 
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
+import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
 
 public interface ChatMessageSearchRepository extends JpaRepository<ChatMessageSearch, Long> {
 

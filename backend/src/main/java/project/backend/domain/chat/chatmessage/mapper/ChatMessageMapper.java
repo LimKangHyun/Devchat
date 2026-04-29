@@ -9,7 +9,8 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
-import project.backend.domain.chat.chatmessage.entity.ChatMessageSearch;
+import project.backend.domain.chat.chatmessage.entity.ChatMessageIndexStatus;
+import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
@@ -133,6 +134,14 @@ public class ChatMessageMapper {
             .messageId(message.getId())
             .status(message.getStatus())
             .build();
+    }
+
+    public ChatMessageIndexStatus toIndexStatus(ChatMessage message) {
+        return ChatMessageIndexStatus.builder()
+                .messageId(message.getId())
+                .roomId(message.getChatRoom().getId())
+                .createdAt(message.getCreatedAt())
+                .build();
     }
 
     public ChatMessageSearchResponse toSearchResponse(ChatMessage message) {

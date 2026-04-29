@@ -43,18 +43,6 @@ public class AsyncConfig {
         return executor;
     }
 
-    @Bean(name = "chatSearchEventExecutor")
-    public Executor getChatSearchEventExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(5);
-        executor.setQueueCapacity(50);
-        executor.setThreadNamePrefix("ChatSearchEvent-");
-        executor.setRejectedExecutionHandler(customRejectedExecutionHandler);
-        executor.initialize();
-        return executor;
-    }
-
     @Bean(name = "chatSeqExecutor")
     public Executor getChatSeqExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
