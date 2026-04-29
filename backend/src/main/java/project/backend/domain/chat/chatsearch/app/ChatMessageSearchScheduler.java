@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatsearch.scheduler;
+package project.backend.domain.chat.chatsearch.app;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
