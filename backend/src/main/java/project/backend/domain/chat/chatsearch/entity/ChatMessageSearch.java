@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatmessage.entity;
+package project.backend.domain.chat.chatsearch.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
