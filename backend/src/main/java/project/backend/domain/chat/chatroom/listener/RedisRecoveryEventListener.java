@@ -5,6 +5,8 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import project.backend.domain.chat.chatroom.app.ChatRoomSyncService;
 
@@ -26,5 +28,10 @@ public class RedisRecoveryEventListener {
                         chatRoomSyncService.recoverSequences();
                     }
                 });
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        chatRoomSyncService.recoverSequences();
     }
 }
