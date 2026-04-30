@@ -8,6 +8,7 @@ import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
+import project.backend.domain.chat.chatmessage.dto.event.ChatMessageBroadcastEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageIndexStatus;
 import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
@@ -167,6 +168,22 @@ public class ChatMessageMapper {
             .messageId(message.getId())
             .profileImageUrl(githubProfile)
             .build();
+    }
+
+    public ChatMessageResponse toBroadcastResponse(ChatMessageBroadcastEvent event, String profileImage) {
+        return ChatMessageResponse.builder()
+                .senderName(event.senderNickname())
+                .senderId(event.senderId())
+                .profileImageUrl(profileImage)
+                .content(event.message().getContent())
+                .type(event.message().getType())
+                .createdAt(event.message().getCreatedAt())
+                .language(event.message().getCodeLanguage())
+                .chatImageUrl(event.message().getChatImage() != null
+                        ? event.message().getChatImage().getStoreFileName() : null)
+                .messageId(event.message().getId())
+                .status(event.message().getStatus())
+                .build();
     }
 
 }

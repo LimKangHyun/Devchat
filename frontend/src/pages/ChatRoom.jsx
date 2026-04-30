@@ -276,7 +276,7 @@ const ChatRoom = () => {
         const updated = prev.some((m) => m.messageId === received.messageId)
           ? prev.map((m) => (m.messageId === received.messageId ? received : m))
           : [...prev, received];
-        return [...updated].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        return [...updated].sort((a, b) => a.messageId - b.messageId);
       });
 
       const isMine = received.senderId === currentUserRef.current?.id;
