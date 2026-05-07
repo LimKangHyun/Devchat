@@ -2,6 +2,7 @@ package project.backend.domain.member.api;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,10 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import project.backend.domain.member.app.MemberService;
-import project.backend.domain.member.dto.MemberResponse;
-import project.backend.domain.member.dto.MemberInfoUpdateRequest;
-import project.backend.domain.member.dto.MemberSearchResponse;
-import project.backend.domain.member.dto.PasswordChangeRequest;
+import project.backend.domain.member.dto.*;
 
 @Tag(name = "Member", description = "회원 관리 API")
 @Slf4j
@@ -36,9 +34,10 @@ public class MemberController {
     public MemberResponse updateMemberInfo(
         Authentication authentication,
         @RequestPart("request") @Valid MemberInfoUpdateRequest request,
-        @RequestPart(value = "profileImage", required = false) MultipartFile profileImg
-    ) {
-        return memberService.updateMemberInfo(authentication, request, profileImg);
+        @RequestPart(value = "profileImage", required = false) MultipartFile profileImg,
+        HttpServletResponse response
+        ) {
+        return memberService.updateMemberInfo(authentication, request, profileImg, response);
     }
 
     @Operation(summary = "비밀번호 변경 (Form 회원가입의 경우)")

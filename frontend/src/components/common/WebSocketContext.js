@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react"
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react"
 import { Client } from "@stomp/stompjs"
 import { safeRefreshToken } from "../api/refreshManager"
 
@@ -8,7 +8,7 @@ export const WebSocketProvider = ({ children }) => {
   const stompClientRef = useRef(null)
   const [connected, setConnected] = useState(false)
 
-  useEffect(() => {
+  const createClient = useCallback(() => {
     const client = new Client({
       webSocketFactory: () => new WebSocket(process.env.REACT_APP_WEB_SOCKET_URL),
       heartbeatIncoming: 15000,
@@ -39,7 +39,11 @@ export const WebSocketProvider = ({ children }) => {
         console.error("💥 STOMP error:", frame.headers["message"])
       },
     })
+    return client
+  }, [])
 
+  useEffect(() => {
+    const client = createClient()
     client.activate()
     stompClientRef.current = client
     window.__stompClient = client
@@ -48,10 +52,20 @@ export const WebSocketProvider = ({ children }) => {
       setConnected(false)
       if (client.active) client.deactivate()
     }
-  }, [])
+  }, [createClient])
+
+  const reconnect = useCallback(async () => {
+    const old = stompClientRef.current
+    if (old?.active) await old.deactivate()
+
+    const client = createClient()
+    client.activate()
+    stompClientRef.current = client
+    window.__stompClient = client
+  }, [createClient])
 
   return (
-    <WebSocketContext.Provider value={{ stompClientRef, connected }}>
+    <WebSocketContext.Provider value={{ stompClientRef, connected, reconnect }}>
       {children}
     </WebSocketContext.Provider>
   )

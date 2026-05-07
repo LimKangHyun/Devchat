@@ -52,11 +52,10 @@ public class JwtProvider {
 
     public String regenerateAccessToken(String refreshToken) {
         DecodedJWT decodedJWT = verifyRefreshToken(refreshToken);
-
-        Map<String, String> payload = Map.of(
-                "username", decodedJWT.getClaim("username").asString(),
-                "id", decodedJWT.getClaim("id").asString(),
-                "nickname", decodedJWT.getClaim("nickname").asString()
+        Map<String, String> payload = buildPayload(
+                decodedJWT.getClaim("username").asString(),
+                decodedJWT.getClaim("id").asString(),
+                decodedJWT.getClaim("nickname").asString()
         );
         return generateAccessToken(payload);
     }
@@ -119,5 +118,9 @@ public class JwtProvider {
                 .withExpiresAt(new Date(now + expiration * 1000))
                 .withPayload(payload)
                 .sign(getSignatureAlgorithm());
+    }
+
+    private Map<String, String> buildPayload(String username, String id, String nickname) {
+        return Map.of("username", username, "id", id, "nickname", nickname);
     }
 }

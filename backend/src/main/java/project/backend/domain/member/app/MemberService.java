@@ -1,5 +1,6 @@
 package project.backend.domain.member.app;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,15 +13,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import project.backend.auth.app.AuthTokenService;
 import project.backend.domain.imagefile.ImageFileService;
 import project.backend.domain.member.dao.MemberRepository;
-import project.backend.domain.member.dto.MemberSearchResponse;
-import project.backend.domain.member.dto.PasswordChangeRequest;
+import project.backend.domain.member.dto.*;
 import project.backend.domain.member.dto.event.ProfileUpdateEvent;
 import project.backend.auth.dto.MemberDetails;
-import project.backend.domain.member.dto.MemberResponse;
-import project.backend.domain.member.dto.MemberInfoUpdateRequest;
-import project.backend.domain.member.dto.SignUpRequest;
 import project.backend.domain.member.entity.Member;
 import project.backend.domain.member.entity.ProviderType;
 import project.backend.domain.member.mapper.MemberMapper;
@@ -37,6 +35,7 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final ImageFileService imageFileService;
+    private final AuthTokenService authTokenService;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
     private final ProfileImageCache profileImageCache;
@@ -62,14 +61,17 @@ public class MemberService {
         return MemberMapper.toResponse(newMember);
     }
 
-    public MemberResponse updateMemberInfo(Authentication auth, MemberInfoUpdateRequest request,
-        MultipartFile file) {
+    public MemberResponse updateMemberInfo(Authentication auth,
+                                           MemberInfoUpdateRequest request, MultipartFile file, HttpServletResponse response) {
         MemberDetails memberDetails = checkAuthentication(auth);
         Member targetMember = getMemberById(memberDetails.getId());
 
         doUpdateMemberInfo(targetMember, request, file);
-
         eventPublisher.publishEvent(ProfileUpdateEvent.of(targetMember));
+
+        if (request.getNickname() != null) {
+            authTokenService.reissueTokensForNicknameChange(targetMember, response);
+        }
 
         return MemberMapper.toResponse(targetMember);
     }
