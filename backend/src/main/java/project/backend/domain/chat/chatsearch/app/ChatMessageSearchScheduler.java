@@ -44,7 +44,7 @@ public class ChatMessageSearchScheduler {
 
         try {
             bulkRepository.bulkInsertIgnore(searchList);
-            indexStatusRepository.deleteAll(targets);
+            indexStatusRepository.deleteAllByMessageIdIn(messageIds);
             log.info("[검색색인] 배치 처리 완료: {}건", searchList.size());
         } catch (Exception e) {
             meterRegistry.counter("chat.search.index.fail").increment();
