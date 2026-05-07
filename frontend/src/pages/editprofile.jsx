@@ -6,9 +6,11 @@ import { User, Shield, Edit2 } from "lucide-react";
 import PasswordChangeModal from "../components/modals/PasswordChangeModal";
 import axiosInstance from "../components/api/axiosInstance";
 import styles from "../edit-profile-page.module.css";
+import { useWebSocketContext } from "../components/common/WebSocketContext";
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
+  const { reconnect } = useWebSocketContext();
   const [userDetails, setUserDetails] = useState(null);
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
@@ -56,12 +58,7 @@ export default function EditProfilePage() {
     formData.append(
       "request",
       new Blob(
-        [
-          JSON.stringify({
-            nickname: nickname,
-            email: email,
-          }),
-        ],
+        [JSON.stringify({ nickname: nickname, email: email })],
         { type: "application/json" }
       )
     );
@@ -70,8 +67,14 @@ export default function EditProfilePage() {
     }
 
     try {
+      const nicknameChanged = nickname !== userDetails.nickname;
       await axiosInstance.put("/user/info", formData);
       alert("프로필이 성공적으로 수정되었습니다!");
+
+      if (nicknameChanged) {
+        await reconnect();
+      }
+
       const response = await axiosInstance.get("/user/details");
       setUserDetails(response.data);
       setNickname(response.data.nickname);
@@ -99,21 +102,15 @@ export default function EditProfilePage() {
 
   return (
     <div className={styles.appContainer}>
-      {/* Main Content */}
-
       <div className={styles.mainContent}>
-        {/* Profile Content */}
         <main className={styles.profileMain}>
           <div className={styles.profileContainer}>
             <h1 className={styles.pageTitle}>Profile Setting</h1>
 
-            {/* Tabs */}
             <div className={styles.tabs}>
               <div className={styles.tabsList}>
                 <button
-                  className={`${styles.tabTrigger} ${
-                    activeTab === "personal" ? styles.tabActive : ""
-                  }`}
+                  className={`${styles.tabTrigger} ${activeTab === "personal" ? styles.tabActive : ""}`}
                   onClick={() => setActiveTab("personal")}
                 >
                   <User className={styles.tabIcon} />
@@ -121,9 +118,7 @@ export default function EditProfilePage() {
                 </button>
                 {userDetails.provider === "LOCAL" && (
                   <button
-                    className={`${styles.tabTrigger} ${
-                      activeTab === "security" ? styles.tabActive : ""
-                    }`}
+                    className={`${styles.tabTrigger} ${activeTab === "security" ? styles.tabActive : ""}`}
                     onClick={() => setActiveTab("security")}
                   >
                     <Shield className={styles.tabIcon} />
@@ -132,24 +127,16 @@ export default function EditProfilePage() {
                 )}
               </div>
 
-              {/* Personal Info Tab */}
               {activeTab === "personal" && (
                 <div className={styles.tabContent}>
                   <div className={styles.profileCard}>
-                    {/* Profile Avatar Section */}
                     <div className={styles.avatarSection}>
                       <div className={styles.avatarContainer}>
                         <img
-                          src={
-                            selectedImage ||
-                            `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${userDetails.profileImg}`
-                          }
+                          src={selectedImage || `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${userDetails.profileImg}`}
                           alt="Profile"
                           className={styles.avatarImage}
-                          onError={(e) => {
-                            e.currentTarget.src =
-                              "/images/not-found-profile.png";
-                          }}
+                          onError={(e) => { e.currentTarget.src = "/images/not-found-profile.png" }}
                         />
                         <div className={styles.editIcon}>
                           <Edit2 size={20} style={{ pointerEvents: "none" }} />
@@ -163,7 +150,6 @@ export default function EditProfilePage() {
                       </div>
                     </div>
 
-                    {/* Nickname Field */}
                     <div className={styles.formSection}>
                       <div className={styles.formGroup}>
                         <label className={styles.label}>Nickname</label>
@@ -176,8 +162,8 @@ export default function EditProfilePage() {
                             setNickname(value);
                             setIsModified(
                               value !== userDetails.nickname ||
-                                email !== userDetails.email ||
-                                imageFile !== null
+                              email !== userDetails.email ||
+                              imageFile !== null
                             );
                           }}
                           className={styles.input}
@@ -196,8 +182,8 @@ export default function EditProfilePage() {
                             setEmail(value);
                             setIsModified(
                               nickname !== userDetails.nickname ||
-                                value !== userDetails.email ||
-                                imageFile !== null
+                              value !== userDetails.email ||
+                              imageFile !== null
                             );
                           }}
                           className={styles.input}
@@ -206,7 +192,6 @@ export default function EditProfilePage() {
                       </div>
                     </div>
 
-                    {/* Save Button */}
                     <div className={styles.buttonSection}>
                       <button
                         className={styles.saveButton}
@@ -220,21 +205,15 @@ export default function EditProfilePage() {
                 </div>
               )}
 
-              {/* Security Tab */}
               {activeTab === "security" && (
                 <div className={styles.tabContent}>
                   <div className={styles.profileCard}>
                     <div className={styles.securitySection}>
-                      <h2 className={styles.securityTitle}>
-                        Password Settings
-                      </h2>
-
+                      <h2 className={styles.securityTitle}>Password Settings</h2>
                       <div className={styles.securityContent}>
                         <p className={styles.securityDescription}>
-                          Change your password to keep your account secure. We
-                          recommend using a strong, unique password.
+                          Change your password to keep your account secure. We recommend using a strong, unique password.
                         </p>
-
                         <button
                           onClick={() => setIsPasswordModalOpen(true)}
                           className={styles.changePasswordButton}
@@ -244,12 +223,9 @@ export default function EditProfilePage() {
                       </div>
 
                       <div className={styles.sessionsSection}>
-                        <h3 className={styles.sessionsTitle}>
-                          Two-Step Authentication
-                        </h3>
+                        <h3 className={styles.sessionsTitle}>Two-Step Authentication</h3>
                         <p className={styles.sessionsDescription}>
-                          Add an extra layer of security to your account by
-                          enabling two-step authentication.
+                          Add an extra layer of security to your account by enabling two-step authentication.
                         </p>
                         <button
                           onClick={() => alert("개발 예정입니다.")}
@@ -262,9 +238,7 @@ export default function EditProfilePage() {
                       <div className={styles.sessionsSection}>
                         <h3 className={styles.sessionsTitle}>Login Sessions</h3>
                         <p className={styles.sessionsDescription}>
-                          You're currently logged in on this device. You can
-                          review your active sessions and log out from other
-                          devices.
+                          You're currently logged in on this device. You can review your active sessions and log out from other devices.
                         </p>
                         <button
                           onClick={() => alert("개발 예정입니다.")}

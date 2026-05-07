@@ -12,13 +12,14 @@ import project.backend.auth.dao.AuthTokenRepository;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.auth.entity.AuthToken;
 import project.backend.auth.jwt.JwtProvider;
+import project.backend.auth.jwt.Token;
+import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.errorcode.TokenErrorCode;
 import project.backend.global.exception.ex.CustomJwtException;
 import project.backend.global.util.CookieUtils;
 import project.backend.global.util.CryptUtils;
 
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -29,8 +30,6 @@ public class AuthTokenService {
     private final JwtProvider jwtProvider;
     private final CryptUtils cryptUtils;
     private final TokenRefreshCachePort tokenRefreshCachePort;
-
-    private static final long GRACE_PERIOD_SECONDS = 30;
 
     @Transactional
     public void saveToken(Long memberId, String refreshToken, String githubAccessToken) {
@@ -52,51 +51,89 @@ public class AuthTokenService {
 
     @Transactional
     public void refresh(String refreshToken, HttpServletResponse response) {
+        if (handleGracePeriod(refreshToken, response)) return;
 
+        DecodedJWT decoded = verifyAndValidateRefreshToken(refreshToken);
+        Long memberId = Long.valueOf(decoded.getClaim("id").asString());
+
+        AuthToken authToken = getAuthToken(memberId);
+        validateStoredRefreshToken(authToken, refreshToken);
+
+        MemberDetails memberDetails = extractMemberDetails(memberId, decoded);
+        String newAccessToken = jwtProvider.regenerateAccessToken(refreshToken);
+        String newRefreshToken = jwtProvider.generateTokenPair(memberDetails).refreshToken();
+
+        authToken.updateRefreshToken(cryptUtils.encrypt(newRefreshToken));
+        tokenRefreshCachePort.saveWithGracePeriod(refreshToken, newAccessToken);
+        CookieUtils.saveAccessTokenCookie(response, newAccessToken);
+        CookieUtils.saveRefreshTokenCookie(response, newRefreshToken);
+
+        log.info("Access Token 재발급 성공 - memberId: {}", memberId);
+    }
+
+    private boolean handleGracePeriod(String refreshToken, HttpServletResponse response) {
         Optional<String> cached = tokenRefreshCachePort.getNewTokenIfInGracePeriod(refreshToken);
         if (cached.isPresent()) {
             log.info("Grace Period 내 재발급 요청 - 캐시된 토큰 반환");
             CookieUtils.saveAccessTokenCookie(response, cached.get());
-            return;
+            return true;
         }
+        return false;
+    }
 
-        DecodedJWT decoded;
+    private DecodedJWT verifyAndValidateRefreshToken(String refreshToken) {
         try {
-            decoded = jwtProvider.verifyRefreshToken(refreshToken);
+            return jwtProvider.verifyRefreshToken(refreshToken);
         } catch (TokenExpiredException e) {
             throw new CustomJwtException(TokenErrorCode.EXPIRED_TOKEN);
         } catch (Exception e) {
             log.error("서명 검증 실패: {}", e.getMessage());
             throw new CustomJwtException(TokenErrorCode.INVALID_TOKEN);
         }
+    }
 
-        Long memberId = Long.valueOf(decoded.getClaim("id").asString());
-
-        AuthToken authToken = authTokenRepository.findById(memberId)
+    private AuthToken getAuthToken(Long memberId) {
+        return authTokenRepository.findById(memberId)
                 .orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));
+    }
 
-        String decryptedRefreshToken = cryptUtils.decrypt(authToken.getRefreshToken());
-        if (!decryptedRefreshToken.equals(refreshToken)) {
+    private void validateStoredRefreshToken(AuthToken authToken, String refreshToken) {
+        String decrypted = cryptUtils.decrypt(authToken.getRefreshToken());
+        if (!decrypted.equals(refreshToken)) {
             throw new CustomJwtException(TokenErrorCode.INVALID_TOKEN);
         }
+    }
 
-        String newAccessToken = jwtProvider.regenerateAccessToken(refreshToken);
+    private MemberDetails extractMemberDetails(Long memberId, DecodedJWT decoded) {
+        return new MemberDetails(
+                memberId,
+                decoded.getClaim("username").asString(),
+                decoded.getClaim("nickname").asString(),
+                null
+        );
+    }
 
-        String newRefreshToken = jwtProvider.generateTokenPair(
-                new MemberDetails(memberId,
-                        decoded.getClaim("username").asString(),
-                        decoded.getClaim("nickname").asString(),
-                        null)
-        ).refreshToken();
+    @Transactional
+    public void reissueTokensForNicknameChange(Member member, HttpServletResponse response) {
+        MemberDetails memberDetails = new MemberDetails(
+                member.getId(),
+                member.getUsername(),
+                member.getNickname(),
+                null
+        );
 
-        authToken.updateRefreshToken(cryptUtils.encrypt(newRefreshToken));
+        AuthToken authToken = authTokenRepository.findById(member.getId())
+                .orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));
 
-        tokenRefreshCachePort.saveWithGracePeriod(refreshToken, newAccessToken);
+        issueAndSaveTokens(memberDetails, authToken, response);
+    }
 
-        CookieUtils.saveAccessTokenCookie(response, newAccessToken);
-        CookieUtils.saveRefreshTokenCookie(response, newRefreshToken);
-
-        log.info("Access Token 재발급 성공 - memberId: {}", memberId);
+    private void issueAndSaveTokens(MemberDetails memberDetails, AuthToken authToken,
+                                    HttpServletResponse response) {
+        Token newToken = jwtProvider.generateTokenPair(memberDetails);
+        authToken.updateRefreshToken(cryptUtils.encrypt(newToken.refreshToken()));
+        CookieUtils.saveAccessTokenCookie(response, newToken.accessToken());
+        CookieUtils.saveRefreshTokenCookie(response, newToken.refreshToken());
     }
 
     @Transactional
