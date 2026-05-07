@@ -1,7 +1,5 @@
 #!/bin/bash
 echo "deploy.sh 시작 - NEW_COLOR: $NEW_COLOR"
-echo "기존 이미지 제거 중..."
-docker rmi limkanghyun/dev-chat-backend:latest 2>/dev/null || true
 echo "Docker Hub 이미지 반영 대기 중..."
 sleep 10
 # 최신 도커 이미지 내려받기 (pull)
@@ -60,3 +58,5 @@ docker-compose stop dev-chat-backend-$OLD_COLOR
 # active_color.txt 업데이트
 echo "$NEW_COLOR" > "$ACTIVE_COLOR_FILE"
 echo "배포 완료: 현재 활성화된 서비스는 $NEW_COLOR 입니다."
+# 사용하지 않는 이미지만 정리
+docker image prune -f
