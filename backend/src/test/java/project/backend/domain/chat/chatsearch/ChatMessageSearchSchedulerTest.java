@@ -18,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
+import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchProjection;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageIndexStatusRepository;
@@ -49,7 +50,7 @@ class ChatMessageSearchSchedulerTest {
 
             scheduler.processSearchIndex();
 
-            then(chatMessageRepository).should(never()).findByIdIn(anyList());
+            then(chatMessageRepository).should(never()).findSearchDataByIdIn(anyList());
             then(bulkRepository).should(never()).bulkInsertIgnore(anyList());
             then(indexStatusRepository).should(never()).deleteAll(anyList());
         }
@@ -61,16 +62,16 @@ class ChatMessageSearchSchedulerTest {
             given(status.getMessageId()).willReturn(1L);
             given(indexStatusRepository.findTop100ByOrderByMessageIdAsc()).willReturn(List.of(status));
 
-            ChatMessage message = mock(ChatMessage.class);
-            given(chatMessageRepository.findByIdIn(List.of(1L))).willReturn(List.of(message));
+            ChatMessageSearchProjection projection = mock(ChatMessageSearchProjection.class);
+            given(chatMessageRepository.findSearchDataByIdIn(List.of(1L))).willReturn(List.of(projection));
 
             ChatMessageSearch search = mock(ChatMessageSearch.class);
-            given(messageMapper.toSearchEntity(message)).willReturn(search);
+            given(messageMapper.toSearchEntity(projection)).willReturn(search);
 
             scheduler.processSearchIndex();
 
             then(bulkRepository).should().bulkInsertIgnore(List.of(search));
-            then(indexStatusRepository).should().deleteAll(List.of(status));
+            then(indexStatusRepository).should().deleteAllByMessageIdIn(List.of(1L));
         }
 
         @Test
@@ -80,11 +81,11 @@ class ChatMessageSearchSchedulerTest {
             given(status.getMessageId()).willReturn(1L);
             given(indexStatusRepository.findTop100ByOrderByMessageIdAsc()).willReturn(List.of(status));
 
-            ChatMessage message = mock(ChatMessage.class);
-            given(chatMessageRepository.findByIdIn(List.of(1L))).willReturn(List.of(message));
+            ChatMessageSearchProjection projection = mock(ChatMessageSearchProjection.class);
+            given(chatMessageRepository.findSearchDataByIdIn(List.of(1L))).willReturn(List.of(projection));
 
             ChatMessageSearch search = mock(ChatMessageSearch.class);
-            given(messageMapper.toSearchEntity(message)).willReturn(search);
+            given(messageMapper.toSearchEntity(projection)).willReturn(search);
 
             willThrow(new RuntimeException("DB 오류")).given(bulkRepository).bulkInsertIgnore(anyList());
 
@@ -103,11 +104,11 @@ class ChatMessageSearchSchedulerTest {
             given(status.getMessageId()).willReturn(1L);
             given(indexStatusRepository.findTop100ByOrderByMessageIdAsc()).willReturn(List.of(status));
 
-            ChatMessage message = mock(ChatMessage.class);
-            given(chatMessageRepository.findByIdIn(List.of(1L))).willReturn(List.of(message));
+            ChatMessageSearchProjection projection = mock(ChatMessageSearchProjection.class);
+            given(chatMessageRepository.findSearchDataByIdIn(List.of(1L))).willReturn(List.of(projection));
 
             ChatMessageSearch search = mock(ChatMessageSearch.class);
-            given(messageMapper.toSearchEntity(message)).willReturn(search);
+            given(messageMapper.toSearchEntity(projection)).willReturn(search);
 
             willThrow(new RuntimeException("DB 오류")).given(bulkRepository).bulkInsertIgnore(anyList());
 

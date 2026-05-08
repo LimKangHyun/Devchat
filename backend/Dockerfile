@@ -27,4 +27,4 @@ WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 
 # 실행
-ENTRYPOINT ["java", "-Dspring.profiles.active=prod", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Dspring.profiles.active=prod -jar app.jar"]

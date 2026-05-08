@@ -37,7 +37,7 @@ public class ChatMessageSearchScheduler {
                 .map(ChatMessageIndexStatus::getMessageId)
                 .toList();
 
-        List<ChatMessageSearch> searchList = chatMessageRepository.findByIdIn(messageIds)
+        List<ChatMessageSearch> searchList = chatMessageRepository.findSearchDataByIdIn(messageIds)
                 .stream()
                 .map(messageMapper::toSearchEntity)
                 .toList();

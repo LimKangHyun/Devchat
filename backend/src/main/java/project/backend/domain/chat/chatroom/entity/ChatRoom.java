@@ -11,7 +11,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
-import project.backend.domain.community.entity.Post;
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -40,9 +39,6 @@ public class ChatRoom {
 
     @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChatParticipant> participants = new ArrayList<>();
-
-    @OneToOne(mappedBy = "chatRoom")
-    private Post post;
 
     @Column(name = "last_sequence", nullable = false)
     private Long lastSequence = 0L;
