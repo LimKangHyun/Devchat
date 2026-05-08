@@ -25,8 +25,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ChatRoomParticipantService {
 
-    private static final int MAX_ROOMS_PER_MEMBER = 3;
-    private static final int MAX_PARTICIPANTS_PER_ROOM = 3;
+    private static final int MAX_ROOMS_PER_MEMBER = 50;
+    private static final int MAX_PARTICIPANTS_PER_ROOM = 50;
 
     private final ChatParticipantRepository chatParticipantRepository;
     private final ApplicationEventPublisher eventPublisher;
