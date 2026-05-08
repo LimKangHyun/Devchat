@@ -18,7 +18,6 @@ import project.backend.global.exception.ex.ChatRoomException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -26,10 +25,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatRoomParticipantService {
 
+    private static final int MAX_ROOMS_PER_MEMBER = 3;
+    private static final int MAX_PARTICIPANTS_PER_ROOM = 3;
+
     private final ChatParticipantRepository chatParticipantRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     public void handleParticipantJoin(ChatRoom room, Member member) {
+
+        validateJoinConstraints(room, member);
+
         Optional<ChatParticipant> existingParticipant =
                 chatParticipantRepository.findByChatRoomIdAndParticipantId(
                         room.getId(), member.getId());
@@ -43,6 +48,15 @@ public class ChatRoomParticipantService {
         } else {
             ChatParticipant chatParticipant = ChatParticipant.of(member, room);
             room.addParticipant(chatParticipant);
+        }
+    }
+
+    private void validateJoinConstraints(ChatRoom room, Member member) {
+        if (chatParticipantRepository.countByParticipantIdAndIsActiveTrue(member.getId()) >= MAX_ROOMS_PER_MEMBER) {
+            throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_LIMIT_EXCEEDED);
+        }
+        if (chatParticipantRepository.countByChatRoomIdAndIsActiveTrueWithLock(room.getId()) >= MAX_PARTICIPANTS_PER_ROOM) {
+            throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_FULL);
         }
     }
 
