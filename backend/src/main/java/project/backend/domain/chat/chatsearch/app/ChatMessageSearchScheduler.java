@@ -5,12 +5,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-import project.backend.domain.chat.chatmessage.dao.ChatMessageIndexStatusRepository;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
-import project.backend.domain.chat.chatmessage.entity.ChatMessageIndexStatus;
+import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchProjection;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
-import project.backend.domain.chat.chatsearch.dao.ChatMessageSearchBulkRepository;
 import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
 
 import java.util.List;
@@ -20,31 +17,27 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChatMessageSearchScheduler {
 
-    private final ChatMessageIndexStatusRepository indexStatusRepository;
-    private final ChatMessageSearchBulkRepository bulkRepository;
+    private final ChatMessageSearchService searchService;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageMapper messageMapper;
     private final MeterRegistry meterRegistry;
 
     @Scheduled(fixedDelay = 5000)
-    @Transactional
     public void processSearchIndex() {
-        List<ChatMessageIndexStatus> targets = indexStatusRepository
-                .findTop100ByOrderByMessageIdAsc();
-        if (targets.isEmpty()) return;
+        List<ChatMessageSearchProjection> searchData = chatMessageRepository
+                .findTop100WithIndexStatus();
+        if (searchData.isEmpty()) return;
 
-        List<Long> messageIds = targets.stream()
-                .map(ChatMessageIndexStatus::getMessageId)
+        List<Long> messageIds = searchData.stream()
+                .map(ChatMessageSearchProjection::getId)
                 .toList();
 
-        List<ChatMessageSearch> searchList = chatMessageRepository.findSearchDataByIdIn(messageIds)
-                .stream()
+        List<ChatMessageSearch> searchList = searchData.stream()
                 .map(messageMapper::toSearchEntity)
                 .toList();
 
         try {
-            bulkRepository.bulkInsertIgnore(searchList);
-            indexStatusRepository.deleteAllByMessageIdIn(messageIds);
+            searchService.doProcess(searchList, messageIds);
             log.info("[검색색인] 배치 처리 완료: {}건", searchList.size());
         } catch (Exception e) {
             meterRegistry.counter("chat.search.index.fail").increment();

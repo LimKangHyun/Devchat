@@ -23,4 +23,13 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     @Query("SELECT m.id as id, m.content as content, m.chatRoom.id as chatRoomId FROM ChatMessage m WHERE m.id IN :ids")
     List<ChatMessageSearchProjection> findSearchDataByIdIn(@Param("ids") List<Long> ids);
+
+    @Query("""
+        SELECT m.id as id, m.content as content, m.chatRoom.id as chatRoomId
+        FROM ChatMessage m
+        JOIN ChatMessageIndexStatus s ON m.id = s.messageId
+        ORDER BY s.messageId ASC
+        LIMIT 100
+    """)
+    List<ChatMessageSearchProjection> findTop100WithIndexStatus();
 }
