@@ -26,6 +26,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatRoomParticipantService {
 
+    private static final int MAX_ROOMS_PER_MEMBER = 50;
+    private static final int MAX_PARTICIPANTS_PER_ROOM = 50;
+
     private final ChatParticipantRepository chatParticipantRepository;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -50,10 +53,10 @@ public class ChatRoomParticipantService {
     }
 
     private void validateJoinConstraints(ChatRoom room, Member member) {
-        if (chatParticipantRepository.countByParticipantIdAndIsActiveTrue(member.getId()) >= 50) {
+        if (chatParticipantRepository.countByParticipantIdAndIsActiveTrue(member.getId()) >= MAX_ROOMS_PER_MEMBER) {
             throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_LIMIT_EXCEEDED);
         }
-        if (chatParticipantRepository.countByChatRoomIdAndIsActiveTrue(room.getId()) >= 50) {
+        if (chatParticipantRepository.countByChatRoomIdAndIsActiveTrue(room.getId()) >= MAX_PARTICIPANTS_PER_ROOM) {
             throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_FULL);
         }
     }
