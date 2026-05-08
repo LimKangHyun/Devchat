@@ -19,13 +19,4 @@ public class ChatMessageIndexStatus {
 
     @Column(nullable = false)
     private Long roomId;
-
-    @Builder.Default
-    private boolean indexed = false;
-
-    private LocalDateTime createdAt;
-
-    public void markIndexed() {
-        this.indexed = true;
-    }
 }

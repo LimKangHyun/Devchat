@@ -141,7 +141,6 @@ public class ChatMessageMapper {
         return ChatMessageIndexStatus.builder()
                 .messageId(message.getId())
                 .roomId(message.getChatRoom().getId())
-                .createdAt(message.getCreatedAt())
                 .build();
     }
 
