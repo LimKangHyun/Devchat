@@ -39,21 +39,18 @@ const BlankRoom = () => {
 
 
   // 채팅방 참여 핸들러
-   const handleJoinRoom = async (inviteCode) => {
+  const handleJoinRoom = async (inviteCode) => {
     try {
-      const res = await axiosInstance.post('/chat-rooms/join', {
-        inviteCode
-      });
-      
+      const res = await axiosInstance.post('/chat-rooms/join', { inviteCode });
       const data = res.data;
       setShowJoinModal(false);
-      
       navigate(`/chat/${data.inviteCode}`);
+      window.dispatchEvent(new Event('room:read'))  // 사이드바 갱신 트리거
     } catch (err) {
       alert(err.response?.data?.message || err.message || "방 입장에 실패했습니다.");
       throw err;
     }
-  };  
+  };
   // 버튼 스타일 공통화
   const buttonStyle = {
     color: 'white',
