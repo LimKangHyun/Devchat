@@ -1,12 +1,11 @@
 package project.backend.domain.chat.chatmessage.dao;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchProjection;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
@@ -20,15 +19,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     List<ChatMessage> findByChatRoom_IdAndIdLessThanOrderByIdDesc(Long roomId, Long cursor,
         Pageable pageable);
 
-    @Query("""
-        SELECT cm FROM ChatMessage cm
-        LEFT JOIN ChatMessageSearch cms ON cm.id = cms.id
-        WHERE cm.createdAt > :from
-        AND cms.id IS NULL
-        """)
-    List<ChatMessage> findMissingSearchIndex(@Param("from") LocalDateTime from, Pageable pageable);
-
-    Optional<ChatMessage> findTopByChatRoom_IdOrderByIdDesc(Long roomId);
-
     void deleteByChatRoom_Id(Long chatRoomId);
+
+    @Query("SELECT m.id as id, m.content as content, m.chatRoom.id as chatRoomId FROM ChatMessage m WHERE m.id IN :ids")
+    List<ChatMessageSearchProjection> findSearchDataByIdIn(@Param("ids") List<Long> ids);
 }
