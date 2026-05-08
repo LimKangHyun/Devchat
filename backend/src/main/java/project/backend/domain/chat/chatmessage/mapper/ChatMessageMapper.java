@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
+import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchProjection;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.event.ChatMessageBroadcastEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
@@ -88,13 +89,12 @@ public class ChatMessageMapper {
             .build();
     }
 
-    // 저장된 메시지에서 ID, roomId, content만 꺼내서 저장하므로 ChatMessage 사용
-    public ChatMessageSearch toSearchEntity(ChatMessage message) {
+    public ChatMessageSearch toSearchEntity(ChatMessageSearchProjection projection) {
         return ChatMessageSearch.builder()
-            .id(message.getId())
-            .roomId(message.getChatRoom().getId())
-            .content(message.getContent())
-            .build();
+                .id(projection.getId())
+                .roomId(projection.getChatRoomId())
+                .content(projection.getContent())
+                .build();
     }
 
     public ChatMessageResponse toResponse(ChatMessage message) {
