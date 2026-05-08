@@ -31,5 +31,9 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
     boolean existsByParticipantIdAndChatRoomIdAndIsActiveTrue(Long participantId, Long chatRoomId);
 
     void deleteByChatRoom_Id(Long chatRoomId);
+
+    int countByParticipantIdAndIsActiveTrue(Long participantId);
+
+    int countByChatRoomIdAndIsActiveTrue(Long chatRoomId);
 }
 

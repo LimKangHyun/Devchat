@@ -20,7 +20,9 @@ public enum ChatRoomErrorCode implements ErrorCode {
     ASYNC_TASK_REJECTED("CRE-010", "작업량이 많아 요청이 처리되지 않았습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
     ALARM_NOT_FOUND("CRE-011", "채팅방 알림 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     TOO_MANY_REQUESTS("CRE-012", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
-    SERVICE_UNAVAILABLE("CRE-013", "서비스가 일시적으로 불가합니다. 잠시 후 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE);
+    SERVICE_UNAVAILABLE("CRE-013", "서비스가 일시적으로 불가합니다. 잠시 후 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE),
+    CHATROOM_FULL("CRE-014", "채팅방 인원이 가득 찼습니다.", HttpStatus.CONFLICT),
+    CHATROOM_LIMIT_EXCEEDED("CRE-015", "참여 가능한 채팅방 수를 초과했습니다.", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

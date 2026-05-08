@@ -30,6 +30,9 @@ public class ChatRoomParticipantService {
     private final ApplicationEventPublisher eventPublisher;
 
     public void handleParticipantJoin(ChatRoom room, Member member) {
+
+        validateJoinConstraints(room, member);
+
         Optional<ChatParticipant> existingParticipant =
                 chatParticipantRepository.findByChatRoomIdAndParticipantId(
                         room.getId(), member.getId());
@@ -43,6 +46,15 @@ public class ChatRoomParticipantService {
         } else {
             ChatParticipant chatParticipant = ChatParticipant.of(member, room);
             room.addParticipant(chatParticipant);
+        }
+    }
+
+    private void validateJoinConstraints(ChatRoom room, Member member) {
+        if (chatParticipantRepository.countByParticipantIdAndIsActiveTrue(member.getId()) >= 50) {
+            throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_LIMIT_EXCEEDED);
+        }
+        if (chatParticipantRepository.countByChatRoomIdAndIsActiveTrue(room.getId()) >= 50) {
+            throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_FULL);
         }
     }
 
