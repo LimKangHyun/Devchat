@@ -90,8 +90,8 @@ https://thedevchat.duckdns.org
 
 ---
 # 📄문서
-## 🛢️ERD
-<img width="1833" height="1058" alt="2차 프로젝트" src="https://github.com/user-attachments/assets/fb91576c-285b-4dc5-8ae2-cafbc681b703" />
+## 🛢️ERD<img width="1826" height="1061" alt="image" src="https://github.com/user-attachments/assets/3f4a8839-6c7d-4f41-acab-80fd703cd5ff" />
+
 <br>
 
 ## 🔀Flow Chart
