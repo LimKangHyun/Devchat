@@ -24,8 +24,9 @@ spring:
 
   data:
     redis:
-      host: dummy     # Testcontainers가 @DynamicPropertySource로 덮어씀
-      port: 0
+      sentinel:
+        master: ""
+        nodes: ""
 
   security:
     oauth2:
