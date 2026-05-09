@@ -1,0 +1,78 @@
+# src/test/resources/application.yml
+# 테스트에 필요한 설정만 오버라이드 (나머지는 mock/dummy 값으로 채움)
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: dummy        # Testcontainers가 @DynamicPropertySource로 덮어씀
+    username: dummy
+    password: dummy
+
+  flyway:
+    enabled: false     # Testcontainers MySQL에 테이블 생성
+    locations: classpath:db/migration
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        show_sql: false
+
+  data:
+    redis:
+      host: dummy     # Testcontainers가 @DynamicPropertySource로 덮어씀
+      port: 0
+
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: dummy
+            client-secret: dummy
+            scope:
+              - repo
+
+  session:
+    store-type: none
+
+cloud:
+  aws:
+    credentials:
+      access-key: dummy
+      secret-key: dummy
+    region:
+      static: ap-northeast-2
+    s3:
+      bucket: dummy-bucket
+
+jwt:
+  redirection:
+    base: http://localhost:3000/
+  info:
+    issuer: "test-issuer"
+    secret: 36b2294c1079470409d860ac57402fc152524d134a75b7cb223d92644b63adba980d90dcefd0d53c02a5cbb43c2678d49128dae2299f652f5f71033fee640686
+
+github:
+  username: dummy
+
+url:
+  domain-url: http://localhost:3000
+  image-url: http://localhost
+  webhook-url: http://localhost/api
+
+encrypt:
+  secret: test-secret-key-for-integration-test
+
+file:
+  images:
+    profile:
+      path: images/profile/
+      default: default-profile.png
+      github: github-profile.png
+    chat:
+      path: images/chat/
