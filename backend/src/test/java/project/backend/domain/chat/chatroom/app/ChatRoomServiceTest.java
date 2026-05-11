@@ -133,7 +133,7 @@ class ChatRoomServiceTest {
             Member joiner = mock(Member.class);
             given(joiner.getNickname()).willReturn("joinerNick");
 
-            given(chatRoomRepository.findByInviteCode("INVITE-CODE")).willReturn(Optional.of(chatRoom));
+            given(chatRoomRepository.findByInviteCodeWithLock("INVITE-CODE")).willReturn(Optional.of(chatRoom));
             given(memberService.getMemberById(2L)).willReturn(joiner);
             given(chatRoomSequenceService.genMessageSeq(10L)).willReturn(1L); // 수정: memberId 추가
 
@@ -152,7 +152,7 @@ class ChatRoomServiceTest {
         @Test
         @DisplayName("존재하지 않는 초대 코드로 참가하면 예외를 던진다")
         void joinChatRoom_invalidCode_throwsException() {
-            given(chatRoomRepository.findByInviteCode("WRONG-CODE")).willReturn(Optional.empty());
+            given(chatRoomRepository.findByInviteCodeWithLock("WRONG-CODE")).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> chatRoomService.joinChatRoom("WRONG-CODE", 2L))
                     .isInstanceOf(ChatRoomException.class);
