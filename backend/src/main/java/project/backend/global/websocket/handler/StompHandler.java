@@ -10,7 +10,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
+import project.backend.global.exception.errorcode.AuthErrorCode;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
+import project.backend.global.exception.ex.AuthException;
 import project.backend.global.exception.ex.ChatRoomException;
 
 @Component
@@ -37,7 +39,7 @@ public class StompHandler implements ChannelInterceptor {
             Authentication authentication = (Authentication) accessor.getUser();
 
             if (authentication == null || !authentication.isAuthenticated()) {
-                return message;
+                throw new AuthException(AuthErrorCode.UNAUTHORIZED_USER);
             }
 
             MemberDetails user = (MemberDetails) authentication.getPrincipal();
