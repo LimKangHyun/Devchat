@@ -2,11 +2,12 @@ package project.backend.domain.chat.chatroom.dao;
 
 import java.util.List;
 import java.util.Optional;
+
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 
@@ -23,6 +24,13 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
         Pageable pageable);
 
     Optional<ChatRoom> findByInviteCode(String inviteCode);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints({
+            @QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000")
+    })
+    @Query("SELECT r FROM ChatRoom r WHERE r.inviteCode = :inviteCode")
+    Optional<ChatRoom> findByInviteCodeWithLock(@Param("inviteCode") String inviteCode);
 
     @Query("""
         SELECT cr
