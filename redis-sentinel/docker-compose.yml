@@ -1,0 +1,104 @@
+version: "3"
+
+services:
+  redis1:
+    image: redis:7
+    container_name: redis1
+    command: redis-server /usr/local/etc/redis/redis1.conf
+    volumes:
+      - ./redis/redis1.conf:/usr/local/etc/redis/redis1.conf
+      - redis1-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      redis-net:
+        ipv4_address: 172.20.0.11
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+
+  redis2:
+    image: redis:7
+    container_name: redis2
+    command: redis-server /usr/local/etc/redis/redis2.conf
+    volumes:
+      - ./redis/redis2.conf:/usr/local/etc/redis/redis2.conf
+      - redis2-data:/data
+    ports:
+      - "6380:6380"
+    networks:
+      redis-net:
+        ipv4_address: 172.20.0.12
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6380", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+
+  sentinel1:
+    image: redis:7
+    container_name: sentinel1
+    command: redis-sentinel /usr/local/etc/sentinel/sentinel1.conf
+    volumes:
+      - ./sentinel:/usr/local/etc/sentinel
+      - ./scripts:/scripts
+    ports:
+      - "26379:26379"
+    networks:
+      redis-net:
+        ipv4_address: 172.20.0.21
+    depends_on:
+      redis1:
+        condition: service_healthy
+      redis2:
+        condition: service_healthy
+
+  sentinel2:
+    image: redis:7
+    container_name: sentinel2
+    command: redis-sentinel /usr/local/etc/sentinel/sentinel2.conf
+    volumes:
+      - ./sentinel:/usr/local/etc/sentinel
+      - ./scripts:/scripts
+    ports:
+      - "26380:26379"
+    networks:
+      redis-net:
+        ipv4_address: 172.20.0.22
+    depends_on:
+      redis1:
+        condition: service_healthy
+      redis2:
+        condition: service_healthy
+
+  sentinel3:
+    image: redis:7
+    container_name: sentinel3
+    command: redis-sentinel /usr/local/etc/sentinel/sentinel3.conf
+    volumes:
+      - ./sentinel:/usr/local/etc/sentinel
+      - ./scripts:/scripts
+    ports:
+      - "26381:26379"
+    networks:
+      redis-net:
+        ipv4_address: 172.20.0.23
+    depends_on:
+      redis1:
+        condition: service_healthy
+      redis2:
+        condition: service_healthy
+
+networks:
+  redis-net:
+    driver: bridge
+    name: redis-sentinel_redis-net
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  redis1-data:
+  redis2-data:

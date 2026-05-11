@@ -106,4 +106,4 @@ networks:
     driver: bridge
   redis-cluster_redis-net:
     external: true
-    name: redis-cluster_redis-net
+    name: redis-sentinel_redis-net
