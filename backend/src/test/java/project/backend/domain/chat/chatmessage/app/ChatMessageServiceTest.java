@@ -109,7 +109,7 @@ class ChatMessageServiceTest {
 
             then(chatMessageRepository).should().save(textMessage);
             then(eventPublisher).should().publishEvent(any(ChatMessageSavedEvent.class));
-            then(chatMessageIndexStatusRepository).should().save(any(ChatMessageIndexStatus.class));
+            then(entityManager).should().persist(any(ChatMessageIndexStatus.class));
         }
 
         @Test
@@ -156,7 +156,7 @@ class ChatMessageServiceTest {
             chatMessageService.save(10L, request, memberDetails);
 
             then(eventPublisher).should().publishEvent(any(ChatMessageSavedEvent.class));
-            then(chatMessageIndexStatusRepository).should().save(any(ChatMessageIndexStatus.class));
+            then(entityManager).should().persist(any(ChatMessageIndexStatus.class));
         }
     }
 
