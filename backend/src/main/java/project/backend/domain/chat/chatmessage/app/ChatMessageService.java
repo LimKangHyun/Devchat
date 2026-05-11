@@ -68,7 +68,7 @@ public class ChatMessageService {
         chatMessageRepository.save(message);
 
         if (isSearchable(message)) {
-            chatMessageIndexStatusRepository.save(messageMapper.toIndexStatus(message));
+            entityManager.persist(messageMapper.toIndexStatus(message));
         }
         publishEvents(message, memberDetails);
     }
