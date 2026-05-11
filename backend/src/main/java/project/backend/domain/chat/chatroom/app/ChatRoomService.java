@@ -3,8 +3,6 @@ package project.backend.domain.chat.chatroom.app;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import jakarta.persistence.LockTimeoutException;
-import jakarta.persistence.PessimisticLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -82,39 +80,22 @@ public class ChatRoomService {
     @Transactional
     public InviteJoinResponse joinChatRoom(String inviteCode, Long memberId) {
         log.info("timetrace 적용");
-        try {
-            ChatRoom room = getByInviteCodeWithLock(inviteCode);
-            Member member = memberService.getMemberById(memberId);
+        ChatRoom room = getByInviteCode(inviteCode);
+        Member member = memberService.getMemberById(memberId);
 
-            chatRoomParticipantService.handleParticipantJoin(room, member);
+        chatRoomParticipantService.handleParticipantJoin(room, member);
+        chatRoomAlarmService.createAlarm(memberId, room.getId());
 
-            chatRoomAlarmService.createAlarm(memberId, room.getId());
-            chatRoomSequenceService.genMessageSeq(room.getId());
+        chatRoomSequenceService.genMessageSeq(room.getId());
 
-            ChatMessage savedMessage = chatMessageService.saveJoinEvent(room, member);
+        ChatMessage savedMessage = chatMessageService.saveJoinEvent(room, member);
 
-            eventPublisher.publishEvent(
-                    new JoinChatRoomEvent(
-                            room.getId(),
-                            memberId,
-                            member.getNickname(),
-                            savedMessage.getId(),
-                            savedMessage.getCreatedAt()
-                    )
-            );
-            return ChatRoomMapper.toInviteJoinResponse(
-                    room.getId(),
-                    room.getInviteCode(),
-                    room.getName()
-            );
-        } catch (PessimisticLockException | LockTimeoutException e) {
-            throw new ChatRoomException(ChatRoomErrorCode.TRY_AGAIN);
-        }
-    }
+        eventPublisher.publishEvent(
+                new JoinChatRoomEvent(room.getId(), memberId, member.getNickname(),
+                        savedMessage.getId(), savedMessage.getCreatedAt()));
 
-    private ChatRoom getByInviteCodeWithLock(String inviteCode) {
-        return chatRoomRepository.findByInviteCodeWithLock(inviteCode)
-                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+        return ChatRoomMapper.toInviteJoinResponse(room.getId(), room.getInviteCode(),
+                room.getName());
     }
 
     public String getRecentRoomInviteCode(Long memberId) {

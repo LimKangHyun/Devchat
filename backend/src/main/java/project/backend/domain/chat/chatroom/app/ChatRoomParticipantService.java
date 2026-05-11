@@ -32,6 +32,7 @@ public class ChatRoomParticipantService {
     private final ApplicationEventPublisher eventPublisher;
 
     public void handleParticipantJoin(ChatRoom room, Member member) {
+
         validateJoinConstraints(room, member);
 
         Optional<ChatParticipant> existingParticipant =
@@ -51,13 +52,10 @@ public class ChatRoomParticipantService {
     }
 
     private void validateJoinConstraints(ChatRoom room, Member member) {
-
-        if (chatParticipantRepository.countByParticipantIdAndIsActiveTrue(member.getId())
-                >= MAX_ROOMS_PER_MEMBER) {
+        if (chatParticipantRepository.countByParticipantIdAndIsActiveTrue(member.getId()) >= MAX_ROOMS_PER_MEMBER) {
             throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_LIMIT_EXCEEDED);
         }
-        if (chatParticipantRepository.countByChatRoomIdAndIsActiveTrue(room.getId())
-                >= MAX_PARTICIPANTS_PER_ROOM) {
+        if (chatParticipantRepository.countByChatRoomIdAndIsActiveTrueWithLock(room.getId()) >= MAX_PARTICIPANTS_PER_ROOM) {
             throw new ChatRoomException(ChatRoomErrorCode.CHATROOM_FULL);
         }
     }
