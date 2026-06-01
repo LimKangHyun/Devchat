@@ -61,6 +61,9 @@ public class ChatMessage {
     @Enumerated(EnumType.STRING)
     private MessageStatus status = MessageStatus.NO_CHANGE;
 
+    @Builder.Default
+    private boolean githubPublished = false;
+
     public Long getChatRoomId() {
         return chatRoom.getId();
     }
@@ -81,5 +84,9 @@ public class ChatMessage {
 
     public void delete() {
         status = MessageStatus.DELETED;
+    }
+
+    public void markAsPublished() {
+        this.githubPublished = true;
     }
 }

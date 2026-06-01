@@ -15,7 +15,7 @@ import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
-import project.backend.domain.chat.github.GitHubClient;
+import project.backend.domain.chat.github.GitHubUserClient;
 import project.backend.domain.chat.github.GitRepoUrlUtils;
 import project.backend.domain.chat.github.dto.GitMessageDto;
 import project.backend.domain.chat.github.dto.GitRepoDto;
@@ -29,12 +29,13 @@ import project.backend.global.exception.ex.ChatRoomException;
 @RequiredArgsConstructor
 public class GitMessageService {
 
+	private final AiReviewService aiReviewService;
 	private final ChatRoomRepository chatRoomRepository;
 	private final ChatMessageMapper chatMessageMapper;
 	private final ChatMessageRepository chatMessageRepository;
 	private final SimpMessagingTemplate messagingTemplate;
 	private final MemberService memberService;
-	private final GitHubClient gitHubClient;
+	private final GitHubUserClient gitHubUserClient;
 	private final AuthTokenService authTokenService;
 	private final ChatRoomRedisRepository chatRoomRedisRepository;
 
@@ -60,6 +61,12 @@ public class GitMessageService {
 				.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 
 		sendGitMessage(room, gitMessage.attachRoom(gitMessage, room));
+
+		if ("pull_request".equals(eventType) && "opened".equals(payload.get("action"))) {
+			Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
+			int prNumber = (int) pr.get("number");
+			aiReviewService.triggerAiReview(room, prNumber, githubUsername);
+		}
 	}
 
 	private void sendGitMessage(ChatRoom room, GitMessageDto gitMessage) {
@@ -81,10 +88,10 @@ public class GitMessageService {
 
 		String webhookUrl = makeWebhookUrl(roomId);
 
-		gitHubClient.validateAdminPermission(githubAccessToken,
+		gitHubUserClient.validateAdminPermission(githubAccessToken,
 				gitRepoDto.ownerName(), gitRepoDto.repoName());
 
-		Long webhookId = gitHubClient.registerWebhook(githubAccessToken,
+		Long webhookId = gitHubUserClient.registerWebhook(githubAccessToken,
 				gitRepoDto.ownerName(), gitRepoDto.repoName(), webhookUrl);
 
 		ChatRoom room = chatRoomRepository.findById(roomId)
@@ -107,7 +114,7 @@ public class GitMessageService {
 
 		String githubAccessToken = authTokenService.getGithubAccessToken(ownerId);
 
-		gitHubClient.deleteWebhook(githubAccessToken,
+		gitHubUserClient.deleteWebhook(githubAccessToken,
 				gitRepoDto.ownerName(), gitRepoDto.repoName(), room.getWebhookId());
 	}
 }

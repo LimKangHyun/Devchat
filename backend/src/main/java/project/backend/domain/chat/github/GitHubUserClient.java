@@ -16,7 +16,7 @@ import reactor.core.publisher.Mono;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class GitHubClient {
+public class GitHubUserClient {
 
     private final WebClient.Builder webClientBuilder;
 

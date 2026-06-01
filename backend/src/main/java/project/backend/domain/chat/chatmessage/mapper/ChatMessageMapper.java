@@ -185,4 +185,29 @@ public class ChatMessageMapper {
                 .build();
     }
 
+    public ChatMessage toAiReviewEntity(String review, int prNumber, Member githubBot, ChatRoom room) {
+        String content = "PR_NUMBER:" + prNumber + "\n" + review;
+        return ChatMessage.builder()
+                .chatRoom(room)
+                .sender(githubBot)
+                .content(content)
+                .type(MessageType.AI_REVIEW)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    public ChatMessageResponse toAiReviewResponse(ChatMessage message) {
+        String content = message.getContent()
+                .substring(message.getContent().indexOf("\n") + 1);
+
+        return ChatMessageResponse.builder()
+                .senderName("AI 리뷰봇")
+                .content(content)
+                .type(message.getType())
+                .createdAt(message.getCreatedAt())
+                .messageId(message.getId())
+                .profileImageUrl(githubProfile)
+                .githubPublished(message.isGithubPublished())
+                .build();
+    }
 }

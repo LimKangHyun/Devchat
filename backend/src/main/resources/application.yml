@@ -31,8 +31,8 @@ spring:
       client:
         registration:
           github:
-            client-id: Ov23liGeyq42UqwWePKp
-            client-secret: 3dd1f3e58f3e9691b95dfb901f5f3d74412eabca
+            client-id: Ov23liAW2nSSgyjHwXMO
+            client-secret: c042dad098e74b9d0037927245d5a7e0faf31397
             scope:
               - repo
               - admin:repo_hook
@@ -63,13 +63,13 @@ github:
 url:
   domain-url: http://localhost:3000
   image-url: https://d3eqoic1xpzc9x.cloudfront.net
-  webhook-url: https://thedevchat.duckdns.org/api
+  webhook-url: https://2faa-203-236-115-21.ngrok-free.app
 
 cloud:
   aws:
     credentials:
-      access-key: ${AWS_ACCESS_KEY}
-      secret-key: ${AWS_SECRET_KEY}
+      access-key: asdfdasfdasf
+      secret-key: asdfasdfasdfa
     region:
       static: ap-northeast-2
     s3:
@@ -78,6 +78,11 @@ cloud:
 jwt:
   redirection:
     base: http://localhost:3000/
+  info:
+    secret: asdfasdfsadfsdaf
+
+encrypt:
+  secret: dsfgf
 
   info:
     issuer: "대한민국26세 달성 배씨 배문성의 허가가 있는 토큰이올시다."

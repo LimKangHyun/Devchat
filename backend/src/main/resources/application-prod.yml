@@ -104,6 +104,12 @@ file:
 
 github:
   username: GitHubBot
+  app:
+    id: ${GITHUB_APP_ID}
+    private-key: ${GITHUB_APP_PRIVATE_KEY}
+
+gemini:
+  api-key: ${GEMINI_API_KEY}
 
 url:
   domain-url: ${DOMAIN_URL}
