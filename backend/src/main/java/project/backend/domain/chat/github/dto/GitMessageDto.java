@@ -12,15 +12,12 @@ public class GitMessageDto {
 	private GitEventType type;
 	private String actor;
 	private String content;
+	private String fullContent;
 	private ChatRoom room;
 
 	public static GitMessageDto fromIssue(Map<String, Object> payload) {
 		String action = (String) payload.get("action");
-
-		//오픈된 이슈만 처리
-		if (!action.equals("opened")) {
-			return null;
-		}
+		if (!action.equals("opened")) return null;
 
 		Map<String, Object> issue = (Map<String, Object>) payload.get("issue");
 		Map<String, Object> sender = (Map<String, Object>) payload.get("sender");
@@ -28,11 +25,16 @@ public class GitMessageDto {
 		String title = (String) issue.get("title");
 		String url = (String) issue.get("html_url");
 		String author = (String) sender.get("login");
+		String body = (String) issue.get("body");
 
 		String content = "[ISSUE " + action + "] " + title + " by " + author + "\n" + url;
 
-		return GitMessageDto.of(GitEventType.ISSUE_OPEN, author,
-			content);
+		String fullContent = "제목: " + title + "\n"
+				+ "작성자: " + author + "\n"
+				+ (body != null ? "내용: " + body : "내용: 없음") + "\n"
+				+ "URL: " + url;
+
+		return GitMessageDto.of(GitEventType.ISSUE_OPEN, author, content, fullContent);
 	}
 
 	public static GitMessageDto fromPullRequest(Map<String, Object> payload) {
@@ -43,49 +45,60 @@ public class GitMessageDto {
 		String title = (String) pr.get("title");
 		String url = (String) pr.get("html_url");
 		String author = (String) sender.get("login");
+		String body = (String) pr.get("body");
 
 		String content;
+		String fullContent;
 		GitEventType type;
 
-		if (action.equals("opened")) { //pr이 open된 경우
+		if (action.equals("opened")) {
 			content = "[PR opened] " + title + " by " + author + "\n" + url;
+			fullContent = "제목: " + title + "\n"
+					+ "작성자: " + author + "\n"
+					+ (body != null ? "내용: " + body : "내용: 없음") + "\n"
+					+ "URL: " + url;
 			type = GitEventType.PR_OPEN;
-		} else if (action.equals("closed") && Boolean.TRUE.equals(
-			pr.get("merged"))) { //pr이 merge된 경우
+		} else if (action.equals("closed") && Boolean.TRUE.equals(pr.get("merged"))) {
 			String fromBranch = ((Map<String, Object>) pr.get("head")).get("ref").toString();
 			String toBranch = ((Map<String, Object>) pr.get("base")).get("ref").toString();
-
 			content = "[PR merged] " + title + " by " + author + "\n"
-				+ "merged to " + toBranch + " from " + fromBranch + "\n"
-				+ url;
+					+ "merged to " + toBranch + " from " + fromBranch + "\n" + url;
+			fullContent = "제목: " + title + "\n"
+					+ "작성자: " + author + "\n"
+					+ fromBranch + " → " + toBranch + " 머지\n"
+					+ (body != null ? "내용: " + body : "내용: 없음") + "\n"
+					+ "URL: " + url;
 			type = GitEventType.PR_MERGED;
 		} else {
 			return null;
 		}
 
-		return GitMessageDto.of(type, author, content);
+		return GitMessageDto.of(type, author, content, fullContent);
 	}
 
 	public static GitMessageDto fromPullRequestReview(Map<String, Object> payload) {
 		String action = (String) payload.get("action");
-		if (!action.equals("submitted")) {
-			return null;
-		}
+		if (!action.equals("submitted")) return null;
 
 		Map<String, Object> review = (Map<String, Object>) payload.get("review");
 		Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
 
 		String reviewer = (String) ((Map<String, Object>) review.get("user")).get("login");
-		String state = (String) review.get("state"); // approved, commented, changes_requested
+		String state = (String) review.get("state");
 		String reviewUrl = (String) review.get("html_url");
 		String prTitle = (String) pr.get("title");
 		String body = (String) review.get("body");
 
 		String content = "[PR review: " + state + "] " + prTitle + " review by " + reviewer +
-			(body != null ? "\n" + body : "") + "\n" + reviewUrl;
+				(body != null ? "\n" + body : "") + "\n" + reviewUrl;
 
-		return GitMessageDto.of(GitEventType.PR_REVIEW, reviewer,
-			content);
+		String fullContent = "PR 제목: " + prTitle + "\n"
+				+ "리뷰어: " + reviewer + "\n"
+				+ "상태: " + state + "\n"
+				+ (body != null ? "리뷰 내용: " + body : "리뷰 내용: 없음") + "\n"
+				+ "URL: " + reviewUrl;
+
+		return GitMessageDto.of(GitEventType.PR_REVIEW, reviewer, content, fullContent);
 	}
 
 	public static GitMessageDto fromWorkflowRun(Map<String, Object> payload) {
@@ -114,16 +127,30 @@ public class GitMessageDto {
 				+ " (branch: " + branch + ")"
 				+ "\n" + url;
 
-		return GitMessageDto.of(GitEventType.WORKFLOW_RUN, triggerBy, content);
+		String fullContent = "워크플로우: " + name + "\n"
+				+ "결과: " + conclusion + "\n"
+				+ "브랜치: " + branch + "\n"
+				+ "실행자: " + triggerBy + "\n"
+				+ "URL: " + url;
+
+		return GitMessageDto.of(GitEventType.WORKFLOW_RUN, triggerBy, content, fullContent);
 	}
 
-	public static GitMessageDto of(GitEventType type, String actor,
-		String content) {
+	public static GitMessageDto of(GitEventType type, String actor, String content, String fullContent) {
 		return GitMessageDto.builder()
-			.type(type)
-			.actor(actor)
-			.content(content)
-			.build();
+				.type(type)
+				.actor(actor)
+				.content(content)
+				.fullContent(fullContent)
+				.build();
+	}
+
+	public static GitMessageDto of(GitEventType type, String actor, String content) {
+		return GitMessageDto.builder()
+				.type(type)
+				.actor(actor)
+				.content(content)
+				.build();
 	}
 
 	public GitMessageDto attachRoom(GitMessageDto gitMessage, ChatRoom room) {
@@ -131,4 +158,7 @@ public class GitMessageDto {
 		return gitMessage;
 	}
 
+	public void updateContent(String content) {
+		this.content = content;
+	}
 }

@@ -35,4 +35,14 @@ public class GitWebhookController {
 		gitMessageService.handleEvent(roomId, eventType, payload);
 	}
 
+	@Operation(
+			summary = "AI 리뷰 GitHub 등록",
+			description = "DevChat AI 리뷰를 GitHub PR에 공식 등록"
+	)
+	@PostMapping("/{roomId}/ai-review/{messageId}/publish")
+	public void publishAiReview(@PathVariable Long roomId,
+								@PathVariable Long messageId) {
+		gitMessageService.publishAiReview(roomId, messageId);
+	}
+
 }

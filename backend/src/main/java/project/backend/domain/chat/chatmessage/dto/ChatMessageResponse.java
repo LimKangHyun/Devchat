@@ -21,4 +21,8 @@ public class ChatMessageResponse {
 	private Long messageId;
 	private MessageStatus status;
 	private boolean githubPublished;
+
+	private Integer prNumber;
+	private String filePath;
+	private String inlineReviews; // JSON 문자열
 }

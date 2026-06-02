@@ -107,6 +107,32 @@ const MessageContent = ({ msg, editMessageId, editContent, setEditContent, handl
     );
   }
 
+  if (msg.type === 'AI_REVIEW') {
+    return (
+      <div
+        onClick={() => onCodeClick && onCodeClick(msg)}
+        style={{
+          cursor: 'pointer',
+          display: 'flex',
+          backgroundColor: '#f0f4ff',
+          borderRadius: '6px',
+          overflow: 'hidden',
+          border: '1px solid #c7d4f0',
+        }}
+      >
+        <div style={{ width: '4px', backgroundColor: '#4299e1', flexShrink: 0 }} />
+        <div style={{ padding: '10px 14px', fontSize: '13px', color: '#24292e', lineHeight: '1.6' }}>
+          <div style={{ fontWeight: '600', marginBottom: '4px' }}>🤖 AI Code Review</div>
+          <div style={{ color: '#555', fontSize: '12px' }}>{msg.filePath}</div>
+          <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>클릭하여 인라인 리뷰 보기</div>
+          {msg.githubPublished && (
+            <div style={{ color: '#27ae60', fontSize: '12px', marginTop: '4px' }}>✅ GitHub에 등록됨</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (msg.type === 'CODE') {
     return (
       <div>
@@ -196,7 +222,6 @@ export const MessageItem = ({
   const isMenuOpen = contextMenuId === msg.messageId;
   const isOwn = currentUser?.id === msg.senderId;
 
-  // profileImageUrl 없으면 처음부터 fallback → 실패 요청 없음
   const profileSrc = msg.profileImageUrl
     ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${msg.profileImageUrl}`
     : '/images/not-found-profile.png';
@@ -263,7 +288,7 @@ export const MessageItem = ({
           gap: '2px',
           zIndex: 10,
         }}>
-          {msg.type !== 'IMAGE' && (
+          {msg.type !== 'IMAGE' && msg.type !== 'AI_REVIEW' && (
             <ActionBtn
               label="수정"
               onClick={() => {

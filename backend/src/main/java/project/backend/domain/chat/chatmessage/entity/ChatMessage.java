@@ -61,6 +61,14 @@ public class ChatMessage {
     @Enumerated(EnumType.STRING)
     private MessageStatus status = MessageStatus.NO_CHANGE;
 
+    private Integer prNumber;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String inlineReviews; // JSON 문자열로 저장
+
+    private String filePath;
+
     @Builder.Default
     private boolean githubPublished = false;
 

@@ -59,11 +59,17 @@ file:
 
 github:
   username: GitHubBot
+  app:
+    id: ${GITHUB_APP_ID}
+    private-key: ${GITHUB_APP_PRIVATE_KEY}
+
+gemini:
+  api-key: ${GEMINI_API_KEY}
 
 url:
   domain-url: http://localhost:3000
   image-url: https://d3eqoic1xpzc9x.cloudfront.net
-  webhook-url: https://2faa-203-236-115-21.ngrok-free.app
+  webhook-url: https://318f-203-236-115-21.ngrok-free.app
 
 cloud:
   aws:

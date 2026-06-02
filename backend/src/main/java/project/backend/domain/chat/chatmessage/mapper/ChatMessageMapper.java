@@ -1,6 +1,9 @@
 package project.backend.domain.chat.chatmessage.mapper;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -12,8 +15,8 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.event.ChatMessageBroadcastEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageIndexStatus;
-import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
+import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.github.dto.GitMessageDto;
@@ -23,70 +26,75 @@ import project.backend.domain.member.entity.Member;
 @Component
 public class ChatMessageMapper {
 
-    public ChatMessage toEntityWithText(ChatRoom room, Member sender,
-        ChatMessageRequest request) {
-        return ChatMessage.builder()
-            .chatRoom(room)
-            .sender(sender)
-            .content(request.getContent())
-            .type(MessageType.TEXT)
-            .createdAt(LocalDateTime.now())
-            .build();
+    private final ObjectMapper objectMapper;
+    private final String githubProfile;
+
+    public ChatMessageMapper(
+            ObjectMapper objectMapper,
+            @Value("${file.images.profile.github}") String githubProfile) {
+        this.objectMapper = objectMapper;
+        this.githubProfile = githubProfile;
     }
 
-    public ChatMessage toEntityWithCode(ChatRoom room, Member sender,
-        ChatMessageRequest request) {
+    public ChatMessage toEntityWithText(ChatRoom room, Member sender, ChatMessageRequest request) {
         return ChatMessage.builder()
-            .chatRoom(room)
-            .sender(sender)
-            .content(request.getContent())
-            .type(MessageType.CODE)
-            .createdAt(LocalDateTime.now())
-            .codeLanguage(request.getLanguage())
-            .build();
+                .chatRoom(room)
+                .sender(sender)
+                .content(request.getContent())
+                .type(MessageType.TEXT)
+                .createdAt(LocalDateTime.now())
+                .build();
     }
 
-    public ChatMessage toEntityWithImage(ChatRoom room, Member sender,
-        ImageFile chatImage) {
+    public ChatMessage toEntityWithCode(ChatRoom room, Member sender, ChatMessageRequest request) {
         return ChatMessage.builder()
-            .chatRoom(room)
-            .sender(sender)
-            .type(MessageType.IMAGE)
-            .createdAt(LocalDateTime.now())
-            .chatImage(chatImage)
-            .build();
+                .chatRoom(room)
+                .sender(sender)
+                .content(request.getContent())
+                .type(MessageType.CODE)
+                .createdAt(LocalDateTime.now())
+                .codeLanguage(request.getLanguage())
+                .build();
+    }
+
+    public ChatMessage toEntityWithImage(ChatRoom room, Member sender, ImageFile chatImage) {
+        return ChatMessage.builder()
+                .chatRoom(room)
+                .sender(sender)
+                .type(MessageType.IMAGE)
+                .createdAt(LocalDateTime.now())
+                .chatImage(chatImage)
+                .build();
     }
 
     public ChatMessage toEntityWithGit(GitMessageDto gitMessage, Member githubBot) {
         return ChatMessage.builder()
-            .chatRoom(gitMessage.getRoom())
-            .type(MessageType.GIT)
-            .content(gitMessage.getContent())
-            .createdAt(LocalDateTime.now())
-            .sender(githubBot)
-            .build();
+                .chatRoom(gitMessage.getRoom())
+                .type(MessageType.GIT)
+                .content(gitMessage.getContent())
+                .createdAt(LocalDateTime.now())
+                .sender(githubBot)
+                .build();
     }
 
-    public ChatMessage toEntityWithJoinEvent(ChatRoom room, Member sender,
-        LocalDateTime now) {
+    public ChatMessage toEntityWithJoinEvent(ChatRoom room, Member sender, LocalDateTime now) {
         return ChatMessage.builder()
-            .chatRoom(room)
-            .sender(sender)
-            .content(sender.getNickname() + "님이 입장했습니다.")
-            .type(MessageType.EVENT)
-            .createdAt(now)
-            .build();
+                .chatRoom(room)
+                .sender(sender)
+                .content(sender.getNickname() + "님이 입장했습니다.")
+                .type(MessageType.EVENT)
+                .createdAt(now)
+                .build();
     }
 
-    public ChatMessage toEntityWithLeaveEvent(ChatRoom room, Member sender,
-        LeaveChatRoomEvent leaveEvent) {
+    public ChatMessage toEntityWithLeaveEvent(ChatRoom room, Member sender, LeaveChatRoomEvent leaveEvent) {
         return ChatMessage.builder()
-            .chatRoom(room)
-            .sender(sender)
-            .content(leaveEvent.nickname() + "님이 나갔습니다.")
-            .type(MessageType.EVENT)
-            .createdAt(leaveEvent.leaveAt())
-            .build();
+                .chatRoom(room)
+                .sender(sender)
+                .content(leaveEvent.nickname() + "님이 나갔습니다.")
+                .type(MessageType.EVENT)
+                .createdAt(leaveEvent.leaveAt())
+                .build();
     }
 
     public ChatMessageSearch toSearchEntity(ChatMessageSearchProjection projection) {
@@ -98,43 +106,41 @@ public class ChatMessageMapper {
     }
 
     public ChatMessageResponse toResponse(ChatMessage message) {
-        String senderName = message.getSender().getNickname();
-
         return ChatMessageResponse.builder()
-            .senderName(senderName)
-            .content(message.getContent())
-            .type(message.getType())
-            .createdAt(message.getCreatedAt())
-            .language(message.getCodeLanguage())
-            .profileImageUrl(message.getSender().getProfileImage())
-            .chatImageUrl(
-                Optional.ofNullable(message.getChatImage())
-                    .map(ImageFile::getStoreFileName)
-                    .orElse(null)
-            )
-            .senderId(message.getSender().getId())
-            .messageId(message.getId())
-            .status(message.getStatus())
-            .build();
+                .senderName(message.getSender().getNickname())
+                .content(message.getContent())
+                .type(message.getType())
+                .createdAt(message.getCreatedAt())
+                .language(message.getCodeLanguage())
+                .profileImageUrl(message.getSender().getProfileImage())
+                .chatImageUrl(
+                        Optional.ofNullable(message.getChatImage())
+                                .map(ImageFile::getStoreFileName)
+                                .orElse(null)
+                )
+                .senderId(message.getSender().getId())
+                .messageId(message.getId())
+                .status(message.getStatus())
+                .build();
     }
 
     public ChatMessageResponse toResponse(ChatMessage message, MemberDetails memberDetails, String profileImage) {
         return ChatMessageResponse.builder()
-            .senderName(memberDetails.getNickname())
-            .content(message.getContent())
-            .type(message.getType())
-            .createdAt(message.getCreatedAt())
-            .language(message.getCodeLanguage())
-            .profileImageUrl(profileImage)
-            .chatImageUrl(
-                Optional.ofNullable(message.getChatImage())
-                    .map(ImageFile::getStoreFileName)
-                    .orElse(null)
-            )
-            .senderId(memberDetails.getId())
-            .messageId(message.getId())
-            .status(message.getStatus())
-            .build();
+                .senderName(memberDetails.getNickname())
+                .content(message.getContent())
+                .type(message.getType())
+                .createdAt(message.getCreatedAt())
+                .language(message.getCodeLanguage())
+                .profileImageUrl(profileImage)
+                .chatImageUrl(
+                        Optional.ofNullable(message.getChatImage())
+                                .map(ImageFile::getStoreFileName)
+                                .orElse(null)
+                )
+                .senderId(memberDetails.getId())
+                .messageId(message.getId())
+                .status(message.getStatus())
+                .build();
     }
 
     public ChatMessageIndexStatus toIndexStatus(ChatMessage message) {
@@ -146,27 +152,24 @@ public class ChatMessageMapper {
 
     public ChatMessageSearchResponse toSearchResponse(ChatMessage message) {
         return ChatMessageSearchResponse.builder()
-            .messageId(message.getId())
-            .content(message.getContent())
-            .senderName(message.getSender().getNickname())
-            .profileImageUrl(message.getSender().getProfileImage())
-            .sendAt(message.getCreatedAt())
-            .type(message.getType())
-            .build();
+                .messageId(message.getId())
+                .content(message.getContent())
+                .senderName(message.getSender().getNickname())
+                .profileImageUrl(message.getSender().getProfileImage())
+                .sendAt(message.getCreatedAt())
+                .type(message.getType())
+                .build();
     }
-
-    @Value("${file.images.profile.github}")
-    private String githubProfile;
 
     public ChatMessageResponse toGitResponse(ChatMessage message) {
         return ChatMessageResponse.builder()
-            .senderName("깃허브봇")
-            .content(message.getContent())
-            .type(message.getType())
-            .createdAt(message.getCreatedAt())
-            .messageId(message.getId())
-            .profileImageUrl(githubProfile)
-            .build();
+                .senderName("깃허브봇")
+                .content(message.getContent())
+                .type(message.getType())
+                .createdAt(message.getCreatedAt())
+                .messageId(message.getId())
+                .profileImageUrl(githubProfile)
+                .build();
     }
 
     public ChatMessageResponse toBroadcastResponse(ChatMessageBroadcastEvent event, String profileImage) {
@@ -185,29 +188,38 @@ public class ChatMessageMapper {
                 .build();
     }
 
-    public ChatMessage toAiReviewEntity(String review, int prNumber, Member githubBot, ChatRoom room) {
-        String content = "PR_NUMBER:" + prNumber + "\n" + review;
-        return ChatMessage.builder()
-                .chatRoom(room)
-                .sender(githubBot)
-                .content(content)
-                .type(MessageType.AI_REVIEW)
-                .createdAt(LocalDateTime.now())
-                .build();
+    public ChatMessage toAiReviewEntity(String fileContent, String filePath, int prNumber,
+                                        List<Map<String, Object>> inlineReviews,
+                                        Member githubBot, ChatRoom room) {
+        try {
+            String inlineReviewsJson = objectMapper.writeValueAsString(inlineReviews);
+            return ChatMessage.builder()
+                    .chatRoom(room)
+                    .sender(githubBot)
+                    .content(fileContent)
+                    .filePath(filePath)
+                    .prNumber(prNumber)
+                    .inlineReviews(inlineReviewsJson)
+                    .type(MessageType.AI_REVIEW)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+        } catch (Exception e) {
+            throw new RuntimeException("AI 리뷰 직렬화 실패", e);
+        }
     }
 
     public ChatMessageResponse toAiReviewResponse(ChatMessage message) {
-        String content = message.getContent()
-                .substring(message.getContent().indexOf("\n") + 1);
-
         return ChatMessageResponse.builder()
                 .senderName("AI 리뷰봇")
-                .content(content)
+                .content(message.getContent())
                 .type(message.getType())
                 .createdAt(message.getCreatedAt())
                 .messageId(message.getId())
                 .profileImageUrl(githubProfile)
                 .githubPublished(message.isGithubPublished())
+                .prNumber(message.getPrNumber())
+                .filePath(message.getFilePath())
+                .inlineReviews(message.getInlineReviews())
                 .build();
     }
 }

@@ -6,6 +6,7 @@ import java.io.StringReader;
 import java.security.PrivateKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +35,8 @@ public class GitHubBotClient {
     // GitHub App JWT 생성 (10분 유효)
     private String generateJwt() {
         try {
-            PEMParser pemParser = new PEMParser(new StringReader(privateKeyPem));
+            String formattedKey = privateKeyPem.replace("\\n", "\n");
+            PEMParser pemParser = new PEMParser(new StringReader(formattedKey));
             PEMKeyPair pemKeyPair = (PEMKeyPair) pemParser.readObject();
             PrivateKey privateKey = new JcaPEMKeyConverter().getKeyPair(pemKeyPair).getPrivate();
 
@@ -82,7 +84,7 @@ public class GitHubBotClient {
     public String getPrDiff(String owner, String repo, int prNumber) {
         String token = getInstallationToken(owner, repo);
 
-        return webClientBuilder.build()
+        String diff = webClientBuilder.build()
                 .get()
                 .uri("https://api.github.com/repos/" + owner + "/" + repo + "/pulls/" + prNumber)
                 .header("Authorization", "Bearer " + token)
@@ -90,6 +92,27 @@ public class GitHubBotClient {
                 .retrieve()
                 .bodyToMono(String.class)
                 .block();
+
+        log.info("PR diff: {}", diff);
+        return diff;
+    }
+
+    public String getFileContent(String owner, String repo, String path, String ref) {
+        String token = getInstallationToken(owner, repo);
+
+        Map<String, Object> response = webClientBuilder.build()
+                .get()
+                .uri("https://api.github.com/repos/" + owner + "/" + repo + "/contents/" + path + "?ref=" + ref)
+                .header("Authorization", "Bearer " + token)
+                .header("Accept", "application/vnd.github+json")
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .block();
+
+        String encoded = (String) response.get("content");
+        String content = new String(Base64.getDecoder().decode(encoded.replaceAll("\\s", "")));
+        log.info("파일 내용 [{}]:\n{}", path, content);
+        return content;
     }
 
     // GitHub PR에 리뷰 코멘트 등록

@@ -18,6 +18,12 @@ import project.backend.domain.chat.github.dto.GitRepoDto;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -31,43 +37,64 @@ public class AiReviewService {
     private final MemberService memberService;
     private final ChatRoomRedisRepository chatRoomRedisRepository;
 
-    // PR 오픈 시 비동기로 AI 리뷰 자동 생성 → 채팅방에 전송
     @Async("chatBroadcastExecutor")
-    public void triggerAiReview(ChatRoom room, int prNumber, String githubBotUsername) {
+    public void triggerAiReview(ChatRoom room, int prNumber, String githubBotUsername, String headSha) {
         try {
             GitRepoDto repo = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
-
             log.info("AI 리뷰 시작: roomId={}, PR #{}", room.getId(), prNumber);
 
             // 1. diff 가져오기
             String diff = gitHubBotClient.getPrDiff(repo.ownerName(), repo.repoName(), prNumber);
 
-            // 2. Gemini로 리뷰 생성
-            String review = geminiClient.reviewPrDiff(diff);
+            // 2. 변경된 파일 목록 파싱
+            List<String> filePaths = parseFilePaths(diff);
+            log.info("변경된 파일 목록: {}", filePaths);
 
-            // 3. 채팅방에 AI 리뷰 메시지 전송 (GitHub 등록 버튼 포함)
-            sendAiReviewMessage(room, review, prNumber, githubBotUsername);
+            // 3. 파일별로 전체 코드 가져와서 인라인 리뷰 생성
+            for (String filePath : filePaths) {
+                String fileContent = gitHubBotClient.getFileContent(
+                        repo.ownerName(), repo.repoName(), filePath, headSha);
+
+                List<Map<String, Object>> inlineReviews =
+                        geminiClient.reviewPrDiffInline(diff, fileContent);
+
+                log.info("인라인 리뷰 생성 결과: {}", inlineReviews);
+
+                // 4. 채팅방에 AI 리뷰 메시지 전송
+                sendAiReviewMessage(room, fileContent, filePath, prNumber, inlineReviews, githubBotUsername);
+            }
 
         } catch (Exception e) {
             log.error("AI 리뷰 생성 실패: roomId={}, PR #{}", room.getId(), prNumber, e);
         }
     }
 
-    private void sendAiReviewMessage(ChatRoom room, String review, int prNumber, String githubBotUsername) {
+    private void sendAiReviewMessage(ChatRoom room, String fileContent, String filePath,
+                                     int prNumber, List<Map<String, Object>> inlineReviews,
+                                     String githubBotUsername) {
         Member githubBot = memberService.getMemberByUsername(githubBotUsername);
         chatRoomRedisRepository.genMessageSeq(room.getId());
 
-        // AI 리뷰 메시지 저장 (prNumber 포함 - 나중에 GitHub 등록 시 사용)
-        ChatMessage message = chatMessageMapper.toAiReviewEntity(review, prNumber, githubBot, room);
+        ChatMessage message = chatMessageMapper.toAiReviewEntity(
+                fileContent, filePath, prNumber, inlineReviews, githubBot, room);
         chatMessageRepository.save(message);
 
         ChatMessageResponse response = chatMessageMapper.toAiReviewResponse(message);
         messagingTemplate.convertAndSend("/topic/chat/" + room.getId(), response);
 
-        log.info("AI 리뷰 채팅방 전송 완료: roomId={}, PR #{}", room.getId(), prNumber);
+        log.info("AI 리뷰 채팅방 전송 완료: roomId={}, PR #{}, 파일={}", room.getId(), prNumber, filePath);
     }
 
-    // 확인 버튼 클릭 시 GitHub에 등록
+    private List<String> parseFilePaths(String diff) {
+        List<String> paths = new ArrayList<>();
+        Pattern pattern = Pattern.compile("^diff --git a/.+ b/(.+)$", Pattern.MULTILINE);
+        Matcher matcher = pattern.matcher(diff);
+        while (matcher.find()) {
+            paths.add(matcher.group(1));
+        }
+        return paths;
+    }
+
     public void publishToGitHub(ChatRoom room, Long messageId) {
         ChatMessage message = chatMessageRepository.findById(messageId)
                 .orElseThrow(() -> new IllegalArgumentException("메시지를 찾을 수 없습니다."));
@@ -78,9 +105,8 @@ public class AiReviewService {
 
         GitRepoDto repo = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
 
-        int prNumber = parsePrNumber(message.getContent());
-        String reviewBody = message.getContent()
-                .substring(message.getContent().indexOf("\n") + 1);
+        int prNumber = message.getPrNumber();
+        String reviewBody = message.getInlineReviews();
 
         gitHubBotClient.postReviewComment(
                 repo.ownerName(),
@@ -93,10 +119,5 @@ public class AiReviewService {
         chatMessageRepository.save(message);
 
         log.info("GitHub PR 리뷰 등록 완료: roomId={}, PR #{}", room.getId(), prNumber);
-    }
-
-    private int parsePrNumber(String content) {
-        String firstLine = content.split("\n")[0];
-        return Integer.parseInt(firstLine.replace("PR_NUMBER:", "").trim());
     }
 }
