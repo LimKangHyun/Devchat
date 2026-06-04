@@ -42,7 +42,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
     @Query("""
         SELECT cr.id AS chatRoomId, cr.name AS name, cr.inviteCode AS inviteCode,
-        	   cp.lastReadSequence AS lastReadSequence
+        	   cp.lastReadSequence AS lastReadSequence, cr.repositoryUrl AS repositoryUrl
         FROM ChatRoom cr
         JOIN cr.participants cp
         WHERE cp.participant.id = :memberId AND cp.isActive = true

@@ -1,4 +1,4 @@
-package project.backend.domain.chat.github;
+package project.backend.domain.github;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
@@ -113,6 +113,20 @@ public class GitHubBotClient {
         String content = new String(Base64.getDecoder().decode(encoded.replaceAll("\\s", "")));
         log.info("파일 내용 [{}]:\n{}", path, content);
         return content;
+    }
+
+    public String getHeadSha(String owner, String repo, int prNumber) {
+        String token = getInstallationToken(owner, repo);
+        Map<String, Object> response = webClientBuilder.build()
+                .get()
+                .uri("https://api.github.com/repos/" + owner + "/" + repo + "/pulls/" + prNumber)
+                .header("Authorization", "Bearer " + token)
+                .header("Accept", "application/vnd.github+json")
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .block();
+        Map<String, Object> head = (Map<String, Object>) response.get("head");
+        return (String) head.get("sha");
     }
 
     // GitHub PR에 리뷰 코멘트 등록

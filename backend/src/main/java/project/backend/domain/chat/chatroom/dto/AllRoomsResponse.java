@@ -12,5 +12,5 @@ public class AllRoomsResponse {
     private String roomName;
     private boolean alarmEnabled;
     private Long unreadCount;
-
+    private String repositoryUrl;
 }

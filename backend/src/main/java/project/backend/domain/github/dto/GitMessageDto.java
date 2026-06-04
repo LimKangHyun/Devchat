@@ -1,4 +1,4 @@
-package project.backend.domain.chat.github.dto;
+package project.backend.domain.github.dto;
 
 import java.util.Map;
 import lombok.Builder;

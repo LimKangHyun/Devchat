@@ -15,6 +15,7 @@ const CodeReviewModal = ({ message, onClose }) => {
   const [editingReviewId, setEditingReviewId] = useState(null);
   const [editReviewText, setEditReviewText] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
+  const [currentFileContent, setCurrentFileContent] = useState('');
 
   const isAiReview = message.type === 'AI_REVIEW';
 
@@ -110,10 +111,14 @@ const CodeReviewModal = ({ message, onClose }) => {
         setLoading(true);
 
         // AI_REVIEW 타입이면 inlineReviews JSON 파싱해서 초기값으로 세팅
-        if (isAiReview && message.inlineReviews) {
-          const aiReviews = JSON.parse(message.inlineReviews);
+        if (isAiReview) {
+          const response = await axiosInstance.get(`/ai-reviews/${message.aiReviewId}`);
+          const { files } = JSON.parse(response.data.reviewJson);
+          const firstFile = files[0];
+          setCurrentFileContent(firstFile.fileContent);
+
           const reviewsByLine = {};
-          aiReviews.forEach(item => {
+          firstFile.reviews.forEach(item => {
             const lineNumber = item.lineNumber;
             if (!reviewsByLine[lineNumber]) reviewsByLine[lineNumber] = [];
             reviewsByLine[lineNumber].push({
@@ -161,7 +166,7 @@ const CodeReviewModal = ({ message, onClose }) => {
     loadReviews();
   }, [message.messageId]);
 
-  const codeLines = message.content.split('\n');
+  const codeLines = (isAiReview ? currentFileContent : message.content)?.split('\n') ?? [];
 
   const handleCopyCode = async () => {
     try {

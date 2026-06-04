@@ -1,17 +1,7 @@
 package project.backend.domain.chat.chatmessage.entity;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -19,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
+import project.backend.domain.github.entity.AiReview;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.member.entity.Member;
 
@@ -63,14 +54,10 @@ public class ChatMessage {
 
     private Integer prNumber;
 
-    @Lob
-    @Column(columnDefinition = "TEXT")
-    private String inlineReviews; // JSON 문자열로 저장
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ai_review_id")
+    private AiReview aiReview;
 
-    private String filePath;
-
-    @Builder.Default
-    private boolean githubPublished = false;
 
     public Long getChatRoomId() {
         return chatRoom.getId();
@@ -92,9 +79,5 @@ public class ChatMessage {
 
     public void delete() {
         status = MessageStatus.DELETED;
-    }
-
-    public void markAsPublished() {
-        this.githubPublished = true;
     }
 }

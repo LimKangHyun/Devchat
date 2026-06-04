@@ -1,9 +1,10 @@
-package project.backend.domain.chat.github.app;
+package project.backend.domain.github.app;
 
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,11 +16,16 @@ import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
-import project.backend.domain.chat.github.GeminiClient;
-import project.backend.domain.chat.github.GitHubUserClient;
-import project.backend.domain.chat.github.GitRepoUrlUtils;
-import project.backend.domain.chat.github.dto.GitMessageDto;
-import project.backend.domain.chat.github.dto.GitRepoDto;
+import project.backend.domain.github.GeminiClient;
+import project.backend.domain.github.GitHubBotClient;
+import project.backend.domain.github.GitHubUserClient;
+import project.backend.domain.github.GitRepoUrlUtils;
+import project.backend.domain.github.dao.AiReviewRepository;
+import project.backend.domain.github.dto.AiReviewResponse;
+import project.backend.domain.github.dto.GitMessageDto;
+import project.backend.domain.github.dto.GitRepoDto;
+import project.backend.domain.github.entity.AiReview;
+import project.backend.domain.github.event.AiReviewRequestedEvent;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
@@ -38,8 +44,12 @@ public class GitMessageService {
 	private final GitHubUserClient gitHubUserClient;
 	private final AuthTokenService authTokenService;
 	private final ChatRoomRedisRepository chatRoomRedisRepository;
+	private final AiReviewRepository aiReviewRepository;
 	private final AiReviewService aiReviewService;
 	private final GeminiClient geminiClient;
+	private final GitHubBotClient gitHubBotClient;
+
+	private final ApplicationEventPublisher eventPublisher;
 
 	@Value("${url.webhook-url}")
 	private String webhookUrl;
@@ -66,13 +76,20 @@ public class GitMessageService {
 
 		// PR 오픈 시 AI 리뷰 자동 트리거
 		if ("pull_request".equals(eventType) && "opened".equals(payload.get("action"))) {
-			log.info("PR payload: {}", payload);
 			Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
 			int prNumber = (int) pr.get("number");
-			Map<String, Object> head = (Map<String, Object>) pr.get("head");
-			String headSha = (String) head.get("sha");
-			aiReviewService.triggerAiReview(room, prNumber, githubUsername, headSha);
+			String headSha = (String) ((Map<String, Object>) pr.get("head")).get("sha");
+			String baseSha = (String) ((Map<String, Object>) pr.get("base")).get("sha");
+
+			aiReviewService.createPendingAndMessage(room, prNumber, headSha, githubUsername);
+			eventPublisher.publishEvent(new AiReviewRequestedEvent(room, prNumber, headSha, baseSha));
 		}
+	}
+
+	public AiReviewResponse getAiReview(Long aiReviewId) {
+		AiReview aiReview = aiReviewRepository.findById(aiReviewId)
+				.orElseThrow(() -> new IllegalArgumentException("AI 리뷰를 찾을 수 없습니다."));
+		return new AiReviewResponse(aiReview.getReviewJson());
 	}
 
 	private void sendGitMessage(ChatRoom room, GitMessageDto gitMessage) {
@@ -139,5 +156,16 @@ public class GitMessageService {
 		ChatRoom room = chatRoomRepository.findById(roomId)
 				.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 		aiReviewService.publishToGitHub(room, messageId);
+	}
+
+	public void retryAiReview(Long roomId, int prNumber) {
+		ChatRoom room = chatRoomRepository.findById(roomId)
+				.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+
+		GitRepoDto repo = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
+		String headSha = gitHubBotClient.getHeadSha(repo.ownerName(), repo.repoName(), prNumber);
+
+		// 채팅 메시지 새로 안 만듦 - ai_review 상태만 바꾸고 재실행
+		aiReviewService.triggerAiReview(room, prNumber, headSha, baseSha);
 	}
 }

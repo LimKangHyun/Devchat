@@ -165,6 +165,14 @@ const ChatRoom = () => {
     setShowCodeModal(true);
   };
 
+  const handleRetryAiReview = async (prNumber) => {
+    try {
+      await axiosInstance.post(`/github/${roomId}/ai-review/retry`, { prNumber });
+    } catch (err) {
+      console.error('AI 리뷰 재시도 실패:', err);
+    }
+  };
+
   const fetchRoomInfo = useCallback(async () => {
     try {
       const res = await axiosInstance.get(`/chat-rooms/${inviteCode}`);
@@ -541,6 +549,7 @@ const ChatRoom = () => {
                       handleDeleteMessage={handleDeleteMessage} editMessageId={editMessageId}
                       editContent={editContent} handleEditMessage={handleEditMessage}
                       onCodeClick={handleCodeClick}
+                      onRetryClick={handleRetryAiReview}
                     />
                   );
                 }}

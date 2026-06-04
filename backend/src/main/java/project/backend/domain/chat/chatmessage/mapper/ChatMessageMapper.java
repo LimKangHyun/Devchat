@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import project.backend.auth.dto.MemberDetails;
@@ -19,10 +21,12 @@ import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
-import project.backend.domain.chat.github.dto.GitMessageDto;
+import project.backend.domain.github.dto.GitMessageDto;
+import project.backend.domain.github.entity.AiReview;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.member.entity.Member;
 
+@Slf4j
 @Component
 public class ChatMessageMapper {
 
@@ -106,6 +110,8 @@ public class ChatMessageMapper {
     }
 
     public ChatMessageResponse toResponse(ChatMessage message) {
+        log.info("aiReview: {}", message.getAiReview());
+        log.info("prNumber: {}", message.getPrNumber());
         return ChatMessageResponse.builder()
                 .senderName(message.getSender().getNickname())
                 .content(message.getContent())
@@ -121,6 +127,9 @@ public class ChatMessageMapper {
                 .senderId(message.getSender().getId())
                 .messageId(message.getId())
                 .status(message.getStatus())
+                .prNumber(message.getPrNumber())
+                .aiReviewId(message.getAiReview() != null ? message.getAiReview().getId() : null)
+                .aiReviewStatus(message.getAiReview() != null ? message.getAiReview().getStatus().name() : null)
                 .build();
     }
 
@@ -188,27 +197,21 @@ public class ChatMessageMapper {
                 .build();
     }
 
-    public ChatMessage toAiReviewEntity(String fileContent, String filePath, int prNumber,
-                                        List<Map<String, Object>> inlineReviews,
-                                        Member githubBot, ChatRoom room) {
-        try {
-            String inlineReviewsJson = objectMapper.writeValueAsString(inlineReviews);
-            return ChatMessage.builder()
-                    .chatRoom(room)
-                    .sender(githubBot)
-                    .content(fileContent)
-                    .filePath(filePath)
-                    .prNumber(prNumber)
-                    .inlineReviews(inlineReviewsJson)
-                    .type(MessageType.AI_REVIEW)
-                    .createdAt(LocalDateTime.now())
-                    .build();
-        } catch (Exception e) {
-            throw new RuntimeException("AI 리뷰 직렬화 실패", e);
-        }
+    // ChatMessage에 aiReview FK만 연결하는 단순한 엔티티 생성
+    public ChatMessage toAiReviewMessageEntity(AiReview aiReview, Member githubBot, ChatRoom room) {
+        return ChatMessage.builder()
+                .chatRoom(room)
+                .sender(githubBot)
+                .content("AI 코드 리뷰")
+                .prNumber(aiReview.getPrNumber())
+                .aiReview(aiReview)
+                .type(MessageType.AI_REVIEW)
+                .createdAt(LocalDateTime.now())
+                .build();
     }
 
     public ChatMessageResponse toAiReviewResponse(ChatMessage message) {
+        AiReview aiReview = message.getAiReview();
         return ChatMessageResponse.builder()
                 .senderName("AI 리뷰봇")
                 .content(message.getContent())
@@ -216,10 +219,9 @@ public class ChatMessageMapper {
                 .createdAt(message.getCreatedAt())
                 .messageId(message.getId())
                 .profileImageUrl(githubProfile)
-                .githubPublished(message.isGithubPublished())
                 .prNumber(message.getPrNumber())
-                .filePath(message.getFilePath())
-                .inlineReviews(message.getInlineReviews())
+                .aiReviewId(aiReview != null ? aiReview.getId() : null)
+                .aiReviewStatus(aiReview != null ? aiReview.getStatus().name() : null)
                 .build();
     }
 }

@@ -22,7 +22,7 @@ public class ChatMessageResponse {
 	private MessageStatus status;
 	private boolean githubPublished;
 
+	private Long aiReviewId;
 	private Integer prNumber;
-	private String filePath;
-	private String inlineReviews; // JSON 문자열
+	private String aiReviewStatus;
 }

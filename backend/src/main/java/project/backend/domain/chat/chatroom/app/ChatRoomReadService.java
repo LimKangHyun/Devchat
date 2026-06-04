@@ -47,7 +47,8 @@ public class ChatRoomReadService {
                     p.getInviteCode(),
                     p.getName(),
                     alarmEnabled,
-                    unreadCount
+                    unreadCount,
+                    p.getRepositoryUrl()
             );
         }).toList();
     }

@@ -38,7 +38,7 @@ import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
-import project.backend.domain.chat.github.app.GitMessageService;
+import project.backend.domain.github.app.GitMessageService;
 import project.backend.domain.community.dao.PostRepository;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;

@@ -1,4 +1,4 @@
-package project.backend.domain.chat.github;
+package project.backend.domain.github;
 
 import java.util.List;
 import java.util.Map;

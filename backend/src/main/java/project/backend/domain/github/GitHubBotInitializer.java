@@ -1,4 +1,4 @@
-package project.backend.domain.chat.github;
+package project.backend.domain.github;
 
 import jakarta.annotation.PostConstruct;
 import java.util.Optional;

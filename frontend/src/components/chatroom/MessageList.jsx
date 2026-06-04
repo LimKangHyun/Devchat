@@ -53,7 +53,10 @@ const HighlightedCode = ({ content, language, onClick }) => (
 );
 
 /* ── 메시지 본문 ── */
-const MessageContent = ({ msg, editMessageId, editContent, setEditContent, handleEditMessage, setEditMessageId, onCodeClick }) => {
+const MessageContent = ({
+  msg, editMessageId, editContent, setEditContent,
+  handleEditMessage, setEditMessageId, onCodeClick, onRetryClick,
+}) => {
 
   if (editMessageId === msg.messageId) {
     return (
@@ -108,25 +111,61 @@ const MessageContent = ({ msg, editMessageId, editContent, setEditContent, handl
   }
 
   if (msg.type === 'AI_REVIEW') {
+    const status = msg.aiReviewStatus;
+
+    const borderColor = status === 'FAIL' ? '#fed7d7'
+      : status === 'SUCCESS' ? '#c7d4f0'
+      : '#e2e8f0';
+
+    const accentColor = status === 'FAIL' ? '#e53e3e'
+      : status === 'SUCCESS' ? '#4299e1'
+      : '#a0aec0';
+
     return (
-      <div
-        onClick={() => onCodeClick && onCodeClick(msg)}
-        style={{
-          cursor: 'pointer',
-          display: 'flex',
-          backgroundColor: '#f0f4ff',
-          borderRadius: '6px',
-          overflow: 'hidden',
-          border: '1px solid #c7d4f0',
-        }}
-      >
-        <div style={{ width: '4px', backgroundColor: '#4299e1', flexShrink: 0 }} />
+      <div style={{
+        display: 'flex',
+        backgroundColor: status === 'FAIL' ? '#fff5f5' : '#f0f4ff',
+        borderRadius: '6px',
+        overflow: 'hidden',
+        border: `1px solid ${borderColor}`,
+      }}>
+        <div style={{ width: '4px', backgroundColor: accentColor, flexShrink: 0 }} />
         <div style={{ padding: '10px 14px', fontSize: '13px', color: '#24292e', lineHeight: '1.6' }}>
           <div style={{ fontWeight: '600', marginBottom: '4px' }}>🤖 AI Code Review</div>
-          <div style={{ color: '#555', fontSize: '12px' }}>{msg.filePath}</div>
-          <div style={{ color: '#888', fontSize: '12px', marginTop: '4px' }}>클릭하여 인라인 리뷰 보기</div>
-          {msg.githubPublished && (
-            <div style={{ color: '#27ae60', fontSize: '12px', marginTop: '4px' }}>✅ GitHub에 등록됨</div>
+          <div style={{ color: '#888', fontSize: '12px' }}>PR #{msg.prNumber}</div>
+
+          {status === 'PENDING' && (
+            <div style={{ color: '#888', fontSize: '12px', marginTop: '6px' }}>
+              ⏳ 리뷰 생성 중...
+            </div>
+          )}
+
+          {status === 'SUCCESS' && (
+            <button
+              onClick={() => onCodeClick && onCodeClick(msg)}
+              style={{
+                marginTop: '8px', backgroundColor: '#4299e1',
+                color: 'white', border: 'none', borderRadius: '4px',
+                padding: '6px 12px', fontSize: '12px',
+                fontWeight: '600', cursor: 'pointer',
+              }}
+            >
+              📋 리뷰 보기
+            </button>
+          )}
+
+          {status === 'FAIL' && (
+            <button
+              onClick={() => onRetryClick && onRetryClick(msg.prNumber)}
+              style={{
+                marginTop: '8px', backgroundColor: '#e53e3e',
+                color: 'white', border: 'none', borderRadius: '4px',
+                padding: '6px 12px', fontSize: '12px',
+                fontWeight: '600', cursor: 'pointer',
+              }}
+            >
+              🔄 재시도
+            </button>
           )}
         </div>
       </div>
@@ -202,7 +241,7 @@ const EditedLabel = () => (
 export const MessageItem = ({
   msg, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, handleEditMessage,
-  handleDeleteMessage, editMessageId, editContent, onCodeClick,
+  handleDeleteMessage, editMessageId, editContent, onCodeClick, onRetryClick,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -230,7 +269,7 @@ export const MessageItem = ({
     <div
       id={`message-${msg.messageId}`}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => { setIsHovered(false); }}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -276,6 +315,7 @@ export const MessageItem = ({
           handleEditMessage={handleEditMessage}
           setEditMessageId={setEditMessageId}
           onCodeClick={onCodeClick}
+          onRetryClick={onRetryClick}
         />
       </div>
 
@@ -361,7 +401,7 @@ export const DateDivider = ({ label }) => (
 const MessageList = ({
   messages, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, editMessageId, editContent,
-  handleEditMessage, handleDeleteMessage, onCodeClick,
+  handleEditMessage, handleDeleteMessage, onCodeClick, onRetryClick,
 }) => {
   if (!messages.length) return null;
 
@@ -388,6 +428,7 @@ const MessageList = ({
         editContent={editContent}
         handleEditMessage={handleEditMessage}
         onCodeClick={onCodeClick}
+        onRetryClick={onRetryClick}
       />
     );
   });

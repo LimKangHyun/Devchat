@@ -1,4 +1,4 @@
-package project.backend.domain.chat.github;
+package project.backend.domain.github;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import project.backend.domain.chat.github.dto.GitEventType;
+import project.backend.domain.github.dto.GitEventType;
 
 @Component
 @RequiredArgsConstructor
@@ -65,10 +65,18 @@ public class GeminiClient {
         ]
         
         규칙:
-        - lineNumber는 전체 파일 기준 줄 번호입니다
-        - 변경된 줄(+/-) 위주로 리뷰하되, 관련된 주변 코드도 참고하세요
-        - 각 코멘트는 한국어로 간결하게 작성하세요
-        - 마크다운 문법 사용 금지
+        - [전체 파일 코드]는 PR 머지 이후의 최신 파일입니다
+        - lineNumber는 [전체 파일 코드] 기준 줄 번호입니다
+        - diff에서 "+" 로 시작하는 줄(추가된 코드) 위주로 리뷰하세요
+        - diff에서 "-" 로 시작하는 줄(삭제된 코드)은 리뷰 대상이 아닙니다
+        - 버그, 성능, 보안, 구조적 문제가 있는 줄만 리뷰하세요
+        - 주석 추가/제거, 공백, 단순 리네이밍 등 사소한 변경은 리뷰하지 마세요
+        - 리뷰할 내용이 없으면 빈 배열 [] 을 반환하세요
+        - 단순 메서드 추가/제거에 대한 "사용처 확인 필요" 류의 코멘트는 작성하지 마세요
+        - 실제 코드 품질 문제(버그, 성능, 보안, NPE 가능성 등)가 명확한 경우에만 리뷰하세요
+        - 애매하거나 확인이 필요한 수준의 코멘트는 작성하지 마세요
+        - comment 값에 마크다운 문법 절대 사용 금지 (**, __, ``, ## 등)
+        - comment는 한국어로 간결하게 작성하세요
         - JSON 외 다른 텍스트 절대 금지
         """;
 
@@ -118,7 +126,7 @@ public class GeminiClient {
 
     public String reviewPrDiff(String diff) {
         String truncatedDiff = diff.length() > 8000 ? diff.substring(0, 8000) + "\n...(truncated)" : diff;
-        return callGemini(REVIEW_PROMPT + "\n\n[PR DIFF]\n" + truncatedDiff, "🤖 AI 코드 리뷰 생성에 실패했습니다.");
+        return callGemini(REVIEW_PROMPT + "\n\n[PR DIFF]\n" + truncatedDiff);
     }
 
     public List<Map<String, Object>> reviewPrDiffInline(String diff, String fileContent) {
@@ -129,7 +137,7 @@ public class GeminiClient {
                 + "\n\n[PR DIFF]\n" + truncatedDiff
                 + "\n\n[전체 파일 코드]\n" + truncatedContent;
 
-        String response = callGemini(prompt, "[]");
+        String response = callGemini(prompt);
 
         try {
             String cleaned = response.replaceAll("```json", "").replaceAll("```", "").trim();
@@ -147,10 +155,15 @@ public class GeminiClient {
             case PR_REVIEW -> PR_REVIEW_SUMMARY_PROMPT;
             case WORKFLOW_RUN -> WORKFLOW_SUMMARY_PROMPT;
         };
-        return callGemini(prompt + "\n\n[이벤트 내용]\n" + rawContent, rawContent);
+        try {
+            return callGemini(prompt + "\n\n[이벤트 내용]\n" + rawContent);
+        } catch (Exception e) {
+            log.error("Gemini 요약 실패, 원본 반환", e);
+            return rawContent;
+        }
     }
 
-    private String callGemini(String prompt, String fallback) {
+    private String callGemini(String prompt) {
         Map<String, Object> requestBody = Map.of(
                 "contents", List.of(
                         Map.of("parts", List.of(
@@ -159,24 +172,18 @@ public class GeminiClient {
                 )
         );
 
-        try {
-            Map<String, Object> response = webClientBuilder.build()
-                    .post()
-                    .uri(GEMINI_URL + "?key=" + apiKey)
-                    .header("Content-Type", "application/json")
-                    .bodyValue(requestBody)
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
-                    .block();
+        Map<String, Object> response = webClientBuilder.build()
+                .post()
+                .uri(GEMINI_URL + "?key=" + apiKey)
+                .header("Content-Type", "application/json")
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .block();
 
-            List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.get("candidates");
-            Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
-            List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
-            return (String) parts.get(0).get("text");
-
-        } catch (Exception e) {
-            log.error("Gemini API 호출 실패", e);
-            return fallback;
-        }
+        List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.get("candidates");
+        Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
+        List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
+        return (String) parts.get(0).get("text");
     }
 }
