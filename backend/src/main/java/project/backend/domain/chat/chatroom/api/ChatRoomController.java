@@ -11,15 +11,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.chat.chatroom.app.ChatRoomParticipantService;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
@@ -33,6 +27,7 @@ import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
+import project.backend.domain.github.dto.AiReviewToggleResponse;
 
 @Tag(name = "Chat Room", description = "채팅방 API")
 @Slf4j
@@ -149,5 +144,15 @@ public class ChatRoomController {
         @PathVariable Long roomId,
         @AuthenticationPrincipal MemberDetails memberDetails) {
         chatRoomService.updateLastReadSequence(roomId, memberDetails.getId());
+    }
+
+    @PatchMapping("/{roomId}/ai-review/toggle")
+    public ResponseEntity<AiReviewToggleResponse> toggleAiReview(
+            @PathVariable Long roomId,
+            @AuthenticationPrincipal MemberDetails memberDetails
+    ) {
+        AiReviewToggleResponse response =
+                chatRoomService.toggleAiReview(roomId, memberDetails.getId());
+        return ResponseEntity.ok(response);
     }
 }

@@ -8,6 +8,7 @@ import java.security.interfaces.RSAPrivateKey;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -129,6 +130,20 @@ public class GitHubBotClient {
         return (String) head.get("sha");
     }
 
+    public String getBaseSha(String owner, String repo, int prNumber) {
+        String token = getInstallationToken(owner, repo);
+        Map<String, Object> response = webClientBuilder.build()
+                .get()
+                .uri("https://api.github.com/repos/" + owner + "/" + repo + "/pulls/" + prNumber)
+                .header("Authorization", "Bearer " + token)
+                .header("Accept", "application/vnd.github+json")
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .block();
+        Map<String, Object> base = (Map<String, Object>) response.get("base");
+        return (String) base.get("sha");
+    }
+
     // GitHub PR에 리뷰 코멘트 등록
     public void postReviewComment(String owner, String repo, int prNumber, String body) {
         String token = getInstallationToken(owner, repo);
@@ -147,5 +162,24 @@ public class GitHubBotClient {
                 .block();
 
         log.info("GitHub PR 리뷰 등록 완료: PR #{}", prNumber);
+    }
+
+    public void postInlineReviews(String owner, String repo, int prNumber, List<Map<String, Object>> comments) {
+        String token = getInstallationToken(owner, repo);
+
+        webClientBuilder.build()
+                .post()
+                .uri("https://api.github.com/repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/reviews")
+                .header("Authorization", "Bearer " + token)
+                .header("Accept", "application/vnd.github+json")
+                .bodyValue(Map.of(
+                        "event", "COMMENT",
+                        "comments", comments
+                ))
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+
+        log.info("GitHub 인라인 리뷰 등록 완료: PR #{}", prNumber);
     }
 }

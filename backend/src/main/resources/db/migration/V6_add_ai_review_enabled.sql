@@ -1,0 +1,2 @@
+ALTER TABLE chat_room
+    ADD COLUMN ai_review_enabled BOOLEAN NOT NULL DEFAULT TRUE;

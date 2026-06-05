@@ -43,6 +43,9 @@ public class ChatRoom {
     @Column(name = "last_sequence", nullable = false)
     private Long lastSequence = 0L;
 
+    @Column(nullable = false)
+    private boolean aiReviewEnabled = true;
+
     @Builder
     public ChatRoom(String name, LocalDateTime createdAt, String repositoryUrl, String inviteCode,
         Long webhookId, List<ChatMessage> messages, List<ChatParticipant> participants) {
@@ -75,5 +78,9 @@ public class ChatRoom {
 
     public void updateWebhookId(Long webhookId) {
         this.webhookId = webhookId;
+    }
+
+    public void toggleAiReview() {
+        this.aiReviewEnabled = !this.aiReviewEnabled;
     }
 }

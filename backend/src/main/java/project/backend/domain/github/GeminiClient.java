@@ -26,33 +26,6 @@ public class GeminiClient {
     private static final String GEMINI_URL =
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
-    private static final String REVIEW_PROMPT = """
-        당신은 시니어 백엔드 개발자이며 코드 리뷰 전문가입니다.
-        PR의 diff를 분석하여 실제 코드 품질 개선에 도움이 되는 리뷰만 작성하세요.
-        
-        [리뷰 규칙]
-        * 반드시 diff 기준으로 변경된 코드만 리뷰하세요
-        * 추상적인 표현 금지 (예: "가독성이 좋습니다", "개선이 필요합니다")
-        * 각 항목은 구체적인 이유 + 개선 방향을 포함하세요
-        * 라인 정보는 "파일명:라인번호" 형식으로 작성하세요
-        * 중요도가 높은 순서대로 작성하세요 (버그 > 성능 > 구조 > 스타일)
-        
-        [출력 형식]
-        🤖 AI Code Review (DevChat)
-        
-        1. 버그/오류 가능성
-        * 파일명:라인번호 - 문제 설명 + 이유 + 수정 제안
-        
-        2. 개선 사항
-        * 파일명:라인번호 - 개선 이유 + 구체적인 방법
-        
-        3. 잘된 점 (최대 2개)
-        * 파일명:라인번호 - 왜 좋은지 명확하게 설명
-        
-        전체 리뷰는 한국어로 작성하고, 700자 이내로 작성하세요.
-        마크다운 문법 사용 금지 (**, __, ## 등 사용 금지)
-        """;
-
     private static final String INLINE_REVIEW_PROMPT = """
         당신은 코드 리뷰 전문가입니다.
         PR의 diff와 전체 파일 코드를 분석해서 인라인 코드 리뷰를 작성해주세요.
@@ -69,65 +42,74 @@ public class GeminiClient {
         - lineNumber는 [전체 파일 코드] 기준 줄 번호입니다
         - diff에서 "+" 로 시작하는 줄(추가된 코드) 위주로 리뷰하세요
         - diff에서 "-" 로 시작하는 줄(삭제된 코드)은 리뷰 대상이 아닙니다
-        - 버그, 성능, 보안, 구조적 문제가 있는 줄만 리뷰하세요
-        - 주석 추가/제거, 공백, 단순 리네이밍 등 사소한 변경은 리뷰하지 마세요
-        - 리뷰할 내용이 없으면 빈 배열 [] 을 반환하세요
-        - 단순 메서드 추가/제거에 대한 "사용처 확인 필요" 류의 코멘트는 작성하지 마세요
-        - 실제 코드 품질 문제(버그, 성능, 보안, NPE 가능성 등)가 명확한 경우에만 리뷰하세요
-        - 애매하거나 확인이 필요한 수준의 코멘트는 작성하지 마세요
-        - comment 값에 마크다운 문법 절대 사용 금지 (**, __, ``, ## 등)
-        - comment는 한국어로 간결하게 작성하세요
-        - JSON 외 다른 텍스트 절대 금지
+        - 아래 항목 중 하나에 해당할 때만 리뷰하세요:
+            [코드 품질]
+            1. 버그 또는 NPE 발생 가능성
+            2. 명백한 성능 문제 (N+1, 불필요한 전체 조회 등)
+            3. 보안 취약점
+            4. 잘못된 트랜잭션/동시성 처리
+            
+            [클린코드]
+            5. 메서드명이 동작을 정확히 설명하지 못하는 경우 (예: getData → findActiveUserById)
+            6. 하나의 메서드가 2가지 이상의 책임을 가진 경우 (SRP 위반)
+            7. 10줄 이상이면서 단일 책임으로 분리 가능한 메서드
+            
+            - 클린코드 항목은 명백히 개선이 필요한 경우에만 작성하고, 애매하면 생략하세요
+            - 리뷰할 내용이 없으면 빈 배열 [] 반환
+            - comment: 한국어, 마크다운 금지, 문제점과 개선 방향을 한 문장으로
+            - JSON 외 텍스트 절대 금지
         """;
 
     private static final String ISSUE_SUMMARY_PROMPT = """
-        당신은 GitHub 이벤트 분석 전문가입니다.
+        당신은 GitHub 이슈 요약 전문가입니다.
         아래 GitHub 이슈 내용을 개발자가 빠르게 이해할 수 있도록 요약해주세요.
-        
+    
         작성 규칙:
-        - 반드시 "📌 [ 이슈 요약 ]"을 먼저적고 줄바꿈을 한 뒤 시작해주세요
-        - 본문 내용이 있다면 핵심 변경사항을 2~3줄로 설명해주세요 (가독성을 위해 줄바꿈을 활용해주세요)
-        - 한국어로 작성해주세요
-        - 마크다운 문법 사용 금지 (**, __, ## 등 사용하지 마세요)
+        - 반드시 "📌 [ 이슈 요약 ]"을 먼저 적고 줄바꿈을 한 뒤 시작하세요
+        - 어떤 문제가 발생했는지 또는 무엇을 요청하는지 사실만 2~3줄로 작성하세요
+        - "~할 수 있습니다", "~을 통해" 같은 불필요한 설명 문장은 작성하지 마세요
+        - 한국어로 작성하세요
+        - 마크다운 문법 사용 금지 (**, __, ## 등)
         """;
 
     private static final String PR_SUMMARY_PROMPT = """
-        당신은 GitHub 이벤트 분석 전문가입니다.
+        당신은 GitHub PR 요약 전문가입니다.
         아래 GitHub PR 내용을 개발자가 빠르게 이해할 수 있도록 요약해주세요.
         
         작성 규칙:
-        - 반드시 "🔀 [ PR 요약 ]"을 먼저적고 줄바꿈을 한 뒤 시작해주세요
-        - 본문 내용이 있다면 핵심 변경사항을 2~3줄로 설명해주세요 (가독성을 위해 줄바꿈을 활용해주세요)
-        - 한국어로 작성해주세요
-        - 마크다운 문법 사용 금지 (**, __, ## 등 사용하지 마세요)
+        - 반드시 "🔀 [ PR 요약 ]"을 먼저 적고 줄바꿈을 한 뒤 시작하세요
+        - 핵심 변경사항만 2~3줄로 작성하세요
+        - "~할 수 있습니다", "~을 통해", "이를 통해" 같은 불필요한 설명 문장은 작성하지 마세요
+        - 무엇이 추가/수정/삭제되었는지 사실만 간결하게 서술하세요
+        - 한국어로 작성하세요
+        - 마크다운 문법 사용 금지 (**, __, ## 등)
         """;
 
     private static final String PR_REVIEW_SUMMARY_PROMPT = """
-        당신은 GitHub 이벤트 분석 전문가입니다.
+        당신은 GitHub PR 리뷰 요약 전문가입니다.
         아래 GitHub PR 리뷰 내용을 개발자가 빠르게 이해할 수 있도록 요약해주세요.
-        
+    
         작성 규칙:
-        - 반드시 "💬 리뷰: " 로 시작해주세요
-        - 리뷰 내용을 2~3줄로 설명해주세요 (가독성을 위해 줄바꿈을 활용해주세요)
-        - 한국어로 작성해주세요
-        - 마크다운 문법 사용 금지 (**, __, ## 등 사용하지 마세요)
+        - 반드시 "💬 리뷰: " 로 시작하세요
+        - 리뷰어가 지적한 내용과 요청 사항만 2~3줄로 작성하세요
+        - "~할 수 있습니다", "~을 통해" 같은 불필요한 설명 문장은 작성하지 마세요
+        - 무엇이 문제이고 어떻게 수정을 요청했는지 사실만 간결하게 서술하세요
+        - 한국어로 작성하세요
+        - 마크다운 문법 사용 금지 (**, __, ## 등)
         """;
 
     private static final String WORKFLOW_SUMMARY_PROMPT = """
-        당신은 GitHub 이벤트 분석 전문가입니다.
+        당신은 GitHub 워크플로우 결과 요약 전문가입니다.
         아래 GitHub 워크플로우 결과를 개발자가 빠르게 이해할 수 있도록 요약해주세요.
-        
+    
         작성 규칙:
-        - 성공이면 "✅ 배포: ", 실패면 "❌ 배포: ", 취소면 "⚠️ 배포: " 로 시작해주세요
-        - 워크플로우 결과를 1~2줄로 설명해주세요
-        - 한국어로 작성해주세요
-        - 마크다운 문법 사용 금지 (**, __, ## 등 사용하지 마세요)
+        - 성공이면 "✅ 배포: ", 실패면 "❌ 배포: ", 취소면 "⚠️ 배포: " 로 시작하세요
+        - 어떤 워크플로우가 어떤 결과였는지 사실만 1~2줄로 작성하세요
+        - 실패한 경우 실패 원인이 있다면 포함하세요
+        - "~할 수 있습니다", "~을 통해" 같은 불필요한 설명 문장은 작성하지 마세요
+        - 한국어로 작성하세요
+        - 마크다운 문법 사용 금지 (**, __, ## 등)
         """;
-
-    public String reviewPrDiff(String diff) {
-        String truncatedDiff = diff.length() > 8000 ? diff.substring(0, 8000) + "\n...(truncated)" : diff;
-        return callGemini(REVIEW_PROMPT + "\n\n[PR DIFF]\n" + truncatedDiff);
-    }
 
     public List<Map<String, Object>> reviewPrDiffInline(String diff, String fileContent) {
         String truncatedDiff = diff.length() > 4000 ? diff.substring(0, 4000) + "\n...(truncated)" : diff;
@@ -135,7 +117,7 @@ public class GeminiClient {
 
         String prompt = INLINE_REVIEW_PROMPT
                 + "\n\n[PR DIFF]\n" + truncatedDiff
-                + "\n\n[전체 파일 코드]\n" + truncatedContent;
+                + "\n\n[전체 파일 코드 - 앞의 숫자가 lineNumber]\n" + addLineNumbers(truncatedContent);
 
         String response = callGemini(prompt);
 
@@ -146,6 +128,15 @@ public class GeminiClient {
             log.error("AI 인라인 리뷰 파싱 실패: {}", response, e);
             return List.of();
         }
+    }
+
+    private String addLineNumbers(String content) {
+        String[] lines = content.split("\n");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            sb.append(String.format("%4d: %s\n", i + 1, lines[i]));
+        }
+        return sb.toString();
     }
 
     public String summarizeGitEvent(String rawContent, GitEventType eventType) {

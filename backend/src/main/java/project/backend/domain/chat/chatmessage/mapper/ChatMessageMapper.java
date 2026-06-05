@@ -172,7 +172,7 @@ public class ChatMessageMapper {
 
     public ChatMessageResponse toGitResponse(ChatMessage message) {
         return ChatMessageResponse.builder()
-                .senderName("깃허브봇")
+                .senderName(message.getSender().getNickname())
                 .content(message.getContent())
                 .type(message.getType())
                 .createdAt(message.getCreatedAt())

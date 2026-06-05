@@ -23,6 +23,7 @@ import project.backend.domain.chat.chatroom.entity.*;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
 import project.backend.domain.github.app.GitMessageService;
 import project.backend.domain.community.dao.PostRepository;
+import project.backend.domain.github.dto.AiReviewToggleResponse;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
@@ -181,7 +182,9 @@ public class ChatRoomService {
         Long ownerId = chatRoomParticipantService.findOwnerId(room.getId());
         boolean alarmEnable = chatRoomAlarmService.isAlarmEnabled(memberId, room.getId());
 
-        return new EntryRoomResponse(room.getId(), room.getName(), ownerId, alarmEnable);
+        return new EntryRoomResponse(
+                room.getId(), room.getName(), ownerId, alarmEnable, room.getRepositoryUrl(), room.isAiReviewEnabled()
+        );
     }
 
     public RoomInfoResponse getRoomInfo(String inviteCode, Long memberId) {
@@ -228,5 +231,17 @@ public class ChatRoomService {
     private ChatRoom getByInviteCode(String inviteCode) {
         return chatRoomRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+    }
+
+    @Transactional
+    public AiReviewToggleResponse toggleAiReview(Long roomId, Long memberId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+        Long ownerId = chatRoomParticipantService.findOwnerId(roomId);
+        if (!ownerId.equals(memberId)) {
+            throw new ChatRoomException(ChatRoomErrorCode.OWNER_PERMISSION_REQUIRED);
+        }
+        room.toggleAiReview();
+        return new AiReviewToggleResponse(room.isAiReviewEnabled());
     }
 }

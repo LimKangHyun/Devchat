@@ -61,5 +61,11 @@ public class AiReview {
 
     public void markAsPublished() {
         this.githubPublished = true;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateReviewJson(String reviewJson) {
+        this.reviewJson = reviewJson;
+        this.updatedAt = LocalDateTime.now();
     }
 }
