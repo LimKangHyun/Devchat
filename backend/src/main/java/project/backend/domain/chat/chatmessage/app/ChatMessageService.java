@@ -13,7 +13,6 @@ import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.auth.dto.MemberDetails;
-import project.backend.domain.chat.chatmessage.dao.ChatMessageIndexStatusRepository;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatsearch.dao.ChatMessageSearchRepository;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageEditRequest;
@@ -47,7 +46,6 @@ public class ChatMessageService {
 
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageSearchRepository chatMessageSearchRepository;
-    private final ChatMessageIndexStatusRepository chatMessageIndexStatusRepository;
 
     private final ChatRoomParticipantService chatRoomParticipantService;
     private final ImageFileService imageFileService;

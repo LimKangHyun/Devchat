@@ -4,18 +4,18 @@ import axiosInstance from '../api/axiosInstance';
 import { UI_FONT, CODE_FONT, getFileHash } from './aiReviewUtils';
 import DiffViewer from './DiffViewer';
 
-const AiReviewModal = ({ message, roomId, onClose, repositoryUrl }) => {
+const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser }) => {
   const [reviewData, setReviewData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
+  const [publishedBy, setPublishedBy] = useState(null);
   const [commentStates, setCommentStates] = useState({});
   const [showReasonPopup, setShowReasonPopup] = useState({});
   const [showReactivateConfirm, setShowReactivateConfirm] = useState({});
   const [pendingReason, setPendingReason] = useState({});
 
-  // ── 데이터 로드 ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       try {
@@ -24,10 +24,10 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl }) => {
         const parsed = JSON.parse(res.data.reviewJson);
         setReviewData(parsed);
         setPublished(res.data.githubPublished);
+        setPublishedBy(res.data.publishedBy || null);
 
         const initialStates = {};
         parsed.files.forEach(file => {
-          // 파일 경로 해시 미리 계산 (클릭 시 딜레이 제거)
           getFileHash(file.filePath);
           (file.reviews || []).forEach(review => {
             if (review.commentId != null) {
@@ -56,7 +56,6 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl }) => {
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  // ── 코멘트 토글 핸들러 ────────────────────────────────────────────────────
   const handleDeactivateClick = (commentId) => {
     setPendingReason(prev => ({ ...prev, [commentId]: { reason: '', otherReason: '' } }));
     setShowReasonPopup(prev => ({ ...prev, [commentId]: true }));
@@ -77,7 +76,7 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl }) => {
       });
       setCommentStates(prev => ({
         ...prev,
-        [commentId]: { active: false, reason, otherReason: reason === 'OTHER' ? otherReason : null, changedBy: 'me' },
+        [commentId]: { active: false, reason, otherReason: reason === 'OTHER' ? otherReason : null, changedBy: currentUser?.nickname || 'me' },
       }));
       setShowReasonPopup(prev => ({ ...prev, [commentId]: false }));
       setPendingReason(prev => { const n = { ...prev }; delete n[commentId]; return n; });
@@ -119,6 +118,7 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl }) => {
       setPublishing(true);
       await axiosInstance.post(`/github/${roomId}/ai-review/${message.aiReviewId}/publish`);
       setPublished(true);
+      setPublishedBy(currentUser?.nickname || null);
     } catch (e) {
       console.error('GitHub 등록 실패:', e);
       alert('GitHub 등록에 실패했습니다.');
@@ -142,7 +142,6 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl }) => {
 
   const currentFile = reviewData?.files?.[selectedFileIndex];
 
-  // ── 공통 props (DiffViewer에 전달) ──────────────────────────────────────────
   const diffViewerProps = {
     aiReviewId: message.aiReviewId,
     isActive, commentStates,
@@ -157,6 +156,7 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl }) => {
       setPendingReason(prev => ({ ...prev, [commentId]: { ...prev[commentId], [field]: value } })),
     repositoryUrl,
     prNumber: message.prNumber,
+    published,
   };
 
   return (
@@ -180,7 +180,9 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl }) => {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {published ? (
-              <span style={{ fontSize: '13px', color: '#27ae60', fontWeight: '500', fontFamily: UI_FONT }}>✅ GitHub에 등록됨</span>
+              <span style={{ fontSize: '13px', color: '#27ae60', fontWeight: '500', fontFamily: UI_FONT }}>
+                ✅ GitHub에 등록됨{publishedBy ? ` — by ${publishedBy}` : ''}
+              </span>
             ) : (
               <button
                 onClick={handlePublish}
@@ -213,7 +215,6 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl }) => {
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-
             {/* 파일 사이드바 */}
             <div style={{ width: '240px', flexShrink: 0, borderRight: '1px solid #e2e8f0', backgroundColor: '#f8fafc', overflowY: 'auto', padding: '8px 0', fontFamily: UI_FONT }}>
               <div style={{ padding: '8px 14px 4px', fontSize: '11px', color: '#a0aec0', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.6px', fontFamily: UI_FONT }}>

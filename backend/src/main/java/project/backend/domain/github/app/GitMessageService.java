@@ -54,6 +54,9 @@ public class GitMessageService {
 	@Value("${github.username}")
 	private String githubBotUsername;
 
+	@Value("${github.bot.username}")
+	private String aiReviewBotUsername;
+
 	@Transactional
 	public void handleEvent(Long roomId, String eventType, Map<String, Object> payload) {
 		// 봇이 등록한 리뷰 이벤트는 무시
@@ -62,6 +65,7 @@ public class GitMessageService {
 			if (sender != null) {
 				String senderLogin = (String) sender.get("login");
 				if (githubBotUsername.equalsIgnoreCase(senderLogin)
+						|| aiReviewBotUsername.equalsIgnoreCase(senderLogin)
 						|| (senderLogin != null && senderLogin.endsWith("[bot]"))) {
 					log.info("[WEBHOOK] 봇 리뷰 이벤트 무시: sender={}", senderLogin);
 					return;

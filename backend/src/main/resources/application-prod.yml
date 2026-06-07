@@ -107,6 +107,9 @@ github:
   app:
     id: ${GITHUB_APP_ID}
     private-key: ${GITHUB_APP_PRIVATE_KEY}
+  bot:
+    pat: ${GITHUB_BOT_PAT}
+    username: Devchat-Code-Assist
 
 gemini:
   api-key: ${GEMINI_API_KEY}

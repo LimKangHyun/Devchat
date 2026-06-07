@@ -21,6 +21,7 @@ import project.backend.domain.chat.chatroom.dto.*;
 import project.backend.domain.chat.chatroom.dto.event.*;
 import project.backend.domain.chat.chatroom.entity.*;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
+import project.backend.domain.github.app.AiReviewService;
 import project.backend.domain.github.app.GitMessageService;
 import project.backend.domain.community.dao.PostRepository;
 import project.backend.domain.github.dto.AiReviewToggleResponse;
@@ -50,6 +51,7 @@ public class ChatRoomService {
     private final ChatRoomParticipantService chatRoomParticipantService;
 
     private final ApplicationEventPublisher eventPublisher;
+    private final AiReviewService aiReviewService;
 
     @Value("${github.username}")
     private String githubUsername;
@@ -207,6 +209,7 @@ public class ChatRoomService {
         gitMessageService.deleteWebhook(room, memberId);
         eventPublisher.publishEvent(new DeleteChatRoomEvent(roomId, room.getName()));
 
+        aiReviewService.deleteByRoomId(room.getId());
         chatRoomParticipantService.deleteAllByRoomId(roomId);
         chatMessageService.deleteByRoomId(roomId);
         postRepository.deleteByChatRoom_Id(roomId);

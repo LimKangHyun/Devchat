@@ -23,4 +23,6 @@ public interface AiCommentModRepository extends JpaRepository<AiCommentMod, Long
         )
     """)
     List<AiCommentMod> findLatestStatusesByAiReviewId(@Param("aiReviewId") Long aiReviewId);
+
+    void deleteByComment_AiReview_ChatRoom_Id(Long roomId);
 }

@@ -94,6 +94,10 @@ public class AiReviewService {
         AiReviewComment comment = aiReviewCommentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("코멘트를 찾을 수 없습니다."));
 
+        if (comment.getAiReview().isGithubPublished()) {
+            throw new IllegalStateException("GitHub에 등록된 리뷰는 수정할 수 없습니다.");
+        }
+
         AiCommentMod latest = aiCommentModRepository
                 .findTopByComment_IdOrderByCreatedAtDesc(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("상태를 찾을 수 없습니다."));
@@ -178,7 +182,7 @@ public class AiReviewService {
         }
 
         try {
-            return new AiReviewResponse(objectMapper.writeValueAsString(json), aiReview.isGithubPublished());
+            return new AiReviewResponse(objectMapper.writeValueAsString(json), aiReview.isGithubPublished(), aiReview.getPublishedBy());
         } catch (Exception e) {
             throw new RuntimeException("리뷰 JSON 직렬화 실패", e);
         }
@@ -259,10 +263,11 @@ public class AiReviewService {
                 throw new IllegalStateException("활성화된 AI 리뷰가 없습니다.");
             }
             Map<String, Long> commentIdMap = allComments.stream()
-                    .collect(Collectors.toMap(
-                            c -> c.getFilePath() + ":" + c.getLineNumber(),
-                            AiReviewComment::getId
-                    ));
+                .collect(Collectors.toMap(
+                    c -> c.getFilePath() + ":" + c.getLineNumber(),
+                    AiReviewComment::getId,
+                    (existing, replacement) -> existing
+                ));
 
             String fullDiff = gitHubBotClient.getPrDiff(repo.ownerName(), repo.repoName(), aiReview.getPrNumber());
             Map<String, Set<Integer>> diffLineMap = parseDiffLines(fullDiff);
@@ -313,7 +318,7 @@ public class AiReviewService {
                     "✅ AI 리뷰가 @" + approveUsername + " 에 의해 등록되었습니다."
             );
 
-            aiReview.markAsPublished();
+            aiReview.markAsPublished(approveUsername);
             aiReviewRepository.save(aiReview);
 
         } catch (Exception e) {
@@ -370,6 +375,7 @@ public class AiReviewService {
     }
 
     private void saveComments(AiReview aiReview, List<Map<String, Object>> fileResults) {
+        aiReviewCommentRepository.deleteByAiReview_Id(aiReview.getId());
         for (Map<String, Object> file : fileResults) {
             String filePath = (String) file.get("filePath");
             List<Map<String, Object>> reviews = (List<Map<String, Object>>) file.get("reviews");
@@ -407,5 +413,11 @@ public class AiReviewService {
         } catch (Exception e) {
             throw new RuntimeException("리뷰 JSON 파싱 실패", e);
         }
+    }
+
+    public void deleteByRoomId(Long roomId) {
+        aiCommentModRepository.deleteByComment_AiReview_ChatRoom_Id(roomId);
+        aiReviewCommentRepository.deleteByAiReview_ChatRoom_Id(roomId);
+        aiReviewRepository.deleteByChatRoom_Id(roomId);
     }
 }

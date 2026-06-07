@@ -36,6 +36,8 @@ public class AiReview {
     @Builder.Default
     private boolean githubPublished = false;
 
+    private String publishedBy;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -59,8 +61,9 @@ public class AiReview {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void markAsPublished() {
+    public void markAsPublished(String username) {
         this.githubPublished = true;
+        this.publishedBy = username;
         this.updatedAt = LocalDateTime.now();
     }
 

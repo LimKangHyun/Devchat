@@ -18,6 +18,7 @@ const CommentCard = ({
   onDeactivateClick, onReasonCancel, onDeactivateConfirm,
   onReactivateClick, onReactivateConfirm, onReactivateCancel,
   onPendingReasonChange,
+  published,
 }) => (
   <div style={{
     marginLeft: '44px',
@@ -29,7 +30,7 @@ const CommentCard = ({
     transition: 'opacity 0.2s',
     fontFamily: UI_FONT,
   }}>
-    {/* 코멘트 + 버튼 */}
+    {/* 코멘트 + 버튼/배지 */}
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flex: 1 }}>
         <span style={{ fontSize: '11px', color: active ? '#2b6cb0' : '#a0aec0', fontWeight: '600', flexShrink: 0, fontFamily: UI_FONT }}>
@@ -45,29 +46,52 @@ const CommentCard = ({
         </span>
       </div>
 
-      {review.commentId != null && (
+      {/* published 상태에 따라 배지 or 토글 버튼 */}
+      {published ? (
         active ? (
-          <button onClick={() => onDeactivateClick(review.commentId)} title="비활성화" style={btnStyle('#fed7d7', '#e53e3e')}>
-            <FaBan size={9} /> 비활성화
-          </button>
+          <span style={{
+            padding: '3px 8px', borderRadius: '4px',
+            backgroundColor: '#f0fff4', border: '1px solid #c6f6d5',
+            color: '#276749', fontSize: '11px', fontFamily: UI_FONT,
+            flexShrink: 0, whiteSpace: 'nowrap',
+          }}>
+            ✅ 등록됨
+          </span>
         ) : (
-          <button onClick={() => onReactivateClick(review.commentId)} title="재활성화" style={btnStyle('#c6f6d5', '#276749')}>
-            <FaRedo size={9} /> 재활성화
-          </button>
+          <span style={{
+            padding: '3px 8px', borderRadius: '4px',
+            backgroundColor: '#f7f7f7', border: '1px solid #e2e8f0',
+            color: '#a0aec0', fontSize: '11px', fontFamily: UI_FONT,
+            flexShrink: 0, whiteSpace: 'nowrap',
+          }}>
+            ✕ 미등록
+          </span>
+        )
+      ) : (
+        review.commentId != null && (
+          active ? (
+            <button onClick={() => onDeactivateClick(review.commentId)} title="비활성화" style={btnStyle('#fed7d7', '#e53e3e')}>
+              <FaBan size={9} /> 비활성화
+            </button>
+          ) : (
+            <button onClick={() => onReactivateClick(review.commentId)} title="재활성화" style={btnStyle('#c6f6d5', '#276749')}>
+              <FaRedo size={9} /> 재활성화
+            </button>
+          )
         )
       )}
     </div>
 
-    {/* 비활성화 정보 */}
-    {!active && state?.reason && (
+    {/* 비활성화 정보 - published 아닐 때만 */}
+    {!published && !active && state?.reason && (
       <div style={{ marginTop: '6px', display: 'flex', gap: '10px', fontSize: '11px', color: '#a0aec0', fontFamily: UI_FONT }}>
         <ReasonLabel reason={state.reason} otherReason={state.otherReason} />
         {state.changedBy && state.changedBy !== 'SYSTEM' && <span>비활성화: {state.changedBy}</span>}
       </div>
     )}
 
-    {/* 재활성화 확인 팝업 */}
-    {isShowingReactivateConfirm && (
+    {/* 재활성화 확인 팝업 - published 아닐 때만 */}
+    {!published && isShowingReactivateConfirm && (
       <div style={popupStyle}>
         <div style={{ fontSize: '13px', color: '#4a5568', marginBottom: '8px', lineHeight: '1.5', fontFamily: UI_FONT }}>
           이 리뷰를 다시 활성화하시겠습니까?
@@ -79,8 +103,8 @@ const CommentCard = ({
       </div>
     )}
 
-    {/* 비활성화 사유 팝업 */}
-    {isShowingPopup && (
+    {/* 비활성화 사유 팝업 - published 아닐 때만 */}
+    {!published && isShowingPopup && (
       <div style={popupStyle}>
         <div style={{ fontSize: '12px', fontWeight: '600', color: '#4a5568', marginBottom: '8px', fontFamily: UI_FONT }}>
           비활성화 사유 선택
@@ -121,7 +145,6 @@ const CommentCard = ({
   </div>
 );
 
-// ── 스타일 헬퍼 ───────────────────────────────────────────────────────────────
 const btnStyle = (borderColor, color) => ({
   padding: '3px 8px', backgroundColor: 'transparent',
   border: `1px solid ${borderColor}`, borderRadius: '4px',

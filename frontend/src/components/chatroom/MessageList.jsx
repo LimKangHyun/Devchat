@@ -141,17 +141,24 @@ const MessageContent = ({
           )}
 
           {status === 'SUCCESS' && (
-            <button
-              onClick={() => onCodeClick && onCodeClick(msg)}
-              style={{
-                marginTop: '8px', backgroundColor: '#4299e1',
-                color: 'white', border: 'none', borderRadius: '4px',
-                padding: '6px 12px', fontSize: '12px',
-                fontWeight: '600', cursor: 'pointer',
-              }}
-            >
-              📋 리뷰 보기
-            </button>
+            <>
+              {msg.publishedBy && (
+                <div style={{ fontSize: '12px', color: '#888', marginTop: '6px' }}>
+                  ✅ {msg.publishedBy}님이 GitHub에 게시함
+                </div>
+              )}
+              <button
+                onClick={() => onCodeClick && onCodeClick(msg)}
+                style={{
+                  marginTop: '8px', backgroundColor: '#4299e1',
+                  color: 'white', border: 'none', borderRadius: '4px',
+                  padding: '6px 12px', fontSize: '12px',
+                  fontWeight: '600', cursor: 'pointer',
+                }}
+              >
+                📋 리뷰 보기
+              </button>
+            </>
           )}
 
           {status === 'FAIL' && (

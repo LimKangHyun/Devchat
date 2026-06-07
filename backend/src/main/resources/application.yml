@@ -4,8 +4,8 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: chat
-    password: 0218
+    username: ${RDS_USERNAME}
+    password: ${RDS_PASSWORD}
     url: jdbc:mysql://localhost:3306/devchat
 
   flyway:
@@ -62,20 +62,23 @@ github:
   app:
     id: ${GITHUB_APP_ID}
     private-key: ${GITHUB_APP_PRIVATE_KEY}
+  bot:
+    pat: ${GITHUB_BOT_PAT}
+    username: Devchat-Code-Assist
 
 gemini:
   api-key: ${GEMINI_API_KEY}
 
 url:
-  domain-url: http://localhost:3000
-  image-url: https://d3eqoic1xpzc9x.cloudfront.net
-  webhook-url: https://318f-203-236-115-21.ngrok-free.app
+  domain-url: ${DOMAIN_URL}
+  image-url: ${IMAGE_URL}
+  webhook-url: ${WEBHOOK_URL}
 
 cloud:
   aws:
     credentials:
-      access-key: asdfdasfdasf
-      secret-key: asdfasdfasdfa
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}
     region:
       static: ap-northeast-2
     s3:
@@ -83,9 +86,9 @@ cloud:
 
 jwt:
   redirection:
-    base: http://localhost:3000/
+    base: ${DOMAIN_URL}
   info:
-    secret: asdfasdfsadfsdaf
+    secret: ${JWT_SECRET}
 
 encrypt:
   secret: dsfgf

@@ -9,7 +9,7 @@ const DiffViewer = ({
   onDeactivateClick, onReasonCancel, onDeactivateConfirm,
   onReactivateClick, onReactivateConfirm, onReactivateCancel,
   onPendingReasonChange,
-  repositoryUrl, prNumber,
+  repositoryUrl, prNumber, published,
 }) => {
   const rows = buildDiffRows(file.baseContent, file.fileContent);
   const reviews = file.reviews || [];
@@ -23,7 +23,6 @@ const DiffViewer = ({
 
   return (
     <div style={{ flex: 1, overflow: 'auto', backgroundColor: '#fff', fontFamily: UI_FONT }}>
-
       {/* 파일 경로 헤더 */}
       <div
         onClick={handlePathClick}
@@ -46,7 +45,6 @@ const DiffViewer = ({
       </div>
 
       <div style={{ display: 'flex', minWidth: 0 }}>
-
         {/* 변경 전 */}
         <div style={{ flex: 1, borderRight: '2px solid #e2e8f0', minWidth: 0 }}>
           <SideHeader label="변경 전" bg="#fff5f5" border="#fed7d7" />
@@ -100,6 +98,7 @@ const DiffViewer = ({
                     onReactivateConfirm={onReactivateConfirm}
                     onReactivateCancel={onReactivateCancel}
                     onPendingReasonChange={onPendingReasonChange}
+                    published={published}
                   />
                 ))}
               </div>
@@ -111,7 +110,6 @@ const DiffViewer = ({
   );
 };
 
-// ── 작은 내부 컴포넌트 ─────────────────────────────────────────────────────────
 const SideHeader = ({ label, bg, border }) => (
   <div style={{
     padding: '4px 12px', fontSize: '11px', color: '#a0aec0',

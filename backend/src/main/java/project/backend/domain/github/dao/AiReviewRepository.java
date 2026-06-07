@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface AiReviewRepository extends JpaRepository<AiReview, Long> {
 
     Optional<AiReview> findByChatRoom_IdAndPrNumber(Long roomId, Integer prNumber);
+
+    void deleteByChatRoom_Id(Long roomId);
 }
