@@ -131,6 +131,7 @@ public class ChatMessageMapper {
                 .aiReviewId(message.getAiReview() != null ? message.getAiReview().getId() : null)
                 .aiReviewStatus(message.getAiReview() != null ? message.getAiReview().getStatus().name() : null)
                 .publishedBy(message.getAiReview() != null ? message.getAiReview().getPublishedBy() : null)
+                .prStatus(message.getAiReview() != null ? message.getAiReview().getPrStatus().name() : null)
                 .build();
     }
 
@@ -224,6 +225,7 @@ public class ChatMessageMapper {
                 .aiReviewId(aiReview != null ? aiReview.getId() : null)
                 .aiReviewStatus(aiReview != null ? aiReview.getStatus().name() : null)
                 .publishedBy(aiReview != null ? aiReview.getPublishedBy() : null)
+                .prStatus(aiReview != null ? aiReview.getPrStatus().name() : null)
                 .build();
     }
 }

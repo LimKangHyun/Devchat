@@ -21,6 +21,15 @@ public class AiReview {
     private ChatRoom chatRoom;
 
     private Integer prNumber;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String prTitle;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String prBody;
+
     private String commitSha;
 
     @Enumerated(EnumType.STRING)
@@ -32,6 +41,10 @@ public class AiReview {
     private String reviewJson;
 
     private String errorMessage;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private PrStatus prStatus = PrStatus.OPEN;
 
     @Builder.Default
     private boolean githubPublished = false;
@@ -67,8 +80,13 @@ public class AiReview {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void updateReviewJson(String reviewJson) {
-        this.reviewJson = reviewJson;
+    public void updatePrStatus(PrStatus prStatus) {
+        this.prStatus = prStatus;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updatePrInfo(String prTitle, String prBody) {
+        this.prTitle = prTitle;
+        this.prBody = prBody;
     }
 }

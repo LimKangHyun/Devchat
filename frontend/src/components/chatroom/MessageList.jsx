@@ -112,6 +112,8 @@ const MessageContent = ({
 
   if (msg.type === 'AI_REVIEW') {
     const status = msg.aiReviewStatus;
+    const prStatus = msg.prStatus;
+    const isClosed = prStatus === 'CLOSED' || prStatus === 'MERGED';
 
     const borderColor = status === 'FAIL' ? '#fed7d7'
       : status === 'SUCCESS' ? '#c7d4f0'
@@ -132,7 +134,20 @@ const MessageContent = ({
         <div style={{ width: '4px', backgroundColor: accentColor, flexShrink: 0 }} />
         <div style={{ padding: '10px 14px', fontSize: '13px', color: '#24292e', lineHeight: '1.6' }}>
           <div style={{ fontWeight: '600', marginBottom: '4px' }}>🤖 AI Code Review</div>
-          <div style={{ color: '#888', fontSize: '12px' }}>PR #{msg.prNumber}</div>
+
+          {/* PR 번호 + 상태 뱃지 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span style={{ color: '#888', fontSize: '12px' }}>PR #{msg.prNumber}</span>
+            {isClosed && (
+              <span style={{
+                backgroundColor: prStatus === 'MERGED' ? '#6f42c1' : '#e53e3e',
+                color: 'white', borderRadius: '4px',
+                padding: '1px 7px', fontSize: '11px', fontWeight: '600',
+              }}>
+                {prStatus === 'MERGED' ? '🔀 병합됨' : '🚫 닫힘'}
+              </span>
+            )}
+          </div>
 
           {status === 'PENDING' && (
             <div style={{ color: '#888', fontSize: '12px', marginTop: '6px' }}>

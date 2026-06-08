@@ -10,7 +10,7 @@ import project.backend.domain.member.entity.Member;
 
 @Component
 @RequiredArgsConstructor
-public class GitHubBotInitializer {
+public class BotInitializer {
 
     @Value("${file.images.profile.github}")
     private String githubProfile;
@@ -18,13 +18,18 @@ public class GitHubBotInitializer {
     @Value("${github.username}")
     private String githubUsername;
 
+    @Value("${file.images.profile.ai-reviewer}")
+    private String aiReviewerProfile;
+
+    @Value("${github.bot.username}")
+    private String aiReviewBotUsername;
+
     private final MemberRepository memberRepository;
 
     @PostConstruct
     public void init() {
-        // username으로 Member 조회
-        Optional<Member> existingBot = memberRepository.findByUsername(githubUsername);
 
+        Optional<Member> existingBot = memberRepository.findByUsername(githubUsername);
         if (existingBot.isEmpty()) {
             Member gitHubBot = Member.builder()
                 .username(githubUsername)
@@ -35,6 +40,15 @@ public class GitHubBotInitializer {
             memberRepository.save(gitHubBot);
             memberRepository.flush();
         }
-    }
 
+        Optional<Member> existingAiBot = memberRepository.findByUsername(aiReviewBotUsername);
+        if (existingAiBot.isEmpty()) {
+            memberRepository.save(Member.builder()
+                    .username(aiReviewBotUsername)
+                    .nickname(aiReviewBotUsername)
+                    .profileImage(aiReviewerProfile)
+                    .build());
+            memberRepository.flush();
+        }
+    }
 }

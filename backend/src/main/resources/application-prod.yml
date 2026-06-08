@@ -99,6 +99,7 @@ file:
       path: images/profile/
       default: default-profile.png
       github: github-profile.png
+      ai-reviewer: devchat_code_reviewer.webp
     chat:
       path: images/chat/
 

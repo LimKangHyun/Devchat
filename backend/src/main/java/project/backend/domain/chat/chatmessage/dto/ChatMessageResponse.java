@@ -24,6 +24,7 @@ public class ChatMessageResponse {
 
 	private Long aiReviewId;
 	private Integer prNumber;
+	private String prStatus;
 	private String aiReviewStatus;
 	private String publishedBy;
 }

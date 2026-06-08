@@ -56,6 +56,9 @@ public class ChatRoomService {
     @Value("${github.username}")
     private String githubUsername;
 
+    @Value("${github.bot.username}")
+    private String aiReviewerUsername;
+
     @Transactional
     public ChatRoomSimpleResponse createChatRoom(ChatRoomRequest request, Long ownerId) {
         Member owner = memberService.getMemberById(ownerId);
@@ -70,6 +73,7 @@ public class ChatRoomService {
             gitMessageService.registerWebhook(request.getRepositoryUrl(),
                     savedRoom.getId(), owner.getId());
             joinGitHubBot(savedRoom);
+            joinReviewBot(savedRoom);
         }
 
         return chatRoomMapper.toSimpleResponse(savedRoom, owner);
@@ -78,6 +82,12 @@ public class ChatRoomService {
     private void joinGitHubBot(ChatRoom room) {
         Member githubBot = memberService.getMemberByUsername(githubUsername);
         ChatParticipant gitParticipant = ChatParticipant.of(githubBot, room);
+        room.addParticipant(gitParticipant);
+    }
+
+    private void joinReviewBot(ChatRoom room) {
+        Member reviewBot = memberService.getMemberByUsername(aiReviewerUsername);
+        ChatParticipant gitParticipant = ChatParticipant.of(reviewBot, room);
         room.addParticipant(gitParticipant);
     }
 

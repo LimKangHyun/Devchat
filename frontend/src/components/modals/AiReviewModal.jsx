@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaGithub, FaFile } from 'react-icons/fa';
+import { FaTimes, FaGithub, FaFile, FaChevronDown, FaChevronUp, FaExpand, FaCompress, FaCodeBranch } from 'react-icons/fa';
+import ReactMarkdown from 'react-markdown';
 import axiosInstance from '../api/axiosInstance';
 import { UI_FONT, CODE_FONT, getFileHash } from './aiReviewUtils';
 import DiffViewer from './DiffViewer';
@@ -15,6 +16,13 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
   const [showReasonPopup, setShowReasonPopup] = useState({});
   const [showReactivateConfirm, setShowReactivateConfirm] = useState({});
   const [pendingReason, setPendingReason] = useState({});
+  const [prInfoExpanded, setPrInfoExpanded] = useState(false);
+  const [prInfoHovered, setPrInfoHovered] = useState(false);
+  const [prTitle, setPrTitle] = useState(null);
+  const [prBody, setPrBody] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const isClosed = message.prStatus === 'CLOSED' || message.prStatus === 'MERGED';
 
   useEffect(() => {
     const load = async () => {
@@ -25,6 +33,8 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
         setReviewData(parsed);
         setPublished(res.data.githubPublished);
         setPublishedBy(res.data.publishedBy || null);
+        setPrTitle(res.data.prTitle || null);
+        setPrBody(res.data.prBody || null);
 
         const initialStates = {};
         parsed.files.forEach(file => {
@@ -127,15 +137,6 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
     }
   };
 
-  const handleFileClick = async (file, idx) => {
-    setSelectedFileIndex(idx);
-    if (repositoryUrl && message.prNumber) {
-      const { getGitHubFileUrl } = await import('./aiReviewUtils');
-      const url = await getGitHubFileUrl(repositoryUrl, message.prNumber, file.filePath);
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
-  };
-
   const hasActiveReviews = reviewData?.files?.some(
     file => (file.reviews || []).some(r => isActive(r))
   ) ?? false;
@@ -162,11 +163,24 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: UI_FONT }}
+      style={{
+        position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 9999,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: isFullscreen ? '0' : '20px', fontFamily: UI_FONT,
+      }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ backgroundColor: '#fff', borderRadius: '10px', width: '100%', maxWidth: '1400px', height: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden', fontFamily: UI_FONT }}
+        style={{
+          backgroundColor: '#fff',
+          borderRadius: isFullscreen ? '0' : '10px',
+          width: isFullscreen ? '100vw' : '100%',
+          maxWidth: isFullscreen ? 'none' : '1400px',
+          height: isFullscreen ? '100vh' : '90vh',
+          display: 'flex', flexDirection: 'column',
+          boxShadow: isFullscreen ? 'none' : '0 24px 64px rgba(0,0,0,0.25)',
+          overflow: 'hidden', fontFamily: UI_FONT,
+        }}
       >
         {/* 헤더 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', flexShrink: 0 }}>
@@ -177,11 +191,24 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
             <span style={{ backgroundColor: '#4299e1', color: 'white', padding: '2px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '500', fontFamily: UI_FONT }}>
               PR #{message.prNumber}
             </span>
+            {isClosed && (
+              <span style={{
+                backgroundColor: message.prStatus === 'MERGED' ? '#6f42c1' : '#e53e3e',
+                color: 'white', padding: '2px 10px', borderRadius: '12px',
+                fontSize: '12px', fontWeight: '500', fontFamily: UI_FONT,
+              }}>
+                {message.prStatus === 'MERGED' ? '🔀 병합됨' : '🚫 닫힘'}
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {published ? (
               <span style={{ fontSize: '13px', color: '#27ae60', fontWeight: '500', fontFamily: UI_FONT }}>
                 ✅ GitHub에 등록됨{publishedBy ? ` — by ${publishedBy}` : ''}
+              </span>
+            ) : isClosed ? (
+              <span style={{ fontSize: '13px', fontWeight: '500', fontFamily: UI_FONT, color: message.prStatus === 'MERGED' ? '#6f42c1' : '#e53e3e' }}>
+                {message.prStatus === 'MERGED' ? '병합된 PR — GitHub 등록 불가' : '닫힌 PR — GitHub 등록 불가'}
               </span>
             ) : (
               <button
@@ -194,11 +221,63 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
                 {publishing ? '등록 중...' : 'GitHub에 등록'}
               </button>
             )}
+            <button
+              onClick={() => setIsFullscreen(prev => !prev)}
+              title={isFullscreen ? '축소' : '전체화면'}
+              style={{ display: 'flex', alignItems: 'center', padding: '7px', backgroundColor: '#f7fafc', color: '#4a5568', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}
+            >
+              {isFullscreen ? <FaCompress size={14} /> : <FaExpand size={14} />}
+            </button>
             <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', padding: '7px', backgroundColor: '#fed7d7', color: '#c53030', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
               <FaTimes size={14} />
             </button>
           </div>
         </div>
+
+        {/* PR 제목/본문 — 헤더 바로 아래 */}
+        {prTitle && (
+          <div style={{ borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
+            <div
+              onClick={() => setPrInfoExpanded(prev => !prev)}
+              onMouseEnter={() => setPrInfoHovered(true)}
+              onMouseLeave={() => setPrInfoHovered(false)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '9px 20px', cursor: 'pointer', userSelect: 'none',
+                backgroundColor: prInfoHovered ? '#edf2f7' : '#f8fafc',
+                transition: 'background-color 0.15s',
+              }}
+            >
+              <FaCodeBranch size={12} color="#718096" style={{ flexShrink: 0 }} />
+              <span style={{
+                flex: 1, fontSize: '13px', fontWeight: '500', color: '#2d3748',
+                fontFamily: UI_FONT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {prTitle}
+              </span>
+              <span style={{ fontSize: '11px', color: '#a0aec0', fontFamily: UI_FONT, flexShrink: 0, marginRight: '4px' }}>
+                {prInfoExpanded ? 'PR 본문 닫기' : 'PR 본문 보기'}
+              </span>
+              {prInfoExpanded
+                ? <FaChevronUp size={11} color="#a0aec0" />
+                : <FaChevronDown size={11} color="#a0aec0" />
+              }
+            </div>
+            {prInfoExpanded && (
+              <div style={{
+                padding: '12px 20px 16px', borderTop: '1px solid #e2e8f0',
+                backgroundColor: '#fff',
+                fontSize: '13px', color: '#4a5568', fontFamily: UI_FONT,
+                lineHeight: '1.7', maxHeight: '200px', overflowY: 'auto',
+              }}>
+                {prBody
+                  ? <ReactMarkdown>{prBody}</ReactMarkdown>
+                  : <span style={{ color: '#a0aec0' }}>PR 본문 없음</span>
+                }
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 바디 */}
         {loading ? (
@@ -226,8 +305,8 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
                 return (
                   <div
                     key={idx}
-                    onClick={() => handleFileClick(file, idx)}
-                    title={repositoryUrl ? `GitHub에서 열기: ${file.filePath}` : file.filePath}
+                    onClick={() => setSelectedFileIndex(idx)}
+                    title={file.filePath}
                     style={{ padding: '8px 14px', cursor: 'pointer', backgroundColor: isSelected ? '#ebf4ff' : 'transparent', borderLeft: isSelected ? '3px solid #4299e1' : '3px solid transparent', display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
                     <FaFile size={11} color={isSelected ? '#4299e1' : '#a0aec0'} style={{ flexShrink: 0 }} />

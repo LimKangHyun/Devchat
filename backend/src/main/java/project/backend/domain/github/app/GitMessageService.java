@@ -20,10 +20,11 @@ import project.backend.domain.github.GeminiClient;
 import project.backend.domain.github.GitHubBotClient;
 import project.backend.domain.github.GitHubUserClient;
 import project.backend.domain.github.GitRepoUrlUtils;
-import project.backend.domain.github.dao.AiReviewRepository;
 import project.backend.domain.github.dto.GitMessageDto;
 import project.backend.domain.github.dto.GitRepoDto;
+import project.backend.domain.github.entity.PrStatus;
 import project.backend.domain.github.event.AiReviewRequestedEvent;
+import project.backend.domain.github.mapper.GitMessageMapper;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
@@ -45,7 +46,7 @@ public class GitMessageService {
 	private final AiReviewService aiReviewService;
 	private final GeminiClient geminiClient;
 	private final GitHubBotClient gitHubBotClient;
-
+	private final GitMessageMapper gitMessageMapper;
 	private final ApplicationEventPublisher eventPublisher;
 
 	@Value("${url.webhook-url}")
@@ -59,84 +60,111 @@ public class GitMessageService {
 
 	@Transactional
 	public void handleEvent(Long roomId, String eventType, Map<String, Object> payload) {
-		// 봇이 등록한 리뷰 이벤트는 무시
-		if ("pull_request_review".equals(eventType)) {
-			Map<String, Object> sender = (Map<String, Object>) payload.get("sender");
-			if (sender != null) {
-				String senderLogin = (String) sender.get("login");
-				if (githubBotUsername.equalsIgnoreCase(senderLogin)
-						|| aiReviewBotUsername.equalsIgnoreCase(senderLogin)
-						|| (senderLogin != null && senderLogin.endsWith("[bot]"))) {
-					log.info("[WEBHOOK] 봇 리뷰 이벤트 무시: sender={}", senderLogin);
-					return;
-				}
-			}
+		if (isBotReviewEvent(eventType, payload)) return;
+
+		if ("pull_request".equals(eventType)) {
+			handlePullRequestEvent(roomId, payload);
 		}
 
-		GitMessageDto gitMessage = switch (eventType) {
-			case "issues" -> GitMessageDto.fromIssue(payload);
-			case "pull_request" -> GitMessageDto.fromPullRequest(payload);
-			case "pull_request_review" -> GitMessageDto.fromPullRequestReview(payload);
-			case "workflow_run" -> GitMessageDto.fromWorkflowRun(payload);
-			default -> null;
-		};
-
+		GitMessageDto gitMessage = toGitMessage(eventType, payload);
 		if (gitMessage == null) return;
 
-		ChatRoom room = chatRoomRepository.findById(roomId)
-				.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+		ChatRoom room = findRoom(roomId);
+		sendGitMessage(room, gitMessage.withRoom(room));
 
-		sendGitMessage(room, gitMessage.attachRoom(gitMessage, room));
-
-		// PR 오픈 시 AI 리뷰 자동 트리거
-		if ("pull_request".equals(eventType) && "opened".equals(payload.get("action"))) {
-			Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
-			int prNumber = (int) pr.get("number");
-			String headSha = (String) ((Map<String, Object>) pr.get("head")).get("sha");
-			String baseSha = (String) ((Map<String, Object>) pr.get("base")).get("sha");
-
-			aiReviewService.createPendingAndMessage(room, prNumber, headSha, githubBotUsername);
-			eventPublisher.publishEvent(new AiReviewRequestedEvent(room, prNumber, headSha, baseSha));
+		if ("pull_request".equals(eventType)) {
+			handlePullRequestMessage(room, payload, gitMessage);
 		}
+	}
+
+	private boolean isBotReviewEvent(String eventType, Map<String, Object> payload) {
+		if (!"pull_request_review".equals(eventType)) return false;
+
+		Map<String, Object> sender = (Map<String, Object>) payload.get("sender");
+		if (sender == null) return false;
+
+		String login = (String) sender.get("login");
+		return githubBotUsername.equalsIgnoreCase(login)
+				|| aiReviewBotUsername.equalsIgnoreCase(login)
+				|| (login != null && login.endsWith("[bot]"));
+	}
+
+	private void handlePullRequestEvent(Long roomId, Map<String, Object> payload) {
+		Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
+		String action  = (String) payload.get("action");
+		int prNumber   = (int) pr.get("number");
+		boolean merged = Boolean.TRUE.equals(pr.get("merged"));
+
+		PrStatus prStatus;
+		try {
+			prStatus = PrStatus.from(action, merged);
+		} catch (IllegalArgumentException e) {
+			return;
+		}
+
+		switch (prStatus) {
+			case OPEN, CLOSED, MERGED, REOPENED -> aiReviewService.updatePrStatus(roomId, prNumber, prStatus);
+			case EDITED -> {
+				String prTitle = (String) pr.get("title");
+				String prBody  = (String) pr.getOrDefault("body", "");
+				aiReviewService.updatePrInfo(roomId, prNumber, prTitle, prBody);
+			}
+		}
+	}
+
+	private void handlePullRequestMessage(ChatRoom room, Map<String, Object> payload, GitMessageDto gitMessage) {
+		if (gitMessage.getPrStatus() != PrStatus.OPEN) return;
+
+		Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
+		int prNumber    = (int) pr.get("number");
+		String headSha  = (String) ((Map<String, Object>) pr.get("head")).get("sha");
+		String baseSha  = (String) ((Map<String, Object>) pr.get("base")).get("sha");
+		String prTitle  = (String) pr.get("title");
+		String prBody   = (String) pr.getOrDefault("body", "");
+
+		aiReviewService.createPendingAndMessage(room, prNumber, headSha, aiReviewBotUsername, prTitle, prBody);
+		eventPublisher.publishEvent(new AiReviewRequestedEvent(room, prNumber, headSha, baseSha));
+	}
+
+	private GitMessageDto toGitMessage(String eventType, Map<String, Object> payload) {
+		return switch (eventType) {
+			case "issues"              -> gitMessageMapper.fromIssue(payload);
+			case "pull_request"        -> gitMessageMapper.fromPullRequest(payload);
+			case "pull_request_review" -> gitMessageMapper.fromPullRequestReview(payload);
+			case "workflow_run"        -> gitMessageMapper.fromWorkflowRun(payload);
+			default                    -> null;
+		};
 	}
 
 	private void sendGitMessage(ChatRoom room, GitMessageDto gitMessage) {
 		Member githubBot = memberService.getMemberByUsername(githubBotUsername);
 		chatRoomRedisRepository.genMessageSeq(room.getId());
 
-		String summarized = geminiClient.summarizeGitEvent(
-				gitMessage.getFullContent() != null ? gitMessage.getFullContent() : gitMessage.getContent(),
-				gitMessage.getType()
-		);
-
-		String combined = gitMessage.getContent() + "\n\n" + summarized;
-		gitMessage.updateContent(combined);
+		String summarized = geminiClient.summarizeGitEvent(gitMessage);
+		gitMessage.updateContent(gitMessage.getContent() + "\n\n" + summarized);
 
 		ChatMessage message = chatMessageMapper.toEntityWithGit(gitMessage, githubBot);
 		chatMessageRepository.save(message);
+
 		ChatMessageResponse response = chatMessageMapper.toGitResponse(message);
 		messagingTemplate.convertAndSend("/topic/chat/" + room.getId(), response);
+	}
+
+	private ChatRoom findRoom(Long roomId) {
+		return chatRoomRepository.findById(roomId)
+				.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
 	}
 
 	public void registerWebhook(String repoUrl, Long roomId, Long memberId) {
 		GitRepoDto gitRepoDto = GitRepoUrlUtils.validateAndParseUrl(repoUrl);
 
-		log.info("owner = {}", gitRepoDto.ownerName());
-		log.info("repo = {}", gitRepoDto.repoName());
-
 		String githubAccessToken = authTokenService.getGithubAccessToken(memberId);
 		String webhookUrl = makeWebhookUrl(roomId);
 
-		gitHubUserClient.validateAdminPermission(githubAccessToken,
-				gitRepoDto.ownerName(), gitRepoDto.repoName());
+		gitHubUserClient.validateAdminPermission(githubAccessToken, gitRepoDto.ownerName(), gitRepoDto.repoName());
+		Long webhookId = gitHubUserClient.registerWebhook(githubAccessToken, gitRepoDto.ownerName(), gitRepoDto.repoName(), webhookUrl);
 
-		Long webhookId = gitHubUserClient.registerWebhook(githubAccessToken,
-				gitRepoDto.ownerName(), gitRepoDto.repoName(), webhookUrl);
-
-		ChatRoom room = chatRoomRepository.findById(roomId)
-				.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
-
-		room.updateWebhookId(webhookId);
+		findRoom(roomId).updateWebhookId(webhookId);
 	}
 
 	private String makeWebhookUrl(Long roomId) {
@@ -151,25 +179,18 @@ public class GitMessageService {
 
 		GitRepoDto gitRepoDto = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
 		String githubAccessToken = authTokenService.getGithubAccessToken(ownerId);
-
-		gitHubUserClient.deleteWebhook(githubAccessToken,
-				gitRepoDto.ownerName(), gitRepoDto.repoName(), room.getWebhookId());
+		gitHubUserClient.deleteWebhook(githubAccessToken, gitRepoDto.ownerName(), gitRepoDto.repoName(), room.getWebhookId());
 	}
 
 	public void publishAiReview(Long roomId, Long aiReviewId, String approverUsername) {
-		ChatRoom room = chatRoomRepository.findById(roomId)
-				.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
-		aiReviewService.publishToGitHub(room, aiReviewId, approverUsername);
+		aiReviewService.publishToGitHub(findRoom(roomId), aiReviewId, approverUsername);
 	}
 
 	public void retryAiReview(Long roomId, int prNumber) {
-		ChatRoom room = chatRoomRepository.findById(roomId)
-				.orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
-
+		ChatRoom room = findRoom(roomId);
 		GitRepoDto repo = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
 		String headSha = gitHubBotClient.getHeadSha(repo.ownerName(), repo.repoName(), prNumber);
 		String baseSha = gitHubBotClient.getBaseSha(repo.ownerName(), repo.repoName(), prNumber);
-
 		aiReviewService.triggerAiReview(room, prNumber, headSha, baseSha);
 	}
 }

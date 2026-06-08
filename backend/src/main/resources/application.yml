@@ -54,6 +54,7 @@ file:
       path: images/profile/
       default: default-profile.png
       github: github-profile.png
+      ai-reviewer: devchat_code_reviewer.webp
     chat:
       path: images/chat/
 
@@ -64,7 +65,8 @@ github:
     private-key: ${GITHUB_APP_PRIVATE_KEY}
   bot:
     pat: ${GITHUB_BOT_PAT}
-    username: Devchat-Code-Assist
+    username: Devchat Code Assist
+    image-url:
 
 gemini:
   api-key: ${GEMINI_API_KEY}
