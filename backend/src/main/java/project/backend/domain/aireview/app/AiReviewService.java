@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.domain.aireview.entity.*;
@@ -15,6 +14,7 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.aireview.client.GeminiClient;
 import project.backend.domain.github.client.GitHubBotClient;
@@ -27,8 +27,10 @@ import project.backend.domain.github.dto.GitRepoDto;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.errorcode.AiReviewErrorCode;
+import project.backend.global.exception.errorcode.ChatRoomErrorCode;
 import project.backend.global.exception.errorcode.GitHubErrorCode;
 import project.backend.global.exception.ex.AiReviewException;
+import project.backend.global.exception.ex.ChatRoomException;
 import project.backend.global.exception.ex.GitHubException;
 
 import java.time.LocalDateTime;
@@ -53,9 +55,10 @@ public class AiReviewService {
     private final AiReviewCommentRepository aiReviewCommentRepository;
     private final AiCommentModRepository aiCommentModRepository;
     private final AiReviewCommentSaveService aiReviewCommentSaveService;
+    private final ChatRoomRepository chatRoomRepository;
+
     private final ObjectMapper objectMapper;
 
-    @Async("chatBroadcastExecutor")
     public void triggerAiReview(ChatRoom room, int prNumber, String headSha, String baseSha) {
         if (!room.isAiReviewEnabled()) return;
 
@@ -276,11 +279,22 @@ public class AiReviewService {
 
     @Transactional
     public void updatePrInfo(Long roomId, int prNumber, String prTitle, String prBody) {
-        aiReviewRepository.findByChatRoom_IdAndPrNumber(roomId, prNumber)
-                .ifPresent(review -> {
-                    review.updatePrInfo(prTitle, prBody);
-                    aiReviewRepository.save(review);
+        AiReview review = aiReviewRepository.findByChatRoom_IdAndPrNumber(roomId, prNumber)
+                .orElseGet(() -> {
+                    ChatRoom chatRoom = chatRoomRepository.findById(roomId)
+                            .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+                    return AiReview.builder()
+                            .chatRoom(chatRoom)
+                            .prNumber(prNumber)
+                            .prTitle(prTitle)
+                            .prBody(prBody)
+                            .createdAt(LocalDateTime.now())
+                            .updatedAt(LocalDateTime.now())
+                            .build();
                 });
+
+        review.updatePrInfo(prTitle, prBody);
+        aiReviewRepository.save(review);
     }
 
     public void deleteByRoomId(Long roomId) {
