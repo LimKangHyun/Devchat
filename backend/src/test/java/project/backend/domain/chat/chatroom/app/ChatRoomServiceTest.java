@@ -25,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import project.backend.domain.aireview.app.AiReviewService;
 import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
@@ -60,6 +61,7 @@ class ChatRoomServiceTest {
     @Mock private ChatRoomAlarmService chatRoomAlarmService;
     @Mock private ChatRoomReadService chatRoomReadService;
     @Mock private ChatRoomParticipantService chatRoomParticipantService;
+    @Mock private AiReviewService aiReviewService;
     @Mock private ApplicationEventPublisher eventPublisher;
 
     private Member owner;
@@ -69,7 +71,8 @@ class ChatRoomServiceTest {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(chatRoomService, "githubUsername", "github-bot");
+        ReflectionTestUtils.setField(chatRoomService, "githubUsername", "GitHubBot");
+        ReflectionTestUtils.setField(chatRoomService, "aiReviewerUsername", "Devchat Code Assist");
         owner = mock(Member.class);
         chatRoom = mock(ChatRoom.class);
         ownerParticipant = mock(ChatParticipant.class);
@@ -98,7 +101,7 @@ class ChatRoomServiceTest {
         }
 
         @Test
-        @DisplayName("레포지토리 URL이 있으면 웹훅 등록과 깃허브봇 참가가 실행된다")
+        @DisplayName("레포지토리 URL이 있으면 웹훅 등록과 깃허브봇, 리뷰봇 참가가 실행된다")
         void createChatRoom_withRepository_registersWebhookAndBot() {
             given(chatRoom.getId()).willReturn(10L);
             given(owner.getId()).willReturn(1L);
@@ -106,8 +109,10 @@ class ChatRoomServiceTest {
             ChatRoomRequest request = mock(ChatRoomRequest.class);
             given(request.getRepositoryUrl()).willReturn("https://github.com/test/repo");
             Member githubBot = mock(Member.class);
+            Member reviewBot = mock(Member.class);
             given(memberService.getMemberById(1L)).willReturn(owner);
-            given(memberService.getMemberByUsername("github-bot")).willReturn(githubBot);
+            given(memberService.getMemberByUsername("GitHubBot")).willReturn(githubBot);
+            given(memberService.getMemberByUsername("Devchat Code Assist")).willReturn(reviewBot);
             given(chatRoomMapper.toEntity(request)).willReturn(chatRoom);
             given(chatRoomRepository.save(chatRoom)).willReturn(chatRoom);
             given(chatRoomMapper.toSimpleResponse(chatRoom, owner)).willReturn(mock(ChatRoomSimpleResponse.class));
@@ -115,7 +120,7 @@ class ChatRoomServiceTest {
             chatRoomService.createChatRoom(request, 1L);
 
             then(gitMessageService).should().registerWebhook("https://github.com/test/repo", 10L, 1L);
-            then(chatRoom).should(times(2)).addParticipant(any(ChatParticipant.class));
+            then(chatRoom).should(times(3)).addParticipant(any(ChatParticipant.class));
         }
     }
 

@@ -61,9 +61,8 @@ file:
 github:
   username: GitHubBot
   bot:
-    pat: ${GITHUB_BOT_PAT}
+    pat: ${BOT_GITHUB_BOT_PAT}
     username: Devchat Code Assist
-    image-url:
 
 gemini:
   api-key: ${GEMINI_API_KEY}
