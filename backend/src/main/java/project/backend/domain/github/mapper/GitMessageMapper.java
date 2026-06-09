@@ -37,7 +37,7 @@ public class GitMessageMapper {
 
     public GitMessageDto fromPullRequest(Map<String, Object> payload) {
         String action = (String) payload.get("action");
-        Map<String, Object> pr     = (Map<String, Object>) payload.get("pull_request");
+        Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
         Map<String, Object> sender = (Map<String, Object>) payload.get("sender");
 
         boolean merged = Boolean.TRUE.equals(pr.get("merged"));
