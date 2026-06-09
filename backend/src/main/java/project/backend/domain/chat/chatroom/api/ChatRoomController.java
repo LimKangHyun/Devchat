@@ -27,7 +27,7 @@ import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.backend.domain.chat.chatroom.dto.MyChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RecentChatRoomResponse;
 import project.backend.domain.chat.chatroom.dto.RoomInfoResponse;
-import project.backend.domain.github.dto.AiReviewToggleResponse;
+import project.backend.domain.aireview.dto.AiReviewToggleResponse;
 
 @Tag(name = "Chat Room", description = "채팅방 API")
 @Slf4j

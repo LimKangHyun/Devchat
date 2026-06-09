@@ -10,7 +10,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import project.backend.auth.dto.MemberDetails;
 import project.backend.domain.github.app.GitMessageService;
-import project.backend.domain.github.dto.AiReviewResponse;
 
 @Tag(name = "GitHub Webhook", description = "GitHub 이벤트 Webhook API")
 @Slf4j

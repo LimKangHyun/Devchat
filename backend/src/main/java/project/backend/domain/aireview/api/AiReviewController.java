@@ -1,4 +1,4 @@
-package project.backend.domain.github.api;
+package project.backend.domain.aireview.api;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -6,10 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import project.backend.auth.dto.MemberDetails;
-import project.backend.domain.github.app.AiReviewService;
-import project.backend.domain.github.dto.AiReviewResponse;
-import project.backend.domain.github.dto.AiReviewToggleResponse;
-import project.backend.domain.github.dto.ToggleReviewRequest;
+import project.backend.domain.aireview.app.AiReviewService;
+import project.backend.domain.aireview.dto.AiReviewResponse;
+import project.backend.domain.aireview.dto.ToggleReviewRequest;
 
 @RestController
 @RequestMapping("/ai-reviews")

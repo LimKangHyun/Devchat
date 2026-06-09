@@ -2,8 +2,6 @@ package project.backend.domain.chat.chatmessage.mapper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +20,7 @@ import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.github.dto.GitMessageDto;
-import project.backend.domain.github.entity.AiReview;
+import project.backend.domain.aireview.entity.AiReview;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.member.entity.Member;
 

@@ -1,7 +1,7 @@
-package project.backend.domain.github.dto;
+package project.backend.domain.aireview.dto;
 
 import jakarta.validation.constraints.Size;
-import project.backend.domain.github.entity.InactiveReason;
+import project.backend.domain.aireview.entity.InactiveReason;
 
 public record ToggleReviewRequest(
         InactiveReason reason,

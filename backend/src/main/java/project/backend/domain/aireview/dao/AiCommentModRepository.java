@@ -1,9 +1,9 @@
-package project.backend.domain.github.dao;
+package project.backend.domain.aireview.dao;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import project.backend.domain.github.entity.AiCommentMod;
+import project.backend.domain.aireview.entity.AiCommentMod;
 import java.util.List;
 import java.util.Optional;
 

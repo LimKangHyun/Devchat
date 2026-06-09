@@ -1,4 +1,4 @@
-package project.backend.domain.github;
+package project.backend.domain.github.client;
 
 import java.util.List;
 import java.util.Map;

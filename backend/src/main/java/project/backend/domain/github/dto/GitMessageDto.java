@@ -3,7 +3,7 @@ package project.backend.domain.github.dto;
 import lombok.Builder;
 import lombok.Getter;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
-import project.backend.domain.github.entity.PrStatus;
+import project.backend.domain.aireview.entity.PrStatus;
 
 @Getter
 @Builder

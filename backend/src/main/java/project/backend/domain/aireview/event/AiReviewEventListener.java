@@ -1,11 +1,11 @@
-package project.backend.domain.github.event;
+package project.backend.domain.aireview.event;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import project.backend.domain.github.app.AiReviewService;
+import project.backend.domain.aireview.app.AiReviewService;
 
 @Component
 @RequiredArgsConstructor

@@ -1,4 +1,4 @@
-package project.backend.domain.github.event;
+package project.backend.domain.aireview.event;
 
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 

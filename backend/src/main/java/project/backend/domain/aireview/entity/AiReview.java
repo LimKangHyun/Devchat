@@ -1,8 +1,9 @@
-package project.backend.domain.github.entity;
+package project.backend.domain.aireview.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
+
 import java.time.LocalDateTime;
 
 @Entity

@@ -115,6 +115,10 @@ github:
 gemini:
   api-key: ${GEMINI_API_KEY}
 
+pinecone:
+  api-key: ${PINECONE_API_KEY}
+  index-name: devchat-reviews
+
 url:
   domain-url: ${DOMAIN_URL}
   image-url: ${IMAGE_URL}

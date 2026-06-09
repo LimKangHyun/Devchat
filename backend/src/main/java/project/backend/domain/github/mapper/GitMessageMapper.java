@@ -4,7 +4,7 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 import project.backend.domain.github.dto.GitEventType;
 import project.backend.domain.github.dto.GitMessageDto;
-import project.backend.domain.github.entity.PrStatus;
+import project.backend.domain.aireview.entity.PrStatus;
 
 @Component
 public class GitMessageMapper {

@@ -1,4 +1,4 @@
-package project.backend.domain.github.dto;
+package project.backend.domain.aireview.dto;
 
 public record AiReviewResponse(
         String reviewJson,

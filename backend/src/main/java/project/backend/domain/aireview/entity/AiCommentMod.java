@@ -1,4 +1,4 @@
-package project.backend.domain.github.entity;
+package project.backend.domain.aireview.entity;
 
 import jakarta.persistence.*;
 import lombok.*;

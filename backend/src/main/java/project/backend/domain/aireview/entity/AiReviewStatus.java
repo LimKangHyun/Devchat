@@ -1,4 +1,4 @@
-package project.backend.domain.github.entity;
+package project.backend.domain.aireview.entity;
 
 public enum AiReviewStatus {
     PENDING, SUCCESS, FAIL

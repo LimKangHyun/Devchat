@@ -1,7 +1,7 @@
-package project.backend.domain.github.dao;
+package project.backend.domain.aireview.dao;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import project.backend.domain.github.entity.AiReview;
+import project.backend.domain.aireview.entity.AiReview;
 
 import java.util.Optional;
 

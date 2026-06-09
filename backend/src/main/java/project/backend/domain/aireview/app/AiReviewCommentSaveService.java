@@ -1,13 +1,13 @@
-package project.backend.domain.github.app;
+package project.backend.domain.aireview.app;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.backend.domain.github.dao.AiCommentModRepository;
-import project.backend.domain.github.dao.AiReviewCommentRepository;
-import project.backend.domain.github.entity.AiCommentMod;
-import project.backend.domain.github.entity.AiReview;
-import project.backend.domain.github.entity.AiReviewComment;
+import project.backend.domain.aireview.dao.AiCommentModRepository;
+import project.backend.domain.aireview.dao.AiReviewCommentRepository;
+import project.backend.domain.aireview.entity.AiCommentMod;
+import project.backend.domain.aireview.entity.AiReview;
+import project.backend.domain.aireview.entity.AiReviewComment;
 
 import java.time.LocalDateTime;
 import java.util.List;

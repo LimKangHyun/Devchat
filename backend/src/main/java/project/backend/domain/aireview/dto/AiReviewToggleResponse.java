@@ -1,3 +1,3 @@
-package project.backend.domain.github.dto;
+package project.backend.domain.aireview.dto;
 
 public record AiReviewToggleResponse(boolean aiReviewEnabled) {}

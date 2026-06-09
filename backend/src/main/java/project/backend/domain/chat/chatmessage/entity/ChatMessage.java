@@ -9,7 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
-import project.backend.domain.github.entity.AiReview;
+import project.backend.domain.aireview.entity.AiReview;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.member.entity.Member;
 
