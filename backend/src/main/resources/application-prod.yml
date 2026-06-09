@@ -105,11 +105,8 @@ file:
 
 github:
   username: GitHubBot
-  app:
-    id: ${GITHUB_APP_ID}
-    private-key: ${GITHUB_APP_PRIVATE_KEY}
   bot:
-    pat: ${GITHUB_BOT_PAT}
+    pat: ${BOT_GITHUB_BOT_PAT}
     username: Devchat-Code-Assist
 
 gemini:
