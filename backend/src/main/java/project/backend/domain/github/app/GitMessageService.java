@@ -9,6 +9,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.auth.app.AuthTokenService;
+import project.backend.domain.aireview.app.AiReviewPublishService;
 import project.backend.domain.aireview.app.AiReviewService;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
@@ -45,6 +46,7 @@ public class GitMessageService {
 	private final AuthTokenService authTokenService;
 	private final ChatRoomRedisRepository chatRoomRedisRepository;
 	private final AiReviewService aiReviewService;
+	private final AiReviewPublishService aiReviewPublishService;
 	private final GeminiClient geminiClient;
 	private final GitHubBotClient gitHubBotClient;
 	private final GitMessageMapper gitMessageMapper;
@@ -64,7 +66,7 @@ public class GitMessageService {
 		if (isBotReviewEvent(eventType, payload)) return;
 
 		if ("pull_request".equals(eventType)) {
-			handlePullRequestEvent(roomId, payload);
+			handlePrStatusUpdate(roomId, payload);
 		}
 
 		GitMessageDto gitMessage = toGitMessage(eventType, payload);
@@ -75,6 +77,8 @@ public class GitMessageService {
 
 		if ("pull_request".equals(eventType)) {
 			handlePullRequestMessage(room, payload, gitMessage);
+			handlePrEditedMessage(room, payload, gitMessage);
+			handlePrSynchronizeMessage(room, payload, gitMessage);
 		}
 	}
 
@@ -90,7 +94,7 @@ public class GitMessageService {
 				|| (login != null && login.endsWith("[bot]"));
 	}
 
-	private void handlePullRequestEvent(Long roomId, Map<String, Object> payload) {
+	private void handlePrStatusUpdate(Long roomId, Map<String, Object> payload) {
 		Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
 		String action  = (String) payload.get("action");
 		int prNumber   = (int) pr.get("number");
@@ -113,16 +117,37 @@ public class GitMessageService {
 		}
 	}
 
+	// OPEN일 때 AI 리뷰 pending 생성 (sendGitMessage 이후 호출)
 	private void handlePullRequestMessage(ChatRoom room, Map<String, Object> payload, GitMessageDto gitMessage) {
 		if (gitMessage.getPrStatus() != PrStatus.OPEN) return;
 
 		Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
-		int prNumber    = (int) pr.get("number");
-		String headSha  = (String) ((Map<String, Object>) pr.get("head")).get("sha");
-		String baseSha  = (String) ((Map<String, Object>) pr.get("base")).get("sha");
-		String prTitle  = (String) pr.get("title");
-		String prBody   = (String) pr.getOrDefault("body", "");
+		int prNumber   = (int) pr.get("number");
+		String headSha = (String) ((Map<String, Object>) pr.get("head")).get("sha");
+		String baseSha = (String) ((Map<String, Object>) pr.get("base")).get("sha");
+		String prTitle = (String) pr.get("title");
+		String prBody  = (String) pr.getOrDefault("body", "");
 
+		aiReviewService.createPendingAndMessage(room, prNumber, headSha, aiReviewBotUsername, prTitle, prBody);
+		eventPublisher.publishEvent(new AiReviewRequestedEvent(room, prNumber, headSha, baseSha));
+	}
+
+	// EDITED일 때 AI 리뷰 최초 생성 (레포 연결 후 첫 edited 이벤트) (sendGitMessage 이후 호출)
+	private void handlePrEditedMessage(ChatRoom room, Map<String, Object> payload, GitMessageDto gitMessage) {
+		if (gitMessage.getPrStatus() != PrStatus.EDITED) return;
+
+		Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
+		int prNumber   = (int) pr.get("number");
+		String prTitle = (String) pr.get("title");
+		String prBody  = (String) pr.getOrDefault("body", "");
+
+		boolean exists = aiReviewService.existsByRoomIdAndPrNumber(room.getId(), prNumber);
+		log.info("EDITED 이벤트 - roomId={}, prNumber={}, exists={}", room.getId(), prNumber, exists);
+		if (exists) return;
+
+		GitRepoDto repo = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
+		String headSha = gitHubBotClient.getHeadSha(repo.ownerName(), repo.repoName(), prNumber);
+		String baseSha = gitHubBotClient.getBaseSha(repo.ownerName(), repo.repoName(), prNumber);
 		aiReviewService.createPendingAndMessage(room, prNumber, headSha, aiReviewBotUsername, prTitle, prBody);
 		eventPublisher.publishEvent(new AiReviewRequestedEvent(room, prNumber, headSha, baseSha));
 	}
@@ -149,6 +174,19 @@ public class GitMessageService {
 
 		ChatMessageResponse response = chatMessageMapper.toGitResponse(message);
 		messagingTemplate.convertAndSend("/topic/chat/" + room.getId(), response);
+	}
+
+	private void handlePrSynchronizeMessage(ChatRoom room, Map<String, Object> payload, GitMessageDto gitMessage) {
+		if (gitMessage.getPrStatus() != PrStatus.SYNCHRONIZE) return;
+
+		Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
+		int prNumber   = (int) pr.get("number");
+		String headSha = (String) ((Map<String, Object>) pr.get("head")).get("sha");
+		String baseSha = (String) ((Map<String, Object>) pr.get("base")).get("sha");
+
+		if (!aiReviewService.existsByRoomIdAndPrNumber(room.getId(), prNumber)) return;
+
+		eventPublisher.publishEvent(new AiReviewRequestedEvent(room, prNumber, headSha, baseSha));
 	}
 
 	private ChatRoom findRoom(Long roomId) {
@@ -184,7 +222,7 @@ public class GitMessageService {
 	}
 
 	public void publishAiReview(Long roomId, Long aiReviewId, String approverUsername) {
-		aiReviewService.publishToGitHub(findRoom(roomId), aiReviewId, approverUsername);
+		aiReviewPublishService.publishToGitHub(findRoom(roomId), aiReviewId, approverUsername);
 	}
 
 	public void retryAiReview(Long roomId, int prNumber) {

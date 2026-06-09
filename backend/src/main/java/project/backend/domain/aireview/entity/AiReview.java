@@ -67,11 +67,19 @@ public class AiReview {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void updateSkipped(String reason) {
+        this.status = AiReviewStatus.SKIPPED;
+        this.errorMessage = reason;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void resetToPending(String commitSha) {
         this.status = AiReviewStatus.PENDING;
         this.commitSha = commitSha;
         this.reviewJson = null;
         this.errorMessage = null;
+        this.githubPublished = false;
+        this.publishedBy = null;
         this.updatedAt = LocalDateTime.now();
     }
 

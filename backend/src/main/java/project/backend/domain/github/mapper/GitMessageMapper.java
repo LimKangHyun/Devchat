@@ -48,42 +48,63 @@ public class GitMessageMapper {
             return null;
         }
 
-        // 채팅 메시지가 필요한 액션만 처리
-        if (prStatus != PrStatus.OPEN && prStatus != PrStatus.MERGED) return null;
+        if (!isChatTarget(prStatus)) return null;
 
         String title  = (String) pr.get("title");
         String url    = (String) pr.get("html_url");
         String author = (String) sender.get("login");
         String body   = (String) pr.get("body");
 
-        String content;
-        String fullContent;
-
-        if (prStatus == PrStatus.OPEN) {
-            content = "[PR opened] " + title + " by " + author + "\n" + url;
-            fullContent = "제목: " + title + "\n"
-                    + "작성자: " + author + "\n"
-                    + (body != null ? "내용: " + body : "내용: 없음") + "\n"
-                    + "URL: " + url;
-        } else {
-            String fromBranch = ((Map<String, Object>) pr.get("head")).get("ref").toString();
-            String toBranch   = ((Map<String, Object>) pr.get("base")).get("ref").toString();
-            content = "[PR merged] " + title + " by " + author + "\n"
-                    + "merged to " + toBranch + " from " + fromBranch + "\n" + url;
-            fullContent = "제목: " + title + "\n"
-                    + "작성자: " + author + "\n"
-                    + fromBranch + " → " + toBranch + " 머지\n"
-                    + (body != null ? "내용: " + body : "내용: 없음") + "\n"
-                    + "URL: " + url;
-        }
-
         return GitMessageDto.builder()
                 .type(GitEventType.PULL_REQUEST)
                 .prStatus(prStatus)
                 .actor(author)
-                .content(content)
-                .fullContent(fullContent)
+                .content(buildContent(prStatus, title, author, url, pr))
+                .fullContent(buildFullContent(prStatus, title, author, body, url, pr))
                 .build();
+    }
+
+    private boolean isChatTarget(PrStatus prStatus) {
+        return switch (prStatus) {
+            case OPEN, MERGED, EDITED, REOPENED, SYNCHRONIZE -> true;
+            default -> false;
+        };
+    }
+
+    private String buildContent(PrStatus prStatus, String title, String author, String url, Map<String, Object> pr) {
+        if (prStatus == PrStatus.MERGED) {
+            String fromBranch = ((Map<String, Object>) pr.get("head")).get("ref").toString();
+            String toBranch   = ((Map<String, Object>) pr.get("base")).get("ref").toString();
+            return "[PR merged] " + title + " by " + author + "\n"
+                    + "merged to " + toBranch + " from " + fromBranch + "\n" + url;
+        }
+        String actionLabel = switch (prStatus) {
+            case OPEN        -> "opened";
+            case EDITED      -> "edited";
+            case REOPENED    -> "reopened";
+            case SYNCHRONIZE -> "updated";
+            default          -> prStatus.name().toLowerCase();
+        };
+        return "[PR " + actionLabel + "] " + title + " by " + author + "\n" + url;
+    }
+
+    private String buildFullContent(PrStatus prStatus, String title, String author, String body, String url, Map<String, Object> pr) {
+        String base = "제목: " + title + "\n"
+                + "작성자: " + author + "\n";
+
+        String middle = switch (prStatus) {
+            case MERGED -> {
+                String fromBranch = ((Map<String, Object>) pr.get("head")).get("ref").toString();
+                String toBranch   = ((Map<String, Object>) pr.get("base")).get("ref").toString();
+                yield fromBranch + " → " + toBranch + " 머지\n";
+            }
+            case SYNCHRONIZE -> "새 커밋이 푸시되어 PR이 업데이트되었습니다.\n";
+            default -> "";
+        };
+
+        return base + middle
+                + (body != null ? "내용: " + body : "내용: 없음") + "\n"
+                + "URL: " + url;
     }
 
     public GitMessageDto fromPullRequestReview(Map<String, Object> payload) {
@@ -93,11 +114,11 @@ public class GitMessageMapper {
         Map<String, Object> review = (Map<String, Object>) payload.get("review");
         Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
 
-        String reviewer = (String) ((Map<String, Object>) review.get("user")).get("login");
-        String state = (String) review.get("state");
+        String reviewer  = (String) ((Map<String, Object>) review.get("user")).get("login");
+        String state     = (String) review.get("state");
         String reviewUrl = (String) review.get("html_url");
-        String prTitle = (String) pr.get("title");
-        String body = (String) review.get("body");
+        String prTitle   = (String) pr.get("title");
+        String body      = (String) review.get("body");
 
         String content = "[PR review: " + state + "] " + prTitle + " review by " + reviewer
                 + (body != null ? "\n" + body : "") + "\n" + reviewUrl;
@@ -122,18 +143,18 @@ public class GitMessageMapper {
         String action = (String) payload.get("action");
         if (!"completed".equals(action)) return null;
 
-        String name = (String) workflowRun.get("name");
+        String name       = (String) workflowRun.get("name");
         String conclusion = (String) workflowRun.get("conclusion");
-        String url = (String) workflowRun.get("html_url");
-        String branch = (String) workflowRun.get("head_branch");
+        String url        = (String) workflowRun.get("html_url");
+        String branch     = (String) workflowRun.get("head_branch");
         Map<String, Object> actor = (Map<String, Object>) workflowRun.get("triggering_actor");
-        String triggerBy = actor != null ? (String) actor.get("login") : "unknown";
+        String triggerBy  = actor != null ? (String) actor.get("login") : "unknown";
 
         String emoji = switch (conclusion) {
-            case "success" -> "✅";
-            case "failure" -> "❌";
+            case "success"   -> "✅";
+            case "failure"   -> "❌";
             case "cancelled" -> "⚠️";
-            default -> "❓";
+            default          -> "❓";
         };
 
         String content = emoji + " [" + name + "] " + conclusion.toUpperCase()

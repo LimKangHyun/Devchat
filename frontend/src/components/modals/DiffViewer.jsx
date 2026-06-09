@@ -11,7 +11,7 @@ const DiffViewer = ({
   onPendingReasonChange,
   repositoryUrl, prNumber, published,
 }) => {
-  const rows = buildDiffRows(file.baseContent, file.fileContent);
+  const rows = file.skipped ? [] : buildDiffRows(file.baseContent, file.fileContent);
   const reviews = file.reviews || [];
 
   const handlePathClick = async () => {
@@ -44,68 +44,78 @@ const DiffViewer = ({
         {file.filePath}
       </div>
 
-      <div style={{ display: 'flex', minWidth: 0 }}>
-        {/* 변경 전 */}
-        <div style={{ flex: 1, borderRight: '2px solid #e2e8f0', minWidth: 0 }}>
-          <SideHeader label="변경 전" bg="#fff5f5" border="#fed7d7" />
-          {rows.map((row, idx) => (
-            <div key={idx} style={{
-              display: 'flex', minHeight: '22px',
-              backgroundColor: row.type === 'removed' ? '#fff5f5' : row.type === 'added' ? '#f7f8fa' : 'transparent',
-            }}>
-              <LineNum>{row.baseNum ?? ''}</LineNum>
-              <CodeCell color={row.type === 'added' ? 'transparent' : '#24292f'}>
-                {row.baseLine ?? ''}
-              </CodeCell>
-            </div>
-          ))}
+      {file.skipped ? (
+        <div style={{
+          padding: '12px 16px', margin: '12px',
+          backgroundColor: '#fffbeb', border: '1px solid #fbd38d',
+          borderRadius: '6px', fontSize: '12px', color: '#b7791f',
+        }}>
+          ⏭️ 이 파일은 diff 라인 수(250줄)가 초과되어 리뷰가 생략되었습니다.
         </div>
-
-        {/* 변경 후 + AI 코멘트 */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <SideHeader label="변경 후" bg="#f0fff4" border="#c6f6d5" />
-          {rows.map((row, idx) => {
-            const lineReviews = row.headNum ? reviews.filter(r => r.lineNumber === row.headNum) : [];
-            const hasActive = lineReviews.some(r => isActive(r));
-
-            return (
-              <div key={idx}>
-                <div style={{
-                  display: 'flex', minHeight: '22px',
-                  backgroundColor: hasActive ? '#ebf4ff' : row.type === 'added' ? '#f0fff4' : row.type === 'removed' ? '#f7f8fa' : 'transparent',
-                  borderLeft: hasActive ? '3px solid #4299e1' : '3px solid transparent',
-                }}>
-                  <LineNum>{row.headNum ?? ''}</LineNum>
-                  <CodeCell color={row.type === 'removed' ? 'transparent' : '#24292f'}>
-                    {row.headLine ?? ''}
-                  </CodeCell>
-                </div>
-
-                {lineReviews.map((review, rIdx) => (
-                  <CommentCard
-                    key={rIdx}
-                    review={review}
-                    aiReviewId={aiReviewId}
-                    active={isActive(review)}
-                    state={review.commentId != null ? commentStates[review.commentId] : null}
-                    isShowingPopup={review.commentId != null && !!showReasonPopup[review.commentId]}
-                    isShowingReactivateConfirm={review.commentId != null && !!showReactivateConfirm[review.commentId]}
-                    pending={review.commentId != null ? (pendingReason[review.commentId] || {}) : {}}
-                    onDeactivateClick={onDeactivateClick}
-                    onReasonCancel={onReasonCancel}
-                    onDeactivateConfirm={onDeactivateConfirm}
-                    onReactivateClick={onReactivateClick}
-                    onReactivateConfirm={onReactivateConfirm}
-                    onReactivateCancel={onReactivateCancel}
-                    onPendingReasonChange={onPendingReasonChange}
-                    published={published}
-                  />
-                ))}
+      ) : (
+        <div style={{ display: 'flex', minWidth: 0 }}>
+          {/* 변경 전 */}
+          <div style={{ flex: 1, borderRight: '2px solid #e2e8f0', minWidth: 0 }}>
+            <SideHeader label="변경 전" bg="#fff5f5" border="#fed7d7" />
+            {rows.map((row, idx) => (
+              <div key={idx} style={{
+                display: 'flex', minHeight: '22px',
+                backgroundColor: row.type === 'removed' ? '#fff5f5' : row.type === 'added' ? '#f7f8fa' : 'transparent',
+              }}>
+                <LineNum>{row.baseNum ?? ''}</LineNum>
+                <CodeCell color={row.type === 'added' ? 'transparent' : '#24292f'}>
+                  {row.baseLine ?? ''}
+                </CodeCell>
               </div>
-            );
-          })}
+            ))}
+          </div>
+
+          {/* 변경 후 + AI 코멘트 */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <SideHeader label="변경 후" bg="#f0fff4" border="#c6f6d5" />
+            {rows.map((row, idx) => {
+              const lineReviews = row.headNum ? reviews.filter(r => r.lineNumber === row.headNum) : [];
+              const hasActive = lineReviews.some(r => isActive(r));
+
+              return (
+                <div key={idx}>
+                  <div style={{
+                    display: 'flex', minHeight: '22px',
+                    backgroundColor: hasActive ? '#ebf4ff' : row.type === 'added' ? '#f0fff4' : row.type === 'removed' ? '#f7f8fa' : 'transparent',
+                    borderLeft: hasActive ? '3px solid #4299e1' : '3px solid transparent',
+                  }}>
+                    <LineNum>{row.headNum ?? ''}</LineNum>
+                    <CodeCell color={row.type === 'removed' ? 'transparent' : '#24292f'}>
+                      {row.headLine ?? ''}
+                    </CodeCell>
+                  </div>
+
+                  {lineReviews.map((review, rIdx) => (
+                    <CommentCard
+                      key={rIdx}
+                      review={review}
+                      aiReviewId={aiReviewId}
+                      active={isActive(review)}
+                      state={review.commentId != null ? commentStates[review.commentId] : null}
+                      isShowingPopup={review.commentId != null && !!showReasonPopup[review.commentId]}
+                      isShowingReactivateConfirm={review.commentId != null && !!showReactivateConfirm[review.commentId]}
+                      pending={review.commentId != null ? (pendingReason[review.commentId] || {}) : {}}
+                      onDeactivateClick={onDeactivateClick}
+                      onReasonCancel={onReasonCancel}
+                      onDeactivateConfirm={onDeactivateConfirm}
+                      onReactivateClick={onReactivateClick}
+                      onReactivateConfirm={onReactivateConfirm}
+                      onReactivateCancel={onReactivateCancel}
+                      onPendingReasonChange={onPendingReasonChange}
+                      published={published}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -10,6 +10,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import project.backend.domain.aireview.dto.InlineReview;
 import project.backend.domain.github.dto.GitMessageDto;
 
 import java.io.IOException;
@@ -53,7 +54,7 @@ public class GeminiClient {
         return resource.getContentAsString(StandardCharsets.UTF_8);
     }
 
-    public List<Map<String, Object>> reviewPrDiffInline(String diff, String fileContent, String prTitle, String prBody) {
+    public List<InlineReview> reviewPrDiffInline(String diff, String fileContent, String prTitle, String prBody) {
         String truncatedDiff    = truncate(diff, 4000);
         String truncatedContent = truncate(fileContent, 4000);
 
@@ -68,7 +69,7 @@ public class GeminiClient {
 
         try {
             String cleaned = response.replaceAll("```json", "").replaceAll("```", "").trim();
-            return objectMapper.readValue(cleaned, new TypeReference<List<Map<String, Object>>>() {});
+            return objectMapper.readValue(cleaned, new TypeReference<List<InlineReview>>() {});
         } catch (Exception e) {
             log.error("AI 인라인 리뷰 파싱 실패: {}", response, e);
             return List.of();

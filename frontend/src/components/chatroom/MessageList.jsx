@@ -57,6 +57,7 @@ const MessageContent = ({
   msg, editMessageId, editContent, setEditContent,
   handleEditMessage, setEditMessageId, onCodeClick, onRetryClick,
 }) => {
+  const [retrying, setRetrying] = useState(false);
 
   if (editMessageId === msg.messageId) {
     return (
@@ -149,7 +150,7 @@ const MessageContent = ({
             )}
           </div>
 
-          {status === 'PENDING' && (
+          {(status === 'PENDING' || retrying) && (
             <div style={{ color: '#888', fontSize: '12px', marginTop: '6px' }}>
               ⏳ 리뷰 생성 중...
             </div>
@@ -176,9 +177,12 @@ const MessageContent = ({
             </>
           )}
 
-          {status === 'FAIL' && (
+          {status === 'FAIL' && !retrying && (
             <button
-              onClick={() => onRetryClick && onRetryClick(msg.prNumber)}
+              onClick={() => {
+                setRetrying(true);
+                onRetryClick?.(msg.prNumber);
+              }}
               style={{
                 marginTop: '8px', backgroundColor: '#e53e3e',
                 color: 'white', border: 'none', borderRadius: '4px',
@@ -188,6 +192,12 @@ const MessageContent = ({
             >
               🔄 재시도
             </button>
+          )}
+
+          {status === 'SKIPPED' && (
+            <div style={{ color: '#e67e22', fontSize: '12px', marginTop: '6px' }}>
+              ⏭️ 크기 제한 초과로 리뷰가 생략되었습니다.
+            </div>
           )}
         </div>
       </div>

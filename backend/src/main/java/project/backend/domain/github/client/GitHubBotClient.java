@@ -21,14 +21,17 @@ public class GitHubBotClient {
     private String botPat;
 
     public String getPrDiff(String owner, String repo, int prNumber) {
-        String diff = webClientBuilder.build()
-            .get()
-            .uri("https://api.github.com/repos/" + owner + "/" + repo + "/pulls/" + prNumber)
-            .header("Authorization", "Bearer " + botPat)
-            .header("Accept", "application/vnd.github.v3.diff")
-            .retrieve()
-            .bodyToMono(String.class)
-            .block();
+        WebClient client = WebClient.builder()
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
+                .build();
+
+        String diff = client.get()
+                .uri("https://api.github.com/repos/" + owner + "/" + repo + "/pulls/" + prNumber)
+                .header("Authorization", "Bearer " + botPat)
+                .header("Accept", "application/vnd.github.v3.diff")
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
 
         log.info("PR diff: {}", diff);
         return diff;
