@@ -63,6 +63,7 @@ gemini:
 github:
   username: GitHubBot
   bot:
+    pat: dummy
     username: Devchat Code Assist
 
 
