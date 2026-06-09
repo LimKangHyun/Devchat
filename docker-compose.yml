@@ -27,6 +27,10 @@ services:
       - ENCRYPT_SECRET=${ENCRYPT_SECRET}
       - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+      - ENCRYPT_SECRET=${ENCRYPT_SECRET}
+      - GITHUB_BOT_PAT=${GITHUB_BOT_PAT}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
     depends_on:
       - prometheus
     networks:
@@ -53,6 +57,10 @@ services:
       - ENCRYPT_SECRET=${ENCRYPT_SECRET}
       - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+      - ENCRYPT_SECRET=${ENCRYPT_SECRET}
+      - GITHUB_BOT_PAT=${GITHUB_BOT_PAT}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
     depends_on:
       - prometheus
     networks:
