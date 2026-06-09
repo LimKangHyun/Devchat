@@ -16,10 +16,10 @@ public class GitMessageMapper {
         Map<String, Object> issue = (Map<String, Object>) payload.get("issue");
         Map<String, Object> sender = (Map<String, Object>) payload.get("sender");
 
-        String title  = (String) issue.get("title");
-        String url    = (String) issue.get("html_url");
+        String title = (String) issue.get("title");
+        String url = (String) issue.get("html_url");
         String author = (String) sender.get("login");
-        String body   = (String) issue.get("body");
+        String body = (String) issue.get("body");
 
         String content = "[ISSUE opened] " + title + " by " + author + "\n" + url;
         String fullContent = "제목: " + title + "\n"
@@ -91,13 +91,13 @@ public class GitMessageMapper {
         if (!action.equals("submitted")) return null;
 
         Map<String, Object> review = (Map<String, Object>) payload.get("review");
-        Map<String, Object> pr     = (Map<String, Object>) payload.get("pull_request");
+        Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
 
-        String reviewer  = (String) ((Map<String, Object>) review.get("user")).get("login");
-        String state     = (String) review.get("state");
+        String reviewer = (String) ((Map<String, Object>) review.get("user")).get("login");
+        String state = (String) review.get("state");
         String reviewUrl = (String) review.get("html_url");
-        String prTitle   = (String) pr.get("title");
-        String body      = (String) review.get("body");
+        String prTitle = (String) pr.get("title");
+        String body = (String) review.get("body");
 
         String content = "[PR review: " + state + "] " + prTitle + " review by " + reviewer
                 + (body != null ? "\n" + body : "") + "\n" + reviewUrl;
@@ -122,18 +122,18 @@ public class GitMessageMapper {
         String action = (String) payload.get("action");
         if (!"completed".equals(action)) return null;
 
-        String name       = (String) workflowRun.get("name");
+        String name = (String) workflowRun.get("name");
         String conclusion = (String) workflowRun.get("conclusion");
-        String url        = (String) workflowRun.get("html_url");
-        String branch     = (String) workflowRun.get("head_branch");
+        String url = (String) workflowRun.get("html_url");
+        String branch = (String) workflowRun.get("head_branch");
         Map<String, Object> actor = (Map<String, Object>) workflowRun.get("triggering_actor");
-        String triggerBy  = actor != null ? (String) actor.get("login") : "unknown";
+        String triggerBy = actor != null ? (String) actor.get("login") : "unknown";
 
         String emoji = switch (conclusion) {
-            case "success"   -> "✅";
-            case "failure"   -> "❌";
+            case "success" -> "✅";
+            case "failure" -> "❌";
             case "cancelled" -> "⚠️";
-            default          -> "❓";
+            default -> "❓";
         };
 
         String content = emoji + " [" + name + "] " + conclusion.toUpperCase()
