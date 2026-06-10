@@ -39,6 +39,7 @@ public class GitMessageMapper {
         String action = (String) payload.get("action");
         Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
         Map<String, Object> sender = (Map<String, Object>) payload.get("sender");
+        int prNumber = (int) pr.get("number");
 
         boolean merged = Boolean.TRUE.equals(pr.get("merged"));
         PrStatus prStatus;
@@ -59,6 +60,7 @@ public class GitMessageMapper {
                 .type(GitEventType.PULL_REQUEST)
                 .prStatus(prStatus)
                 .actor(author)
+                .prNumber(prNumber)
                 .content(buildContent(prStatus, title, author, url, pr))
                 .fullContent(buildFullContent(prStatus, title, author, body, url, pr))
                 .build();

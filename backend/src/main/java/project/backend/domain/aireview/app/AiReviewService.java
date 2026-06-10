@@ -79,7 +79,7 @@ public class AiReviewService {
             if (isSkipped(aiReview, room.getId(), fullDiff)) return;
 
             List<FileReviewResult> fileResults = buildFileResults(repo, fullDiff, headSha, baseSha,
-                    aiReview.getPrTitle(), aiReview.getPrBody());
+                    aiReview.getPrTitle(), aiReview.getPrBody(), prNumber);
 
             if (fileResults.isEmpty()) {
                 aiReview.updateFail("모든 파일 리뷰 생성 실패");
@@ -126,8 +126,10 @@ public class AiReviewService {
 
     private List<FileReviewResult> buildFileResults(GitRepoDto repo, String fullDiff,
                                                     String headSha, String baseSha,
-                                                    String prTitle, String prBody) {
+                                                    String prTitle, String prBody,
+                                                    int prNumber) {
         Map<String, String> fileDiffs = diffParser.parseFileDiffs(fullDiff);
+        Map<String, String> fileStatuses = gitHubBotClient.getPrFileStatuses(repo.ownerName(), repo.repoName(), prNumber);
         List<FileReviewResult> results = new ArrayList<>();
 
         for (Map.Entry<String, String> entry : fileDiffs.entrySet()) {
@@ -141,8 +143,17 @@ public class AiReviewService {
             }
 
             try {
+                String status = fileStatuses.getOrDefault(filePath, "modified");
+
+                if ("deleted".equals(status)) {
+                    log.info("삭제된 파일 스킵: {}", filePath);
+                    continue;
+                }
+
                 String fileContent = gitHubBotClient.getFileContent(repo.ownerName(), repo.repoName(), filePath, headSha);
-                String baseContent = gitHubBotClient.getFileContent(repo.ownerName(), repo.repoName(), filePath, baseSha);
+                String baseContent = "added".equals(status) ? ""
+                        : gitHubBotClient.getFileContent(repo.ownerName(), repo.repoName(), filePath, baseSha);
+
                 List<InlineReview> reviews = geminiClient.reviewPrDiffInline(fileDiff, fileContent, prTitle, prBody);
                 results.add(new FileReviewResult(filePath, baseContent, fileContent, reviews, false));
             } catch (Exception e) {

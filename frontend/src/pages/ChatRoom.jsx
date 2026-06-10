@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Virtuoso } from 'react-virtuoso';
 import SearchSidebar from '../components/SearchSideBar';
@@ -39,12 +39,36 @@ const preloadImages = (urls) => {
   });
 };
 
+// prNumber가 있는 GIT 메시지들을 묶어서
+// 첫 번째 메시지만 남기고 나머지는 subMessages로 붙임
+const groupGitMessages = (messages) => {
+  const prFirstMessageId = new Map(); // prNumber -> 첫 번째 messageId
+  const subMessagesMap = new Map();   // messageId -> subMessages[]
+  const hiddenIds = new Set();        // 숨길 messageId
+
+  messages.forEach((msg) => {
+    if (msg.type !== 'GIT' || msg.prNumber == null) return;
+
+    const existingId = prFirstMessageId.get(msg.prNumber);
+    if (existingId == null) {
+      prFirstMessageId.set(msg.prNumber, msg.messageId);
+      subMessagesMap.set(msg.messageId, []);
+    } else {
+      subMessagesMap.get(existingId).push(msg);
+      hiddenIds.add(msg.messageId);
+    }
+  });
+
+  return { subMessagesMap, hiddenIds };
+};
+
 const VirtuosoMessageItem = React.memo(({
   msg, prevMsg,
   currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent,
   handleDeleteMessage, editMessageId, editContent,
-  handleEditMessage, onCodeClick, onRetryClick
+  handleEditMessage, onCodeClick, onRetryClick,
+  subMessages,
 }) => {
   const msgDate = formatDate(msg.createdAt || msg.joinAt);
   const prevDate = prevMsg ? formatDate(prevMsg.createdAt || prevMsg.joinAt) : null;
@@ -65,6 +89,7 @@ const VirtuosoMessageItem = React.memo(({
         handleEditMessage={handleEditMessage}
         onCodeClick={onCodeClick}
         onRetryClick={onRetryClick}
+        subMessages={subMessages}
       />
     </div>
   );
@@ -129,6 +154,15 @@ const ChatRoom = () => {
   });
 
   const isFullyLoaded = initState.isRoomValidated && initState.isMessagesLoaded && !!currentUser;
+
+  // GIT 메시지 그룹핑 — messages가 바뀔 때마다 재계산
+  // hiddenIds에 속한 메시지는 Virtuoso에 넘기지 않고,
+  // 첫 번째 메시지에 subMessages로 붙여서 렌더링
+  const { displayMessages, subMessagesMap } = useMemo(() => {
+    const { subMessagesMap, hiddenIds } = groupGitMessages(messages);
+    const displayMessages = messages.filter((m) => !hiddenIds.has(m.messageId));
+    return { displayMessages, subMessagesMap };
+  }, [messages]);
 
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
   useEffect(() => { roomIdRef.current = roomId; }, [roomId]);
@@ -367,7 +401,8 @@ const ChatRoom = () => {
   }, [fetchMessages, hasMoreMessages, cursor]);
 
   const scrollToMessage = useCallback((messageId) => {
-    const idx = messages.findIndex((m) => m.messageId === messageId);
+    // displayMessages 기준으로 인덱스 찾아야 Virtuoso 위치가 맞음
+    const idx = displayMessages.findIndex((m) => m.messageId === messageId);
     if (idx === -1) return;
     virtuosoRef.current?.scrollToIndex({ index: idx, behavior: 'smooth', align: 'center' });
     setTimeout(() => {
@@ -378,7 +413,7 @@ const ChatRoom = () => {
       el.style.transition = 'background-color 0.3s ease';
       setTimeout(() => { el.style.backgroundColor = ''; el.style.borderRadius = ''; }, 2000);
     }, 300);
-  }, [messages]);
+  }, [displayMessages]);
 
   const scrollToBottom = useCallback(() => {
     virtuosoRef.current?.scrollToIndex({ index: 999999, behavior: 'smooth' });
@@ -523,14 +558,14 @@ const ChatRoom = () => {
               </div>
             )}
 
-            {messages.length > 0 && (
+            {displayMessages.length > 0 && (
               <Virtuoso
                 key={roomId}
                 ref={virtuosoRef}
                 style={{ height: '100%' }}
                 firstItemIndex={firstItemIndex}
                 initialTopMostItemIndex={999999}
-                data={messages}
+                data={displayMessages}
                 followOutput={false}
                 atBottomStateChange={(isAtBottom) => {
                   isAtBottomRef.current = isAtBottom;
@@ -549,7 +584,7 @@ const ChatRoom = () => {
                       <div style={{ textAlign: 'center', padding: '6px 14px', color: '#888', fontSize: '12px', backgroundColor: '#f8f8f8', borderRadius: '12px', margin: '8px auto', width: 'fit-content', border: '1px solid #efefef' }}>
                         메시지 불러오는 중...
                       </div>
-                    ) : !hasMoreMessages && messages.length > 0 ? (
+                    ) : !hasMoreMessages && displayMessages.length > 0 ? (
                       <div style={{ textAlign: 'center', padding: '6px 14px', color: '#bbb', fontSize: '11px', margin: '8px auto 16px', width: 'fit-content' }}>
                         채널의 시작입니다
                       </div>
@@ -557,7 +592,8 @@ const ChatRoom = () => {
                 }}
                 itemContent={(index, msg) => {
                   const arrayIndex = index - firstItemIndex;
-                  const prevMsg = arrayIndex > 0 ? messages[arrayIndex - 1] : null;
+                  const prevMsg = arrayIndex > 0 ? displayMessages[arrayIndex - 1] : null;
+                  const subMessages = subMessagesMap.get(msg.messageId) || [];
                   return (
                     <VirtuosoMessageItem
                       msg={msg} prevMsg={prevMsg} currentUser={currentUser}
@@ -567,6 +603,7 @@ const ChatRoom = () => {
                       editContent={editContent} handleEditMessage={handleEditMessage}
                       onCodeClick={handleCodeClick}
                       onRetryClick={handleRetryAiReview}
+                      subMessages={subMessages}
                     />
                   );
                 }}

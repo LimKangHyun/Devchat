@@ -24,7 +24,6 @@ import project.backend.domain.aireview.entity.AiReview;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.member.entity.Member;
 
-@Slf4j
 @Component
 public class ChatMessageMapper {
 
@@ -76,6 +75,7 @@ public class ChatMessageMapper {
                 .content(gitMessage.getContent())
                 .createdAt(LocalDateTime.now())
                 .sender(githubBot)
+                .prNumber(gitMessage.getPrNumber())
                 .build();
     }
 
@@ -108,8 +108,6 @@ public class ChatMessageMapper {
     }
 
     public ChatMessageResponse toResponse(ChatMessage message) {
-        log.info("aiReview: {}", message.getAiReview());
-        log.info("prNumber: {}", message.getPrNumber());
         return ChatMessageResponse.builder()
                 .senderName(message.getSender().getNickname())
                 .content(message.getContent())
@@ -178,6 +176,7 @@ public class ChatMessageMapper {
                 .createdAt(message.getCreatedAt())
                 .messageId(message.getId())
                 .profileImageUrl(githubProfile)
+                .prNumber(message.getPrNumber())
                 .build();
     }
 
@@ -197,7 +196,6 @@ public class ChatMessageMapper {
                 .build();
     }
 
-    // ChatMessage에 aiReview FK만 연결하는 단순한 엔티티 생성
     public ChatMessage toAiReviewMessageEntity(AiReview aiReview, Member githubBot, ChatRoom room) {
         return ChatMessage.builder()
                 .chatRoom(room)

@@ -95,8 +95,8 @@ public class GeminiClient {
         return switch (gitMessage.getType()) {
             case ISSUE -> issueSummaryPrompt;
             case PULL_REQUEST -> gitMessage.getPrStatus() != null
-                    ? prReviewSummaryPrompt
-                    : prSummaryPrompt;
+                    ? prSummaryPrompt
+                    : prReviewSummaryPrompt;
             case WORKFLOW_RUN -> workflowSummaryPrompt;
         };
     }

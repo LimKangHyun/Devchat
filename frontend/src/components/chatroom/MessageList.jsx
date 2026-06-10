@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Highlight from 'react-highlight';
 import { FaUserPlus } from 'react-icons/fa';
 
+/* ── 유틸리티 함수 ── */
 const formatDate = (dateString) => {
   const date = new Date(dateString);
   const today = new Date();
@@ -33,7 +34,7 @@ const renderWithLink = (text) => {
   );
 };
 
-/* ── 코드 블록 ── */
+/* ── 코드 블록 컴포넌트 ── */
 const HighlightedCode = ({ content, language, onClick }) => (
   <div
     onClick={onClick}
@@ -52,10 +53,171 @@ const HighlightedCode = ({ content, language, onClick }) => (
   </div>
 );
 
-/* ── 메시지 본문 ── */
+/* ── PR 히스토리 서브 아이템 ── */
+const PrHistoryItem = ({ msg }) => {
+  const firstLine = (msg.content || '').split('\n')[0];
+  const match = firstLine.match(/^\[([^\]]+)\]/);
+  const label = match ? match[1] : 'PR 업데이트';
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '6px',
+      fontSize: '12px', color: '#616061',
+      paddingLeft: '12px', marginTop: '2px',
+    }}>
+      <span style={{ color: '#d1d2d3' }}>↳</span>
+      <span style={{ color: '#1d1c1d', fontWeight: '600' }}>[{label}]</span>
+      <span style={{ color: '#868686', fontSize: '11px' }}>{formatTime(msg.createdAt)}</span>
+    </div>
+  );
+};
+
+/* ── GIT 메시지 본문 ── */
+const GitMessageContent = ({ msg, subMessages }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const prNumber = msg.prNumber
+    || (() => {
+      const match = (msg.content || '').match(/\/pull\/(\d+)/);
+      return match ? parseInt(match[1]) : null;
+    })();
+
+  const prUrl = (() => {
+    const match = (msg.content || '').match(/(https?:\/\/[^\s]+)/);
+    return match ? match[1] : null;
+  })();
+
+  const firstLine = (msg.content || '').split('\n')[0];
+  const badgeMatch = firstLine.match(/^(\[[^\]]+\])\s*(.*)/);
+  const badgeLabel = badgeMatch ? badgeMatch[1] : null;
+  const titleText  = badgeMatch ? badgeMatch[2] : firstLine;
+
+  const bodyLines = (msg.content || '')
+    .split('\n')
+    .slice(1)
+    .filter((line) => !/^https?:\/\//.test(line.trim()));
+
+  return (
+    <div style={{
+      display: 'flex',
+      backgroundColor: '#f0f4f8',
+      borderRadius: '6px',
+      overflow: 'hidden',
+      boxShadow: '0 2px 5px rgba(18, 100, 163, 0.06), 0 1px 2px rgba(0, 0, 0, 0.02)',
+      maxWidth: '600px',
+      margin: '6px 0',
+    }}>
+      <div style={{ width: '3px', backgroundColor: '#24292e', flexShrink: 0 }} />
+
+      <div style={{
+        lineHeight: '1.5',
+        padding: '10px 14px', fontSize: '13px',
+        color: '#212529',
+        flex: 1, minWidth: 0,
+      }}>
+        {/* 상단: 아이콘+제목 영역 / PR 보기 버튼 */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+
+          {/* 왼쪽: 아이콘 고정 + 제목 블록 */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: '13px', flexShrink: 0, marginTop: '2px' }}>📦</span>
+
+            {/* 제목 한 줄: [PR edited] 제목텍스트 PR#46 — 모두 inline으로 자연스럽게 흐름 */}
+            <div style={{ minWidth: 0, wordBreak: 'break-word' }}>
+              <strong style={{ fontSize: '13px', color: '#1a1d20', fontWeight: '700' }}>
+                {badgeLabel && <span style={{ marginRight: '4px' }}>{badgeLabel}</span>}
+                {titleText}
+              </strong>
+              {prNumber && (
+                <span style={{
+                  display: 'inline-block',
+                  marginLeft: '6px',
+                  fontSize: '12px', fontWeight: '600',
+                  backgroundColor: '#18a1e0', color: '#ffffff',
+                  borderRadius: '999px', padding: '1px 9px',
+                  whiteSpace: 'nowrap',
+                  verticalAlign: 'middle',
+                }}>
+                  PR #{prNumber}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 오른쪽: PR 보기 버튼 */}
+          {prUrl && (
+            <a
+              href={prUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                flexShrink: 0,
+                fontSize: '11px', color: '#495057', fontWeight: '600',
+                backgroundColor: '#fff', border: '1px solid #ced4da',
+                borderRadius: '4px', padding: '2px 6px',
+                textDecoration: 'none', whiteSpace: 'nowrap',
+                marginTop: '1px',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8f9fa')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#fff')}
+            >
+              PR 보기
+            </a>
+          )}
+        </div>
+
+        {bodyLines.length > 0 && (
+          <div style={{ marginTop: '6px', color: '#495057', fontSize: '12.5px' }}>
+            {bodyLines.map((line, i) => (
+              <div key={i}>{renderWithLink(line)}</div>
+            ))}
+          </div>
+        )}
+
+        {subMessages && subMessages.length > 0 && (
+          <div style={{ marginTop: '8px', borderTop: '1px dashed #dee2e6', paddingTop: '6px' }}>
+            {!expanded && (
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <PrHistoryItem msg={subMessages[subMessages.length - 1]} />
+                {subMessages.length > 1 && (
+                  <span
+                    onClick={() => setExpanded(true)}
+                    style={{ fontSize: '11px', color: '#1264a3', cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    (외 {subMessages.length - 1}개 더 보기)
+                  </span>
+                )}
+              </div>
+            )}
+            {expanded && (
+              <>
+                {subMessages.map((sub) => (
+                  <PrHistoryItem key={sub.messageId} msg={sub} />
+                ))}
+                <div
+                  onClick={() => setExpanded(false)}
+                  style={{
+                    fontSize: '11px', color: '#868686',
+                    paddingLeft: '12px', marginTop: '2px',
+                    cursor: 'pointer', display: 'inline-block', userSelect: 'none',
+                  }}
+                >
+                  접기
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ── 공통 메시지 분기 필터 컴포넌트 ── */
 const MessageContent = ({
   msg, editMessageId, editContent, setEditContent,
   handleEditMessage, setEditMessageId, onCodeClick, onRetryClick,
+  subMessages,
 }) => {
   const [retrying, setRetrying] = useState(false);
 
@@ -95,20 +257,7 @@ const MessageContent = ({
   }
 
   if (msg.type === 'GIT') {
-    return (
-      <div style={{
-        display: 'flex', backgroundColor: '#f6f8fa',
-        borderRadius: '6px', overflow: 'hidden',
-        border: '1px solid #e8e8e8',
-      }}>
-        <div style={{ width: '4px', backgroundColor: '#24292e', flexShrink: 0 }} />
-        <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', padding: '10px 14px', fontSize: '13px', color: '#24292e' }}>
-          {msg.content.split('\n').map((line, i) => (
-            <div key={i}>{i === 0 ? <strong>{line}</strong> : renderWithLink(line)}</div>
-          ))}
-        </div>
-      </div>
-    );
+    return <GitMessageContent msg={msg} subMessages={subMessages} />;
   }
 
   if (msg.type === 'AI_REVIEW') {
@@ -116,89 +265,102 @@ const MessageContent = ({
     const prStatus = msg.prStatus;
     const isClosed = prStatus === 'CLOSED' || prStatus === 'MERGED';
 
-    const borderColor = status === 'FAIL' ? '#fed7d7'
-      : status === 'SUCCESS' ? '#c7d4f0'
-      : '#e2e8f0';
-
-    const accentColor = status === 'FAIL' ? '#e53e3e'
-      : status === 'SUCCESS' ? '#4299e1'
-      : '#a0aec0';
+    const accentColor = status === 'FAIL' ? '#e53e3e' : '#007aff';
+    const shadowColor = status === 'FAIL' ? 'rgba(229, 62, 62, 0.12)' : 'rgba(18, 100, 163, 0.1)';
+    const bgColor = status === 'FAIL' ? '#fff5f5' : '#f0f4f8';
 
     return (
       <div style={{
         display: 'flex',
-        backgroundColor: status === 'FAIL' ? '#fff5f5' : '#f0f4ff',
+        backgroundColor: bgColor,
         borderRadius: '6px',
         overflow: 'hidden',
-        border: `1px solid ${borderColor}`,
+        boxShadow: `0 2px 5px ${shadowColor}, 0 1px 2px rgba(0, 0, 0, 0.02)`,
+        maxWidth: '600px',
+        margin: '6px 0',
       }}>
-        <div style={{ width: '4px', backgroundColor: accentColor, flexShrink: 0 }} />
-        <div style={{ padding: '10px 14px', fontSize: '13px', color: '#24292e', lineHeight: '1.6' }}>
-          <div style={{ fontWeight: '600', marginBottom: '4px' }}>🤖 AI Code Review</div>
+        <div style={{ width: '3px', backgroundColor: accentColor, flexShrink: 0 }} />
 
-          {/* PR 번호 + 상태 뱃지 */}
+        <div style={{ padding: '10px 14px', fontSize: '13px', color: '#212529', lineHeight: '1.5', flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ color: '#888', fontSize: '12px' }}>PR #{msg.prNumber}</span>
+            <span style={{ fontWeight: '700', color: '#1a1d20', fontSize: '13px' }}>
+              🤖 AI Code Review
+            </span>
+            <span style={{
+              fontSize: '12px', fontWeight: '600',
+              backgroundColor: '#18a1e0', color: '#ffffff',
+              borderRadius: '999px', padding: '1px 9px',
+              flexShrink: 0, whiteSpace: 'nowrap',
+            }}>
+              PR #{msg.prNumber}
+            </span>
             {isClosed && (
               <span style={{
                 backgroundColor: prStatus === 'MERGED' ? '#6f42c1' : '#e53e3e',
-                color: 'white', borderRadius: '4px',
-                padding: '1px 7px', fontSize: '11px', fontWeight: '600',
+                color: 'white',
+                padding: '2px 8px', borderRadius: '12px',
+                fontSize: '11px', fontWeight: '500',
               }}>
                 {prStatus === 'MERGED' ? '🔀 병합됨' : '🚫 닫힘'}
               </span>
             )}
           </div>
 
-          {(status === 'PENDING' || retrying) && (
-            <div style={{ color: '#888', fontSize: '12px', marginTop: '6px' }}>
-              ⏳ 리뷰 생성 중...
-            </div>
-          )}
-
-          {status === 'SUCCESS' && (
-            <>
-              {msg.publishedBy && (
-                <div style={{ fontSize: '12px', color: '#888', marginTop: '6px' }}>
-                  ✅ {msg.publishedBy}님이 GitHub에 게시함
-                </div>
+          <div style={{ marginTop: '6px' }}>
+            <div style={{ fontSize: '12px', color: '#495057', fontWeight: '500', marginBottom: '6px' }}>
+              {status === 'SUCCESS' && msg.publishedBy && (
+                <span>Posted by {msg.publishedBy}</span>
               )}
-              <button
-                onClick={() => onCodeClick && onCodeClick(msg)}
-                style={{
-                  marginTop: '8px', backgroundColor: '#4299e1',
-                  color: 'white', border: 'none', borderRadius: '4px',
-                  padding: '6px 12px', fontSize: '12px',
-                  fontWeight: '600', cursor: 'pointer',
-                }}
-              >
-                📋 리뷰 보기
-              </button>
-            </>
-          )}
-
-          {status === 'FAIL' && !retrying && (
-            <button
-              onClick={() => {
-                setRetrying(true);
-                onRetryClick?.(msg.prNumber);
-              }}
-              style={{
-                marginTop: '8px', backgroundColor: '#e53e3e',
-                color: 'white', border: 'none', borderRadius: '4px',
-                padding: '6px 12px', fontSize: '12px',
-                fontWeight: '600', cursor: 'pointer',
-              }}
-            >
-              🔄 재시도
-            </button>
-          )}
-
-          {status === 'SKIPPED' && (
-            <div style={{ color: '#e67e22', fontSize: '12px', marginTop: '6px' }}>
-              ⏭️ 크기 제한 초과로 리뷰가 생략되었습니다.
+              {(status === 'PENDING' || retrying) && (
+                <span style={{ color: '#6c757d' }}>⏳ 리뷰 생성 중...</span>
+              )}
+              {status === 'FAIL' && !retrying && (
+                <span style={{ color: '#cf222e', fontWeight: '600' }}>❌ 리뷰 생성 실패</span>
+              )}
+              {status === 'SKIPPED' && (
+                <span style={{ color: '#9a6700' }}>⏭️ 크기 제한 초과로 생략됨</span>
+              )}
             </div>
-          )}
+
+            <div style={{ display: 'flex' }}>
+              {status === 'SUCCESS' && (
+                <button
+                  onClick={() => onCodeClick && onCodeClick(msg)}
+                  style={{
+                    backgroundColor: '#18a1e0', color: '#ffffff',
+                    border: 'none', borderRadius: '4px',
+                    padding: '4px 12px', fontSize: '11.5px',
+                    fontWeight: '700', cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                    transition: 'all 0.1s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0b4d7c')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#18a1e0')}
+                >
+                  리뷰 보기
+                </button>
+              )}
+              {status === 'FAIL' && !retrying && (
+                <button
+                  onClick={() => {
+                    setRetrying(true);
+                    onRetryClick?.(msg.prNumber);
+                  }}
+                  style={{
+                    backgroundColor: '#e53e3e', color: '#ffffff',
+                    border: 'none', borderRadius: '4px',
+                    padding: '4px 12px', fontSize: '11.5px',
+                    fontWeight: '700', cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#c53030')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#e53e3e')}
+                >
+                  재시도
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -269,11 +431,12 @@ const EditedLabel = () => (
   <span style={{ marginLeft: '5px', fontSize: '11px', color: '#ccc', fontStyle: 'italic' }}>(수정됨)</span>
 );
 
-/* ── 메시지 아이템 ── */
+/* ── 단일 메시지 레이아웃 아이템 ── */
 export const MessageItem = ({
   msg, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, handleEditMessage,
   handleDeleteMessage, editMessageId, editContent, onCodeClick, onRetryClick,
+  subMessages,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -348,6 +511,7 @@ export const MessageItem = ({
           setEditMessageId={setEditMessageId}
           onCodeClick={onCodeClick}
           onRetryClick={onRetryClick}
+          subMessages={subMessages}
         />
       </div>
 
@@ -384,7 +548,7 @@ export const MessageItem = ({
   );
 };
 
-/* ── 호버 액션 버튼 ── */
+/* ── 호버 제어 버튼 ── */
 const ActionBtn = ({ label, onClick, danger = false }) => {
   const [hovered, setHovered] = useState(false);
   return (
@@ -410,7 +574,7 @@ const ActionBtn = ({ label, onClick, danger = false }) => {
   );
 };
 
-/* ── 날짜 구분선 ── */
+/* ── 날짜 선 구분자 ── */
 export const DateDivider = ({ label }) => (
   <div style={{
     display: 'flex', alignItems: 'center',
@@ -429,7 +593,29 @@ export const DateDivider = ({ label }) => (
   </div>
 );
 
-/* ── 메시지 리스트 ── */
+/* ── GIT 피드 메시지 그룹핑 유틸 함수 ── */
+const groupGitMessages = (messages) => {
+  const prFirstMessageId = new Map();
+  const subMessagesMap = new Map();
+  const hiddenIds = new Set();
+
+  messages.forEach((msg) => {
+    if (msg.type !== 'GIT' || msg.prNumber == null) return;
+
+    const existingId = prFirstMessageId.get(msg.prNumber);
+    if (existingId == null) {
+      prFirstMessageId.set(msg.prNumber, msg.messageId);
+      subMessagesMap.set(msg.messageId, []);
+    } else {
+      subMessagesMap.get(existingId).push(msg);
+      hiddenIds.add(msg.messageId);
+    }
+  });
+
+  return { subMessagesMap, hiddenIds };
+};
+
+/* ── 최상위 메인 메시지 리스트 컨테이너 컴포넌트 ── */
 const MessageList = ({
   messages, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, editMessageId, editContent,
@@ -437,15 +623,22 @@ const MessageList = ({
 }) => {
   if (!messages.length) return null;
 
+  const { subMessagesMap, hiddenIds } = groupGitMessages(messages);
+
   const result = [];
   let currentDate = null;
 
   messages.forEach((msg, index) => {
+    if (hiddenIds.has(msg.messageId)) return;
+
     const label = formatDate(msg.createdAt || msg.joinAt);
     if (label !== currentDate) {
       currentDate = label;
       result.push(<DateDivider key={`date-${index}`} label={label} />);
     }
+
+    const subMessages = subMessagesMap.get(msg.messageId) || [];
+
     result.push(
       <MessageItem
         key={`msg-${msg.messageId ?? index}`}
@@ -461,6 +654,7 @@ const MessageList = ({
         handleEditMessage={handleEditMessage}
         onCodeClick={onCodeClick}
         onRetryClick={onRetryClick}
+        subMessages={subMessages}
       />
     );
   });
@@ -468,7 +662,7 @@ const MessageList = ({
   return <>{result}</>;
 };
 
-/* ── 버튼 스타일 ── */
+/* ── 하단 공통 제어 스타일 컴포넌트 스펙 ── */
 const btnSave = {
   backgroundColor: '#007a5a', color: 'white',
   border: 'none', borderRadius: '4px',
