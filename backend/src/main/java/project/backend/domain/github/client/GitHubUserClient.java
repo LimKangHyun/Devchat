@@ -1,4 +1,4 @@
-package project.backend.domain.chat.github;
+package project.backend.domain.github.client;
 
 import java.util.List;
 import java.util.Map;
@@ -16,7 +16,7 @@ import reactor.core.publisher.Mono;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class GitHubClient {
+public class GitHubUserClient {
 
     private final WebClient.Builder webClientBuilder;
 

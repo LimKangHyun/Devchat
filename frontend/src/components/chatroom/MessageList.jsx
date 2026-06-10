@@ -53,7 +53,11 @@ const HighlightedCode = ({ content, language, onClick }) => (
 );
 
 /* ── 메시지 본문 ── */
-const MessageContent = ({ msg, editMessageId, editContent, setEditContent, handleEditMessage, setEditMessageId, onCodeClick }) => {
+const MessageContent = ({
+  msg, editMessageId, editContent, setEditContent,
+  handleEditMessage, setEditMessageId, onCodeClick, onRetryClick,
+}) => {
+  const [retrying, setRetrying] = useState(false);
 
   if (editMessageId === msg.messageId) {
     return (
@@ -102,6 +106,99 @@ const MessageContent = ({ msg, editMessageId, editContent, setEditContent, handl
           {msg.content.split('\n').map((line, i) => (
             <div key={i}>{i === 0 ? <strong>{line}</strong> : renderWithLink(line)}</div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (msg.type === 'AI_REVIEW') {
+    const status = msg.aiReviewStatus;
+    const prStatus = msg.prStatus;
+    const isClosed = prStatus === 'CLOSED' || prStatus === 'MERGED';
+
+    const borderColor = status === 'FAIL' ? '#fed7d7'
+      : status === 'SUCCESS' ? '#c7d4f0'
+      : '#e2e8f0';
+
+    const accentColor = status === 'FAIL' ? '#e53e3e'
+      : status === 'SUCCESS' ? '#4299e1'
+      : '#a0aec0';
+
+    return (
+      <div style={{
+        display: 'flex',
+        backgroundColor: status === 'FAIL' ? '#fff5f5' : '#f0f4ff',
+        borderRadius: '6px',
+        overflow: 'hidden',
+        border: `1px solid ${borderColor}`,
+      }}>
+        <div style={{ width: '4px', backgroundColor: accentColor, flexShrink: 0 }} />
+        <div style={{ padding: '10px 14px', fontSize: '13px', color: '#24292e', lineHeight: '1.6' }}>
+          <div style={{ fontWeight: '600', marginBottom: '4px' }}>🤖 AI Code Review</div>
+
+          {/* PR 번호 + 상태 뱃지 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span style={{ color: '#888', fontSize: '12px' }}>PR #{msg.prNumber}</span>
+            {isClosed && (
+              <span style={{
+                backgroundColor: prStatus === 'MERGED' ? '#6f42c1' : '#e53e3e',
+                color: 'white', borderRadius: '4px',
+                padding: '1px 7px', fontSize: '11px', fontWeight: '600',
+              }}>
+                {prStatus === 'MERGED' ? '🔀 병합됨' : '🚫 닫힘'}
+              </span>
+            )}
+          </div>
+
+          {(status === 'PENDING' || retrying) && (
+            <div style={{ color: '#888', fontSize: '12px', marginTop: '6px' }}>
+              ⏳ 리뷰 생성 중...
+            </div>
+          )}
+
+          {status === 'SUCCESS' && (
+            <>
+              {msg.publishedBy && (
+                <div style={{ fontSize: '12px', color: '#888', marginTop: '6px' }}>
+                  ✅ {msg.publishedBy}님이 GitHub에 게시함
+                </div>
+              )}
+              <button
+                onClick={() => onCodeClick && onCodeClick(msg)}
+                style={{
+                  marginTop: '8px', backgroundColor: '#4299e1',
+                  color: 'white', border: 'none', borderRadius: '4px',
+                  padding: '6px 12px', fontSize: '12px',
+                  fontWeight: '600', cursor: 'pointer',
+                }}
+              >
+                📋 리뷰 보기
+              </button>
+            </>
+          )}
+
+          {status === 'FAIL' && !retrying && (
+            <button
+              onClick={() => {
+                setRetrying(true);
+                onRetryClick?.(msg.prNumber);
+              }}
+              style={{
+                marginTop: '8px', backgroundColor: '#e53e3e',
+                color: 'white', border: 'none', borderRadius: '4px',
+                padding: '6px 12px', fontSize: '12px',
+                fontWeight: '600', cursor: 'pointer',
+              }}
+            >
+              🔄 재시도
+            </button>
+          )}
+
+          {status === 'SKIPPED' && (
+            <div style={{ color: '#e67e22', fontSize: '12px', marginTop: '6px' }}>
+              ⏭️ 크기 제한 초과로 리뷰가 생략되었습니다.
+            </div>
+          )}
         </div>
       </div>
     );
@@ -176,7 +273,7 @@ const EditedLabel = () => (
 export const MessageItem = ({
   msg, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, handleEditMessage,
-  handleDeleteMessage, editMessageId, editContent, onCodeClick,
+  handleDeleteMessage, editMessageId, editContent, onCodeClick, onRetryClick,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -196,7 +293,6 @@ export const MessageItem = ({
   const isMenuOpen = contextMenuId === msg.messageId;
   const isOwn = currentUser?.id === msg.senderId;
 
-  // profileImageUrl 없으면 처음부터 fallback → 실패 요청 없음
   const profileSrc = msg.profileImageUrl
     ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${msg.profileImageUrl}`
     : '/images/not-found-profile.png';
@@ -205,7 +301,7 @@ export const MessageItem = ({
     <div
       id={`message-${msg.messageId}`}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => { setIsHovered(false); }}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -251,6 +347,7 @@ export const MessageItem = ({
           handleEditMessage={handleEditMessage}
           setEditMessageId={setEditMessageId}
           onCodeClick={onCodeClick}
+          onRetryClick={onRetryClick}
         />
       </div>
 
@@ -263,7 +360,7 @@ export const MessageItem = ({
           gap: '2px',
           zIndex: 10,
         }}>
-          {msg.type !== 'IMAGE' && (
+          {msg.type !== 'IMAGE' && msg.type !== 'AI_REVIEW' && (
             <ActionBtn
               label="수정"
               onClick={() => {
@@ -336,7 +433,7 @@ export const DateDivider = ({ label }) => (
 const MessageList = ({
   messages, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, editMessageId, editContent,
-  handleEditMessage, handleDeleteMessage, onCodeClick,
+  handleEditMessage, handleDeleteMessage, onCodeClick, onRetryClick,
 }) => {
   if (!messages.length) return null;
 
@@ -363,6 +460,7 @@ const MessageList = ({
         editContent={editContent}
         handleEditMessage={handleEditMessage}
         onCodeClick={onCodeClick}
+        onRetryClick={onRetryClick}
       />
     );
   });

@@ -1,8 +1,8 @@
-package project.backend.domain.chat.github;
+package project.backend.domain.github;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import project.backend.domain.chat.github.dto.GitRepoDto;
+import project.backend.domain.github.dto.GitRepoDto;
 import project.backend.global.exception.errorcode.GitHubErrorCode;
 import project.backend.global.exception.ex.GitHubException;
 
@@ -12,7 +12,6 @@ public class GitRepoUrlUtils {
         try {
             URI uri = new URI(url);
 
-            // 1. 도메인 체크
             if (!"github.com".equals(uri.getHost())) {
                 throw new GitHubException(GitHubErrorCode.INVALID_REPO_RUL);
             }

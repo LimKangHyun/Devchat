@@ -20,4 +20,11 @@ public class ChatMessageResponse {
 	private Long senderId;
 	private Long messageId;
 	private MessageStatus status;
+	private boolean githubPublished;
+
+	private Long aiReviewId;
+	private Integer prNumber;
+	private String prStatus;
+	private String aiReviewStatus;
+	private String publishedBy;
 }

@@ -1,17 +1,7 @@
 package project.backend.domain.chat.chatmessage.entity;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -19,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
+import project.backend.domain.aireview.entity.AiReview;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.member.entity.Member;
 
@@ -60,6 +51,13 @@ public class ChatMessage {
     @Builder.Default
     @Enumerated(EnumType.STRING)
     private MessageStatus status = MessageStatus.NO_CHANGE;
+
+    private Integer prNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ai_review_id")
+    private AiReview aiReview;
+
 
     public Long getChatRoomId() {
         return chatRoom.getId();

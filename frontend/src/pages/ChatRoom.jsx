@@ -12,6 +12,7 @@ import CodeReviewModal from '../components/modals/CodeReviewModal.jsx';
 import { useAlarm } from '../context/AlarmContext';
 import { useUser } from '../context/UserContext';
 import Toast from '../components/common/Toast';
+import AiReviewModal from '../components/modals/AiReviewModal';
 
 const PAGE_SIZE = 30;
 const INDEX_OFFSET = 100000;
@@ -43,7 +44,7 @@ const VirtuosoMessageItem = React.memo(({
   currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent,
   handleDeleteMessage, editMessageId, editContent,
-  handleEditMessage, onCodeClick,
+  handleEditMessage, onCodeClick, onRetryClick
 }) => {
   const msgDate = formatDate(msg.createdAt || msg.joinAt);
   const prevDate = prevMsg ? formatDate(prevMsg.createdAt || prevMsg.joinAt) : null;
@@ -63,6 +64,7 @@ const VirtuosoMessageItem = React.memo(({
         editContent={editContent}
         handleEditMessage={handleEditMessage}
         onCodeClick={onCodeClick}
+        onRetryClick={onRetryClick}
       />
     </div>
   );
@@ -89,6 +91,7 @@ const ChatRoom = () => {
   const [newMessageCount, setNewMessageCount] = useState(0);
   const [inputHeight, setInputHeight] = useState(0);
   const [toast, setToast] = useState({ open: false, message: '' });
+  const [aiReviewEnabled, setAiReviewEnabled] = useState(true);
 
   const virtuosoRef = useRef(null);
   const inputAreaRef = useRef(null);
@@ -165,13 +168,23 @@ const ChatRoom = () => {
     setShowCodeModal(true);
   };
 
+  const handleRetryAiReview = async (prNumber) => {
+    try {
+      await axiosInstance.post(`/github/${roomId}/ai-review/retry`, { prNumber });
+    } catch (err) {
+      console.error('AI 리뷰 재시도 실패:', err);
+    }
+  };
+
   const fetchRoomInfo = useCallback(async () => {
     try {
       const res = await axiosInstance.get(`/chat-rooms/${inviteCode}`);
       const data = res.data;
+      console.log('roomData:', data)
       setRoomId(data.roomId);
       setRoomName(data.roomName);
       setRoomData(data);
+      setAiReviewEnabled(data.aiReviewEnabled ?? true);
       updateAlarm(data.roomId, data.alarmEnabled);
       setInitState((prev) => ({ ...prev, isRoomValidated: true }));
       return data.roomId;
@@ -244,6 +257,15 @@ const ChatRoom = () => {
       console.error('누락 메시지 조회 실패', e);
     }
   }, [roomId]);
+
+  const handleToggleAiReview = async () => {
+    try {
+      const res = await axiosInstance.patch(`/chat-rooms/${roomId}/ai-review/toggle`);
+      setAiReviewEnabled(res.data.aiReviewEnabled);
+    } catch (err) {
+      alert('설정 변경에 실패했습니다.');
+    }
+  };
 
   const toggleAlarm = async () => {
     try {
@@ -480,6 +502,9 @@ const ChatRoom = () => {
           {getAlarmStatus(roomId) !== undefined && (
             <div style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: '#ffffff', flexShrink: 0 }}>
               <RoomHeader
+                aiReviewEnabled={aiReviewEnabled}
+                onToggleAiReview={handleToggleAiReview}
+                repositoryUrl={roomData?.repositoryUrl}
                 roomName={roomName} inviteCode={inviteCode}
                 onSearch={handleSearch} onLeaveRoom={handleLeaveRoom}
                 onDeleteRoom={handleDeleteRoom} isOwner={isOwner}
@@ -541,6 +566,7 @@ const ChatRoom = () => {
                       handleDeleteMessage={handleDeleteMessage} editMessageId={editMessageId}
                       editContent={editContent} handleEditMessage={handleEditMessage}
                       onCodeClick={handleCodeClick}
+                      onRetryClick={handleRetryAiReview}
                     />
                   );
                 }}
@@ -605,10 +631,19 @@ const ChatRoom = () => {
         )}
 
         {showCodeModal && selectedCodeMessage && (
-          <CodeReviewModal
-            message={selectedCodeMessage} roomId={roomId} currentUser={currentUser}
-            onClose={() => { setShowCodeModal(false); setSelectedCodeMessage(null); }}
-          />
+          selectedCodeMessage.type === 'AI_REVIEW' ? (
+            <AiReviewModal
+              message={selectedCodeMessage}
+              roomId={roomId}
+              onClose={() => { setShowCodeModal(false); setSelectedCodeMessage(null); }}
+              repositoryUrl={roomData.repositoryUrl}
+            />
+          ) : (
+            <CodeReviewModal
+              message={selectedCodeMessage} roomId={roomId} currentUser={currentUser}
+              onClose={() => { setShowCodeModal(false); setSelectedCodeMessage(null); }}
+            />
+          )
         )}
 
         <RoomDeletedModal

@@ -56,8 +56,9 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/signup", "/login", "/login/oauth2/**", "/error")
 						.anonymous()
-						.requestMatchers("/token/**", "/logout", "/github/**", "/images/**",
-								"/actuator/health", "/actuator/prometheus", "/ws")
+						.requestMatchers("/token/**", "/logout", "/images/**",
+								"/actuator/health", "/actuator/prometheus", "/ws",
+								"/github/webhook/**")
 						.permitAll()
 						.anyRequest()
 						.authenticated())

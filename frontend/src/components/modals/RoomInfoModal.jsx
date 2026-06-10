@@ -4,9 +4,99 @@ import {
   FaTimes,
   FaGithub,
   FaUser,
-  FaCrown
+  FaCrown,
+  FaChevronDown,
+  FaChevronUp,
+  FaExternalLinkAlt
 } from 'react-icons/fa';
 import axiosInstance from "../api/axiosInstance"
+
+const GitHubRepoDisplay = ({ repositoryUrl }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const parseRepo = (url) => {
+    try {
+      const parts = new URL(url).pathname.split('/').filter(Boolean);
+      return { owner: parts[0], repo: parts[1] };
+    } catch {
+      return null;
+    }
+  };
+
+  const parsed = parseRepo(repositoryUrl);
+
+  return (
+    <div style={{
+      marginBottom: '20px',
+      backgroundColor: '#f8fafc',
+      borderRadius: '10px',
+      overflow: 'hidden',
+      border: '1px solid #e2e8f0'
+    }}>
+      <a
+        href={repositoryUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          padding: '14px 16px',
+          textDecoration: 'none',
+          transition: 'background-color 0.15s'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#edf2f7'}
+        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+      >
+        <FaGithub style={{ color: '#2d3748', fontSize: '20px', flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '13px' }}>
+            <span style={{ color: '#718096' }}>{parsed?.owner}/</span>
+            <span style={{ color: '#2d3748', fontWeight: '600' }}>{parsed?.repo}</span>
+          </div>
+          <div style={{ color: '#a0aec0', fontSize: '11px', marginTop: '2px' }}>
+            github.com
+          </div>
+        </div>
+        <FaExternalLinkAlt style={{ color: '#a0aec0', fontSize: '12px', flexShrink: 0 }} />
+      </a>
+
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          padding: '8px 16px',
+          borderTop: '1px solid #e2e8f0',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          color: '#a0aec0',
+          fontSize: '12px',
+          userSelect: 'none'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#edf2f7'}
+        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+      >
+        <span>전체 URL 보기</span>
+        {expanded ? <FaChevronUp size={10} /> : <FaChevronDown size={10} />}
+      </div>
+
+      {expanded && (
+        <div style={{
+          padding: '10px 16px 14px',
+          borderTop: '1px solid #e2e8f0',
+          color: '#718096',
+          fontSize: '12px',
+          wordBreak: 'break-all',
+          lineHeight: '1.5',
+          backgroundColor: '#f8fafc'
+        }}>
+          {repositoryUrl}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
   const [participants, setParticipants] = useState([]);
@@ -16,7 +106,6 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
     setLoading(true);
     try {
       const response = await axiosInstance.get(`/chat-rooms/${room.roomId}/participants`);
-      console.log('참가자 응답:', response.data);
       setParticipants(response.data);
     } catch (err) {
       console.error('참가자 목록 가져오기 실패:', err);
@@ -31,15 +120,11 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
     }
   }, [room?.roomId]);
 
-  // 프로필 이미지 컴포넌트
   const ProfileImage = ({ participant, isOwner }) => {
     const [imageError, setImageError] = useState(false);
-    
+
     return (
-      <div style={{ 
-        position: 'relative',
-        marginRight: '12px'
-      }}>
+      <div style={{ position: 'relative', marginRight: '12px' }}>
         <div style={{
           width: '40px',
           height: '40px',
@@ -55,18 +140,11 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
             <img
               src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${participant.profileImageUrl}`}
               alt={participant.nickname}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
-              }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               onError={() => setImageError(true)}
             />
           ) : (
-            <FaUser style={{ 
-              color: isOwner ? '#FFD700' : '#6c757d',
-              fontSize: '18px'
-            }} />
+            <FaUser style={{ color: isOwner ? '#FFD700' : '#6c757d', fontSize: '18px' }} />
           )}
         </div>
         {isOwner && (
@@ -83,10 +161,7 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
             justifyContent: 'center',
             border: '2px solid white'
           }}>
-            <FaCrown style={{ 
-              color: 'white',
-              fontSize: '8px'
-            }} />
+            <FaCrown style={{ color: 'white', fontSize: '8px' }} />
           </div>
         )}
       </div>
@@ -150,11 +225,8 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
               height: '32px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'background-color 0.2s'
+              justifyContent: 'center'
             }}
-            onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'}
-            onMouseOut={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'}
           >
             <FaTimes size={16} />
           </button>
@@ -162,50 +234,12 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
 
         <div style={{ padding: '20px', maxHeight: 'calc(80vh - 80px)', overflowY: 'auto' }}>
           {room.repositoryUrl && (
-            <div style={{
-              marginBottom: '20px',
-              padding: '16px',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '10px'
-            }}>
-              <div style={{ 
-                fontWeight: '600', 
-                marginBottom: '10px', 
-                fontSize: '14px',
-                color: '#2d3748'
-              }}>
-                GitHub Repository
-              </div>
-              <a
-                href={room.repositoryUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: '#4299e1',
-                  textDecoration: 'none',
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  wordBreak: 'break-all',
-                  padding: '8px',
-                  backgroundColor: 'white',
-                  borderRadius: '6px',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseOver={(e) => e.target.style.backgroundColor = '#f7fafc'}
-                onMouseOut={(e) => e.target.style.backgroundColor = 'white'}
-              >
-                <FaGithub />
-                {room.repositoryUrl}
-              </a>
-            </div>
+            <GitHubRepoDisplay repositoryUrl={room.repositoryUrl} />
           )}
-          
-          <div style={{ 
-            fontSize: '16px', 
-            fontWeight: '600', 
+
+          <div style={{
+            fontSize: '16px',
+            fontWeight: '600',
             marginBottom: '16px',
             color: '#2d3748',
             display: 'flex',
@@ -228,11 +262,7 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
           </div>
 
           {loading ? (
-            <div style={{ 
-              padding: '40px', 
-              textAlign: 'center',
-              color: '#718096'
-            }}>
+            <div style={{ padding: '40px', textAlign: 'center', color: '#718096' }}>
               <div style={{
                 width: '24px',
                 height: '24px',
@@ -246,7 +276,6 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
             </div>
           ) : participants && participants.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* 방장(owner) 먼저 표시 */}
               {participants.filter(p => p.owner).map((p, idx) => (
                 <div key={`owner-${idx}`} style={{
                   display: 'flex',
@@ -254,47 +283,27 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
                   padding: '12px 16px',
                   background: 'linear-gradient(135deg, #fef5e7 0%, #fed7aa 100%)',
                   borderRadius: '12px',
-                  border: '2px solid #fed7aa',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  cursor: 'pointer'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(254, 215, 170, 0.4)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-                >
+                  border: '2px solid #fed7aa'
+                }}>
                   <ProfileImage participant={p} isOwner={true} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ 
-                      fontWeight: '600', 
-                      fontSize: '15px',
-                      color: '#2d3748',
-                      marginBottom: '4px'
-                    }}>
+                    <div style={{ fontWeight: '600', fontSize: '15px', color: '#2d3748', marginBottom: '4px' }}>
                       {p.nickname || '알 수 없음'}
                     </div>
-                    <div style={{ fontSize: '12px' }}>
-                      <span style={{
-                        background: 'linear-gradient(135deg, #f6ad55 0%, #ed8936 100%)',
-                        color: 'white',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                      }}>
-                        👑 방장
-                      </span>
-                    </div>
+                    <span style={{
+                      background: 'linear-gradient(135deg, #f6ad55 0%, #ed8936 100%)',
+                      color: 'white',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '600'
+                    }}>
+                      👑 방장
+                    </span>
                   </div>
                 </div>
               ))}
 
-              {/* 일반 멤버 표시 */}
               {participants.filter(p => !p.owner).map((p, idx) => (
                 <div key={`member-${idx}`} style={{
                   display: 'flex',
@@ -302,43 +311,23 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
                   padding: '12px 16px',
                   backgroundColor: '#f8fafc',
                   borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
-                  cursor: 'pointer'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(226, 232, 240, 0.6)';
-                  e.currentTarget.style.borderColor = '#cbd5e0';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.borderColor = '#e2e8f0';
-                }}
-                >
+                  border: '1px solid #e2e8f0'
+                }}>
                   <ProfileImage participant={p} isOwner={false} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ 
-                      fontWeight: '500', 
-                      fontSize: '15px',
-                      color: '#2d3748',
-                      marginBottom: '4px'
-                    }}>
+                    <div style={{ fontWeight: '500', fontSize: '15px', color: '#2d3748', marginBottom: '4px' }}>
                       {p.nickname || '알 수 없음'}
                     </div>
-                    <div style={{ fontSize: '12px' }}>
-                      <span style={{
-                        backgroundColor: '#e2e8f0',
-                        color: '#4a5568',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: '500'
-                      }}>
-                        멤버
-                      </span>
-                    </div>
+                    <span style={{
+                      backgroundColor: '#e2e8f0',
+                      color: '#4a5568',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '500'
+                    }}>
+                      멤버
+                    </span>
                   </div>
                 </div>
               ))}
@@ -359,15 +348,13 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
           )}
         </div>
       </div>
-      
-      <style>
-        {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-      </style>
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </>
   );
 };

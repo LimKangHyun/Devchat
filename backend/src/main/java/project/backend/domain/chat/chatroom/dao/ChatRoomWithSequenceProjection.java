@@ -10,4 +10,6 @@ public interface ChatRoomWithSequenceProjection {
 
     String getInviteCode();
 
+    String getRepositoryUrl();
+
 }

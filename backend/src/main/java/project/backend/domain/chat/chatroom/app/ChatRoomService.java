@@ -21,8 +21,10 @@ import project.backend.domain.chat.chatroom.dto.*;
 import project.backend.domain.chat.chatroom.dto.event.*;
 import project.backend.domain.chat.chatroom.entity.*;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
-import project.backend.domain.chat.github.app.GitMessageService;
+import project.backend.domain.aireview.app.AiReviewService;
+import project.backend.domain.github.app.GitMessageService;
 import project.backend.domain.community.dao.PostRepository;
+import project.backend.domain.aireview.dto.AiReviewToggleResponse;
 import project.backend.domain.member.app.MemberService;
 import project.backend.domain.member.entity.Member;
 import project.backend.global.exception.errorcode.ChatRoomErrorCode;
@@ -49,9 +51,13 @@ public class ChatRoomService {
     private final ChatRoomParticipantService chatRoomParticipantService;
 
     private final ApplicationEventPublisher eventPublisher;
+    private final AiReviewService aiReviewService;
 
     @Value("${github.username}")
     private String githubUsername;
+
+    @Value("${github.bot.username}")
+    private String aiReviewerUsername;
 
     @Transactional
     public ChatRoomSimpleResponse createChatRoom(ChatRoomRequest request, Long ownerId) {
@@ -67,6 +73,7 @@ public class ChatRoomService {
             gitMessageService.registerWebhook(request.getRepositoryUrl(),
                     savedRoom.getId(), owner.getId());
             joinGitHubBot(savedRoom);
+            joinReviewBot(savedRoom);
         }
 
         return chatRoomMapper.toSimpleResponse(savedRoom, owner);
@@ -75,6 +82,12 @@ public class ChatRoomService {
     private void joinGitHubBot(ChatRoom room) {
         Member githubBot = memberService.getMemberByUsername(githubUsername);
         ChatParticipant gitParticipant = ChatParticipant.of(githubBot, room);
+        room.addParticipant(gitParticipant);
+    }
+
+    private void joinReviewBot(ChatRoom room) {
+        Member reviewBot = memberService.getMemberByUsername(aiReviewerUsername);
+        ChatParticipant gitParticipant = ChatParticipant.of(reviewBot, room);
         room.addParticipant(gitParticipant);
     }
 
@@ -181,7 +194,9 @@ public class ChatRoomService {
         Long ownerId = chatRoomParticipantService.findOwnerId(room.getId());
         boolean alarmEnable = chatRoomAlarmService.isAlarmEnabled(memberId, room.getId());
 
-        return new EntryRoomResponse(room.getId(), room.getName(), ownerId, alarmEnable);
+        return new EntryRoomResponse(
+                room.getId(), room.getName(), ownerId, alarmEnable, room.getRepositoryUrl(), room.isAiReviewEnabled()
+        );
     }
 
     public RoomInfoResponse getRoomInfo(String inviteCode, Long memberId) {
@@ -204,6 +219,7 @@ public class ChatRoomService {
         gitMessageService.deleteWebhook(room, memberId);
         eventPublisher.publishEvent(new DeleteChatRoomEvent(roomId, room.getName()));
 
+        aiReviewService.deleteByRoomId(room.getId());
         chatRoomParticipantService.deleteAllByRoomId(roomId);
         chatMessageService.deleteByRoomId(roomId);
         postRepository.deleteByChatRoom_Id(roomId);
@@ -228,5 +244,17 @@ public class ChatRoomService {
     private ChatRoom getByInviteCode(String inviteCode) {
         return chatRoomRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+    }
+
+    @Transactional
+    public AiReviewToggleResponse toggleAiReview(Long roomId, Long memberId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
+        Long ownerId = chatRoomParticipantService.findOwnerId(roomId);
+        if (!ownerId.equals(memberId)) {
+            throw new ChatRoomException(ChatRoomErrorCode.OWNER_PERMISSION_REQUIRED);
+        }
+        room.toggleAiReview();
+        return new AiReviewToggleResponse(room.isAiReviewEnabled());
     }
 }

@@ -4,7 +4,9 @@ public record EntryRoomResponse(
 	Long roomId,
 	String roomName,
 	Long ownerId,
-	Boolean alarmEnabled
+	Boolean alarmEnabled,
+	String repositoryUrl,
+	boolean aiReviewEnabled
 ) {
 
 }

@@ -30,6 +30,10 @@ export IMAGE_URL=$IMAGE_URL
 export WEBHOOK_URL=$WEBHOOK_URL
 export AWS_ACCESS_KEY=$AWS_ACCESS_KEY
 export AWS_SECRET_KEY=$AWS_SECRET_KEY
+export ENCRYPT_SECRET=$ENCRYPT_SECRET
+export GITHUB_BOT_PAT=$GITHUB_BOT_PAT
+export GEMINI_API_KEY=$GEMINI_API_KEY
+export PINECONE_API_KEY=$PINECONE_API_KEY
 docker-compose up -d --build dev-chat-backend-$NEW_COLOR
 # 새롭게 띄운 dev-chat-backend-$NEW_COLOR 컨테이너의 헬스체크 (정상작동 확인)
 echo "새로운 백엔드 컨테이너 헬스체크 중..."
