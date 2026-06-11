@@ -39,7 +39,7 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatScrollResponse;
-import project.backend.domain.chat.chatmessage.dto.event.ChatMessageSavedEvent;
+import project.backend.domain.chat.chatmessage.event.ChatMessageSavedEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageIndexStatus;

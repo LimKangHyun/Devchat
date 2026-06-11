@@ -23,6 +23,7 @@ const BlankRoom = () => {
 
       if (created?.id) {
         navigate(`/chat/${created.inviteCode}`);
+        window.dispatchEvent(new Event('room:read'));
       }
     } catch (err) {
       const backendMessage = err.response?.data?.message;

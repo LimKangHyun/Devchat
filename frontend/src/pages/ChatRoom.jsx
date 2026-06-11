@@ -214,7 +214,6 @@ const ChatRoom = () => {
     try {
       const res = await axiosInstance.get(`/chat-rooms/${inviteCode}`);
       const data = res.data;
-      console.log('roomData:', data)
       setRoomId(data.roomId);
       setRoomName(data.roomName);
       setRoomData(data);
@@ -349,7 +348,10 @@ const ChatRoom = () => {
       }
     },
     onProfileUpdate: handleProfileUpdate,
-    onRoomDeleted: (e) => setDeleteNotification(e.content),
+    onRoomDeleted: (e) => {
+      if (isDeleting.current) return; // 본인이 삭제한 거면 모달 안 띄움
+      setDeleteNotification(e.content);
+    },
     onError: (message) => {
       setToast({ open: true, message });
       setTimeout(() => setToast({ open: false, message: '' }), 3000);
@@ -431,11 +433,15 @@ const ChatRoom = () => {
     }
   };
 
+  const isDeleting = useRef(false);
   const handleDeleteRoom = async () => {
     try {
+      isDeleting.current = true;
       await axiosInstance.delete(`/chat-rooms/${roomId}`);
+      window.dispatchEvent(new CustomEvent('room:deleted', { detail: { roomId } }));
       return { success: true };
     } catch (err) {
+      isDeleting.current = false;
       return { success: false, error: err.response?.data?.message || '삭제 실패' };
     }
   };

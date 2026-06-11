@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatroom.listener;
+package project.backend.domain.chat.chatroom.event;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,10 +11,7 @@ import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRedisRepository;
-import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
-import project.backend.domain.chat.chatmessage.dto.event.EventMessageResponse;
-import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
-import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
+import project.backend.domain.chat.chatmessage.event.EventMessageResponse;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
 import project.backend.domain.member.app.MemberService;

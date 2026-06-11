@@ -13,13 +13,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.backend.auth.app.AuthTokenService;
+import project.backend.domain.aireview.app.RepoIndexingService;
 import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.dao.ChatRoomWithSequenceProjection;
 import project.backend.domain.chat.chatroom.dto.*;
-import project.backend.domain.chat.chatroom.dto.event.*;
 import project.backend.domain.chat.chatroom.entity.*;
+import project.backend.domain.chat.chatroom.event.DeleteChatRoomEvent;
+import project.backend.domain.chat.chatroom.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
 import project.backend.domain.aireview.app.AiReviewService;
 import project.backend.domain.github.app.GitMessageService;
@@ -33,7 +36,7 @@ import project.backend.global.metric.TimeTrace;
 
 @Slf4j
 @Service
-@Transactional(readOnly = true)
+@Transactional
 @RequiredArgsConstructor
 public class ChatRoomService {
 
@@ -49,9 +52,11 @@ public class ChatRoomService {
     private final ChatRoomAlarmService chatRoomAlarmService;
     private final ChatRoomReadService chatRoomReadService;
     private final ChatRoomParticipantService chatRoomParticipantService;
+    private final RepoIndexingService repoIndexingService;
+    private final AuthTokenService authTokenService;
+    private final AiReviewService aiReviewService;
 
     private final ApplicationEventPublisher eventPublisher;
-    private final AiReviewService aiReviewService;
 
     @Value("${github.username}")
     private String githubUsername;
@@ -74,6 +79,9 @@ public class ChatRoomService {
                     savedRoom.getId(), owner.getId());
             joinGitHubBot(savedRoom);
             joinReviewBot(savedRoom);
+
+            String token = authTokenService.getGithubAccessToken(owner.getId());
+            repoIndexingService.indexRepository(savedRoom.getId(), request.getRepositoryUrl(), token);
         }
 
         return chatRoomMapper.toSimpleResponse(savedRoom, owner);
@@ -216,8 +224,9 @@ public class ChatRoomService {
             throw new ChatRoomException(ChatRoomErrorCode.OWNER_PERMISSION_REQUIRED);
         }
 
-        gitMessageService.deleteWebhook(room, memberId);
-        eventPublisher.publishEvent(new DeleteChatRoomEvent(roomId, room.getName()));
+        eventPublisher.publishEvent(
+                new DeleteChatRoomEvent(roomId, room.getName(), room.getRepositoryUrl(), room.getWebhookId(), memberId)
+        );
 
         aiReviewService.deleteByRoomId(room.getId());
         chatRoomParticipantService.deleteAllByRoomId(roomId);

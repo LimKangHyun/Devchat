@@ -80,6 +80,30 @@ const Sidebar = ({ onStartChat }) => {
     }
   }
 
+  const alarmRoomsRef = useRef(alarmRooms);
+  useEffect(() => {
+    alarmRoomsRef.current = alarmRooms;
+  }, [alarmRooms]);
+
+  useEffect(() => {
+    const handleRoomDeleted = (e) => {
+      const deletedRoomId = e.detail.roomId;
+      const remaining = alarmRoomsRef.current.filter(r => Number(r.uniqueId) !== Number(deletedRoomId));
+      console.log('deletedRoomId:', deletedRoomId);
+      console.log('remaining:', remaining);
+      console.log('navigating to:', remaining.length > 0 ? `/chat/${remaining[0].inviteCode}` : '/');
+      if (remaining.length > 0) {
+        navigate(`/chat/${remaining[0].inviteCode}`);
+      } else {
+        navigate('/');
+      }
+      fetchAllRooms();
+    };
+
+    window.addEventListener('room:deleted', handleRoomDeleted);
+    return () => window.removeEventListener('room:deleted', handleRoomDeleted);
+  }, [fetchAllRooms, navigate]);
+
   const fetchRoomDetails = async (roomId) => {
     try {
       const existingRoom = alarmRooms.find(room => Number(room.uniqueId) === Number(roomId))

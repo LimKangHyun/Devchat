@@ -114,7 +114,7 @@ gemini:
 
 pinecone:
   api-key: ${PINECONE_API_KEY}
-  index-name: devchat-reviews
+  index-name: devchat
 
 url:
   domain-url: ${DOMAIN_URL}

@@ -52,6 +52,7 @@ public class AiReviewService {
     private final ChatMessageMapper chatMessageMapper;
     private final SimpMessagingTemplate messagingTemplate;
     private final MemberService memberService;
+    private final RagContextService ragContextService;
     private final ChatRoomRedisRepository chatRoomRedisRepository;
     private final AiReviewDiffParser diffParser;
     private final ObjectMapper objectMapper;
@@ -79,7 +80,7 @@ public class AiReviewService {
             if (isSkipped(aiReview, room.getId(), fullDiff)) return;
 
             List<FileReviewResult> fileResults = buildFileResults(repo, fullDiff, headSha, baseSha,
-                    aiReview.getPrTitle(), aiReview.getPrBody(), prNumber);
+                    aiReview.getPrTitle(), aiReview.getPrBody(), prNumber, room.getId());
 
             if (fileResults.isEmpty()) {
                 aiReview.updateFail("모든 파일 리뷰 생성 실패");
@@ -127,11 +128,12 @@ public class AiReviewService {
     private List<FileReviewResult> buildFileResults(GitRepoDto repo, String fullDiff,
                                                     String headSha, String baseSha,
                                                     String prTitle, String prBody,
-                                                    int prNumber) {
+                                                    int prNumber, Long repoId) {
         Map<String, String> fileDiffs = diffParser.parseFileDiffs(fullDiff);
         Map<String, String> fileStatuses = gitHubBotClient.getPrFileStatuses(repo.ownerName(), repo.repoName(), prNumber);
         List<FileReviewResult> results = new ArrayList<>();
 
+        // repoId 추출 (ChatRoom에서 가져와야 하므로 파라미터 추가 필요)
         for (Map.Entry<String, String> entry : fileDiffs.entrySet()) {
             String filePath = entry.getKey();
             String fileDiff = entry.getValue();
@@ -144,7 +146,6 @@ public class AiReviewService {
 
             try {
                 String status = fileStatuses.getOrDefault(filePath, "modified");
-
                 if ("deleted".equals(status)) {
                     log.info("삭제된 파일 스킵: {}", filePath);
                     continue;
@@ -154,7 +155,12 @@ public class AiReviewService {
                 String baseContent = "added".equals(status) ? ""
                         : gitHubBotClient.getFileContent(repo.ownerName(), repo.repoName(), filePath, baseSha);
 
-                List<InlineReview> reviews = geminiClient.reviewPrDiffInline(fileDiff, fileContent, prTitle, prBody);
+                String context = ragContextService.buildContext(repoId, filePath, fileDiff);
+                String diffWithContext = context.isBlank()
+                        ? fileDiff
+                        : context + "\n\n위 컨텍스트를 참고해서 아래 PR을 리뷰해줘:\n\n" + fileDiff;
+
+                List<InlineReview> reviews = geminiClient.reviewPrDiffInline(diffWithContext, fileContent, prTitle, prBody);
                 results.add(new FileReviewResult(filePath, baseContent, fileContent, reviews, false));
             } catch (Exception e) {
                 log.error("파일 리뷰 실패: {}", filePath, e);

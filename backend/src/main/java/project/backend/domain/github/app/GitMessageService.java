@@ -210,15 +210,15 @@ public class GitMessageService {
 		return webhookUrl + "/github/webhook/" + roomId;
 	}
 
-	public void deleteWebhook(ChatRoom room, Long ownerId) {
-		if (room.getRepositoryUrl() == null || room.getWebhookId() == null) {
-			log.info("GitHub 연동이 없는 채팅방입니다. 웹훅 삭제 스킵: roomId={}", room.getId());
+	public void deleteWebhook(String repositoryUrl, Long webhookId, Long ownerId) {
+		if (repositoryUrl == null || webhookId == null) {
+			log.info("웹훅 삭제 스킵. repositoryUrl 또는 webhookId 없음");
 			return;
 		}
-
-		GitRepoDto gitRepoDto = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
+		GitRepoDto gitRepoDto = GitRepoUrlUtils.validateAndParseUrl(repositoryUrl);
 		String githubAccessToken = authTokenService.getGithubAccessToken(ownerId);
-		gitHubUserClient.deleteWebhook(githubAccessToken, gitRepoDto.ownerName(), gitRepoDto.repoName(), room.getWebhookId());
+		gitHubUserClient.deleteWebhook(githubAccessToken, gitRepoDto.ownerName(), gitRepoDto.repoName(), webhookId);
+		log.info("Github webhook 삭제. webhook={}", webhookId);
 	}
 
 	public void publishAiReview(Long roomId, Long aiReviewId, String approverUsername) {

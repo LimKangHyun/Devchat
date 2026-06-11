@@ -62,10 +62,14 @@ github:
   username: GitHubBot
   bot:
     pat: ${BOT_GITHUB_BOT_PAT}
-    username: Devchat Code Assist
+    username: Devchat-Code-Assist
 
 gemini:
   api-key: ${GEMINI_API_KEY}
+
+pinecone:
+  api-key: ${PINECONE_API_KEY}
+  index-name: devchat
 
 url:
   domain-url: ${DOMAIN_URL}

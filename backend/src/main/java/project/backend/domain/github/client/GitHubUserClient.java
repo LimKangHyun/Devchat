@@ -104,18 +104,30 @@ public class GitHubUserClient {
 
     public void deleteWebhook(String accessToken, String owner, String repo, Long webhookId) {
         String apiUrl =
-            "https://api.github.com/repos/" + owner + "/" + repo + "/hooks/" + webhookId;
+                "https://api.github.com/repos/" + owner + "/" + repo + "/hooks/" + webhookId;
 
         try {
             webClientBuilder.build()
-                .delete()
-                .uri(apiUrl)
-                .header("Authorization", "Bearer " + accessToken)
-                .header("Accept", "application/vnd.github.v3+json")
-                .retrieve()
-                .toBodilessEntity()
-                .block();
+                    .delete()
+                    .uri(apiUrl)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .retrieve()
+                    .onStatus(status -> status.value() == 404, error -> {
+                        log.info("webhook이 이미 존재하지 않음. 삭제 스킵. url={}", apiUrl);
+                        return Mono.empty();
+                    })
+                    .onStatus(HttpStatusCode::is4xxClientError, error ->
+                            error.bodyToMono(String.class)
+                                    .flatMap(errorBody -> {
+                                        log.error("webhook 삭제 4xx. url={}, body={}", apiUrl, errorBody);
+                                        return Mono.error(new GitHubException(GitHubErrorCode.WEBHOOK_DELETE_FAILED));
+                                    })
+                    )
+                    .toBodilessEntity()
+                    .block();
         } catch (Exception e) {
+            log.error("webhook 삭제 실패. url={}, message={}", apiUrl, e.getMessage());
             throw new GitHubException(GitHubErrorCode.WEBHOOK_DELETE_FAILED);
         }
     }

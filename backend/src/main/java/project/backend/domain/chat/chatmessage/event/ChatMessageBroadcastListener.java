@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatmessage.listener;
+package project.backend.domain.chat.chatmessage.event;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -7,7 +7,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
-import project.backend.domain.chat.chatmessage.dto.event.ChatMessageBroadcastEvent;
 import project.backend.domain.chat.chatmessage.mapper.ChatMessageMapper;
 import project.backend.domain.member.app.ProfileImageCache;
 

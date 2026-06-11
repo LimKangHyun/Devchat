@@ -72,6 +72,18 @@ const PrHistoryItem = ({ msg }) => {
   );
 };
 
+const getEventIcon = (content) => {
+  if (!content) return '📦';
+  if (content.includes('[ISSUE')) return '📋';
+  if (content.includes('✅')) return '✅';
+  if (content.includes('❌')) return '❌';
+  if (content.includes('⚠️')) return '⚠️';
+  if (content.includes('[PR merged]')) return '🔀';
+  if (content.includes('[PR opened]')) return '📬';
+  if (content.includes('[PR closed]')) return '📭';
+  return '📦';
+};
+
 /* ── GIT 메시지 본문 ── */
 const GitMessageContent = ({ msg, subMessages }) => {
   const [expanded, setExpanded] = useState(false);
@@ -88,9 +100,14 @@ const GitMessageContent = ({ msg, subMessages }) => {
   })();
 
   const firstLine = (msg.content || '').split('\n')[0];
-  const badgeMatch = firstLine.match(/^(\[[^\]]+\])\s*(.*)/);
+  const badgeMatch = firstLine.match(/^[^\[]*(\[[^\]]+\])\s*(.*)/);
   const badgeLabel = badgeMatch ? badgeMatch[1] : null;
   const titleText  = badgeMatch ? badgeMatch[2] : firstLine;
+  const cleanTitle = titleText.replace(/\s*by\s+\S+$/, '').trim();
+
+  const isIssue = (msg.content || '').includes('[ISSUE');
+  const isWorkflow = (msg.content || '').includes('[Workflow') || (msg.content || '').match(/✅|❌|⚠️/);
+  const linkLabel = isIssue ? '이슈 보기' : isWorkflow ? '워크플로우 보기' : 'PR 보기';
 
   const bodyLines = (msg.content || '')
     .split('\n')
@@ -120,14 +137,32 @@ const GitMessageContent = ({ msg, subMessages }) => {
 
           {/* 왼쪽: 아이콘 고정 + 제목 블록 */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', flex: 1, minWidth: 0 }}>
-            <span style={{ fontSize: '13px', flexShrink: 0, marginTop: '2px' }}>📦</span>
+            <span style={{ fontSize: '13px', flexShrink: 0, marginTop: '2px' }}>{getEventIcon(msg.content)}</span>
 
             {/* 제목 한 줄: [PR edited] 제목텍스트 PR#46 — 모두 inline으로 자연스럽게 흐름 */}
             <div style={{ minWidth: 0, wordBreak: 'break-word' }}>
-              <strong style={{ fontSize: '13px', color: '#1a1d20', fontWeight: '700' }}>
+              <span style={{ fontSize: '13px', color: '#1a1d20', fontWeight: '700' }}>
                 {badgeLabel && <span style={{ marginRight: '4px' }}>{badgeLabel}</span>}
-                {titleText}
-              </strong>
+                {prUrl ? (
+                  <>
+                    <a
+                      href={prUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#0073ca', textDecoration: 'none', fontWeight: '700' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                    >
+                      {cleanTitle}
+                    </a>
+                    <span style={{ color: '#1a1d20' }}>
+                      {titleText.match(/(\s*by\s+\S+)$/)?.[1]}
+                    </span>
+                  </>
+                ) : (
+                  titleText
+                )}
+              </span>
               {prNumber && (
                 <span style={{
                   display: 'inline-block',
@@ -143,27 +178,6 @@ const GitMessageContent = ({ msg, subMessages }) => {
               )}
             </div>
           </div>
-
-          {/* 오른쪽: PR 보기 버튼 */}
-          {prUrl && (
-            <a
-              href={prUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                flexShrink: 0,
-                fontSize: '11px', color: '#495057', fontWeight: '600',
-                backgroundColor: '#fff', border: '1px solid #ced4da',
-                borderRadius: '4px', padding: '2px 6px',
-                textDecoration: 'none', whiteSpace: 'nowrap',
-                marginTop: '1px',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8f9fa')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#fff')}
-            >
-              PR 보기
-            </a>
-          )}
         </div>
 
         {bodyLines.length > 0 && (

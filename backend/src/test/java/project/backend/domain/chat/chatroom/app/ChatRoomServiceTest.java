@@ -34,8 +34,8 @@ import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
 import project.backend.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.backend.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
 import project.backend.domain.chat.chatroom.dto.InviteJoinResponse;
-import project.backend.domain.chat.chatroom.dto.event.DeleteChatRoomEvent;
-import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
+import project.backend.domain.chat.chatroom.event.DeleteChatRoomEvent;
+import project.backend.domain.chat.chatroom.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.chat.chatroom.mapper.ChatRoomMapper;
@@ -210,6 +210,8 @@ class ChatRoomServiceTest {
         @DisplayName("방장이 채팅방을 삭제하면 관련 데이터가 모두 삭제된다")
         void deleteChatRoom_owner_success() {
             given(ownerParticipant.isOwner()).willReturn(true);
+            given(chatRoom.getRepositoryUrl()).willReturn("https://github.com/test/repo");
+            given(chatRoom.getWebhookId()).willReturn(123L);
 
             given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
             given(chatRoomParticipantService.findActiveParticipant(10L, 1L))
@@ -217,7 +219,7 @@ class ChatRoomServiceTest {
 
             chatRoomService.deleteChatRoom(10L, 1L);
 
-            then(gitMessageService).should().deleteWebhook(chatRoom, 1L);
+            then(gitMessageService).should(never()).deleteWebhook(anyString(), anyLong(), anyLong());
             then(eventPublisher).should().publishEvent(any(DeleteChatRoomEvent.class));
             then(chatRoomParticipantService).should().deleteAllByRoomId(10L);
             then(chatMessageService).should().deleteByRoomId(10L);

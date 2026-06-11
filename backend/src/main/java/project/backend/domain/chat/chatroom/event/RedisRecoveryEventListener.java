@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatroom.listener;
+package project.backend.domain.chat.chatroom.event;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
