@@ -20,7 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import project.backend.domain.chat.chatroom.dao.ChatParticipantRepository;
-import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
+import project.backend.domain.chat.chatroom.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatParticipant;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.member.entity.Member;

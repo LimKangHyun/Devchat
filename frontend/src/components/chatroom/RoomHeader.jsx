@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaBell, FaRegBell } from 'react-icons/fa';
+import { FaBell, FaRegBell, FaSpinner } from 'react-icons/fa';
 
 const RoomHeader = ({
   roomName, inviteCode, onSearch, onLeaveRoom, onDeleteRoom,
@@ -12,10 +12,10 @@ const RoomHeader = ({
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showLeaveSuccess, setShowLeaveSuccess] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
-  // 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -38,15 +38,16 @@ const RoomHeader = ({
   };
 
   const handleDelete = async () => {
+    setDeleteLoading(true);
     const result = await onDeleteRoom();
     if (result.success) {
       setShowDeleteConfirm(false);
-      alert('채팅방이 삭제되었습니다.');
-      navigate('/');
+      // navigate는 Sidebar에서 처리
     } else {
       alert(result.error);
       setShowDeleteConfirm(false);
     }
+    setDeleteLoading(false);
   };
 
   const handleCopy = async () => {
@@ -85,7 +86,6 @@ const RoomHeader = ({
           {roomName}
         </span>
 
-        {/* 초대 코드 복사 */}
         <button
           onClick={handleCopy}
           style={plainBtn}
@@ -98,7 +98,6 @@ const RoomHeader = ({
           초대 코드 복사
         </button>
 
-        {/* AI 리뷰 토글 */}
         {isOwner && repositoryUrl && (
           <div
             onClick={onToggleAiReview}
@@ -130,7 +129,6 @@ const RoomHeader = ({
           </div>
         )}
 
-        {/* 알람 */}
         <button
           onClick={toggleAlarm}
           title={alarmEnabled ? '알림 끄기' : '알림 켜기'}
@@ -141,7 +139,6 @@ const RoomHeader = ({
           {alarmEnabled ? <FaBell size={15} /> : <FaRegBell size={15} />}
         </button>
 
-        {/* 더보기 */}
         <div ref={menuRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setMenuOpen(prev => !prev)}
@@ -239,8 +236,32 @@ const RoomHeader = ({
             <p style={{ fontSize: '15px', color: '#1e293b', marginBottom: '6px', fontWeight: '500' }}>채팅방을 삭제하시겠습니까?</p>
             <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '24px' }}>삭제된 채팅방과 모든 메시지는 복구할 수 없습니다.</p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
-              <button onClick={() => setShowDeleteConfirm(false)} style={{ padding: '8px 20px', backgroundColor: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: '#64748b' }}>취소</button>
-              <button onClick={handleDelete} style={{ padding: '8px 20px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '500' }}>삭제</button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleteLoading}
+                style={{ padding: '8px 20px', backgroundColor: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: deleteLoading ? 'not-allowed' : 'pointer', fontSize: '13px', color: '#64748b' }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                style={{
+                  padding: '8px 20px', backgroundColor: '#dc2626', color: 'white',
+                  border: 'none', borderRadius: '8px',
+                  cursor: deleteLoading ? 'not-allowed' : 'pointer',
+                  fontSize: '13px', fontWeight: '500',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  opacity: deleteLoading ? 0.8 : 1,
+                }}
+              >
+                {deleteLoading ? (
+                  <>
+                    <FaSpinner size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                    삭제 중...
+                  </>
+                ) : '삭제'}
+              </button>
             </div>
           </div>
         </div>
@@ -252,6 +273,8 @@ const RoomHeader = ({
           채팅방에서 나갔습니다.
         </div>
       )}
+
+      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };

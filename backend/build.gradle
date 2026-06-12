@@ -55,6 +55,9 @@ dependencies {
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
 
+    implementation 'io.pinecone:pinecone-client:2.0.0'
+    implementation 'io.grpc:grpc-okhttp:1.62.2'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'

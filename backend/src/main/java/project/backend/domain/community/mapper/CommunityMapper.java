@@ -1,6 +1,6 @@
 package project.backend.domain.community.mapper;
 
-import project.backend.domain.chat.chatroom.dto.event.JoinChatRoomEvent;
+import project.backend.domain.chat.chatroom.event.JoinChatRoomEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.community.dto.PostCreateRequest;

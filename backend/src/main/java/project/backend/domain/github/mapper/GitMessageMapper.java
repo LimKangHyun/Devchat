@@ -16,7 +16,7 @@ public class GitMessageMapper {
         Map<String, Object> issue = (Map<String, Object>) payload.get("issue");
         Map<String, Object> sender = (Map<String, Object>) payload.get("sender");
 
-        String title = (String) issue.get("title");
+        String title = ((String) issue.get("title")).strip().replace("\n", " ");
         String url = (String) issue.get("html_url");
         String author = (String) sender.get("login");
         String body = (String) issue.get("body");
@@ -39,6 +39,7 @@ public class GitMessageMapper {
         String action = (String) payload.get("action");
         Map<String, Object> pr = (Map<String, Object>) payload.get("pull_request");
         Map<String, Object> sender = (Map<String, Object>) payload.get("sender");
+        int prNumber = (int) pr.get("number");
 
         boolean merged = Boolean.TRUE.equals(pr.get("merged"));
         PrStatus prStatus;
@@ -50,7 +51,7 @@ public class GitMessageMapper {
 
         if (!isChatTarget(prStatus)) return null;
 
-        String title  = (String) pr.get("title");
+        String title  = ((String) pr.get("title")).strip().replace("\n", " ");
         String url    = (String) pr.get("html_url");
         String author = (String) sender.get("login");
         String body   = (String) pr.get("body");
@@ -59,6 +60,7 @@ public class GitMessageMapper {
                 .type(GitEventType.PULL_REQUEST)
                 .prStatus(prStatus)
                 .actor(author)
+                .prNumber(prNumber)
                 .content(buildContent(prStatus, title, author, url, pr))
                 .fullContent(buildFullContent(prStatus, title, author, body, url, pr))
                 .build();
@@ -66,7 +68,7 @@ public class GitMessageMapper {
 
     private boolean isChatTarget(PrStatus prStatus) {
         return switch (prStatus) {
-            case OPEN, MERGED, EDITED, REOPENED, SYNCHRONIZE -> true;
+            case OPEN, MERGED, CLOSED, EDITED, REOPENED, SYNCHRONIZE -> true;
             default -> false;
         };
     }
@@ -77,6 +79,9 @@ public class GitMessageMapper {
             String toBranch   = ((Map<String, Object>) pr.get("base")).get("ref").toString();
             return "[PR merged] " + title + " by " + author + "\n"
                     + "merged to " + toBranch + " from " + fromBranch + "\n" + url;
+        }
+        if (prStatus == PrStatus.CLOSED) {
+            return "[PR closed] " + title + " by " + author + "\n" + url;
         }
         String actionLabel = switch (prStatus) {
             case OPEN        -> "opened";

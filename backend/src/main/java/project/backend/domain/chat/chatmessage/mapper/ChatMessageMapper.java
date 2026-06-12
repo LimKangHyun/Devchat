@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import project.backend.auth.dto.MemberDetails;
@@ -12,19 +11,18 @@ import project.backend.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchProjection;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
-import project.backend.domain.chat.chatmessage.dto.event.ChatMessageBroadcastEvent;
+import project.backend.domain.chat.chatmessage.event.ChatMessageBroadcastEvent;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatmessage.entity.ChatMessageIndexStatus;
 import project.backend.domain.chat.chatmessage.entity.MessageType;
 import project.backend.domain.chat.chatsearch.entity.ChatMessageSearch;
-import project.backend.domain.chat.chatroom.dto.event.LeaveChatRoomEvent;
+import project.backend.domain.chat.chatroom.event.LeaveChatRoomEvent;
 import project.backend.domain.chat.chatroom.entity.ChatRoom;
 import project.backend.domain.github.dto.GitMessageDto;
 import project.backend.domain.aireview.entity.AiReview;
 import project.backend.domain.imagefile.ImageFile;
 import project.backend.domain.member.entity.Member;
 
-@Slf4j
 @Component
 public class ChatMessageMapper {
 
@@ -76,6 +74,7 @@ public class ChatMessageMapper {
                 .content(gitMessage.getContent())
                 .createdAt(LocalDateTime.now())
                 .sender(githubBot)
+                .prNumber(gitMessage.getPrNumber())
                 .build();
     }
 
@@ -108,8 +107,6 @@ public class ChatMessageMapper {
     }
 
     public ChatMessageResponse toResponse(ChatMessage message) {
-        log.info("aiReview: {}", message.getAiReview());
-        log.info("prNumber: {}", message.getPrNumber());
         return ChatMessageResponse.builder()
                 .senderName(message.getSender().getNickname())
                 .content(message.getContent())
@@ -178,6 +175,7 @@ public class ChatMessageMapper {
                 .createdAt(message.getCreatedAt())
                 .messageId(message.getId())
                 .profileImageUrl(githubProfile)
+                .prNumber(message.getPrNumber())
                 .build();
     }
 
@@ -197,7 +195,6 @@ public class ChatMessageMapper {
                 .build();
     }
 
-    // ChatMessage에 aiReview FK만 연결하는 단순한 엔티티 생성
     public ChatMessage toAiReviewMessageEntity(AiReview aiReview, Member githubBot, ChatRoom room) {
         return ChatMessage.builder()
                 .chatRoom(room)

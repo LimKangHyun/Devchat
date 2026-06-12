@@ -1,4 +1,4 @@
-package project.backend.domain.chat.chatroom.dto.event;
+package project.backend.domain.chat.chatroom.event;
 
 import java.time.LocalDateTime;
 

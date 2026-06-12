@@ -3,6 +3,8 @@ package project.backend.domain.github.client;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -111,5 +113,22 @@ public class GitHubBotClient {
             .block();
 
         log.info("GitHub 인라인 리뷰 등록 완료: PR #{}", prNumber);
+    }
+
+    public Map<String, String> getPrFileStatuses(String owner, String repo, int prNumber) {
+        List<Map<String, Object>> files = webClientBuilder.build()
+                .get()
+                .uri("https://api.github.com/repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/files")
+                .header("Authorization", "Bearer " + botPat)
+                .header("Accept", "application/vnd.github+json")
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+                .block();
+
+        return files.stream()
+                .collect(Collectors.toMap(
+                        f -> (String) f.get("filename"),
+                        f -> (String) f.get("status")
+                ));
     }
 }

@@ -14,6 +14,7 @@ public class GitMessageDto {
 	private String actor;
 	private String content;
 	private String fullContent;
+	private Integer prNumber;
 	private ChatRoom room;
 
 	public GitMessageDto withRoom(ChatRoom room) {
@@ -23,6 +24,7 @@ public class GitMessageDto {
 				.actor(this.actor)
 				.content(this.content)
 				.fullContent(this.fullContent)
+				.prNumber(this.prNumber)
 				.room(room)
 				.build();
 	}
