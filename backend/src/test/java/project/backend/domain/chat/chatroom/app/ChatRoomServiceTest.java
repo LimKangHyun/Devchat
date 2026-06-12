@@ -25,7 +25,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import project.backend.auth.app.AuthTokenService;
 import project.backend.domain.aireview.app.AiReviewService;
+import project.backend.domain.aireview.app.RepoIndexingService;
 import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
@@ -61,6 +63,8 @@ class ChatRoomServiceTest {
     @Mock private ChatRoomAlarmService chatRoomAlarmService;
     @Mock private ChatRoomReadService chatRoomReadService;
     @Mock private ChatRoomParticipantService chatRoomParticipantService;
+    @Mock private RepoIndexingService repoIndexingService;
+    @Mock private AuthTokenService authTokenService;
     @Mock private AiReviewService aiReviewService;
     @Mock private ApplicationEventPublisher eventPublisher;
 
