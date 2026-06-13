@@ -14,6 +14,7 @@ import project.backend.domain.aireview.dao.AiReviewRepository;
 import project.backend.domain.aireview.dto.AiReviewResponse;
 import project.backend.domain.aireview.dto.FileReviewResult;
 import project.backend.domain.aireview.dto.InlineReview;
+import project.backend.domain.aireview.dto.PrReviewContext;
 import project.backend.domain.aireview.entity.*;
 import project.backend.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.backend.domain.chat.chatmessage.dto.ChatMessageResponse;
@@ -79,8 +80,8 @@ public class AiReviewService {
 
             if (isSkipped(aiReview, room.getId(), fullDiff)) return;
 
-            List<FileReviewResult> fileResults = buildFileResults(repo, fullDiff, headSha, baseSha,
-                    aiReview.getPrTitle(), aiReview.getPrBody(), prNumber, room.getId());
+            PrReviewContext ctx = new PrReviewContext(repo, fullDiff, headSha, baseSha, room.getId());
+            List<FileReviewResult> fileResults = buildFileResults(ctx, aiReview);
 
             if (fileResults.isEmpty()) {
                 aiReview.updateFail("모든 파일 리뷰 생성 실패");
@@ -125,15 +126,12 @@ public class AiReviewService {
         broadcastAiReviewStatus(roomId, aiReview);
     }
 
-    private List<FileReviewResult> buildFileResults(GitRepoDto repo, String fullDiff,
-                                                    String headSha, String baseSha,
-                                                    String prTitle, String prBody,
-                                                    int prNumber, Long repoId) {
-        Map<String, String> fileDiffs = diffParser.parseFileDiffs(fullDiff);
-        Map<String, String> fileStatuses = gitHubBotClient.getPrFileStatuses(repo.ownerName(), repo.repoName(), prNumber);
+    private List<FileReviewResult> buildFileResults(PrReviewContext ctx, AiReview aiReview) {
+        Map<String, String> fileDiffs = diffParser.parseFileDiffs(ctx.fullDiff());
+        Map<String, String> fileStatuses = gitHubBotClient.getPrFileStatuses(
+            ctx.repo().ownerName(), ctx.repo().repoName(), aiReview.getPrNumber());
         List<FileReviewResult> results = new ArrayList<>();
 
-        // repoId 추출 (ChatRoom에서 가져와야 하므로 파라미터 추가 필요)
         for (Map.Entry<String, String> entry : fileDiffs.entrySet()) {
             String filePath = entry.getKey();
             String fileDiff = entry.getValue();
@@ -151,16 +149,22 @@ public class AiReviewService {
                     continue;
                 }
 
-                String fileContent = gitHubBotClient.getFileContent(repo.ownerName(), repo.repoName(), filePath, headSha);
+                String fileContent = gitHubBotClient.getFileContent(
+                    ctx.repo().ownerName(), ctx.repo().repoName(), filePath, ctx.headSha());
                 String baseContent = "added".equals(status) ? ""
-                        : gitHubBotClient.getFileContent(repo.ownerName(), repo.repoName(), filePath, baseSha);
+                    : gitHubBotClient.getFileContent(
+                        ctx.repo().ownerName(), ctx.repo().repoName(), filePath, ctx.baseSha());
 
-                String context = ragContextService.buildContext(repoId, filePath, fileDiff);
+                String context = ragContextService.buildContext(ctx.repoId(), filePath, fileDiff);
+                if (!context.isBlank()) {
+                    aiReview.markRagUsed();
+                }
                 String diffWithContext = context.isBlank()
-                        ? fileDiff
-                        : context + "\n\n위 컨텍스트를 참고해서 아래 PR을 리뷰해줘:\n\n" + fileDiff;
+                    ? fileDiff
+                    : context + "\n\n위 컨텍스트를 참고해서 아래 PR을 리뷰해줘:\n\n" + fileDiff;
 
-                List<InlineReview> reviews = geminiClient.reviewPrDiffInline(diffWithContext, fileContent, prTitle, prBody);
+                List<InlineReview> reviews = geminiClient.reviewPrDiffInline(
+                    diffWithContext, fileContent, aiReview.getPrTitle(), aiReview.getPrBody());
                 results.add(new FileReviewResult(filePath, baseContent, fileContent, reviews, false));
             } catch (Exception e) {
                 log.error("파일 리뷰 실패: {}", filePath, e);

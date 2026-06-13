@@ -15,4 +15,5 @@ public interface ChatRoomWithSequenceProjection {
     String getRepositoryUrl();
 
     IndexingStatus getIndexingStatus();
+
 }

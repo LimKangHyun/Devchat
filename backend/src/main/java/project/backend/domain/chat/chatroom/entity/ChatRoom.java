@@ -48,6 +48,10 @@ public class ChatRoom {
     @Column(name = "last_sequence", nullable = false)
     private Long lastSequence = 0L;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private IndexingStatus indexingStatus = IndexingStatus.NONE;
+
     @Column(nullable = false)
     private boolean aiReviewEnabled = true;
 
