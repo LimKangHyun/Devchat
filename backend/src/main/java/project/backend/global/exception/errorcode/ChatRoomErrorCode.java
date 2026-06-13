@@ -23,7 +23,9 @@ public enum ChatRoomErrorCode implements ErrorCode {
     SERVICE_UNAVAILABLE("CRE-013", "서비스가 일시적으로 불가합니다. 잠시 후 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE),
     CHATROOM_FULL("CRE-014", "채팅방 인원이 가득 찼습니다.", HttpStatus.CONFLICT),
     CHATROOM_LIMIT_EXCEEDED("CRE-015", "참여 가능한 채팅방 수를 초과했습니다.", HttpStatus.CONFLICT),
-    TRY_AGAIN("CRE-016", "잠시 후 다시 시도해주세요.", HttpStatus.CONFLICT);
+    TRY_AGAIN("CRE-016", "잠시 후 다시 시도해주세요.", HttpStatus.CONFLICT),
+    REPOSITORY_ALREADY_CONNECTED("CRE=017", "이미 연결된 레포지토리입니다.", HttpStatus.CONFLICT);
+
 
     private final String code;
     private final String message;

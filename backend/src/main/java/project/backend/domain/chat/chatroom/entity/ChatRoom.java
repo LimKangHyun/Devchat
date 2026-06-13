@@ -28,6 +28,7 @@ public class ChatRoom {
 
     private LocalDateTime createdAt;
 
+    @Column(unique = true)
     private String repositoryUrl;
 
     private String inviteCode;

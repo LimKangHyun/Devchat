@@ -57,5 +57,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
     @Query(value = "SELECT LAST_INSERT_ID()", nativeQuery = true)
     Long findLastInsertId();
+
+    boolean existsByRepositoryUrl(String repositoryUrl);
 }
 
