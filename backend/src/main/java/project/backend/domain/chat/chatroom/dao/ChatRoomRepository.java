@@ -42,13 +42,14 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
     @Query("""
         SELECT cr.id AS chatRoomId, cr.name AS name, cr.inviteCode AS inviteCode,
-        	   cp.lastReadSequence AS lastReadSequence, cr.repositoryUrl AS repositoryUrl
+               cp.lastReadSequence AS lastReadSequence, cr.repositoryUrl AS repositoryUrl,
+               cr.indexingStatus AS indexingStatus
         FROM ChatRoom cr
         JOIN cr.participants cp
         WHERE cp.participant.id = :memberId AND cp.isActive = true
-        """)
+    """)
     List<ChatRoomWithSequenceProjection> findAllRoomsWithSequenceByParticipantId(
-        @Param("memberId") Long memberId);
+            @Param("memberId") Long memberId);
 
     @Modifying(clearAutomatically = true)
     @Query(value = "UPDATE chat_room SET last_sequence = LAST_INSERT_ID(last_sequence + 1) WHERE room_id = :roomId", nativeQuery = true)

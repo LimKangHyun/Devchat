@@ -3,9 +3,13 @@ package project.backend.domain.aireview.app;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import project.backend.domain.aireview.client.PineconeClient;
+import project.backend.domain.aireview.dto.ChunkMeta;
+import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
+import project.backend.domain.chat.chatroom.entity.IndexingStatus;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -25,6 +29,7 @@ public class RepoIndexingService {
     private static final Duration LOCK_TTL = Duration.ofMinutes(30);
     private static final int MAX_WAIT_SECONDS = 60;
     private static final long POLL_INTERVAL_MS = 500;
+    private static final int BATCH_SIZE = 20;
 
     private static final Set<String> EXCLUDED_DIRS = Set.of(
             "node_modules", ".git", "build", "out", "target", ".gradle"
@@ -33,6 +38,8 @@ public class RepoIndexingService {
     private final EmbeddingService embeddingService;
     private final PineconeClient pineconeClient;
     private final RedisTemplate<String, String> redisTemplate;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final ChatRoomRepository chatRoomRepository;
 
     private final Semaphore semaphore = new Semaphore(4);
 
@@ -53,22 +60,39 @@ public class RepoIndexingService {
 
         try {
             semaphore.acquire();
+            long startTime = System.currentTimeMillis();
             log.info("레포 인덱싱 시작. repoId={}", repoId);
+            updateIndexingStatus(repoId, IndexingStatus.RUNNING);
 
             cloneRepo(repoUrl, token, repoPath);
             processAndIndex(repoId, repoPath);
 
-            log.info("레포 인덱싱 완료. repoId={}", repoId);
+            updateIndexingStatus(repoId, IndexingStatus.COMPLETED);
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.info("레포 인덱싱 완료. repoId={}, 소요시간={}ms ({}초)", repoId, elapsed, elapsed / 1000);
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("레포 인덱싱 인터럽트. repoId={}", repoId, e);
+            updateIndexingStatus(repoId, IndexingStatus.FAILED);
         } catch (Exception e) {
             log.error("레포 인덱싱 실패. repoId={}", repoId, e);
+            updateIndexingStatus(repoId, IndexingStatus.FAILED);
         } finally {
             semaphore.release();
             deleteDirectory(repoPath);
             redisTemplate.delete(lockKey);
+        }
+    }
+
+    private void updateIndexingStatus(Long repoId, IndexingStatus status) {
+        try {
+            chatRoomRepository.findById(repoId).ifPresent(room -> {
+                room.updateIndexingStatus(status);
+                chatRoomRepository.save(room);
+            });
+        } catch (Exception e) {
+            log.warn("인덱싱 상태 업데이트 실패. repoId={}, status={}", repoId, status, e);
         }
     }
 
@@ -79,12 +103,10 @@ public class RepoIndexingService {
 
     private boolean isCancelled(Long repoId) {
         try {
-            return Boolean.TRUE.equals(
-                    redisTemplate.hasKey(CANCEL_PREFIX + repoId)
-            );
+            return Boolean.TRUE.equals(redisTemplate.hasKey(CANCEL_PREFIX + repoId));
         } catch (Exception e) {
             log.warn("Redis 장애로 cancel 체크 실패. repoId={}", repoId, e);
-            return false; // 폴백: 계속 진행
+            return false;
         }
     }
 
@@ -131,12 +153,18 @@ public class RepoIndexingService {
             }
         });
 
-        log.info("인덱싱 대상 파일 수: {}. repoId={}", javaFiles.size(), repoId);
+        int totalFiles = javaFiles.size();
+        int indexedFiles = 0;
+
+        log.info("인덱싱 대상 파일 수: {}. repoId={}", totalFiles, repoId);
+        broadcastIndexingStatus(repoId, totalFiles, indexedFiles, "RUNNING");
+
+        List<ChunkMeta> buffer = new ArrayList<>();
 
         for (Path file : javaFiles) {
-            // 파일마다 취소 플래그 체크
             if (isCancelled(repoId)) {
                 log.info("인덱싱 취소 감지. repoId={}", repoId);
+                updateIndexingStatus(repoId, IndexingStatus.FAILED);
                 return;
             }
 
@@ -148,25 +176,63 @@ public class RepoIndexingService {
                 List<String> chunks = chunk(content);
 
                 for (int i = 0; i < chunks.size(); i++) {
-                    String chunk = chunks.get(i);
                     String id = repoId + "-" + relativePath.replace("/", "_") + "-" + i;
-
-                    float[] vector = embeddingService.embed(chunk);
-
-                    Map<String, String> metadata = Map.of(
-                            "repoId", String.valueOf(repoId),
-                            "filePath", relativePath,
-                            "chunkIndex", String.valueOf(i),
-                            "code", chunk.length() > 1000 ? chunk.substring(0, 1000) : chunk,
-                            "language", "java"
-                    );
-
-                    pineconeClient.upsert(id, vector, metadata, String.valueOf(repoId));
+                    buffer.add(new ChunkMeta(id, relativePath, i, chunks.get(i)));
                 }
+
+                // 버퍼가 BATCH_SIZE 이상이면 flush
+                while (buffer.size() >= BATCH_SIZE) {
+                    flushBatch(repoId, buffer.subList(0, BATCH_SIZE));
+                    buffer = new ArrayList<>(buffer.subList(BATCH_SIZE, buffer.size()));
+                }
+
+                indexedFiles++;
+                broadcastIndexingStatus(repoId, totalFiles, indexedFiles, "RUNNING");
+
             } catch (Exception e) {
                 log.warn("파일 청킹/임베딩 실패. file={}", file, e);
             }
         }
+
+        // 남은 버퍼 flush
+        if (!buffer.isEmpty()) {
+            flushBatch(repoId, buffer);
+        }
+
+        broadcastIndexingStatus(repoId, totalFiles, indexedFiles, "COMPLETED");
+        log.info("인덱싱 완료. repoId={}, 총 API 호출 횟수={}", repoId, embeddingService.getAndResetCount());
+    }
+
+    private void flushBatch(Long repoId, List<ChunkMeta> batch) {
+        List<String> texts = batch.stream().map(ChunkMeta::chunk).toList();
+        List<float[]> vectors = embeddingService.embedBatch(texts);
+
+        for (int i = 0; i < batch.size(); i++) {
+            ChunkMeta meta = batch.get(i);
+            String code = meta.chunk().length() > 1000 ? meta.chunk().substring(0, 1000) : meta.chunk();
+
+            Map<String, String> metadata = Map.of(
+                    "repoId", String.valueOf(repoId),
+                    "filePath", meta.relativePath(),
+                    "chunkIndex", String.valueOf(meta.chunkIndex()),
+                    "code", code,
+                    "language", "java"
+            );
+
+            pineconeClient.upsert(meta.id(), vectors.get(i), metadata, String.valueOf(repoId));
+        }
+    }
+
+    private void broadcastIndexingStatus(Long repoId, int totalFiles, int indexedFiles, String status) {
+        messagingTemplate.convertAndSend(
+                "/topic/chat/" + repoId,
+                Map.of(
+                        "type", "INDEXING_PROGRESS",
+                        "totalFiles", totalFiles,
+                        "indexedFiles", indexedFiles,
+                        "status", status
+                )
+        );
     }
 
     private List<String> chunk(String content) {

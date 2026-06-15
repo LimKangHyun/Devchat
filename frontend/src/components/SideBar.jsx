@@ -89,9 +89,6 @@ const Sidebar = ({ onStartChat }) => {
     const handleRoomDeleted = (e) => {
       const deletedRoomId = e.detail.roomId;
       const remaining = alarmRoomsRef.current.filter(r => Number(r.uniqueId) !== Number(deletedRoomId));
-      console.log('deletedRoomId:', deletedRoomId);
-      console.log('remaining:', remaining);
-      console.log('navigating to:', remaining.length > 0 ? `/chat/${remaining[0].inviteCode}` : '/');
       if (remaining.length > 0) {
         navigate(`/chat/${remaining[0].inviteCode}`);
       } else {
@@ -295,6 +292,7 @@ const Sidebar = ({ onStartChat }) => {
           onClose={() => setShowMembersModal(false)}
           sidebarRef={sidebarRef}
           showToast={showToastMessage}
+          indexingStatus={selectedRoom?.indexingStatus}
         />
       )}
       {showCreateModal && <CreateRoomModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreateRoom} />}

@@ -48,7 +48,8 @@ public class ChatRoomReadService {
                     p.getName(),
                     alarmEnabled,
                     unreadCount,
-                    p.getRepositoryUrl()
+                    p.getRepositoryUrl(),
+                    p.getIndexingStatus()
             );
         }).toList();
     }

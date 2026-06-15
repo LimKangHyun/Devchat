@@ -27,7 +27,7 @@ const GitHubRepoDisplay = ({ repositoryUrl }) => {
 
   return (
     <div style={{
-      marginBottom: '20px',
+      marginBottom: '12px',
       backgroundColor: '#f8fafc',
       borderRadius: '10px',
       overflow: 'hidden',
@@ -98,7 +98,46 @@ const GitHubRepoDisplay = ({ repositoryUrl }) => {
   );
 };
 
-const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
+const IndexingStatusBadge = ({ status }) => {
+  if (!status || status === 'NONE') return null;
+
+  const config = {
+    RUNNING: { label: '인덱싱 중...', bg: '#ebf8ff', color: '#2b6cb0', border: '#bee3f8', dot: '#4299e1', animate: true },
+    COMPLETED: { label: '인덱싱 완료 ✅', bg: '#f0fff4', color: '#276749', border: '#c6f6d5', dot: '#48bb78', animate: false },
+    FAILED: { label: '인덱싱 실패 ❌', bg: '#fff5f5', color: '#9b2c2c', border: '#fed7d7', dot: '#fc8181', animate: false },
+  };
+
+  const c = config[status];
+  if (!c) return null;
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '8px 12px',
+      borderRadius: '8px',
+      marginBottom: '16px',
+      backgroundColor: c.bg,
+      border: `1px solid ${c.border}`,
+      fontSize: '12px',
+      color: c.color,
+      fontWeight: '500',
+    }}>
+      <div style={{
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        backgroundColor: c.dot,
+        flexShrink: 0,
+        animation: c.animate ? 'pulse 1.5s ease-in-out infinite' : 'none',
+      }} />
+      {c.label}
+    </div>
+  );
+};
+
+const RoomInfoModal = ({ room, sidebarRef, onClose, showToast, indexingStatus }) => {
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -234,7 +273,10 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
 
         <div style={{ padding: '20px', maxHeight: 'calc(80vh - 80px)', overflowY: 'auto' }}>
           {room.repositoryUrl && (
-            <GitHubRepoDisplay repositoryUrl={room.repositoryUrl} />
+            <>
+              <GitHubRepoDisplay repositoryUrl={room.repositoryUrl} />
+              <IndexingStatusBadge status={indexingStatus} />
+            </>
           )}
 
           <div style={{
@@ -353,6 +395,10 @@ const RoomInfoModal = ({ room, sidebarRef, onClose, showToast }) => {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
         }
       `}</style>
     </>

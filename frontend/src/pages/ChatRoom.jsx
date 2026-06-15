@@ -145,6 +145,7 @@ const ChatRoom = () => {
   const [searchHasNext, setSearchHasNext] = useState(false);
   const [searchTotalCount, setSearchTotalCount] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [indexingStatus, setIndexingStatus] = useState(null);
 
   const [initState, setInitState] = useState({
     isRoomValidated: false,
@@ -321,6 +322,10 @@ const ChatRoom = () => {
   const { stompClientRef } = useWebSocket({
     roomId: initState.isRoomValidated ? roomId : null,
     onMessageReceived: (received) => {
+      if (received.type === 'INDEXING_PROGRESS') {
+        setIndexingStatus(received);
+        return;
+      }
       if (received?.profileImageUrl) preloadImages([received.profileImageUrl]);
       if (received.sequence != null && lastSequenceRef.current != null) {
         if (received.sequence - lastSequenceRef.current > 1) fetchMissingMessages();
@@ -560,6 +565,27 @@ const ChatRoom = () => {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ width: '28px', height: '28px', border: '2.5px solid #e8e8e8', borderTop: '2.5px solid #1264a3', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
                   <div style={{ fontSize: '13px', color: '#aaa' }}>불러오는 중...</div>
+                </div>
+              </div>
+            )}
+
+            {indexingStatus && indexingStatus.status !== 'COMPLETED' && (
+              <div style={{
+                padding: '8px 16px',
+                backgroundColor: '#e8f4fd',
+                borderBottom: '1px solid #bee3f8',
+                flexShrink: 0,
+              }}>
+                <div style={{ fontSize: '13px', color: '#2c5282', fontWeight: '600', marginBottom: '4px' }}>
+                  📦 레포지토리 인덱싱 중... {indexingStatus.indexedFiles}/{indexingStatus.totalFiles} ({Math.round(indexingStatus.indexedFiles / indexingStatus.totalFiles * 100)}%)
+                </div>
+                <div style={{ backgroundColor: '#bee3f8', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${Math.round(indexingStatus.indexedFiles / indexingStatus.totalFiles * 100)}%`,
+                    height: '100%',
+                    backgroundColor: '#3182ce',
+                    transition: 'width 0.3s ease',
+                  }} />
                 </div>
               </div>
             )}

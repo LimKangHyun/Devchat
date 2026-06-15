@@ -203,7 +203,7 @@ public class ChatRoomService {
         boolean alarmEnable = chatRoomAlarmService.isAlarmEnabled(memberId, room.getId());
 
         return new EntryRoomResponse(
-                room.getId(), room.getName(), ownerId, alarmEnable, room.getRepositoryUrl(), room.isAiReviewEnabled()
+                room.getId(), room.getName(), ownerId, alarmEnable, room.getRepositoryUrl(), room.isAiReviewEnabled(), room.getIndexingStatus()
         );
     }
 
