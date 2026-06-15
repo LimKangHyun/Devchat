@@ -39,7 +39,7 @@ public class RepoIndexingService {
     private final PineconeClient pineconeClient;
     private final RedisTemplate<String, String> redisTemplate;
     private final SimpMessagingTemplate messagingTemplate;
-    private final ChatRoomRepository chatRoomRepository;
+    private final IndexingStatusUpdater indexingStatusUpdater;
 
     private final Semaphore semaphore = new Semaphore(4);
 
@@ -62,37 +62,26 @@ public class RepoIndexingService {
             semaphore.acquire();
             long startTime = System.currentTimeMillis();
             log.info("레포 인덱싱 시작. repoId={}", repoId);
-            updateIndexingStatus(repoId, IndexingStatus.RUNNING);
+            indexingStatusUpdater.update(repoId, IndexingStatus.RUNNING);
 
             cloneRepo(repoUrl, token, repoPath);
             processAndIndex(repoId, repoPath);
 
-            updateIndexingStatus(repoId, IndexingStatus.COMPLETED);
+            indexingStatusUpdater.update(repoId, IndexingStatus.COMPLETED);
             long elapsed = System.currentTimeMillis() - startTime;
             log.info("레포 인덱싱 완료. repoId={}, 소요시간={}ms ({}초)", repoId, elapsed, elapsed / 1000);
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("레포 인덱싱 인터럽트. repoId={}", repoId, e);
-            updateIndexingStatus(repoId, IndexingStatus.FAILED);
+            indexingStatusUpdater.update(repoId, IndexingStatus.FAILED);
         } catch (Exception e) {
             log.error("레포 인덱싱 실패. repoId={}", repoId, e);
-            updateIndexingStatus(repoId, IndexingStatus.FAILED);
+            indexingStatusUpdater.update(repoId, IndexingStatus.FAILED);
         } finally {
             semaphore.release();
             deleteDirectory(repoPath);
             redisTemplate.delete(lockKey);
-        }
-    }
-
-    private void updateIndexingStatus(Long repoId, IndexingStatus status) {
-        try {
-            chatRoomRepository.findById(repoId).ifPresent(room -> {
-                room.updateIndexingStatus(status);
-                chatRoomRepository.save(room);
-            });
-        } catch (Exception e) {
-            log.warn("인덱싱 상태 업데이트 실패. repoId={}, status={}", repoId, status, e);
         }
     }
 
@@ -164,7 +153,7 @@ public class RepoIndexingService {
         for (Path file : javaFiles) {
             if (isCancelled(repoId)) {
                 log.info("인덱싱 취소 감지. repoId={}", repoId);
-                updateIndexingStatus(repoId, IndexingStatus.FAILED);
+                indexingStatusUpdater.update(repoId, IndexingStatus.FAILED);
                 return;
             }
 
