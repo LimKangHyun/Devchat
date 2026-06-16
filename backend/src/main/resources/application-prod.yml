@@ -110,7 +110,15 @@ github:
     username: Devchat-Code-Assist
 
 gemini:
-  api-key: ${GEMINI_API_KEY}
+  review-api-keys:
+    - ${GEMINI_REVIEW_KEY_1}
+    - ${GEMINI_REVIEW_KEY_2}
+  embedding-api-keys:
+    - ${GEMINI_EMBEDDING_KEY_1}
+    - ${GEMINI_EMBEDDING_KEY_2}
+    - ${GEMINI_EMBEDDING_KEY_3}
+    - ${GEMINI_EMBEDDING_KEY_4}
+    - ${GEMINI_EMBEDDING_KEY_5}
 
 pinecone:
   api-key: ${PINECONE_API_KEY}
