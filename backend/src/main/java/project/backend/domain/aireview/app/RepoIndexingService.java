@@ -8,7 +8,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import project.backend.domain.aireview.client.PineconeClient;
 import project.backend.domain.aireview.dto.ChunkMeta;
-import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.backend.domain.chat.chatroom.entity.IndexingStatus;
 
 import java.io.IOException;
@@ -30,9 +29,14 @@ public class RepoIndexingService {
     private static final int MAX_WAIT_SECONDS = 60;
     private static final long POLL_INTERVAL_MS = 500;
     private static final int BATCH_SIZE = 20;
+    private static final long MAX_FILE_SIZE_BYTES = 100 * 1024; // 100KB
 
     private static final Set<String> EXCLUDED_DIRS = Set.of(
             "node_modules", ".git", "build", "out", "target", ".gradle"
+    );
+
+    private static final Set<String> EXCLUDED_PATHS = Set.of(
+            "dto", "exception", "config", "constant", "common"
     );
 
     private final EmbeddingService embeddingService;
@@ -135,9 +139,13 @@ public class RepoIndexingService {
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                if (file.toString().endsWith(".java")) {
-                    javaFiles.add(file);
-                }
+                String filePath = file.toString().toLowerCase();
+
+                if (!filePath.endsWith(".java")) return FileVisitResult.CONTINUE;
+                if (attrs.size() > MAX_FILE_SIZE_BYTES) return FileVisitResult.CONTINUE;
+                if (EXCLUDED_PATHS.stream().anyMatch(filePath::contains)) return FileVisitResult.CONTINUE;
+
+                javaFiles.add(file);
                 return FileVisitResult.CONTINUE;
             }
         });
