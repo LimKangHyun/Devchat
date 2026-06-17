@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import project.backend.domain.aireview.client.PineconeClient;
 import project.backend.domain.aireview.dto.ChunkMeta;
 import project.backend.domain.chat.chatroom.entity.IndexingStatus;
+import project.backend.global.exception.errorcode.IndexingErrorCode;
+import project.backend.global.exception.ex.IndexingException;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -127,6 +129,15 @@ public class RepoIndexingService {
     }
 
     private void processAndIndex(Long repoId, Path repoPath) throws IOException {
+        List<Path> javaFiles = collectFiles(repoPath);
+
+        log.info("인덱싱 대상 파일 수: {}. repoId={}", javaFiles.size(), repoId);
+        broadcastIndexingStatus(repoId, javaFiles.size(), 0, "RUNNING");
+
+        indexFiles(repoId, repoPath, javaFiles);
+    }
+
+    private List<Path> collectFiles(Path repoPath) throws IOException {
         List<Path> javaFiles = new ArrayList<>();
         Files.walkFileTree(repoPath, new SimpleFileVisitor<>() {
             @Override
@@ -140,22 +151,19 @@ public class RepoIndexingService {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                 String filePath = file.toString().toLowerCase();
-
                 if (!filePath.endsWith(".java")) return FileVisitResult.CONTINUE;
                 if (attrs.size() > MAX_FILE_SIZE_BYTES) return FileVisitResult.CONTINUE;
                 if (EXCLUDED_PATHS.stream().anyMatch(filePath::contains)) return FileVisitResult.CONTINUE;
-
                 javaFiles.add(file);
                 return FileVisitResult.CONTINUE;
             }
         });
+        return javaFiles;
+    }
 
+    private void indexFiles(Long repoId, Path repoPath, List<Path> javaFiles) {
         int totalFiles = javaFiles.size();
         int indexedFiles = 0;
-
-        log.info("인덱싱 대상 파일 수: {}. repoId={}", totalFiles, repoId);
-        broadcastIndexingStatus(repoId, totalFiles, indexedFiles, "RUNNING");
-
         List<ChunkMeta> buffer = new ArrayList<>();
 
         for (Path file : javaFiles) {
@@ -166,38 +174,50 @@ public class RepoIndexingService {
             }
 
             try {
-                String content = Files.readString(file);
-                if (content.isBlank()) continue;
-
-                String relativePath = repoPath.relativize(file).toString();
-                List<String> chunks = chunk(content);
-
-                for (int i = 0; i < chunks.size(); i++) {
-                    String id = repoId + "-" + relativePath.replace("/", "_") + "-" + i;
-                    buffer.add(new ChunkMeta(id, relativePath, i, chunks.get(i)));
-                }
-
-                // 버퍼가 BATCH_SIZE 이상이면 flush
-                while (buffer.size() >= BATCH_SIZE) {
-                    flushBatch(repoId, buffer.subList(0, BATCH_SIZE));
-                    buffer = new ArrayList<>(buffer.subList(BATCH_SIZE, buffer.size()));
-                }
-
+                buffer = bufferChunks(repoId, repoPath, file, buffer);
                 indexedFiles++;
                 broadcastIndexingStatus(repoId, totalFiles, indexedFiles, "RUNNING");
-
+            } catch (IndexingException e) {
+                if (e.getErrorCode() == IndexingErrorCode.EMBEDDING_EXHAUSTED) {
+                    log.error("임베딩 키 소진 - 인덱싱 중단. repoId={}", repoId);
+                    throw e;
+                }
+                log.warn("파일 처리 실패, 스킵. file={}", file, e);
             } catch (Exception e) {
-                log.warn("파일 청킹/임베딩 실패. file={}", file, e);
+                log.warn("파일 처리 실패, 스킵. file={}", file, e);
             }
         }
 
-        // 남은 버퍼 flush
+        flushRemaining(repoId, buffer);
+        broadcastIndexingStatus(repoId, totalFiles, indexedFiles, "COMPLETED");
+        log.info("인덱싱 완료. repoId={}, 총 API 호출 횟수={}", repoId, embeddingService.getAndResetCount());
+    }
+
+    private List<ChunkMeta> bufferChunks(Long repoId, Path repoPath, Path file, List<ChunkMeta> buffer) throws IOException {
+        String content = Files.readString(file);
+        if (content.isBlank()) return buffer;
+
+        String relativePath = repoPath.relativize(file).toString();
+        List<String> chunks = chunk(content);
+
+        for (int i = 0; i < chunks.size(); i++) {
+            String id = repoId + "-" + relativePath.replace("/", "_") + "-" + i;
+            buffer.add(new ChunkMeta(id, relativePath, i, chunks.get(i)));
+        }
+
+        buffer = new ArrayList<>(buffer);
+        while (buffer.size() >= BATCH_SIZE) {
+            flushBatch(repoId, buffer.subList(0, BATCH_SIZE));
+            buffer = new ArrayList<>(buffer.subList(BATCH_SIZE, buffer.size()));
+        }
+
+        return buffer;
+    }
+
+    private void flushRemaining(Long repoId, List<ChunkMeta> buffer) {
         if (!buffer.isEmpty()) {
             flushBatch(repoId, buffer);
         }
-
-        broadcastIndexingStatus(repoId, totalFiles, indexedFiles, "COMPLETED");
-        log.info("인덱싱 완료. repoId={}, 총 API 호출 횟수={}", repoId, embeddingService.getAndResetCount());
     }
 
     private void flushBatch(Long repoId, List<ChunkMeta> batch) {
