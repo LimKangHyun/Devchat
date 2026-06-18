@@ -48,6 +48,9 @@ public class AiReview {
     private PrStatus prStatus = PrStatus.OPEN;
 
     @Builder.Default
+    private boolean ragUsed = false;
+
+    @Builder.Default
     private boolean githubPublished = false;
 
     private String publishedBy;
@@ -97,5 +100,9 @@ public class AiReview {
     public void updatePrInfo(String prTitle, String prBody) {
         this.prTitle = prTitle;
         this.prBody = prBody;
+    }
+
+    public void markRagUsed() {
+        this.ragUsed = true;
     }
 }

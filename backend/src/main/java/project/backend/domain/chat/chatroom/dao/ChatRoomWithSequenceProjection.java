@@ -1,5 +1,7 @@
 package project.backend.domain.chat.chatroom.dao;
 
+import project.backend.domain.chat.chatroom.entity.IndexingStatus;
+
 public interface ChatRoomWithSequenceProjection {
 
     Long getChatRoomId();
@@ -11,5 +13,7 @@ public interface ChatRoomWithSequenceProjection {
     String getInviteCode();
 
     String getRepositoryUrl();
+
+    IndexingStatus getIndexingStatus();
 
 }

@@ -65,7 +65,8 @@ github:
     username: Devchat-Code-Assist
 
 gemini:
-  api-key: ${GEMINI_API_KEY}
+  review-api-keys: ${GEMINI_REVIEW_KEY_1},${GEMINI_REVIEW_KEY_2}
+  embedding-api-keys: ${GEMINI_EMBEDDING_KEY_1},${GEMINI_EMBEDDING_KEY_2},${GEMINI_EMBEDDING_KEY_3},${GEMINI_EMBEDDING_KEY_4},${GEMINI_EMBEDDING_KEY_5}
 
 pinecone:
   api-key: ${PINECONE_API_KEY}
@@ -98,3 +99,7 @@ encrypt:
   info:
     issuer: "대한민국26세 달성 배씨 배문성의 허가가 있는 토큰이올시다."
     secret: 36b2294c1079470409d860ac57402fc152524d134a75b7cb223d92644b63adba980d90dcefd0d53c02a5cbb43c2678d49128dae2299f652f5f71033fee640686
+
+logging:
+  file:
+    name: logs/app.log

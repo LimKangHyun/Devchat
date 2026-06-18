@@ -28,6 +28,7 @@ public class ChatRoom {
 
     private LocalDateTime createdAt;
 
+    @Column(unique = true)
     private String repositoryUrl;
 
     private String inviteCode;
@@ -39,6 +40,10 @@ public class ChatRoom {
 
     @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChatParticipant> participants = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private IndexingStatus indexingStatus = IndexingStatus.NONE;
 
     @Column(name = "last_sequence", nullable = false)
     private Long lastSequence = 0L;
@@ -82,5 +87,9 @@ public class ChatRoom {
 
     public void toggleAiReview() {
         this.aiReviewEnabled = !this.aiReviewEnabled;
+    }
+
+    public void updateIndexingStatus(IndexingStatus status) {
+        this.indexingStatus = status;
     }
 }

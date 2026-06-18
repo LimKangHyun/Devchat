@@ -75,7 +75,7 @@ public class GitHubUserClient {
         Map<String, Object> requestBody = Map.of(
             "name", "web",
             "active", true,
-            "events", List.of("issues", "pull_request", "pull_request_review"),
+            "events", List.of("issues", "pull_request", "pull_request_review", "workflow_run"),
             "config", Map.of(
                 "url", webhookUrl,
                 "content_type", "json",

@@ -67,6 +67,12 @@ public class ChatRoomService {
     @Transactional
     public ChatRoomSimpleResponse createChatRoom(ChatRoomRequest request, Long ownerId) {
         Member owner = memberService.getMemberById(ownerId);
+
+        if (!request.getRepositoryUrl().isBlank() &&
+            chatRoomRepository.existsByRepositoryUrl(request.getRepositoryUrl())) {
+            throw new ChatRoomException(ChatRoomErrorCode.REPOSITORY_ALREADY_CONNECTED);
+        }
+
         ChatRoom chatRoom = chatRoomMapper.toEntity(request);
         ChatParticipant chatParticipant = ChatParticipant.createOwner(owner, chatRoom);
         chatRoom.addParticipant(chatParticipant);
@@ -203,7 +209,7 @@ public class ChatRoomService {
         boolean alarmEnable = chatRoomAlarmService.isAlarmEnabled(memberId, room.getId());
 
         return new EntryRoomResponse(
-                room.getId(), room.getName(), ownerId, alarmEnable, room.getRepositoryUrl(), room.isAiReviewEnabled()
+                room.getId(), room.getName(), ownerId, alarmEnable, room.getRepositoryUrl(), room.isAiReviewEnabled(), room.getIndexingStatus()
         );
     }
 
