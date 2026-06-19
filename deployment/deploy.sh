@@ -42,6 +42,13 @@ export GEMINI_EMBEDDING_KEY_4=$GEMINI_EMBEDDING_KEY_4
 export GEMINI_EMBEDDING_KEY_5=$GEMINI_EMBEDDING_KEY_5
 
 # 새 컬러 백엔드 기동 (중복 호출 제거, docker-compose v1 -> docker compose v2)
+# 디버그: 이 실행 컨텍스트의 docker/PATH/HOME 확인
+echo "DEBUG HOME=$HOME"
+echo "DEBUG PATH=$PATH"
+which docker
+docker --version
+docker compose version
+
 docker compose up -d --no-deps dev-chat-backend-$NEW_COLOR
 
 echo "새로운 백엔드 컨테이너 헬스체크 중..."
