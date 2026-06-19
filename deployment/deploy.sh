@@ -3,9 +3,6 @@ set -ex
 echo "deploy.sh 시작 - NEW_COLOR: $NEW_COLOR"
 export DOCKER_CONFIG=/home/ubuntu/.docker
 
-# docker compose 인식 문제 해결
-export PATH=$PATH:/usr/libexec/docker/cli-plugins
-
 PROJECT_DIR="/home/ubuntu/Devchat"
 DEPLOY_DIR="$PROJECT_DIR/deployment"
 ACTIVE_COLOR_FILE="$DEPLOY_DIR/active_color.txt"
