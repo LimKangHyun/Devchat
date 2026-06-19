@@ -1,23 +1,23 @@
 services:
   mysql:
-  image: mysql:8.0
-  container_name: dev-chat-mysql
-  restart: unless-stopped
-  environment:
-    - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
-    - MYSQL_DATABASE=devchat
-    - MYSQL_USER=${MYSQL_USER}
-    - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-    - TZ=Asia/Seoul
-  volumes:
-    - ./mysql-data:/var/lib/mysql
-  healthcheck:
-    test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD}"]
-    interval: 5s
-    timeout: 5s
-    retries: 10
-  networks:
-    - dev-chat-network
+    image: mysql:8.0
+    container_name: dev-chat-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=devchat
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - TZ=Asia/Seoul
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dev-chat-network
 
   dev-chat-frontend:
     image: limkanghyun/dev-chat-frontend:latest
@@ -54,7 +54,10 @@ services:
       - GEMINI_EMBEDDING_KEY_4=${GEMINI_EMBEDDING_KEY_4}
       - GEMINI_EMBEDDING_KEY_5=${GEMINI_EMBEDDING_KEY_5}
     depends_on:
-      - prometheus
+      mysql:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
     networks:
       - dev-chat-network
       - redis-cluster_redis-net
@@ -88,7 +91,10 @@ services:
       - GEMINI_EMBEDDING_KEY_4=${GEMINI_EMBEDDING_KEY_4}
       - GEMINI_EMBEDDING_KEY_5=${GEMINI_EMBEDDING_KEY_5}
     depends_on:
-      - prometheus
+      mysql:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
     networks:
       - dev-chat-network
       - redis-cluster_redis-net
