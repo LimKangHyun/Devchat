@@ -20,7 +20,7 @@ public class EmbeddingService {
 
     private final WebClient.Builder webClientBuilder;
 
-    @Value("${gemini.embedding-api-keys}")
+    @Value("#{'${gemini.embedding-api-keys}'.split(',')}")
     private List<String> apiKeys;
 
     private final AtomicInteger embedCallCount = new AtomicInteger(0);
