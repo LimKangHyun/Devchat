@@ -5,7 +5,7 @@ echo "Docker Hub 이미지 반영 대기 중..."
 sleep 10
 # 최신 도커 이미지 내려받기 (pull)
 echo "Start docker-compose pull..."
-docker-compose pull dev-chat-backend-$NEW_COLOR
+docker-compose up -d --no-deps dev-chat-backend-$NEW_COLOR
 ACTIVE_COLOR_FILE="$(dirname "$0")/active_color.txt"
 # active_color.txt 없으면 초기값 blue 생성
 if [ ! -f "$ACTIVE_COLOR_FILE" ]; then
