@@ -47,9 +47,9 @@ echo "DEBUG HOME=$HOME"
 echo "DEBUG PATH=$PATH"
 which docker
 docker --version
-docker compose version || { echo "❌ docker compose 없음"; exit 1; }
+docker-compose version || { echo "❌ docker compose 없음"; exit 1; }
 
-docker compose up -d --no-deps dev-chat-backend-$NEW_COLOR
+docker-compose up -d --no-deps dev-chat-backend-$NEW_COLOR
 
 echo "새로운 백엔드 컨테이너 헬스체크 중..."
 STATUS=""
