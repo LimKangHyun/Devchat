@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 echo "deploy.sh 시작 - NEW_COLOR: $NEW_COLOR"
 
 PROJECT_DIR="/home/ubuntu/Devchat"
