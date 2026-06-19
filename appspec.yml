@@ -2,17 +2,17 @@ version: 0.0
 os: linux
 files:
   - source: /deployment
-    destination: /home/ubuntu/NBE5-7-2-TEAM08/deployment
+    destination: /home/ubuntu/Devchat/deployment
     overwrite: yes
   - source: /scripts
-    destination: /home/ubuntu/NBE5-7-2-TEAM08/scripts
+    destination: /home/ubuntu/Devchat/scripts
     overwrite: yes
   - source: /docker-compose.yml
     destination: /home/ubuntu
     overwrite: yes
 
 permissions:
-  - object: /home/ubuntu/NBE5-7-2-TEAM08/deployment
+  - object: /home/ubuntu/Devchat/deployment
     pattern: "**"
     owner: ubuntu
     group: ubuntu
