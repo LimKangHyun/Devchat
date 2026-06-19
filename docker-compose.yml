@@ -1,19 +1,35 @@
 services:
+  mysql:
+  image: mysql:8.0
+  container_name: dev-chat-mysql
+  restart: unless-stopped
+  environment:
+    - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
+    - MYSQL_DATABASE=devchat
+    - MYSQL_USER=${MYSQL_USER}
+    - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    - TZ=Asia/Seoul
+  volumes:
+    - ./mysql-data:/var/lib/mysql
+  healthcheck:
+    test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD}"]
+    interval: 5s
+    timeout: 5s
+    retries: 10
+  networks:
+    - dev-chat-network
+
   dev-chat-frontend:
     image: limkanghyun/dev-chat-frontend:latest
     container_name: dev-chat-frontend
-    ports:
-      - "3001:80"
     networks:
       - dev-chat-network
 
   dev-chat-backend-blue:
     image: limkanghyun/dev-chat-backend:latest
     container_name: dev-chat-backend-blue
-    ports:
-      - "8081:8080"
     environment:
-      - JAVA_OPTS=-Xms256m -Xmx384m
+      - JAVA_OPTS=-Xms512m -Xmx2048m
       - TZ=Asia/Seoul
       - JWT_SECRET=${JWT_SECRET}
       - RDS_USERNAME=${RDS_USERNAME}
@@ -27,8 +43,7 @@ services:
       - ENCRYPT_SECRET=${ENCRYPT_SECRET}
       - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
-      - ENCRYPT_SECRET=${ENCRYPT_SECRET}
-      - GITHUB_BOT_PAT=${GITHUB_BOT_PAT}
+      - BOT_GITHUB_BOT_PAT=${BOT_GITHUB_BOT_PAT}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
       - GEMINI_REVIEW_KEY_1=${GEMINI_REVIEW_KEY_1}
@@ -47,10 +62,8 @@ services:
   dev-chat-backend-green:
     image: limkanghyun/dev-chat-backend:latest
     container_name: dev-chat-backend-green
-    ports:
-      - "8082:8080"
     environment:
-      - JAVA_OPTS=-Xms256m -Xmx384m
+      - JAVA_OPTS=-Xms512m -Xmx2048m
       - TZ=Asia/Seoul
       - JWT_SECRET=${JWT_SECRET}
       - RDS_USERNAME=${RDS_USERNAME}
@@ -64,8 +77,7 @@ services:
       - ENCRYPT_SECRET=${ENCRYPT_SECRET}
       - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
       - AWS_SECRET_KEY=${AWS_SECRET_KEY}
-      - ENCRYPT_SECRET=${ENCRYPT_SECRET}
-      - GITHUB_BOT_PAT=${GITHUB_BOT_PAT}
+      - BOT_GITHUB_BOT_PAT=${BOT_GITHUB_BOT_PAT}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
       - GEMINI_REVIEW_KEY_1=${GEMINI_REVIEW_KEY_1}
@@ -85,8 +97,8 @@ services:
     image: nginx:latest
     container_name: nginx_proxy
     volumes:
-      - ./NBE5-7-2-TEAM08/deployment/nginx_proxy/nginx.conf:/etc/nginx/nginx.conf
-      - ./NBE5-7-2-TEAM08/deployment/nginx_proxy/conf.d:/etc/nginx/conf.d
+      - ./deployment/nginx_proxy/nginx.conf:/etc/nginx/nginx.conf
+      - ./deployment/nginx_proxy/conf.d:/etc/nginx/conf.d
       - ./www/certbot:/var/www/certbot
       - /etc/letsencrypt:/etc/letsencrypt
     ports:

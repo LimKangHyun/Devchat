@@ -12,12 +12,7 @@ if [ ! -f "$ACTIVE_COLOR_FILE" ]; then
   echo "blue" > "$ACTIVE_COLOR_FILE"
 fi
 OLD_COLOR=$(cat "$ACTIVE_COLOR_FILE")
-# 포트 할당을 NEW_COLOR 기준으로 변경
-if [ "$NEW_COLOR" == "blue" ]; then
-    NEW_BACKEND_PORT=8081
-else 
-    NEW_BACKEND_PORT=8082
-fi
+
 export JWT_SECRET=$JWT_SECRET
 export RDS_USERNAME=$RDS_USERNAME
 export RDS_PASSWORD=$RDS_PASSWORD
@@ -42,11 +37,11 @@ export GEMINI_EMBEDDING_KEY_2=$GEMINI_EMBEDDING_KEY_2
 export GEMINI_EMBEDDING_KEY_3=$GEMINI_EMBEDDING_KEY_3
 export GEMINI_EMBEDDING_KEY_4=$GEMINI_EMBEDDING_KEY_4
 export GEMINI_EMBEDDING_KEY_5=$GEMINI_EMBEDDING_KEY_5
-docker-compose up -d --build dev-chat-backend-$NEW_COLOR
+docker-compose up -d --no-deps dev-chat-backend-$NEW_COLOR
 # 새롭게 띄운 dev-chat-backend-$NEW_COLOR 컨테이너의 헬스체크 (정상작동 확인)
 echo "새로운 백엔드 컨테이너 헬스체크 중..."
 for i in {1..60}; do
-    STATUS=$(curl -s http://localhost:$NEW_BACKEND_PORT/actuator/health | grep "UP")
+    STATUS=$(docker exec dev-chat-backend-$NEW_COLOR curl -s http://localhost:8080/actuator/health | grep "UP")
     if [ "$STATUS" != "" ]; then
         echo "[$NEW_COLOR] 백엔드 헬스 체크 통과!"
         break;
