@@ -1,13 +1,16 @@
 #!/bin/bash
+set -e
 echo "deploy.sh 시작 - NEW_COLOR: $NEW_COLOR"
-cd /home/ubuntu/Devchat
+
+PROJECT_DIR="/home/ubuntu/Devchat"
+DEPLOY_DIR="$PROJECT_DIR/deployment"
+ACTIVE_COLOR_FILE="$DEPLOY_DIR/active_color.txt"
+
+cd "$PROJECT_DIR"
+
 echo "Docker Hub 이미지 반영 대기 중..."
 sleep 10
-# 최신 도커 이미지 내려받기 (pull)
-echo "Start docker-compose pull..."
-docker-compose up -d --no-deps dev-chat-backend-$NEW_COLOR
-ACTIVE_COLOR_FILE="$(dirname "$0")/active_color.txt"
-# active_color.txt 없으면 초기값 blue 생성
+
 if [ ! -f "$ACTIVE_COLOR_FILE" ]; then
   echo "blue" > "$ACTIVE_COLOR_FILE"
 fi
@@ -37,33 +40,37 @@ export GEMINI_EMBEDDING_KEY_2=$GEMINI_EMBEDDING_KEY_2
 export GEMINI_EMBEDDING_KEY_3=$GEMINI_EMBEDDING_KEY_3
 export GEMINI_EMBEDDING_KEY_4=$GEMINI_EMBEDDING_KEY_4
 export GEMINI_EMBEDDING_KEY_5=$GEMINI_EMBEDDING_KEY_5
-docker-compose up -d --no-deps dev-chat-backend-$NEW_COLOR
-# 새롭게 띄운 dev-chat-backend-$NEW_COLOR 컨테이너의 헬스체크 (정상작동 확인)
+
+# 새 컬러 백엔드 기동 (중복 호출 제거, docker-compose v1 -> docker compose v2)
+docker compose up -d --no-deps dev-chat-backend-$NEW_COLOR
+
 echo "새로운 백엔드 컨테이너 헬스체크 중..."
+STATUS=""
 for i in {1..60}; do
-    STATUS=$(docker exec dev-chat-backend-$NEW_COLOR curl -s http://localhost:8080/actuator/health | grep "UP")
-    if [ "$STATUS" != "" ]; then
+    STATUS=$(docker exec dev-chat-backend-$NEW_COLOR curl -s http://localhost:8080/actuator/health | grep "UP" || true)
+    if [ -n "$STATUS" ]; then
         echo "[$NEW_COLOR] 백엔드 헬스 체크 통과!"
-        break;
+        break
     fi
     echo -n "."
     sleep 2
 done
-if [ "$STATUS" == "" ]; then
+
+if [ -z "$STATUS" ]; then
     echo " [$NEW_COLOR] 컨테이너 헬스 체크 실패! 롤백합니다..."
-    docker-compose stop dev-chat-backend-$NEW_COLOR
+    docker compose stop dev-chat-backend-$NEW_COLOR
     exit 1
 fi
-# nginx.conf 생성 (템플릿에서 ACTIVE_COLOR 바꿔서)
+
+# nginx.conf 생성 (절대경로로 고정, 더이상 $0/dirname 안 씀)
 export ACTIVE_COLOR=$NEW_COLOR
-DEPLOY_DIR="$(dirname "$0")"
-envsubst '${ACTIVE_COLOR}' < $DEPLOY_DIR/nginx_proxy/nginx.conf.template > $DEPLOY_DIR/nginx_proxy/nginx.conf
-# nginx 재시작
+envsubst '${ACTIVE_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
+
 docker exec nginx_proxy nginx -s reload
-# 기존 컨테이너 종료
-docker-compose stop dev-chat-backend-$OLD_COLOR
-# active_color.txt 업데이트
+
+docker compose stop dev-chat-backend-$OLD_COLOR
+
 echo "$NEW_COLOR" > "$ACTIVE_COLOR_FILE"
 echo "배포 완료: 현재 활성화된 서비스는 $NEW_COLOR 입니다."
-# 사용하지 않는 이미지만 정리
+
 docker image prune -f
