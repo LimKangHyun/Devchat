@@ -26,7 +26,7 @@ set +a
 echo "ENV 로드 완료"
 echo "DOMAIN_URL=$DOMAIN_URL"
 
-cd /home/ubuntu/NBE5-7-2-TEAM08/deployment
+cd /home/ubuntu/Devchat/deployment
 chmod +x ./deploy.sh
 
 ./deploy.sh || { echo "❌ deploy.sh 실패"; exit 1; }
