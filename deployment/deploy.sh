@@ -1,5 +1,6 @@
 #!/bin/bash
 echo "deploy.sh 시작 - NEW_COLOR: $NEW_COLOR"
+cd /home/ubuntu/Devchat
 echo "Docker Hub 이미지 반영 대기 중..."
 sleep 10
 # 최신 도커 이미지 내려받기 (pull)
