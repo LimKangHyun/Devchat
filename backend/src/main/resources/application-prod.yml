@@ -17,9 +17,9 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${RDS_USERNAME}
-    password: ${RDS_PASSWORD}
-    url: jdbc:mysql://${RDS_ENDPOINT}:3306/FLYING_TRUCK_PROJECT
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    url: jdbc:mysql://${RDS_ENDPOINT}:3306/devchat
     hikari:
       maximum-pool-size: 10
       minimum-idle: 5
