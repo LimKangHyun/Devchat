@@ -145,6 +145,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/Devchat
-            git pull origin main
+            git pull origin prod
             chmod +x ./scripts/deploy_hook.sh
             ./scripts/deploy_hook.sh
