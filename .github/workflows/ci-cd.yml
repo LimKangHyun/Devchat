@@ -147,7 +147,7 @@ jobs:
             docker pull limkanghyun/dev-chat-frontend:latest
             docker stop dev-chat-frontend || true
             docker rm dev-chat-frontend || true
-            cd /home/ubuntu
+            cd /home/ubuntu/Devchat
             docker-compose up -d dev-chat-frontend
 
             echo "프론트엔드 헬스체크 중..."
