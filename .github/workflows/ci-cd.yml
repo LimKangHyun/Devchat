@@ -145,6 +145,15 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/Devchat
-            git pull origin prod
+            
+            # 권한 문제 해결
+            sudo chown -R ubuntu:ubuntu .
+            # 로컬 변경 무시하고 강제 최신화
+            git fetch origin
+            git reset --hard origin/prod
+
+            # 실행 권한
             chmod +x ./scripts/deploy_hook.sh
+
+            # 실행
             ./scripts/deploy_hook.sh
