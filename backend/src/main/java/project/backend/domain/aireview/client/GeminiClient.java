@@ -33,7 +33,7 @@ public class GeminiClient {
     private final ResourceLoader resourceLoader;
     private final AtomicInteger keyIndex = new AtomicInteger(0);
 
-    @Value("#{'${gemini.api-keys}'.split(',')}")
+    @Value("#{'${gemini.review-api-keys}'.split(',')}")
     private List<String> apiKeys;
 
     private static final String GEMINI_URL =
