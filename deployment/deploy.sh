@@ -1,6 +1,7 @@
 #!/bin/bash
 set -ex
 echo "deploy.sh 시작 - NEW_COLOR: $NEW_COLOR"
+export DOCKER_CONFIG=/home/ubuntu/.docker
 
 # docker compose 인식 문제 해결
 export PATH=$PATH:/usr/libexec/docker/cli-plugins
