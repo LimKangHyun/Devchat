@@ -2,73 +2,71 @@
 set -ex
 
 echo "deploy.sh 시작 - NEW_COLOR: $NEW_COLOR"
-export DOCKER_CONFIG=/home/ubuntu/.docker
+
 PROJECT_DIR="/home/ubuntu/Devchat"
 DEPLOY_DIR="$PROJECT_DIR/deployment"
 ACTIVE_COLOR_FILE="$DEPLOY_DIR/active_color.txt"
+
 cd "$PROJECT_DIR"
-echo "Docker Hub 이미지 반영 대기 중..."
-sleep 10
+
+sleep 5
+
 if [ ! -f "$ACTIVE_COLOR_FILE" ]; then
   echo "blue" > "$ACTIVE_COLOR_FILE"
 fi
+
 OLD_COLOR=$(cat "$ACTIVE_COLOR_FILE")
-export JWT_SECRET=$JWT_SECRET
-export MYSQL_USERNAME=$MYSQL_USERNAME
-export MYSQL_PASSWORD=$MYSQL_PASSWORD
-export RDS_ENDPOINT=$RDS_ENDPOINT
-export REDIS_HOST=$REDIS_HOST
-export REDIS_PORT=$REDIS_PORT
-export OAUTH_GITHUB_CLIENT_ID=$OAUTH_GITHUB_CLIENT_ID
-export OAUTH_GITHUB_SECRET=$OAUTH_GITHUB_SECRET
-export DOMAIN_URL=$DOMAIN_URL
-export IMAGE_URL=$IMAGE_URL
-export WEBHOOK_URL=$WEBHOOK_URL
-export AWS_ACCESS_KEY=$AWS_ACCESS_KEY
-export AWS_SECRET_KEY=$AWS_SECRET_KEY
-export ENCRYPT_SECRET=$ENCRYPT_SECRET
-export BOT_GITHUB_BOT_PAT=$BOT_GITHUB_BOT_PAT
-export GEMINI_API_KEY=$GEMINI_API_KEY
-export PINECONE_API_KEY=$PINECONE_API_KEY
-export GEMINI_REVIEW_KEY_1=$GEMINI_REVIEW_KEY_1
-export GEMINI_REVIEW_KEY_2=$GEMINI_REVIEW_KEY_2
-export GEMINI_EMBEDDING_KEY_1=$GEMINI_EMBEDDING_KEY_1
-export GEMINI_EMBEDDING_KEY_2=$GEMINI_EMBEDDING_KEY_2
-export GEMINI_EMBEDDING_KEY_3=$GEMINI_EMBEDDING_KEY_3
-export GEMINI_EMBEDDING_KEY_4=$GEMINI_EMBEDDING_KEY_4
-export GEMINI_EMBEDDING_KEY_5=$GEMINI_EMBEDDING_KEY_5
-echo "DEBUG HOME=$HOME"
-echo "DEBUG PATH=$PATH"
-which docker
-docker --version
-docker-compose version || { echo "❌ docker compose 없음"; exit 1; }
-docker stop dev-chat-backend-$NEW_COLOR 2>/dev/null || true
-docker rm dev-chat-backend-$NEW_COLOR 2>/dev/null || true
+
+# nginx 항상 실행 보장 (핵심)
+docker ps | grep nginx_proxy || docker-compose up -d nginx_proxy
+
+# 새 컨테이너 실행
 docker-compose up -d --no-deps dev-chat-backend-$NEW_COLOR
-echo "새로운 백엔드 컨테이너 헬스체크 중..."
+
+echo "헬스체크 중..."
+
 STATUS=""
 for i in {1..60}; do
-  STATUS=$(docker exec dev-chat-backend-$NEW_COLOR curl -s http://localhost:8080/actuator/health | grep "UP" || true)
+  CONTAINER_ID=$(docker ps -qf "name=dev-chat-backend-$NEW_COLOR")
+
+  if [ -n "$CONTAINER_ID" ]; then
+    STATUS=$(docker exec $CONTAINER_ID curl -s http://localhost:8080/actuator/health | grep UP || true)
+  fi
+
   if [ -n "$STATUS" ]; then
-    echo "[$NEW_COLOR] 백엔드 헬스 체크 통과!"
+    echo "[$NEW_COLOR] 헬스 체크 통과"
     break
   fi
-  echo -n "."
+
   sleep 2
 done
+
 if [ -z "$STATUS" ]; then
-  echo "[$NEW_COLOR] 컨테이너 헬스 체크 실패! 롤백합니다..."
+  echo "헬스체크 실패 → 롤백"
   docker-compose stop dev-chat-backend-$NEW_COLOR
   exit 1
 fi
-export ACTIVE_COLOR=$NEW_COLOR
-export STANDBY_COLOR=$OLD_COLOR
 
-envsubst '${ACTIVE_COLOR} ${STANDBY_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
-docker start nginx_proxy 2>/dev/null || true
+# nginx 설정 생성
+export ACTIVE_COLOR=$NEW_COLOR
+envsubst '${ACTIVE_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
+
+# DNS 안정화 대기 (핵심)
+echo "DNS 대기..."
+for i in {1..10}; do
+  docker exec nginx_proxy getent hosts dev-chat-backend-$NEW_COLOR && break
+  sleep 2
+done
+
+# nginx reload
 docker exec nginx_proxy nginx -s reload
-docker stop dev-chat-backend-$OLD_COLOR
+
+# 기존 컨테이너 종료 (유예시간)
+sleep 10
+docker-compose stop dev-chat-backend-$OLD_COLOR
+
 echo "$NEW_COLOR" > "$ACTIVE_COLOR_FILE"
-echo "배포 완료: 현재 활성화된 서비스는 $NEW_COLOR 입니다."
+
+echo "배포 완료: $NEW_COLOR 활성화"
 
 docker image prune -f
