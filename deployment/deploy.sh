@@ -17,13 +17,9 @@ fi
 
 OLD_COLOR=$(cat "$ACTIVE_COLOR_FILE")
 
-# 🔥 핵심: docker-compose 환경변수 로드 보장
 set -a
 source /home/ubuntu/Devchat/.env
 set +a
-
-# nginx 항상 실행
-docker ps | grep nginx_proxy || docker-compose up -d nginx_proxy
 
 # 기존 NEW 컨테이너 제거 (충돌 방지)
 docker rm -f dev-chat-backend-$NEW_COLOR || true
@@ -49,28 +45,24 @@ for i in {1..60}; do
   sleep 2
 done
 
-# 실패 시 롤백
 if [ -z "$STATUS" ]; then
   echo "헬스체크 실패 → 롤백"
   docker-compose stop dev-chat-backend-$NEW_COLOR
   exit 1
 fi
 
-# nginx 설정 생성
+# nginx.conf 먼저 생성
 export ACTIVE_COLOR=$NEW_COLOR
 envsubst '${ACTIVE_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
 
-# 🔥 DNS 안정화 (이거 없으면 니 에러 그대로 터짐)
-echo "DNS 대기..."
-for i in {1..15}; do
-  docker exec nginx_proxy getent hosts dev-chat-backend-$NEW_COLOR && break
-  sleep 2
-done
+# nginx 시작 또는 reload
+if docker ps | grep -q nginx_proxy; then
+  docker exec nginx_proxy nginx -s reload
+else
+  docker-compose up -d nginx_proxy
+fi
 
-# nginx reload
-docker exec nginx_proxy nginx -s reload
-
-# 구버전 종료 (유예)
+# 구버전 종료
 sleep 10
 docker-compose stop dev-chat-backend-$OLD_COLOR
 
