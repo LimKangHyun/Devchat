@@ -61,6 +61,5 @@ services:
 networks:
   dev-chat-network:
     driver: bridge
-  redis-cluster_redis-net:
+  redis-sentinel_redis-net:
     external: true
-    name: redis-sentinel_redis-net
