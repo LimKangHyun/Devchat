@@ -17,6 +17,7 @@ services:
 
   dev-chat-frontend:
     image: limkanghyun/dev-chat-frontend:latest
+    container_name: dev-chat-frontend
     networks:
       - dev-chat-network
 
