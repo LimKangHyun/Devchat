@@ -18,7 +18,9 @@ fi
 OLD_COLOR=$(cat "$ACTIVE_COLOR_FILE")
 
 # 🔥 핵심: docker-compose 환경변수 로드 보장
-export $(grep -v '^#' /home/ubuntu/Devchat/.env | xargs)
+set -a
+source /home/ubuntu/Devchat/.env
+set +a
 
 # nginx 항상 실행
 docker ps | grep nginx_proxy || docker-compose up -d nginx_proxy
