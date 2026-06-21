@@ -1,7 +1,8 @@
 events { }
 http {
   upstream backend {
-    server dev-chat-backend-${ACTIVE_COLOR}:8080;
+    server dev-chat-backend-${ACTIVE_COLOR}:8080 max_fails=1 fail_timeout=3s;
+    server dev-chat-backend-${STANDBY_COLOR}:8080 max_fails=1 fail_timeout=3s;
   }
   upstream frontend {
     server dev-chat-frontend:80;
@@ -18,37 +19,31 @@ http {
     ssl_certificate_key /etc/letsencrypt/live/thedevchat.duckdns.org/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
-
     gzip on;
     gzip_types text/css application/javascript image/png image/jpeg image/svg+xml;
     gzip_min_length 1000;
     gzip_comp_level 6;
-
     location ~* /static/.*\.(js|css)$ {
       proxy_pass http://frontend;
       proxy_set_header Host $host;
       expires 1y;
       add_header Cache-Control "public, max-age=31536000, immutable";
     }
-
     location ~* \.(png|jpg|jpeg|gif|ico|svg|webp)$ {
       proxy_pass http://frontend;
       proxy_set_header Host $host;
       expires 6M;
       add_header Cache-Control "public, max-age=15552000";
     }
-
     location ~* \.(woff|woff2|ttf|otf)$ {
       proxy_pass http://frontend;
       proxy_set_header Host $host;
       expires 1y;
       add_header Cache-Control "public, max-age=31536000, immutable";
     }
-
     location ~* \.(php|asp|aspx|jsp)$ {
       return 444;
     }
-
     location / {
       proxy_pass http://frontend;
       proxy_http_version 1.1;
@@ -59,7 +54,6 @@ http {
       proxy_intercept_errors on;
       error_page 404 = /index.html;
     }
-
     location /api/ {
       proxy_pass http://backend/;
       proxy_http_version 1.1;
@@ -71,15 +65,12 @@ http {
       proxy_cookie_path /token/refresh /api/token/refresh;
       proxy_cookie_domain backend thedevchat.duckdns.org;
     }
-
     location /swagger-ui/ {
       proxy_pass http://backend/swagger-ui/;
     }
-
     location /v3/ {
       proxy_pass http://backend/v3/;
     }
-
     location /ws {
       proxy_pass http://backend;
       proxy_http_version 1.1;
@@ -92,4 +83,3 @@ http {
     }
   }
 }
-
