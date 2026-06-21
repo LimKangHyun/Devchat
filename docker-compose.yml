@@ -31,7 +31,7 @@ services:
       - RDS_ENDPOINT=${RDS_ENDPOINT}
     networks:
       - dev-chat-network
-      - redis-cluster_redis-net 
+      - redis-sentinel_redis-net
 
   dev-chat-backend-green:
     image: limkanghyun/dev-chat-backend:latest
@@ -45,7 +45,7 @@ services:
       - RDS_ENDPOINT=${RDS_ENDPOINT}
     networks:
       - dev-chat-network
-      - redis-cluster_redis-net 
+      - redis-sentinel_redis-net
 
   nginx_proxy:
     image: nginx:latest
