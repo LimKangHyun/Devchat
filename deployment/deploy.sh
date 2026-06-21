@@ -52,6 +52,7 @@ if [ -z "$STATUS" ]; then
 fi
 
 # nginx.conf 먼저 생성
+rm -rf /home/ubuntu/Devchat/deployment/nginx_proxy/nginx.conf
 export ACTIVE_COLOR=$NEW_COLOR
 envsubst '${ACTIVE_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
 
