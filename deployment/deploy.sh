@@ -39,11 +39,11 @@ export GEMINI_EMBEDDING_KEY_4=$GEMINI_EMBEDDING_KEY_4
 export GEMINI_EMBEDDING_KEY_5=$GEMINI_EMBEDDING_KEY_5
 echo "DEBUG HOME=$HOME"
 echo "DEBUG PATH=$PATH"
-
 which docker
 docker --version
 docker-compose version || { echo "❌ docker compose 없음"; exit 1; }
-docker rm -f dev-chat-backend-$NEW_COLOR || true
+docker stop dev-chat-backend-$NEW_COLOR 2>/dev/null || true
+docker rm dev-chat-backend-$NEW_COLOR 2>/dev/null || true
 docker-compose up -d --no-deps dev-chat-backend-$NEW_COLOR
 echo "새로운 백엔드 컨테이너 헬스체크 중..."
 STATUS=""
@@ -65,8 +65,9 @@ export ACTIVE_COLOR=$NEW_COLOR
 export STANDBY_COLOR=$OLD_COLOR
 
 envsubst '${ACTIVE_COLOR} ${STANDBY_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
-docker exec nginx_proxy nginx -s reload || docker-compose up -d nginx_proxy
-docker-compose stop dev-chat-backend-$OLD_COLOR
+docker start nginx_proxy 2>/dev/null || true
+docker exec nginx_proxy nginx -s reload
+docker stop dev-chat-backend-$OLD_COLOR
 echo "$NEW_COLOR" > "$ACTIVE_COLOR_FILE"
 echo "배포 완료: 현재 활성화된 서비스는 $NEW_COLOR 입니다."
 
