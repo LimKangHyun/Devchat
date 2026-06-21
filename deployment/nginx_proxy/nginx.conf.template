@@ -1,13 +1,7 @@
 events { }
 
 http {
-  upstream backend {
-    server dev-chat-backend-${ACTIVE_COLOR}:8080;
-  }
-
-  upstream frontend {
-    server dev-chat-frontend:80;
-  }
+  resolver 127.0.0.11 valid=10s;
 
   server {
     listen 80;
@@ -26,12 +20,14 @@ http {
     ssl_ciphers HIGH:!aNULL:!MD5;
 
     location / {
-      proxy_pass http://frontend;
+      set $frontend "dev-chat-frontend:80";
+      proxy_pass http://$frontend;
       proxy_set_header Host $host;
     }
 
     location /api/ {
-      proxy_pass http://backend/;
+      set $backend "dev-chat-backend-${ACTIVE_COLOR}:8080";
+      proxy_pass http://$backend/;
       proxy_http_version 1.1;
       proxy_set_header Host $host;
       proxy_set_header X-Real-IP $remote_addr;
@@ -39,7 +35,8 @@ http {
     }
 
     location /ws {
-      proxy_pass http://backend;
+      set $backend "dev-chat-backend-${ACTIVE_COLOR}:8080";
+      proxy_pass http://$backend;
       proxy_http_version 1.1;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection "Upgrade";
