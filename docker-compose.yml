@@ -1,6 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
+    container_name: dev-chat-mysql
     restart: unless-stopped
     env_file:
       - /home/ubuntu/Devchat/.env
@@ -49,6 +50,7 @@ services:
 
   nginx_proxy:
     image: nginx:latest
+    container_name: nginx_proxy
     volumes:
       - ./deployment/nginx_proxy/nginx.conf:/etc/nginx/nginx.conf
       - /etc/letsencrypt:/etc/letsencrypt
