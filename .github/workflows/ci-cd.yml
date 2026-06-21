@@ -157,3 +157,16 @@ jobs:
 
             # 실행
             ./scripts/deploy_hook.sh
+      - name: Notify Discord
+        if: always()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: ${{ job.status }}
+          title: "DevChat 배포"
+          description: |
+            브랜치: ${{ github.ref_name }}
+            커밋: ${{ github.event.head_commit.message }}
+            배포자: ${{ github.actor }}
+          color: ${{ job.status == 'success' && '0x00ff00' || '0xff0000' }}
+          username: "DevChat Bot"
