@@ -2,6 +2,8 @@ services:
   mysql:
     image: mysql:8.0
     restart: unless-stopped
+    env_file:
+      - /home/ubuntu/Devchat/.env
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=devchat
@@ -19,6 +21,8 @@ services:
 
   dev-chat-backend-blue:
     image: limkanghyun/dev-chat-backend:latest
+    env_file:
+      - /home/ubuntu/Devchat/.env
     environment:
       - JWT_SECRET=${JWT_SECRET}
       - MYSQL_USERNAME=${MYSQL_USERNAME}
@@ -29,6 +33,8 @@ services:
 
   dev-chat-backend-green:
     image: limkanghyun/dev-chat-backend:latest
+    env_file:
+      - /home/ubuntu/Devchat/.env
     environment:
       - JWT_SECRET=${JWT_SECRET}
       - MYSQL_USERNAME=${MYSQL_USERNAME}
