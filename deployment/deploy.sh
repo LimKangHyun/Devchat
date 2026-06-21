@@ -55,12 +55,9 @@ fi
 export ACTIVE_COLOR=$NEW_COLOR
 envsubst '${ACTIVE_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
 
-# nginx 시작 또는 reload
-if docker ps | grep -q nginx_proxy; then
-  docker exec nginx_proxy nginx -s reload
-else
-  docker-compose up -d nginx_proxy
-fi
+# nginx 재시작
+docker rm -f nginx_proxy || true
+docker-compose up -d nginx_proxy
 
 # 구버전 종료
 sleep 10
