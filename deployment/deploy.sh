@@ -73,7 +73,7 @@ fi
 # nginx.conf 생성
 export ACTIVE_COLOR=$NEW_COLOR
 envsubst '${ACTIVE_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
-
+docker-compose up -d nginx_proxy
 docker exec nginx_proxy nginx -s reload
 
 docker compose stop dev-chat-backend-$OLD_COLOR
