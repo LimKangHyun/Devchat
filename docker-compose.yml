@@ -21,6 +21,7 @@ services:
 
   dev-chat-backend-blue:
     image: limkanghyun/dev-chat-backend:latest
+    container_name: dev-chat-backend-blue
     env_file:
       - /home/ubuntu/Devchat/.env
     environment:
@@ -34,6 +35,7 @@ services:
 
   dev-chat-backend-green:
     image: limkanghyun/dev-chat-backend:latest
+    container_name: dev-chat-backend-green
     env_file:
       - /home/ubuntu/Devchat/.env
     environment:
