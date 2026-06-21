@@ -17,8 +17,14 @@ fi
 
 OLD_COLOR=$(cat "$ACTIVE_COLOR_FILE")
 
-# nginx 항상 실행 보장 (핵심)
+# 🔥 핵심: docker-compose 환경변수 로드 보장
+export $(grep -v '^#' /home/ubuntu/Devchat/.env | xargs)
+
+# nginx 항상 실행
 docker ps | grep nginx_proxy || docker-compose up -d nginx_proxy
+
+# 기존 NEW 컨테이너 제거 (충돌 방지)
+docker rm -f dev-chat-backend-$NEW_COLOR || true
 
 # 새 컨테이너 실행
 docker-compose up -d --no-deps dev-chat-backend-$NEW_COLOR
@@ -41,6 +47,7 @@ for i in {1..60}; do
   sleep 2
 done
 
+# 실패 시 롤백
 if [ -z "$STATUS" ]; then
   echo "헬스체크 실패 → 롤백"
   docker-compose stop dev-chat-backend-$NEW_COLOR
@@ -51,9 +58,9 @@ fi
 export ACTIVE_COLOR=$NEW_COLOR
 envsubst '${ACTIVE_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
 
-# DNS 안정화 대기 (핵심)
+# 🔥 DNS 안정화 (이거 없으면 니 에러 그대로 터짐)
 echo "DNS 대기..."
-for i in {1..10}; do
+for i in {1..15}; do
   docker exec nginx_proxy getent hosts dev-chat-backend-$NEW_COLOR && break
   sleep 2
 done
@@ -61,7 +68,7 @@ done
 # nginx reload
 docker exec nginx_proxy nginx -s reload
 
-# 기존 컨테이너 종료 (유예시간)
+# 구버전 종료 (유예)
 sleep 10
 docker-compose stop dev-chat-backend-$OLD_COLOR
 

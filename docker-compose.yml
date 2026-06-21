@@ -21,8 +21,8 @@ services:
     image: limkanghyun/dev-chat-backend:latest
     environment:
       - JWT_SECRET=${JWT_SECRET}
-      - RDS_USERNAME=${RDS_USERNAME}
-      - RDS_PASSWORD=${RDS_PASSWORD}
+      - MYSQL_USERNAME=${MYSQL_USERNAME}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - RDS_ENDPOINT=${RDS_ENDPOINT}
     networks:
       - dev-chat-network
@@ -31,8 +31,8 @@ services:
     image: limkanghyun/dev-chat-backend:latest
     environment:
       - JWT_SECRET=${JWT_SECRET}
-      - RDS_USERNAME=${RDS_USERNAME}
-      - RDS_PASSWORD=${RDS_PASSWORD}
+      - MYSQL_USERNAME=${MYSQL_USERNAME}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - RDS_ENDPOINT=${RDS_ENDPOINT}
     networks:
       - dev-chat-network
