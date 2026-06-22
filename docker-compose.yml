@@ -102,5 +102,6 @@ services:
 networks:
   dev-chat-network:
     driver: bridge
+    name: dev-chat-network
   redis-sentinel_redis-net:
     external: true
