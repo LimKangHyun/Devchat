@@ -40,6 +40,9 @@ services:
     networks:
       - dev-chat-network
       - redis-sentinel_redis-net
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   dev-chat-backend-green:
     image: limkanghyun/dev-chat-backend:latest
@@ -54,6 +57,9 @@ services:
     networks:
       - dev-chat-network
       - redis-sentinel_redis-net
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   nginx_proxy:
     image: nginx:latest
