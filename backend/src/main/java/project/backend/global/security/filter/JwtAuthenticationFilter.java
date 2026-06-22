@@ -30,7 +30,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			"/token/refresh",
 			"/actuator/health",
 			"/actuator/prometheus",
-			"/ws"
+			"/ws",
+		    "/oauth2/authorization/github",
+            "/login/oauth2/code/github"
 	);
 
 	@Override
