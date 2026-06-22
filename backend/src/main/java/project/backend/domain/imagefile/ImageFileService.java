@@ -33,7 +33,7 @@ public class ImageFileService {
     @Value("${file.images.chat.path}")
     private String chatImagePath;
 
-    @Value("${cloud.aws.s3.bucket}")
+    @Value("${r2.bucket}")
     private String bucket;
 
     @Transactional
@@ -58,7 +58,7 @@ public class ImageFileService {
         String s3Key = s3Path + storeFileName;
 
         try {
-            log.info("[S3] 이미지 업로드 : {}", s3Key);
+            log.info("[R2] 이미지 업로드 : {}", s3Key);
             // 메타데이터 설정
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentType(file.getContentType());

@@ -37,5 +37,4 @@ public class ImageFile {
 			.uploadFileName(uploadFileName)
 			.build();
 	}
-
 }

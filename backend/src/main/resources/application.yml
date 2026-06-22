@@ -42,7 +42,7 @@ spring:
             user-name-attribute: login
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
     properties:
       hibernate:
         show_sql: true
@@ -77,15 +77,11 @@ url:
   image-url: ${IMAGE_URL}
   webhook-url: ${WEBHOOK_URL}
 
-cloud:
-  aws:
-    credentials:
-      access-key: ${AWS_ACCESS_KEY}
-      secret-key: ${AWS_SECRET_KEY}
-    region:
-      static: ap-northeast-2
-    s3:
-      bucket: devchat-images
+r2:
+  bucket: ${R2_BUCKET_NAME}
+  access-key: ${R2_ACCESS_KEY}
+  secret-key: ${R2_SECRET_KEY}
+  endpoint: ${R2_ENDPOINT}
 
 jwt:
   redirection:
