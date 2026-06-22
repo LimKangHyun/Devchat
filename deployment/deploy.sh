@@ -24,6 +24,9 @@ set +a
 # 기존 NEW 컨테이너 제거 (충돌 방지)
 docker rm -f dev-chat-backend-$NEW_COLOR || true
 
+# 최신 이미지 pull
+docker-compose pull dev-chat-backend-$NEW_COLOR
+
 # 새 컨테이너 실행
 docker-compose up -d --no-deps dev-chat-backend-$NEW_COLOR
 
@@ -52,7 +55,7 @@ if [ -z "$STATUS" ]; then
 fi
 
 # nginx.conf 먼저 생성
-rm -rf /home/ubuntu/Devchat/deployment/nginx_proxy/nginx.conf
+rm -rf "$DEPLOY_DIR/nginx_proxy/nginx.conf"
 export ACTIVE_COLOR=$NEW_COLOR
 envsubst '${ACTIVE_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
 
