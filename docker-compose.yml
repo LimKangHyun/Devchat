@@ -55,6 +55,7 @@ services:
     volumes:
       - ./deployment/nginx_proxy/nginx.conf:/etc/nginx/nginx.conf
       - /etc/letsencrypt:/etc/letsencrypt
+      - ./www/certbot:/var/www/certbot
     ports:
       - "80:80"
       - "443:443"
