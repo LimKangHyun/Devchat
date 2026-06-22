@@ -6,7 +6,14 @@ http {
   server {
     listen 80;
     server_name thedevchat.duckdns.org;
-    return 301 https://$host$request_uri;
+
+    location /.well-known/acme-challenge/ {
+      root /var/www/certbot;
+    }
+
+    location / {
+      return 301 https://$host$request_uri;
+    }
   }
 
   server {
@@ -19,19 +26,72 @@ http {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
 
-    location / {
+    gzip on;
+    gzip_types text/css application/javascript image/png image/jpeg image/svg+xml;
+    gzip_min_length 1000;
+    gzip_comp_level 6;
+
+    location ~* /static/..(js|css)$ {
       set $frontend "dev-chat-frontend:80";
       proxy_pass http://$frontend;
       proxy_set_header Host $host;
+      expires 1y;
+      add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    location ~ \.(png|jpg|jpeg|gif|ico|svg|webp)$ {
+      set $frontend "dev-chat-frontend:80";
+      proxy_pass http://$frontend;
+      proxy_set_header Host $host;
+      expires 6M;
+      add_header Cache-Control "public, max-age=15552000";
+    }
+
+    location ~* \.(woff|woff2|ttf|otf)$ {
+      set $frontend "dev-chat-frontend:80";
+      proxy_pass http://$frontend;
+      proxy_set_header Host $host;
+      expires 1y;
+      add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    location ~* \.(php|asp|aspx|jsp)$ {
+      return 444;
+    }
+
+    location / {
+      set $frontend "dev-chat-frontend:80";
+      proxy_pass http://$frontend;
+      proxy_http_version 1.1;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_intercept_errors on;
+      error_page 404 = /index.html;
     }
 
     location /api/ {
       set $backend "dev-chat-backend-${ACTIVE_COLOR}:8080";
       proxy_pass http://$backend/;
       proxy_http_version 1.1;
-      proxy_set_header Host $host;
+      proxy_set_header Host thedevchat.duckdns.org;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_pass_header Set-Cookie;
+      proxy_cookie_path /token/refresh /api/token/refresh;
+      proxy_cookie_domain backend thedevchat.duckdns.org;
+    }
+
+    location /swagger-ui/ {
+      set $backend "dev-chat-backend-${ACTIVE_COLOR}:8080";
+      proxy_pass http://$backend/swagger-ui/;
+    }
+
+    location /v3/ {
+      set $backend "dev-chat-backend-${ACTIVE_COLOR}:8080";
+      proxy_pass http://$backend/v3/;
     }
 
     location /ws {
@@ -40,6 +100,10 @@ http {
       proxy_http_version 1.1;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection "Upgrade";
+      proxy_set_header Host thedevchat.duckdns.org;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
     }
   }
 }
