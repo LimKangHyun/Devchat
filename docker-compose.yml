@@ -14,6 +14,12 @@ services:
       - ./mysql-data:/var/lib/mysql
     networks:
       - dev-chat-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-u", "root", "-p${MYSQL_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   dev-chat-frontend:
     image: limkanghyun/dev-chat-frontend:latest
@@ -34,6 +40,9 @@ services:
     networks:
       - dev-chat-network
       - redis-sentinel_redis-net
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   dev-chat-backend-green:
     image: limkanghyun/dev-chat-backend:latest
@@ -48,6 +57,9 @@ services:
     networks:
       - dev-chat-network
       - redis-sentinel_redis-net
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   nginx_proxy:
     image: nginx:latest
@@ -90,5 +102,6 @@ services:
 networks:
   dev-chat-network:
     driver: bridge
+    name: dev-chat-network
   redis-sentinel_redis-net:
     external: true
