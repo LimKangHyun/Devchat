@@ -140,9 +140,9 @@ jobs:
       - name: SSH 배포
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.OCI_HOST }}
           username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
+          key: ${{ secrets.OCI_SSH_KEY }}
           script: |
             cd /home/ubuntu/Devchat
             
