@@ -158,6 +158,7 @@ public class GitMessageService {
 			case "pull_request"        -> gitMessageMapper.fromPullRequest(payload);
 			case "pull_request_review" -> gitMessageMapper.fromPullRequestReview(payload);
 			case "workflow_run"        -> gitMessageMapper.fromWorkflowRun(payload);
+			case "push"                -> gitMessageMapper.fromPush(payload);
 			default                    -> null;
 		};
 	}
@@ -166,8 +167,10 @@ public class GitMessageService {
 		Member githubBot = memberService.getMemberByUsername(githubBotUsername);
 		chatRoomRedisRepository.genMessageSeq(room.getId());
 
-		String summarized = geminiClient.summarizeGitEvent(gitMessage);
-		gitMessage.updateContent(gitMessage.getContent() + "\n\n" + summarized);
+		if (room.isAiSummaryEnabled()) {
+			String summarized = geminiClient.summarizeGitEvent(gitMessage);
+			gitMessage.updateContent(gitMessage.getContent() + "\n\n" + summarized);
+		}
 
 		ChatMessage message = chatMessageMapper.toEntityWithGit(gitMessage, githubBot);
 		chatMessageRepository.save(message);

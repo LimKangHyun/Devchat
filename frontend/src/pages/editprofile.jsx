@@ -136,7 +136,7 @@ export default function EditProfilePage() {
                           src={selectedImage || `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${userDetails.profileImg}`}
                           alt="Profile"
                           className={styles.avatarImage}
-                          onError={(e) => { e.currentTarget.src = "/images/not-found-profile.png" }}
+                          onError={(e) => { e.currentTarget.src = "/images/not-found-profile.webp" }}
                         />
                         <div className={styles.editIcon}>
                           <Edit2 size={20} style={{ pointerEvents: "none" }} />

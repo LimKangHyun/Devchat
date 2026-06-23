@@ -51,6 +51,9 @@ public class ChatRoom {
     @Column(nullable = false)
     private boolean aiReviewEnabled = true;
 
+    @Column(nullable = false)
+    private boolean aiSummaryEnabled = true;
+
     @Builder
     public ChatRoom(String name, LocalDateTime createdAt, String repositoryUrl, String inviteCode,
         Long webhookId, List<ChatMessage> messages, List<ChatParticipant> participants) {
@@ -91,5 +94,9 @@ public class ChatRoom {
 
     public void updateIndexingStatus(IndexingStatus status) {
         this.indexingStatus = status;
+    }
+
+    public void toggleAiSummary() {
+        this.aiSummaryEnabled = !this.aiSummaryEnabled;
     }
 }

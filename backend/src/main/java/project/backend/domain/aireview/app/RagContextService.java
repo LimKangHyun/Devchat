@@ -20,7 +20,7 @@ public class RagContextService {
     private static final float PATH_BOOST = 0.2f;
 
     /**
-     * PR diff로 관련 코드 청크 검색 후 컨텍스트 문자열 반환
+     * PR diff로 관련 코드 청크 검색 후 컨텍스트 문자열 반환a
      * 실패 시 빈 문자열 반환 (리뷰 흐름 중단 없음)
      */
     public String buildContext(Long repoId, String filePath, String diff) {

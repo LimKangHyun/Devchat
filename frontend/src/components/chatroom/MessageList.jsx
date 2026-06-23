@@ -472,7 +472,7 @@ export const MessageItem = ({
 
   const profileSrc = msg.profileImageUrl
     ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${msg.profileImageUrl}`
-    : '/images/not-found-profile.png';
+    : '/images/not-found-profile.webp';
 
   return (
     <div
@@ -496,7 +496,7 @@ export const MessageItem = ({
         width={36}
         height={36}
         loading="eager"
-        onError={(e) => { e.currentTarget.src = '/images/not-found-profile.png'; }}
+        onError={(e) => { e.currentTarget.src = '/images/not-found-profile.webp'; }}
         style={{
           borderRadius: '4px',
           marginRight: '10px',

@@ -44,6 +44,7 @@ public class GeminiClient {
     private String prSummaryPrompt;
     private String prReviewSummaryPrompt;
     private String workflowSummaryPrompt;
+    private String pushSummaryPrompt;
 
     @PostConstruct
     public void loadPrompts() throws IOException {
@@ -52,6 +53,7 @@ public class GeminiClient {
         prSummaryPrompt       = loadPrompt("pr-summary");
         prReviewSummaryPrompt = loadPrompt("pr-review-summary");
         workflowSummaryPrompt = loadPrompt("workflow-summary");
+        pushSummaryPrompt     = loadPrompt("push-summary");
     }
 
     private String loadPrompt(String name) throws IOException {
@@ -103,6 +105,7 @@ public class GeminiClient {
                     ? prSummaryPrompt
                     : prReviewSummaryPrompt;
             case WORKFLOW_RUN -> workflowSummaryPrompt;
+            case PUSH -> pushSummaryPrompt;
         };
     }
 

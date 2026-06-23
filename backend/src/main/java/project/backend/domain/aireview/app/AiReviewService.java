@@ -172,8 +172,9 @@ public class AiReviewService {
                     : context + "\n\n위 컨텍스트를 참고해서 아래 PR을 리뷰해줘:\n\n" + fileDiff;
 
                 List<InlineReview> reviews = geminiClient.reviewPrDiffInline(
-                    diffWithContext, fileContent, aiReview.getPrTitle(), aiReview.getPrBody());
-                results.add(new FileReviewResult(filePath, baseContent, fileContent, reviews, false));
+                        diffWithContext, fileContent, aiReview.getPrTitle(), aiReview.getPrBody());
+                List<InlineReview> validReviews = diffParser.filterValidReviews(reviews, fileContent);
+                results.add(new FileReviewResult(filePath, baseContent, fileContent, validReviews, false));
             } catch (Exception e) {
                 log.error("파일 리뷰 실패: {}", filePath, e);
             }
