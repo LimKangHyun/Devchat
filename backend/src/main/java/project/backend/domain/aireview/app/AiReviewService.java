@@ -58,6 +58,10 @@ public class AiReviewService {
     private final AiReviewDiffParser diffParser;
     private final ObjectMapper objectMapper;
 
+    private static final Set<String> REVIEWABLE_EXTENSIONS = Set.of(
+            ".java", ".kt", ".py", ".js", ".ts", ".tsx", ".jsx"
+    );
+
     @Transactional
     public void triggerAiReview(ChatRoom room, int prNumber, String headSha, String baseSha) {
         if (!room.isAiReviewEnabled()) return;
@@ -144,6 +148,10 @@ public class AiReviewService {
 
             try {
                 String status = fileStatuses.getOrDefault(filePath, "modified");
+                if (!isReviewableFile(filePath)) {
+                    log.info("리뷰 대상 아닌 파일 스킵: {}", filePath);
+                    continue;
+                }
                 if ("deleted".equals(status)) {
                     log.info("삭제된 파일 스킵: {}", filePath);
                     continue;
@@ -350,5 +358,9 @@ public class AiReviewService {
         } catch (Exception e) {
             throw new AiReviewException(AiReviewErrorCode.REVIEW_JSON_PARSE_FAILED);
         }
+    }
+
+    private boolean isReviewableFile(String filePath) {
+        return REVIEWABLE_EXTENSIONS.stream().anyMatch(filePath::endsWith);
     }
 }
