@@ -143,7 +143,7 @@ export function HeaderWithNotifications() {
         body: message,
         icon: notification.senderImg
           ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
-          : "/images/not-found-profile.png",
+          : "/images/not-found-profile.webp",
       })
 
       if (notification.url) {
@@ -395,10 +395,10 @@ export function HeaderWithNotifications() {
         <div className={styles.notificationContent}>
           <div className={styles.notificationAvatar}>
             <img
-              src={notification.senderImg ? `${process.env.REACT_APP_PROFILE_IMAGE_URL || "/placeholder.svg"}/${notification.senderImg}` : "/images/not-found-profile.png"}
+              src={notification.senderImg ? `${process.env.REACT_APP_PROFILE_IMAGE_URL || "/placeholder.svg"}/${notification.senderImg}` : "/images/not-found-profile.webp"}
               alt={notification.sender}
               className={styles.avatarImage}
-              onError={(e) => { e.currentTarget.src = "/images/not-found-profile.png" }}
+              onError={(e) => { e.currentTarget.src = "/images/not-found-profile.webp" }}
             />
             {notificationFilter === "unread" && !notification.isRead && <div className={styles.newIndicator}></div>}
           </div>
@@ -583,7 +583,7 @@ export function HeaderWithNotifications() {
                     src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${currentUser?.profileImg}`}
                     alt="User profile"
                     className={styles.profileImage}
-                    onError={(e) => { e.currentTarget.src = "/images/not-found-profile.png" }}
+                    onError={(e) => { e.currentTarget.src = "/images/not-found-profile.webp" }}
                   />
                 )}
                 <span className={`${styles.profileChevron} ${isProfileOpen ? styles.profileChevronOpen : ''}`}>▾</span>
@@ -596,7 +596,7 @@ export function HeaderWithNotifications() {
                       src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${currentUser?.profileImg}`}
                       alt="profile"
                       className={styles.profileDropdownAvatar}
-                      onError={(e) => { e.currentTarget.src = "/images/not-found-profile.png" }}
+                      onError={(e) => { e.currentTarget.src = "/images/not-found-profile.webp" }}
                     />
                     <div>
                       <p className={styles.profileDropdownName}>{currentUser?.username}</p>

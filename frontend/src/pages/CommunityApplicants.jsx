@@ -77,12 +77,12 @@ const CommunityApplicants = () => {
                       src={
                         applicant.profileImage
                           ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${applicant.profileImage}`
-                          : '/images/not-found-profile.png'
+                          : '/images/not-found-profile.webp'
                       }
                       alt={applicant.nickname}
                       className={styles.avatar}
                       onError={(e) => {
-                        e.target.src = '/images/not-found-profile.png';
+                        e.target.src = '/images/not-found-profile.webp';
                       }}
                     />
 
