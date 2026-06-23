@@ -1,5 +1,6 @@
 package project.backend.domain.github.mapper;
 
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 import project.backend.domain.github.dto.GitEventType;
@@ -175,6 +176,35 @@ public class GitMessageMapper {
         return GitMessageDto.builder()
                 .type(GitEventType.WORKFLOW_RUN)
                 .actor(triggerBy)
+                .content(content)
+                .fullContent(fullContent)
+                .build();
+    }
+
+    public GitMessageDto fromPush(Map<String, Object> payload) {
+        String ref = (String) payload.get("ref");
+        if (ref == null || !ref.startsWith("refs/heads/")) return null;
+
+        String branch = ref.replace("refs/heads/", "");
+        Map<String, Object> sender = (Map<String, Object>) payload.get("sender");
+        String author = (String) sender.get("login");
+
+        List<Map<String, Object>> commits = (List<Map<String, Object>>) payload.get("commits");
+        int commitCount = commits != null ? commits.size() : 0;
+
+        String compareUrl = (String) payload.get("compare");
+
+        String content = "📦 [push] " + branch + " by " + author
+                + " (" + commitCount + " commit" + (commitCount > 1 ? "s" : "") + ")"
+                + "\n" + compareUrl;
+        String fullContent = "브랜치: " + branch + "\n"
+                + "작성자: " + author + "\n"
+                + "커밋 수: " + commitCount + "\n"
+                + "URL: " + compareUrl;
+
+        return GitMessageDto.builder()
+                .type(GitEventType.PUSH)
+                .actor(author)
                 .content(content)
                 .fullContent(fullContent)
                 .build();

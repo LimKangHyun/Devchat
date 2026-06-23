@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.backend.auth.app.AuthTokenService;
 import project.backend.domain.aireview.app.RepoIndexingService;
+import project.backend.domain.aireview.dto.AiSummaryToggleResponse;
 import project.backend.domain.chat.chatmessage.app.ChatMessageService;
 import project.backend.domain.chat.chatmessage.entity.ChatMessage;
 import project.backend.domain.chat.chatroom.dao.ChatRoomRepository;
@@ -209,7 +210,8 @@ public class ChatRoomService {
         boolean alarmEnable = chatRoomAlarmService.isAlarmEnabled(memberId, room.getId());
 
         return new EntryRoomResponse(
-                room.getId(), room.getName(), ownerId, alarmEnable, room.getRepositoryUrl(), room.isAiReviewEnabled(), room.getIndexingStatus()
+                room.getId(), room.getName(), ownerId, alarmEnable, room.getRepositoryUrl(),
+                room.isAiReviewEnabled(), room. isAiSummaryEnabled(), room.getIndexingStatus()
         );
     }
 
@@ -263,13 +265,25 @@ public class ChatRoomService {
 
     @Transactional
     public AiReviewToggleResponse toggleAiReview(Long roomId, Long memberId) {
+        ChatRoom room = findRoomAsOwner(roomId, memberId);
+        room.toggleAiReview();
+        return new AiReviewToggleResponse(room.isAiReviewEnabled());
+    }
+
+    @Transactional
+    public AiSummaryToggleResponse toggleAiSummary(Long roomId, Long memberId) {
+        ChatRoom room = findRoomAsOwner(roomId, memberId);
+        room.toggleAiSummary();
+        return new AiSummaryToggleResponse(room.isAiSummaryEnabled());
+    }
+
+    private ChatRoom findRoomAsOwner(Long roomId, Long memberId) {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
         Long ownerId = chatRoomParticipantService.findOwnerId(roomId);
         if (!ownerId.equals(memberId)) {
             throw new ChatRoomException(ChatRoomErrorCode.OWNER_PERMISSION_REQUIRED);
         }
-        room.toggleAiReview();
-        return new AiReviewToggleResponse(room.isAiReviewEnabled());
+        return room;
     }
 }

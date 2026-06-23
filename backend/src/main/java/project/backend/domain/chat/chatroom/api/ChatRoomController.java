@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import project.backend.auth.dto.MemberDetails;
+import project.backend.domain.aireview.dto.AiSummaryToggleResponse;
 import project.backend.domain.chat.chatroom.app.ChatRoomParticipantService;
 import project.backend.domain.chat.chatroom.app.ChatRoomService;
 import project.backend.domain.chat.chatroom.dto.AllRoomsResponse;
@@ -146,6 +147,7 @@ public class ChatRoomController {
         chatRoomService.updateLastReadSequence(roomId, memberDetails.getId());
     }
 
+    @Operation(summary = "AI 리뷰 ON/OFF 토글")
     @PatchMapping("/{roomId}/ai-review/toggle")
     public ResponseEntity<AiReviewToggleResponse> toggleAiReview(
             @PathVariable Long roomId,
@@ -154,5 +156,13 @@ public class ChatRoomController {
         AiReviewToggleResponse response =
                 chatRoomService.toggleAiReview(roomId, memberDetails.getId());
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "AI 요약 ON/OFF 토글")
+    @PatchMapping("/{roomId}/ai-summary/toggle")
+    public ResponseEntity<AiSummaryToggleResponse> toggleAiSummary(
+            @PathVariable Long roomId,
+            @AuthenticationPrincipal MemberDetails memberDetails) {
+        return ResponseEntity.ok(chatRoomService.toggleAiSummary(roomId, memberDetails.getId()));
     }
 }

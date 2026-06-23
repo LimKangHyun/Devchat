@@ -34,11 +34,11 @@ public class RepoIndexingService {
     private static final long MAX_FILE_SIZE_BYTES = 100 * 1024; // 100KB
 
     private static final Set<String> EXCLUDED_DIRS = Set.of(
-            "node_modules", ".git", "build", "out", "target", ".gradle"
+            "node_modules", ".git", "build", "out", "target", ".gradle", "test"
     );
 
-    private static final Set<String> EXCLUDED_PATHS = Set.of(
-            "dto", "exception", "config", "constant", "common"
+    private static final Set<String> INCLUDED_PATHS = Set.of(
+            "app", "service", "api", "controller", "entity", "dao", "repository", "event", "scheduler"
     );
 
     private final EmbeddingService embeddingService;
@@ -153,7 +153,7 @@ public class RepoIndexingService {
                 String filePath = file.toString().toLowerCase();
                 if (!filePath.endsWith(".java")) return FileVisitResult.CONTINUE;
                 if (attrs.size() > MAX_FILE_SIZE_BYTES) return FileVisitResult.CONTINUE;
-                if (EXCLUDED_PATHS.stream().anyMatch(filePath::contains)) return FileVisitResult.CONTINUE;
+                if (INCLUDED_PATHS.stream().noneMatch(filePath::contains)) return FileVisitResult.CONTINUE;
                 javaFiles.add(file);
                 return FileVisitResult.CONTINUE;
             }

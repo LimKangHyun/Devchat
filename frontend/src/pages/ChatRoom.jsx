@@ -117,6 +117,7 @@ const ChatRoom = () => {
   const [inputHeight, setInputHeight] = useState(0);
   const [toast, setToast] = useState({ open: false, message: '' });
   const [aiReviewEnabled, setAiReviewEnabled] = useState(true);
+  const [aiSummaryEnabled, setAiSummaryEnabled] = useState(true);
 
   const virtuosoRef = useRef(null);
   const inputAreaRef = useRef(null);
@@ -219,6 +220,7 @@ const ChatRoom = () => {
       setRoomName(data.roomName);
       setRoomData(data);
       setAiReviewEnabled(data.aiReviewEnabled ?? true);
+      setAiSummaryEnabled(data.aiSummaryEnabled ?? true);
       updateAlarm(data.roomId, data.alarmEnabled);
       setInitState((prev) => ({ ...prev, isRoomValidated: true }));
       return data.roomId;
@@ -296,6 +298,15 @@ const ChatRoom = () => {
     try {
       const res = await axiosInstance.patch(`/chat-rooms/${roomId}/ai-review/toggle`);
       setAiReviewEnabled(res.data.aiReviewEnabled);
+    } catch (err) {
+      alert('설정 변경에 실패했습니다.');
+    }
+  };
+
+  const handleToggleAiSummary = async () => {
+    try {
+      const res = await axiosInstance.patch(`/chat-rooms/${roomId}/ai-summary/toggle`);
+      setAiSummaryEnabled(res.data.aiSummaryEnabled);
     } catch (err) {
       alert('설정 변경에 실패했습니다.');
     }
@@ -550,6 +561,8 @@ const ChatRoom = () => {
               <RoomHeader
                 aiReviewEnabled={aiReviewEnabled}
                 onToggleAiReview={handleToggleAiReview}
+                aiSummaryEnabled={aiSummaryEnabled}
+                onToggleAiSummary={handleToggleAiSummary}
                 repositoryUrl={roomData?.repositoryUrl}
                 roomName={roomName} inviteCode={inviteCode}
                 onSearch={handleSearch} onLeaveRoom={handleLeaveRoom}
