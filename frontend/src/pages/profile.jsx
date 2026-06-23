@@ -74,7 +74,7 @@ const ProfilePage = () => {
                       alt="Profile"
                       onError={(e) => {
                         e.target.onerror = null;
-                        e.target.src = "/images/not-found-profile.png";
+                        e.target.src = "/images/not-found-profile.webp";
                       }}
 
                     />

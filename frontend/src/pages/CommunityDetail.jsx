@@ -81,10 +81,10 @@ const CommunityDetail = () => {
               <img
                 src={post.authorProfileImg
                   ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${post.authorProfileImg}`
-                  : '/images/not-found-profile.png'}
+                  : '/images/not-found-profile.webp'}
                 alt={post.authorNickname}
                 className={styles.avatar}
-                onError={(e) => { e.target.src = '/images/not-found-profile.png'; }}
+                onError={(e) => { e.target.src = '/images/not-found-profile.webp'; }}
               />
               <span className={styles.authorName}>{post.authorNickname}</span>
               <span className={styles.dot}>·</span>

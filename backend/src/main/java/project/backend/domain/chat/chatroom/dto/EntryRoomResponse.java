@@ -9,6 +9,7 @@ public record EntryRoomResponse(
 	Boolean alarmEnabled,
 	String repositoryUrl,
 	boolean aiReviewEnabled,
+	boolean aiSummaryEnabled,
 	IndexingStatus indexingStatus
 ) {
 

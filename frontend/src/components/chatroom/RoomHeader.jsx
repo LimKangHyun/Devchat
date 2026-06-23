@@ -5,7 +5,9 @@ import { FaBell, FaRegBell, FaSpinner } from 'react-icons/fa';
 const RoomHeader = ({
   roomName, inviteCode, onSearch, onLeaveRoom, onDeleteRoom,
   isOwner, toggleAlarm, alarmEnabled,
-  aiReviewEnabled, onToggleAiReview, repositoryUrl
+  aiReviewEnabled, onToggleAiReview,
+  aiSummaryEnabled, onToggleAiSummary,
+  repositoryUrl
 }) => {
   const navigate = useNavigate();
   const [showNotification, setShowNotification] = useState(false);
@@ -42,7 +44,6 @@ const RoomHeader = ({
     const result = await onDeleteRoom();
     if (result.success) {
       setShowDeleteConfirm(false);
-      // navigate는 Sidebar에서 처리
     } else {
       alert(result.error);
       setShowDeleteConfirm(false);
@@ -74,6 +75,38 @@ const RoomHeader = ({
     cursor: 'pointer', transition: 'background 0.15s, color 0.15s',
   });
 
+  const Toggle = ({ label, enabled, onToggle }) => (
+    <div
+      onClick={isOwner ? onToggle : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '7px',
+        padding: '5px 10px', borderRadius: '8px',
+        cursor: isOwner ? 'pointer' : 'default', transition: 'background 0.15s',
+      }}
+      onMouseEnter={e => { if (isOwner) e.currentTarget.style.background = '#f0f6ff'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+    >
+      <span style={{ fontSize: '13px', color: '#3b82f6', fontWeight: '500', whiteSpace: 'nowrap' }}>
+        {label}
+      </span>
+      <div style={{
+        width: '30px', height: '17px', borderRadius: '9px',
+        background: enabled ? '#3b82f6' : '#cbd5e1',
+        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+        opacity: isOwner ? 1 : 0.6,
+      }}>
+        <div style={{
+          position: 'absolute', top: '2px',
+          left: enabled ? '15px' : '2px',
+          width: '13px', height: '13px',
+          borderRadius: '50%', background: 'white',
+          transition: 'left 0.2s',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+        }} />
+      </div>
+    </div>
+  );
+
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -98,35 +131,11 @@ const RoomHeader = ({
           초대 코드 복사
         </button>
 
-        {isOwner && repositoryUrl && (
-          <div
-            onClick={onToggleAiReview}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '7px',
-              padding: '5px 10px', borderRadius: '8px',
-              cursor: 'pointer', transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#f0f6ff'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            <span style={{ fontSize: '13px', color: '#3b82f6', fontWeight: '500', whiteSpace: 'nowrap' }}>
-              AI 리뷰
-            </span>
-            <div style={{
-              width: '30px', height: '17px', borderRadius: '9px',
-              background: aiReviewEnabled ? '#3b82f6' : '#cbd5e1',
-              position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-            }}>
-              <div style={{
-                position: 'absolute', top: '2px',
-                left: aiReviewEnabled ? '15px' : '2px',
-                width: '13px', height: '13px',
-                borderRadius: '50%', background: 'white',
-                transition: 'left 0.2s',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-              }} />
-            </div>
-          </div>
+        {repositoryUrl && (
+          <>
+            <Toggle label="AI 리뷰" enabled={aiReviewEnabled} onToggle={onToggleAiReview} />
+            <Toggle label="AI 요약" enabled={aiSummaryEnabled} onToggle={onToggleAiSummary} />
+          </>
         )}
 
         <button
