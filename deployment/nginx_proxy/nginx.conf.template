@@ -39,7 +39,7 @@ http {
       add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
-    location /grafana/ {
+    location ^~ /grafana/ {
       set $grafana "grafana:3000";
       proxy_pass http://$grafana;
       proxy_http_version 1.1;
