@@ -88,7 +88,7 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./prometheus-data:/prometheus
+      - prometheus-data:/prometheus
     networks:
       - dev-chat-network
 
@@ -119,3 +119,4 @@ networks:
 volumes:
   mysql-data:
   grafana-data:
+  prometheus-data:
