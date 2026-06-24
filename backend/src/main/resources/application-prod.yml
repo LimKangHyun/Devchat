@@ -151,5 +151,3 @@ management:
       probes:
         enabled: true
       show-details: always
-  security:
-    enabled: false
