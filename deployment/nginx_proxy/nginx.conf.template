@@ -108,7 +108,7 @@ http {
     }
 
     location /grafana/ {
-      set $grafana "grafana:3000"
+      set $grafana "grafana:3000";
       proxy_pass http://$grafana;
       proxy_http_version 1.1;
       proxy_set_header Host $http_host;
