@@ -59,6 +59,9 @@ rm -rf "$DEPLOY_DIR/nginx_proxy/nginx.conf"
 export ACTIVE_COLOR=$NEW_COLOR
 envsubst '${ACTIVE_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
 
+sudo chown -R 65534:65534 $PROJECT_DIR/prometheus-data
+sudo chown -R 472:472 $PROJECT_DIR/grafana-data
+
 # nginx 재시작
 docker rm -f nginx_proxy || true
 docker-compose up -d nginx_proxy
