@@ -99,7 +99,7 @@ services:
     ports:
       - "3002:3000"
     volumes:
-      - ./grafana-data:/var/lib/grafana
+      - grafana-data:/var/lib/grafana
     environment:
       - GF_SERVER_ROOT_URL=https://thedevchat.duckdns.org/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
@@ -118,3 +118,4 @@ networks:
 
 volumes:
   mysql-data:
+  grafana-data:
