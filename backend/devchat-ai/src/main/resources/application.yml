@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: devchat-ai
+
+  data:
+    redis:
+      host: redis-stream
+      port: 6379
+      timeout: 500ms
+      connect-timeout: 500ms
+      lettuce:
+        shutdown-timeout: 500ms
+
+internal:
+  api:
+    url: ${INTERNAL_API_URL}
+  jwt:
+    secret: ${INTERNAL_JWT_SECRET}
+
+gemini:
+  review-api-keys: ${GEMINI_REVIEW_KEY_1},${GEMINI_REVIEW_KEY_2}
+  embedding-api-keys: ${GEMINI_EMBEDDING_KEY_1},${GEMINI_EMBEDDING_KEY_2},${GEMINI_EMBEDDING_KEY_3},${GEMINI_EMBEDDING_KEY_4},${GEMINI_EMBEDDING_KEY_5}
+
+pinecone:
+  api-key: ${PINECONE_API_KEY}
+  index-name: devchat
