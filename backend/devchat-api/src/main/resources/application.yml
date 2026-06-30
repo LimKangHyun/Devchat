@@ -64,14 +64,6 @@ github:
     pat: ${BOT_GITHUB_BOT_PAT}
     username: Devchat-Code-Assist
 
-gemini:
-  review-api-keys: ${GEMINI_REVIEW_KEY_1},${GEMINI_REVIEW_KEY_2}
-  embedding-api-keys: ${GEMINI_EMBEDDING_KEY_1},${GEMINI_EMBEDDING_KEY_2},${GEMINI_EMBEDDING_KEY_3},${GEMINI_EMBEDDING_KEY_4},${GEMINI_EMBEDDING_KEY_5}
-
-pinecone:
-  api-key: ${PINECONE_API_KEY}
-  index-name: devchat
-
 url:
   domain-url: ${DOMAIN_URL}
   image-url: ${IMAGE_URL}
@@ -91,6 +83,15 @@ jwt:
 
 encrypt:
   secret: dsfgf
+
+internal:
+  jwt:
+    secret: viYv2cLs4aDaKzOCFKyQlobMWxcSBGcycF7wa05v3ks=
+
+stream:
+  redis:
+    host: ${STREAM_REDIS_HOST:localhost}
+    port: ${STREAM_REDIS_PORT:6381}
 
   info:
     issuer: "대한민국26세 달성 배씨 배문성의 허가가 있는 토큰이올시다."

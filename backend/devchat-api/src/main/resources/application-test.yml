@@ -67,7 +67,6 @@ github:
     pat: dummy
     username: Devchat Code Assist
 
-
 url:
   domain-url: http://localhost:3000
   image-url: http://localhost
@@ -84,3 +83,12 @@ file:
       github: github-profile.png
     chat:
       path: images/chat/
+
+internal:
+  jwt:
+    secret: secret
+
+stream:
+  redis:
+    host: ${STREAM_REDIS_HOST:localhost}
+    port: ${STREAM_REDIS_PORT:6379}

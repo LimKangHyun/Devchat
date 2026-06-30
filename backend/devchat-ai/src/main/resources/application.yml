@@ -11,11 +11,14 @@ spring:
       lettuce:
         shutdown-timeout: 500ms
 
+server:
+  port: 8081
+
 internal:
   api:
-    url: ${INTERNAL_API_URL}
+    url: http://devchat-api:8080
   jwt:
-    secret: ${INTERNAL_JWT_SECRET}
+    secret: viYv2cLs4aDaKzOCFKyQlobMWxcSBGcycF7wa05v3ks=
 
 gemini:
   review-api-keys: ${GEMINI_REVIEW_KEY_1},${GEMINI_REVIEW_KEY_2}
