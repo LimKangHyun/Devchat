@@ -39,10 +39,20 @@ public class GeminiClient {
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
     private String inlineReviewPrompt;
+    private String issueSummaryPrompt;
+    private String prSummaryPrompt;
+    private String prReviewSummaryPrompt;
+    private String workflowSummaryPrompt;
+    private String pushSummaryPrompt;
 
     @PostConstruct
     public void loadPrompts() throws IOException {
-        inlineReviewPrompt = loadPrompt("inline-review");
+        inlineReviewPrompt    = loadPrompt("inline-review");
+        issueSummaryPrompt    = loadPrompt("issue-summary");
+        prSummaryPrompt       = loadPrompt("pr-summary");
+        prReviewSummaryPrompt = loadPrompt("pr-review-summary");
+        workflowSummaryPrompt = loadPrompt("workflow-summary");
+        pushSummaryPrompt     = loadPrompt("push-summary");
     }
 
     private String loadPrompt(String name) throws IOException {
@@ -120,6 +130,26 @@ public class GeminiClient {
                 .block();
 
         return Objects.requireNonNull(response).candidates().get(0).content().parts().get(0).text();
+    }
+
+    public String summarizeGitEvent(String eventType, String prStatus, String fullContent) {
+        String prompt = resolvePrompt(eventType, prStatus);
+        try {
+            return callGemini(prompt + "\n\n[이벤트 내용]\n" + fullContent);
+        } catch (Exception e) {
+            log.error("Gemini 요약 실패, 원본 반환", e);
+            return fullContent;
+        }
+    }
+
+    private String resolvePrompt(String eventType, String prStatus) {
+        return switch (eventType) {
+            case "ISSUE" -> issueSummaryPrompt;
+            case "PULL_REQUEST" -> prStatus != null ? prSummaryPrompt : prReviewSummaryPrompt;
+            case "WORKFLOW_RUN" -> workflowSummaryPrompt;
+            case "PUSH" -> pushSummaryPrompt;
+            default -> issueSummaryPrompt;
+        };
     }
 
     private long handleApiException(WebClientResponseException e, int attempt, int totalAttempts, long delay) {

@@ -6,7 +6,7 @@ spring:
     redis:
       host: redis-stream
       port: 6379
-      timeout: 500ms
+      timeout: 10000ms
       connect-timeout: 500ms
       lettuce:
         shutdown-timeout: 500ms
@@ -21,8 +21,8 @@ internal:
     secret: b2d8b79adb8fada12b23fa82067de8bdc5ebd55dbcea313008ca29281021c74f
 
 gemini:
-  review-api-keys: ${GEMINI_REVIEW_KEY_1},${GEMINI_REVIEW_KEY_2}
-  embedding-api-keys: ${GEMINI_EMBEDDING_KEY_1},${GEMINI_EMBEDDING_KEY_2},${GEMINI_EMBEDDING_KEY_3},${GEMINI_EMBEDDING_KEY_4},${GEMINI_EMBEDDING_KEY_5}
+  review-api-keys: ${GEMINI_REVIEW_API_KEYS}
+  embedding-api-keys: ${GEMINI_EMBEDDING_API_KEYS}
 
 pinecone:
   api-key: ${PINECONE_API_KEY}
