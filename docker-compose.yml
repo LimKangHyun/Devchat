@@ -1,5 +1,4 @@
 version: "3.8"
-
 services:
   mysql:
     image: mysql:8.0
@@ -23,6 +22,15 @@ services:
       retries: 10
       start_period: 30s
 
+  redis-stream:
+    image: redis:7
+    container_name: redis-stream
+    restart: unless-stopped
+    ports:
+      - "6381:6379"
+    networks:
+      - dev-chat-network
+
   dev-chat-frontend:
     image: limkanghyun/dev-chat-frontend:latest
     container_name: dev-chat-frontend
@@ -39,12 +47,17 @@ services:
       - MYSQL_USERNAME=${MYSQL_USERNAME}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - RDS_ENDPOINT=${RDS_ENDPOINT}
+      - INTERNAL_JWT_SECRET=${INTERNAL_JWT_SECRET}
+      - STREAM_REDIS_HOST=redis-stream
+      - STREAM_REDIS_PORT=6379
     networks:
       - dev-chat-network
       - redis-sentinel_redis-net
     depends_on:
       mysql:
         condition: service_healthy
+      redis-stream:
+        condition: service_started
 
   dev-chat-backend-green:
     image: limkanghyun/dev-chat-backend:latest
@@ -56,12 +69,40 @@ services:
       - MYSQL_USERNAME=${MYSQL_USERNAME}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - RDS_ENDPOINT=${RDS_ENDPOINT}
+      - INTERNAL_JWT_SECRET=${INTERNAL_JWT_SECRET}
+      - STREAM_REDIS_HOST=redis-stream
+      - STREAM_REDIS_PORT=6379
     networks:
       - dev-chat-network
       - redis-sentinel_redis-net
     depends_on:
       mysql:
         condition: service_healthy
+      redis-stream:
+        condition: service_started
+
+  dev-chat-ai:
+    image: limkanghyun/dev-chat-ai:latest
+    container_name: dev-chat-ai
+    restart: unless-stopped
+    env_file:
+      - /home/ubuntu/Devchat/.env
+    environment:
+      - INTERNAL_JWT_SECRET=${INTERNAL_JWT_SECRET}
+      - INTERNAL_API_URL=${INTERNAL_API_URL}
+      - GEMINI_REVIEW_KEY_1=${GEMINI_REVIEW_KEY_1}
+      - GEMINI_REVIEW_KEY_2=${GEMINI_REVIEW_KEY_2}
+      - GEMINI_EMBEDDING_KEY_1=${GEMINI_EMBEDDING_KEY_1}
+      - GEMINI_EMBEDDING_KEY_2=${GEMINI_EMBEDDING_KEY_2}
+      - GEMINI_EMBEDDING_KEY_3=${GEMINI_EMBEDDING_KEY_3}
+      - GEMINI_EMBEDDING_KEY_4=${GEMINI_EMBEDDING_KEY_4}
+      - GEMINI_EMBEDDING_KEY_5=${GEMINI_EMBEDDING_KEY_5}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+    networks:
+      - dev-chat-network
+    depends_on:
+      - redis-stream
+    stop_grace_period: 600s
 
   nginx_proxy:
     image: nginx:latest
@@ -112,7 +153,6 @@ networks:
   dev-chat-network:
     driver: bridge
     name: dev-chat-network
-
   redis-sentinel_redis-net:
     external: true
 

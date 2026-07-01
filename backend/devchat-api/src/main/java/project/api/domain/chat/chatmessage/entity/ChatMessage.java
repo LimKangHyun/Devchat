@@ -1,0 +1,83 @@
+package project.api.domain.chat.chatmessage.entity;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import project.api.domain.chat.chatroom.entity.ChatRoom;
+import project.api.domain.aireview.entity.AiReview;
+import project.api.domain.imagefile.ImageFile;
+import project.api.domain.member.entity.Member;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
+public class ChatMessage {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "message_id")
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "member_id")
+    private Member sender;
+
+    @ManyToOne
+    @JoinColumn(name = "room_id")
+    private ChatRoom chatRoom;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String content;
+
+    private LocalDateTime createdAt;
+
+    @Enumerated(EnumType.STRING)
+    private MessageType type;
+
+    private String codeLanguage;
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "chat_image_id")
+    private ImageFile chatImage;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    private MessageStatus status = MessageStatus.NO_CHANGE;
+
+    private Integer prNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ai_review_id")
+    private AiReview aiReview;
+
+
+    public Long getChatRoomId() {
+        return chatRoom.getId();
+    }
+
+    public void updateContent(String newContent) {
+        if (newContent != null) {
+            content = newContent;
+            status = MessageStatus.EDITED;
+        }
+    }
+
+    public void updateLanguage(String language) {
+        if (language != null) {
+            codeLanguage = language;
+            status = MessageStatus.EDITED;
+        }
+    }
+
+    public void delete() {
+        status = MessageStatus.DELETED;
+    }
+}

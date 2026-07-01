@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
-import project.common.message.RepoIndexingMessage;
+import project.common.message.RepoIndexMessage;
 import project.ai.service.RepoIndexingService;
 
 @Slf4j
@@ -20,7 +20,7 @@ public class RepoIndexingConsumer implements StreamListener<String, ObjectRecord
     @Override
     public void onMessage(ObjectRecord<String, String> record) {
         try {
-            RepoIndexingMessage message = objectMapper.readValue(record.getValue(), RepoIndexingMessage.class);
+            RepoIndexMessage message = objectMapper.readValue(record.getValue(), RepoIndexMessage.class);
             log.info("레포 인덱싱 요청 수신: roomId={}", message.roomId());
             repoIndexingService.indexRepository(message.roomId(), message.repositoryUrl(), message.memberId());
         } catch (Exception e) {

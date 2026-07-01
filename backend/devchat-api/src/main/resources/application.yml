@@ -4,12 +4,8 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${MYSQL_USERNAME}
-    password: ${MYSQL_PASSWORD}
-    url: jdbc:mysql://localhost:3306/devchat
 
   flyway:
-    enabled: false
     baseline-on-migrate: true
     locations: classpath:db/migration
 
@@ -18,35 +14,20 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
-  profiles:
-    active: dev
-
-  data:
-    redis:
-      host: localhost
-      port: 6379
-
   security:
     oauth2:
       client:
-        registration:
-          github:
-            client-id: Ov23liAW2nSSgyjHwXMO
-            client-secret: c042dad098e74b9d0037927245d5a7e0faf31397
-            scope:
-              - repo
-              - admin:repo_hook
-              - user
         provider:
           github:
             user-name-attribute: login
+
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     properties:
       hibernate:
-        show_sql: true
-        format_sql: true
+        show_sql: false
+        format_sql: false
 
 file:
   images:
@@ -61,41 +42,7 @@ file:
 github:
   username: GitHubBot
   bot:
-    pat: ${BOT_GITHUB_BOT_PAT}
     username: Devchat-Code-Assist
-
-url:
-  domain-url: ${DOMAIN_URL}
-  image-url: ${IMAGE_URL}
-  webhook-url: ${WEBHOOK_URL}
-
-r2:
-  bucket: ${R2_BUCKET_NAME}
-  access-key: ${R2_ACCESS_KEY}
-  secret-key: ${R2_SECRET_KEY}
-  endpoint: ${R2_ENDPOINT}
-
-jwt:
-  redirection:
-    base: ${DOMAIN_URL}
-  info:
-    secret: ${JWT_SECRET}
-
-encrypt:
-  secret: dsfgf
-
-internal:
-  jwt:
-    secret: viYv2cLs4aDaKzOCFKyQlobMWxcSBGcycF7wa05v3ks=
-
-stream:
-  redis:
-    host: ${STREAM_REDIS_HOST:localhost}
-    port: ${STREAM_REDIS_PORT:6381}
-
-  info:
-    issuer: "대한민국26세 달성 배씨 배문성의 허가가 있는 토큰이올시다."
-    secret: 36b2294c1079470409d860ac57402fc152524d134a75b7cb223d92644b63adba980d90dcefd0d53c02a5cbb43c2678d49128dae2299f652f5f71033fee640686
 
 logging:
   file:

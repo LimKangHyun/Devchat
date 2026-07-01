@@ -3,6 +3,7 @@ package project.ai.client;
 import com.google.protobuf.Struct;
 import io.pinecone.clients.Index;
 import io.pinecone.clients.Pinecone;
+import io.pinecone.proto.ListResponse;
 import io.pinecone.proto.UpsertResponse;
 import io.pinecone.unsigned_indices_model.QueryResponseWithUnsignedIndices;
 import io.pinecone.unsigned_indices_model.ScoredVectorWithUnsignedIndices;
@@ -77,5 +78,19 @@ public class PineconeClient {
     public void deleteNamespace(String namespace) {
         index.deleteAll(namespace);
         log.info("Pinecone namespace 삭제. namespace={}", namespace);
+    }
+
+    public void deleteFileChunks(String repoId, String filePath, String namespace) {
+        String prefix = repoId + "-" + filePath.replace("/", "_") + "-";
+        ListResponse listResponse = index.list(namespace, prefix);
+
+        List<String> idsToDelete = listResponse.getVectorsList().stream()
+            .map(v -> v.getId())  // 실제 필드/메서드명은 IDE에서 확인 필요
+            .toList();
+
+        if (!idsToDelete.isEmpty()) {
+            index.deleteByIds(idsToDelete, namespace);
+            log.info("Pinecone 파일 청크 삭제. filePath={}, count={}", filePath, idsToDelete.size());
+        }
     }
 }

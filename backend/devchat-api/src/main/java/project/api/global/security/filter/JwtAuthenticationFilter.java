@@ -1,0 +1,83 @@
+package project.api.global.security.filter;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+import project.api.global.util.CookieUtils;
+import project.api.auth.jwt.JwtProvider;
+import project.api.auth.jwt.TokenStatus;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+	private final JwtProvider jwtProvider;
+
+	private static final List<String> WHITE_LIST = List.of(
+			"/signup",
+			"/login",
+			"/token/refresh",
+			"/actuator/health",
+			"/actuator/prometheus",
+			"/ws",
+		    "/oauth2/authorization/github",
+            "/login/oauth2/code/github"
+	);
+
+	@Override
+	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+									FilterChain filterChain) throws ServletException, IOException {
+
+		String requestURI = request.getRequestURI();
+		log.info("[JWT Filter] 요청 URI: {}", requestURI);
+
+		if (isWhitelisted(requestURI)) {
+			filterChain.doFilter(request, response);
+			return;
+		}
+
+		Cookie cookie = CookieUtils.getCookie(request, "accessToken").orElse(null);
+
+		if (cookie == null) {
+			sendUnauthorized(response, "토큰이 없습니다.");
+			return;
+		}
+
+		String accessToken = cookie.getValue();
+		TokenStatus tokenStatus = jwtProvider.validateAccessToken(accessToken);
+
+		if (tokenStatus == TokenStatus.VALID) {
+			log.info("[JWT] 유효한 토큰");
+			Authentication authentication = jwtProvider.getAuthentication(accessToken);
+			SecurityContextHolder.getContext().setAuthentication(authentication);
+		} else {
+			log.warn("[JWT] 유효하지 않은 토큰 - status: {}", tokenStatus);
+			SecurityContextHolder.clearContext();
+			sendUnauthorized(response, "토큰이 만료되었거나 유효하지 않습니다.");
+			return;
+		}
+
+		filterChain.doFilter(request, response);
+	}
+
+	private boolean isWhitelisted(String requestURI) {
+		return requestURI.matches("/github/webhook/\\d+") || WHITE_LIST.contains(requestURI);
+	}
+
+	private void sendUnauthorized(HttpServletResponse response, String message) throws IOException {
+		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+		response.setContentType("application/json; charset=utf-8");
+		response.getWriter().write("{\"message\":\"" + message + "\"}");
+	}
+}

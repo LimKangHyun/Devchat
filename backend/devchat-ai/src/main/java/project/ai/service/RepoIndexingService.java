@@ -2,6 +2,7 @@ package project.ai.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import project.ai.internal.InternalAuthClient;
 import project.common.dto.ChunkMeta;
 import project.common.exception.errorcode.IndexingErrorCode;
 import project.common.exception.ex.IndexingException;
+import project.common.message.FileReindexMessage;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -33,16 +35,19 @@ public class RepoIndexingService {
     private static final long MAX_FILE_SIZE_BYTES = 100 * 1024;
 
     private static final Set<String> EXCLUDED_DIRS = Set.of(
-            "node_modules", ".git", "build", "out", "target", ".gradle", "test"
+        "node_modules", ".git", "build", "out", "target", ".gradle", "test"
     );
 
     private static final Set<String> INCLUDED_PATHS = Set.of(
-            "app", "service", "api", "controller", "entity", "dao", "repository", "event", "scheduler"
+        "app", "service", "api", "controller", "entity", "dao", "repository", "event", "scheduler"
     );
 
     private final EmbeddingService embeddingService;
     private final PineconeClient pineconeClient;
+
+    @Qualifier("streamRedisTemplate")
     private final RedisTemplate<String, String> redisTemplate;
+
     private final InternalAuthClient internalAuthClient;
 
     private final Semaphore semaphore = new Semaphore(4);
@@ -52,14 +57,14 @@ public class RepoIndexingService {
         String lockKey = LOCK_PREFIX + repoId;
 
         Boolean acquired = redisTemplate.opsForValue()
-                .setIfAbsent(lockKey, "1", LOCK_TTL);
+            .setIfAbsent(lockKey, "1", LOCK_TTL);
         if (!Boolean.TRUE.equals(acquired)) {
             log.info("이미 인덱싱 중인 레포. repoId={}", repoId);
             return;
         }
 
         Path repoPath = Paths.get(
-                System.getProperty("java.io.tmpdir"), "devchat", UUID.randomUUID().toString()
+            System.getProperty("java.io.tmpdir"), "devchat", UUID.randomUUID().toString()
         );
 
         try {
@@ -85,6 +90,53 @@ public class RepoIndexingService {
         }
     }
 
+    /**
+     * PR 머지 시 변경된 단일 파일을 재인덱싱한다.
+     * - removed: 기존 청크 삭제만 수행
+     * - added/modified: 기존 청크 삭제 후 재청크 → 재임베딩 → upsert
+     */
+    public void reindexFile(FileReindexMessage message) {
+        Long roomId = message.roomId();
+        String namespace = String.valueOf(roomId);
+        String filePath = message.filePath();
+
+        try {
+            pineconeClient.deleteFileChunks(namespace, filePath, namespace);
+
+            if ("removed".equals(message.status())) {
+                log.info("파일 삭제 반영 완료. roomId={}, filePath={}", roomId, filePath);
+                return;
+            }
+
+            String content = message.fileContent();
+            if (content == null || content.isBlank()) {
+                log.info("파일 내용 없음, 재인덱싱 스킵. roomId={}, filePath={}", roomId, filePath);
+                return;
+            }
+
+            List<String> chunks = chunk(content);
+            List<ChunkMeta> metas = new ArrayList<>();
+            for (int i = 0; i < chunks.size(); i++) {
+                String id = roomId + "-" + filePath.replace("/", "_") + "-" + i;
+                metas.add(new ChunkMeta(id, filePath, i, chunks.get(i)));
+            }
+
+            if (!metas.isEmpty()) {
+                flushBatch(roomId, metas);
+            }
+
+            log.info("파일 재인덱싱 완료. roomId={}, filePath={}, chunkCount={}", roomId, filePath, metas.size());
+        } catch (IndexingException e) {
+            if (e.getErrorCode() == IndexingErrorCode.EMBEDDING_EXHAUSTED) {
+                log.error("임베딩 키 소진 - 파일 재인덱싱 중단. roomId={}, filePath={}", roomId, filePath);
+            } else {
+                log.error("파일 재인덱싱 실패. roomId={}, filePath={}", roomId, filePath, e);
+            }
+        } catch (Exception e) {
+            log.error("파일 재인덱싱 실패. roomId={}, filePath={}", roomId, filePath, e);
+        }
+    }
+
     public void cancelIndexing(Long repoId) {
         redisTemplate.opsForValue().set(CANCEL_PREFIX + repoId, "1", LOCK_TTL);
         log.info("인덱싱 취소 플래그 설정. repoId={}", repoId);
@@ -104,11 +156,11 @@ public class RepoIndexingService {
         Files.createDirectories(targetPath);
 
         String gitPath = System.getProperty("os.name").toLowerCase().contains("win")
-                ? "C:\\Program Files\\Git\\bin\\git.exe"
-                : "git";
+            ? "C:\\Program Files\\Git\\bin\\git.exe"
+            : "git";
 
         ProcessBuilder pb = new ProcessBuilder(
-                gitPath, "clone", "--depth", "1", authenticatedUrl, targetPath.toString()
+            gitPath, "clone", "--depth", "1", authenticatedUrl, targetPath.toString()
         );
         pb.environment().remove("GIT_ASKPASS");
         pb.redirectErrorStream(true);
@@ -217,11 +269,11 @@ public class RepoIndexingService {
             String code = meta.chunk().length() > 1000 ? meta.chunk().substring(0, 1000) : meta.chunk();
 
             Map<String, String> metadata = Map.of(
-                    "repoId", String.valueOf(repoId),
-                    "filePath", meta.relativePath(),
-                    "chunkIndex", String.valueOf(meta.chunkIndex()),
-                    "code", code,
-                    "language", "java"
+                "repoId", String.valueOf(repoId),
+                "filePath", meta.relativePath(),
+                "chunkIndex", String.valueOf(meta.chunkIndex()),
+                "code", code,
+                "language", "java"
             );
 
             pineconeClient.upsert(meta.id(), vectors.get(i), metadata, String.valueOf(repoId));
@@ -243,8 +295,8 @@ public class RepoIndexingService {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
             boolean isMethodSignature = depth == 1
-                    && (line.contains("public ") || line.contains("private ") || line.contains("protected "))
-                    && line.contains("(") && !line.contains("class ") && !line.contains("interface ");
+                && (line.contains("public ") || line.contains("private ") || line.contains("protected "))
+                && line.contains("(") && !line.contains("class ") && !line.contains("interface ");
 
             if (isMethodSignature && line.contains("{")) {
                 methodStart = i;

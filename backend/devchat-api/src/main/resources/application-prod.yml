@@ -90,8 +90,8 @@ resilience4j:
           - java.util.concurrent.TimeoutException
           - org.springframework.dao.QueryTimeoutException
         ignore-exceptions:
-          - project.backend.global.exception.ex.ChatRoomException
-          - project.backend.global.exception.ex.ChatMessageException
+          - project.api.global.exception.ex.ChatRoomException
+          - project.api.global.exception.ex.ChatMessageException
 
 file:
   images:

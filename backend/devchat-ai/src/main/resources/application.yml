@@ -18,7 +18,7 @@ internal:
   api:
     url: http://devchat-api:8080
   jwt:
-    secret: viYv2cLs4aDaKzOCFKyQlobMWxcSBGcycF7wa05v3ks=
+    secret: b2d8b79adb8fada12b23fa82067de8bdc5ebd55dbcea313008ca29281021c74f
 
 gemini:
   review-api-keys: ${GEMINI_REVIEW_KEY_1},${GEMINI_REVIEW_KEY_2}

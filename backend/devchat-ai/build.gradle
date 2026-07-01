@@ -5,15 +5,11 @@ plugins {
 dependencies {
     implementation project(':devchat-common')
 
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
-    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
     implementation 'io.pinecone:pinecone-client:2.0.0'
     implementation 'io.grpc:grpc-okhttp:1.62.2'
     implementation 'com.auth0:java-jwt:4.5.0'
-
-    runtimeOnly 'com.mysql:mysql-connector-j'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

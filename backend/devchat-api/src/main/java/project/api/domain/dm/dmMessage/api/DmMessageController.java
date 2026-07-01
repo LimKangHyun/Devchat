@@ -1,0 +1,44 @@
+package project.api.domain.dm.dmMessage.api;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import project.api.domain.dm.dmMessage.app.DmMessageService;
+import project.api.domain.dm.dmMessage.dto.DmMessageRequest;
+import project.api.domain.dm.dmMessage.dto.DmMessageResponse;
+
+@Tag(name = "Direct Message", description = "DM API")
+@Slf4j
+@RestController
+@RequestMapping("/dm")
+@RequiredArgsConstructor
+public class DmMessageController {
+
+	private final DmMessageService dmMessageService;
+
+	@MessageMapping("/send/{roomId}")
+	public DmMessageResponse sendMessage(@DestinationVariable Long roomId,
+		@Payload DmMessageRequest request, Authentication authentication) {
+		return dmMessageService.save(roomId, request, authentication);
+	}
+
+	@Operation(summary = "DM 채팅 내역 조회")
+	@GetMapping("/history/{roomId}")
+	public Page<DmMessageResponse> getDmMessages(@PathVariable Long roomId,
+		Authentication auth,
+		Pageable pageable
+	) {
+		return dmMessageService.getDmMessages(roomId, pageable, auth);
+	}
+}
