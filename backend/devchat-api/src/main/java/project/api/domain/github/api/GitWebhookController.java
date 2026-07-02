@@ -22,7 +22,7 @@ public class GitWebhookController {
 
 	@Operation(
 			summary = "GitHub Webhook 수신",
-			description = "GitHub Push / PR / Issue 이벤트를 수신하여 채팅 메시지로 변환"
+			description = "GitHub Push / PR / Issue / Workflow 이벤트를 수신하여 채팅 메시지로 변환"
 	)
 	@PostMapping("/webhook/{roomId}")
 	public void handleWebhook(@PathVariable Long roomId,
@@ -50,5 +50,4 @@ public class GitWebhookController {
 		int prNumber = (int) body.get("prNumber");
 		gitMessageService.retryAiReview(roomId, prNumber);
 	}
-
 }

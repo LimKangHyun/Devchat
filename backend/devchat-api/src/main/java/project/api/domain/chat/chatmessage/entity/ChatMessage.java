@@ -80,4 +80,10 @@ public class ChatMessage {
     public void delete() {
         status = MessageStatus.DELETED;
     }
+
+    public void updateToSummary(String summarizedContent) {
+        if (summarizedContent != null) {
+            this.content = summarizedContent;
+        }
+    }
 }

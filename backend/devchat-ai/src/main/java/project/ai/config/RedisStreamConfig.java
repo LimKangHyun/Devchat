@@ -7,14 +7,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.*;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
-import project.ai.stream.consumer.AiReviewRequestConsumer;
-import project.ai.stream.consumer.DeleteIndexConsumer;
-import project.ai.stream.consumer.FileReindexConsumer;
-import project.ai.stream.consumer.RepoIndexingConsumer;
+import project.ai.stream.consumer.*;
+import project.ai.stream.git.GitSummaryRequestConsumer;
+import project.ai.stream.index.DeleteIndexConsumer;
+import project.ai.stream.index.FileReindexConsumer;
+import project.ai.stream.index.RepoIndexConsumer;
 
 import java.time.Duration;
 
@@ -24,20 +23,24 @@ import java.time.Duration;
 public class RedisStreamConfig {
 
     private static final String AI_REVIEW_STREAM = "stream:ai-review:request";
-    private static final String AI_REVIEW_GROUP = "ai-group";
-    private static final String AI_REVIEW_CONSUMER = "ai-1";
+    private static final String AI_REVIEW_GROUP = "ai-review-group";
+    private static final String AI_REVIEW_CONSUMER = "ai-review-1";
 
-    private static final String INDEXING_STREAM = "stream:repo-indexing:request";
-    private static final String INDEXING_GROUP = "ai-indexing-group";
-    private static final String INDEXING_CONSUMER = "ai-indexing-1";
+    private static final String REPO_INDEX_STREAM = "stream:repo-index:request";
+    private static final String REPO_INDEX_GROUP = "ai-repo-index-group";
+    private static final String REPO_INDEX_CONSUMER = "ai-repo-index-1";
 
     private static final String FILE_REINDEX_STREAM = "stream:file-reindex:request";
     private static final String FILE_REINDEX_GROUP = "ai-file-reindex-group";
     private static final String FILE_REINDEX_CONSUMER = "ai-file-reindex-1";
 
     private static final String DELETE_INDEX_STREAM = "stream:delete-index:request";
-    private static final String DELETE_INDEX_GROUP = "ai-delete-group";
-    private static final String DELETE_INDEX_CONSUMER = "ai-delete-1";
+    private static final String DELETE_INDEX_GROUP = "ai-delete-index-group";
+    private static final String DELETE_INDEX_CONSUMER = "ai-delete-index-1";
+
+    private static final String GIT_SUMMARY_STREAM = "stream:git-summary:request";
+    private static final String GIT_SUMMARY_GROUP = "ai-git-summary-group";
+    private static final String GIT_SUMMARY_CONSUMER = "ai-git-summary-1";
 
     private final RedisConnectionFactory redisConnectionFactory;
     private final StringRedisTemplate stringRedisTemplate;
@@ -45,9 +48,10 @@ public class RedisStreamConfig {
     @PostConstruct
     public void initConsumerGroups() {
         createGroupIfNotExists(AI_REVIEW_STREAM, AI_REVIEW_GROUP);
-        createGroupIfNotExists(INDEXING_STREAM, INDEXING_GROUP);
+        createGroupIfNotExists(REPO_INDEX_STREAM, REPO_INDEX_GROUP);
         createGroupIfNotExists(FILE_REINDEX_STREAM, FILE_REINDEX_GROUP);
         createGroupIfNotExists(DELETE_INDEX_STREAM, DELETE_INDEX_GROUP);
+        createGroupIfNotExists(GIT_SUMMARY_STREAM, GIT_SUMMARY_GROUP);
     }
 
     private void createGroupIfNotExists(String streamKey, String groupName) {
@@ -61,9 +65,10 @@ public class RedisStreamConfig {
     @Bean
     public StreamMessageListenerContainer<String, ObjectRecord<String, String>> streamListenerContainer(
             AiReviewRequestConsumer aiReviewConsumer,
-            RepoIndexingConsumer repoIndexingConsumer,
+            RepoIndexConsumer repoIndexingConsumer,
             FileReindexConsumer fileReindexConsumer,
-            DeleteIndexConsumer deleteIndexConsumer) {
+            DeleteIndexConsumer deleteIndexConsumer,
+            GitSummaryRequestConsumer gitSummaryRequestConsumer) {
 
         var options = StreamMessageListenerContainer.StreamMessageListenerContainerOptions.builder()
                 .pollTimeout(Duration.ofSeconds(2))
@@ -79,8 +84,8 @@ public class RedisStreamConfig {
         );
 
         container.receive(
-                Consumer.from(INDEXING_GROUP, INDEXING_CONSUMER),
-                StreamOffset.create(INDEXING_STREAM, ReadOffset.lastConsumed()),
+                Consumer.from(REPO_INDEX_GROUP, REPO_INDEX_CONSUMER),
+                StreamOffset.create(REPO_INDEX_STREAM, ReadOffset.lastConsumed()),
                 repoIndexingConsumer
         );
 
@@ -95,6 +100,13 @@ public class RedisStreamConfig {
             StreamOffset.create(DELETE_INDEX_STREAM, ReadOffset.lastConsumed()),
             deleteIndexConsumer
         );
+
+        container.receive(
+            Consumer.from(GIT_SUMMARY_GROUP, GIT_SUMMARY_CONSUMER),
+            StreamOffset.create(GIT_SUMMARY_STREAM, ReadOffset.lastConsumed()),
+            gitSummaryRequestConsumer
+        );
+
         container.start();
         return container;
     }

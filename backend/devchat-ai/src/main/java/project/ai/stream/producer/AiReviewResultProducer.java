@@ -8,7 +8,7 @@ import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import project.common.dto.InlineReview;
-import project.common.message.AiReviewResultMessage;
+import project.common.message.aireview.AiReviewResultMessage;
 
 import java.util.List;
 

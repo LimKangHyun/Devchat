@@ -1,7 +1,5 @@
 package project.api.domain.aireview.app;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -10,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import project.api.domain.aireview.dao.AiCommentModRepository;
 import project.api.domain.aireview.dao.AiReviewCommentRepository;
 import project.api.domain.aireview.dao.AiReviewRepository;
+import project.api.domain.aireview.dto.AiReviewCommentResponse;
 import project.api.domain.aireview.dto.AiReviewResponse;
 import project.api.domain.aireview.entity.*;
 import project.api.domain.chat.chatmessage.dao.ChatMessageRepository;
@@ -21,13 +20,14 @@ import project.api.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.api.domain.chat.chatroom.entity.ChatRoom;
 import project.api.domain.member.app.MemberService;
 import project.api.domain.member.entity.Member;
-import project.common.dto.FileReviewResult;
 import project.common.dto.InlineReview;
 import project.common.exception.errorcode.AiReviewErrorCode;
 import project.common.exception.ex.AiReviewException;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -42,7 +42,6 @@ public class AiReviewService {
     private final SimpMessagingTemplate messagingTemplate;
     private final MemberService memberService;
     private final ChatRoomRedisRepository chatRoomRedisRepository;
-    private final ObjectMapper objectMapper;
 
     @Transactional
     public Long createPendingAndMessage(ChatRoom room, int prNumber, String headSha,
@@ -80,6 +79,7 @@ public class AiReviewService {
                     .aiReview(aiReview)
                     .filePath(filePath)
                     .lineNumber(review.lineNumber())
+                    .diffLine(review.diffLine())
                     .comment(review.comment())
                     .createdAt(LocalDateTime.now())
                     .build();
@@ -107,11 +107,16 @@ public class AiReviewService {
     public void saveFileReviewFail(Long aiReviewId, Long chatRoomId, String filePath, String errorMessage) {
         AiReview aiReview = findById(aiReviewId);
         aiReview.incrementCompletedFiles();
+        aiReview.incrementFailedFiles();
         log.warn("파일 리뷰 실패: aiReviewId={}, filePath={}, error={}", aiReviewId, filePath, errorMessage);
         aiReviewRepository.save(aiReview);
 
         if (aiReview.isAllFilesCompleted()) {
-            aiReview.updateSuccess();
+            if (aiReview.isAllFilesFailed()) {
+                aiReview.updateFail("모든 파일 리뷰 실패");
+            } else {
+                aiReview.updateSuccess();
+            }
             aiReviewRepository.save(aiReview);
             broadcastAiReviewStatus(chatRoomId, aiReview);
         }
@@ -131,30 +136,6 @@ public class AiReviewService {
     private AiReview findAiReview(Long roomId, int prNumber) {
         return aiReviewRepository.findByChatRoom_IdAndPrNumber(roomId, prNumber)
                 .orElseThrow(() -> new AiReviewException(AiReviewErrorCode.AI_REVIEW_NOT_FOUND));
-    }
-
-    private void saveComments(AiReview aiReview, List<FileReviewResult> fileResults) {
-        aiReviewCommentRepository.deleteByAiReview_Id(aiReview.getId());
-        for (FileReviewResult file : fileResults) {
-            if (file.reviews() == null || file.reviews().isEmpty()) continue;
-            for (var review : file.reviews()) {
-                AiReviewComment comment = AiReviewComment.builder()
-                        .aiReview(aiReview)
-                        .filePath(file.filePath())
-                        .lineNumber(review.lineNumber())
-                        .comment(review.comment())
-                        .createdAt(LocalDateTime.now())
-                        .build();
-                aiReviewCommentRepository.save(comment);
-
-                aiCommentModRepository.save(AiCommentMod.builder()
-                        .comment(comment)
-                        .active(true)
-                        .changedBy("SYSTEM")
-                        .createdAt(LocalDateTime.now())
-                        .build());
-            }
-        }
     }
 
     @Transactional
@@ -192,19 +173,35 @@ public class AiReviewService {
         AiReview aiReview = aiReviewRepository.findById(aiReviewId)
                 .orElseThrow(() -> new AiReviewException(AiReviewErrorCode.AI_REVIEW_NOT_FOUND));
 
-        List<FileReviewResult> files = parseFileResults(aiReview);
+        List<AiReviewComment> comments = aiReviewCommentRepository.findByAiReview_Id(aiReviewId);
 
-        try {
-            return new AiReviewResponse(
-                    objectMapper.writeValueAsString(Map.of("files", files)),
-                    aiReview.isGithubPublished(),
-                    aiReview.getPublishedBy(),
-                    aiReview.getPrTitle(),
-                    aiReview.getPrBody()
-            );
-        } catch (Exception e) {
-            throw new AiReviewException(AiReviewErrorCode.REVIEW_JSON_SERIALIZE_FAILED);
-        }
+        Map<String, List<AiReviewCommentResponse>> filesGrouped = comments.stream()
+                .map(this::toCommentResponse)
+                .collect(Collectors.groupingBy(AiReviewCommentResponse::filePath));
+
+        return new AiReviewResponse(
+                filesGrouped,
+                aiReview.isGithubPublished(),
+                aiReview.getPublishedBy(),
+                aiReview.getPrTitle(),
+                aiReview.getPrBody()
+        );
+    }
+
+    private AiReviewCommentResponse toCommentResponse(AiReviewComment comment) {
+        boolean active = aiCommentModRepository
+                .findTopByComment_IdOrderByCreatedAtDesc(comment.getId())
+                .map(AiCommentMod::isActive)
+                .orElse(true);
+
+        return new AiReviewCommentResponse(
+                comment.getId(),
+                comment.getFilePath(),
+                comment.getLineNumber(),
+                comment.getDiffLine(),
+                comment.getComment(),
+                active
+        );
     }
 
     @Transactional
@@ -255,15 +252,6 @@ public class AiReviewService {
                             .build();
                     messagingTemplate.convertAndSend("/topic/chat/" + roomId, response);
                 });
-    }
-
-    private List<FileReviewResult> parseFileResults(AiReview aiReview) {
-        try {
-            Map<String, Object> root = objectMapper.readValue(aiReview.getReviewJson(), new TypeReference<>() {});
-            return objectMapper.convertValue(root.get("files"), new TypeReference<List<FileReviewResult>>() {});
-        } catch (Exception e) {
-            throw new AiReviewException(AiReviewErrorCode.REVIEW_JSON_PARSE_FAILED);
-        }
     }
 
     public AiReview findById(Long aiReviewId) {

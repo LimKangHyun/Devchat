@@ -1,4 +1,4 @@
-package project.ai.stream.consumer;
+package project.ai.stream.index;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
-import project.common.message.DeleteIndexMessage;
+import project.common.message.index.DeleteIndexMessage;
 import project.ai.client.PineconeClient;
 
 @Slf4j

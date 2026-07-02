@@ -7,7 +7,7 @@ import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
 import project.api.domain.aireview.app.AiReviewService;
-import project.common.message.AiReviewResultMessage;
+import project.common.message.aireview.AiReviewResultMessage;
 
 @Slf4j
 @Component

@@ -1,4 +1,4 @@
-package project.ai.stream.consumer;
+package project.ai.stream.index;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -6,13 +6,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
-import project.common.message.RepoIndexMessage;
 import project.ai.service.RepoIndexingService;
+import project.common.message.index.FileReindexMessage;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class RepoIndexingConsumer implements StreamListener<String, ObjectRecord<String, String>> {
+public class FileReindexConsumer implements StreamListener<String, ObjectRecord<String, String>> {
 
     private final ObjectMapper objectMapper;
     private final RepoIndexingService repoIndexingService;
@@ -20,11 +20,12 @@ public class RepoIndexingConsumer implements StreamListener<String, ObjectRecord
     @Override
     public void onMessage(ObjectRecord<String, String> record) {
         try {
-            RepoIndexMessage message = objectMapper.readValue(record.getValue(), RepoIndexMessage.class);
-            log.info("레포 인덱싱 요청 수신: roomId={}", message.roomId());
-            repoIndexingService.indexRepository(message.roomId(), message.repositoryUrl(), message.memberId());
+            FileReindexMessage message = objectMapper.readValue(record.getValue(), FileReindexMessage.class);
+            log.info("파일 재인덱싱 요청 수신: roomId={}, filePath={}, status={}",
+                    message.roomId(), message.filePath(), message.status());
+            repoIndexingService.reindexFile(message);
         } catch (Exception e) {
-            log.error("레포 인덱싱 실패: {}", e.getMessage(), e);
+            log.error("파일 재인덱싱 실패: {}", e.getMessage(), e);
         }
     }
 }

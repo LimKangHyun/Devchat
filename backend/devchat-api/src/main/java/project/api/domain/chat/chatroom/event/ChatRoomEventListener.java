@@ -14,9 +14,11 @@ import project.api.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.api.domain.chat.chatmessage.event.EventMessageResponse;
 import project.api.domain.chat.chatroom.entity.ChatRoom;
 import project.api.domain.chat.chatroom.mapper.ChatRoomMapper;
+import project.api.domain.github.event.GitSummaryRequestEvent;
 import project.api.domain.member.app.MemberService;
 import project.api.domain.member.dto.event.ProfileUpdateEvent;
 import project.api.domain.member.entity.Member;
+import project.api.global.redis.RedisStreamClient;
 
 import static org.springframework.transaction.event.TransactionPhase.AFTER_COMMIT;
 
@@ -27,12 +29,12 @@ public class ChatRoomEventListener {
 
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final ChatMessageRepository chatMessageRepository;
-
     private final ChatRoomRedisRepository chatRoomRedisRepository;
     private final ChatRoomService chatRoomService;
     private final MemberService memberService;
 
     private final ChatMessageMapper chatMessageMapper;
+    private final RedisStreamClient redisStreamClient;
 
     @Async("chatRoomEventExecutor")
     @TransactionalEventListener(phase = AFTER_COMMIT)
@@ -81,11 +83,22 @@ public class ChatRoomEventListener {
     @TransactionalEventListener(phase = AFTER_COMMIT)
     public void handleRoomDelete(DeleteChatRoomEvent deleteEvent) {
 
-        EventMessageResponse eventMessageResponse = ChatRoomMapper.toDeleteEventMessageResponse(
-            deleteEvent
-        );
-
+        EventMessageResponse eventMessageResponse = ChatRoomMapper.toDeleteEventMessageResponse(deleteEvent);
         simpMessagingTemplate.convertAndSend("/topic/chat/" + deleteEvent.roomId() + "/deleted",
             eventMessageResponse);
+    }
+
+    @Async("chatRoomEventExecutor")
+    @TransactionalEventListener(phase = AFTER_COMMIT)
+    public void handleChatRoomCreated(ChatRoomCreatedEvent event) {
+        redisStreamClient.publishRepoIndexing(
+                event.roomId(), event.repositoryUrl(), event.ownerId());
+    }
+
+    @Async("chatRoomEventExecutor")
+    @TransactionalEventListener(phase = AFTER_COMMIT)
+    public void handleGitSummaryRequest(GitSummaryRequestEvent event) {
+        redisStreamClient.publishGitSummaryRequest(
+                event.roomId(), event.messageId(), event.eventType(), event.prStatus(), event.fullContent());
     }
 }

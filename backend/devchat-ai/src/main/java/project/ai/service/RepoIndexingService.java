@@ -8,10 +8,11 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import project.ai.client.PineconeClient;
 import project.ai.internal.InternalAuthClient;
+import project.ai.stream.index.RepoIndexResultProducer;
 import project.common.dto.ChunkMeta;
 import project.common.exception.errorcode.IndexingErrorCode;
 import project.common.exception.ex.IndexingException;
-import project.common.message.FileReindexMessage;
+import project.common.message.index.FileReindexMessage;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -35,11 +36,11 @@ public class RepoIndexingService {
     private static final long MAX_FILE_SIZE_BYTES = 100 * 1024;
 
     private static final Set<String> EXCLUDED_DIRS = Set.of(
-        "node_modules", ".git", "build", "out", "target", ".gradle", "test"
+            "node_modules", ".git", "build", "out", "target", ".gradle", "test"
     );
 
     private static final Set<String> INCLUDED_PATHS = Set.of(
-        "app", "service", "api", "controller", "entity", "dao", "repository", "event", "scheduler"
+            "app", "service", "api", "controller", "entity", "dao", "repository", "event", "scheduler"
     );
 
     private final EmbeddingService embeddingService;
@@ -49,6 +50,7 @@ public class RepoIndexingService {
     private final RedisTemplate<String, String> redisTemplate;
 
     private final InternalAuthClient internalAuthClient;
+    private final RepoIndexResultProducer repoIndexResultProducer;
 
     private final Semaphore semaphore = new Semaphore(4);
 
@@ -57,14 +59,14 @@ public class RepoIndexingService {
         String lockKey = LOCK_PREFIX + repoId;
 
         Boolean acquired = redisTemplate.opsForValue()
-            .setIfAbsent(lockKey, "1", LOCK_TTL);
+                .setIfAbsent(lockKey, "1", LOCK_TTL);
         if (!Boolean.TRUE.equals(acquired)) {
             log.info("이미 인덱싱 중인 레포. repoId={}", repoId);
             return;
         }
 
         Path repoPath = Paths.get(
-            System.getProperty("java.io.tmpdir"), "devchat", UUID.randomUUID().toString()
+                System.getProperty("java.io.tmpdir"), "devchat", UUID.randomUUID().toString()
         );
 
         try {
@@ -77,12 +79,15 @@ public class RepoIndexingService {
             processAndIndex(repoId, repoPath);
 
             log.info("레포 인덱싱 완료. repoId={}, 소요시간={}ms", repoId, System.currentTimeMillis() - startTime);
+            repoIndexResultProducer.publishSuccess(repoId);
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("레포 인덱싱 인터럽트. repoId={}", repoId, e);
+            repoIndexResultProducer.publishFail(repoId, "인덱싱 인터럽트");
         } catch (Exception e) {
             log.error("레포 인덱싱 실패. repoId={}", repoId, e);
+            repoIndexResultProducer.publishFail(repoId, e.getMessage());
         } finally {
             semaphore.release();
             deleteDirectory(repoPath);
@@ -156,11 +161,11 @@ public class RepoIndexingService {
         Files.createDirectories(targetPath);
 
         String gitPath = System.getProperty("os.name").toLowerCase().contains("win")
-            ? "C:\\Program Files\\Git\\bin\\git.exe"
-            : "git";
+                ? "C:\\Program Files\\Git\\bin\\git.exe"
+                : "git";
 
         ProcessBuilder pb = new ProcessBuilder(
-            gitPath, "clone", "--depth", "1", authenticatedUrl, targetPath.toString()
+                gitPath, "clone", "--depth", "1", authenticatedUrl, targetPath.toString()
         );
         pb.environment().remove("GIT_ASKPASS");
         pb.redirectErrorStream(true);
@@ -269,11 +274,11 @@ public class RepoIndexingService {
             String code = meta.chunk().length() > 1000 ? meta.chunk().substring(0, 1000) : meta.chunk();
 
             Map<String, String> metadata = Map.of(
-                "repoId", String.valueOf(repoId),
-                "filePath", meta.relativePath(),
-                "chunkIndex", String.valueOf(meta.chunkIndex()),
-                "code", code,
-                "language", "java"
+                    "repoId", String.valueOf(repoId),
+                    "filePath", meta.relativePath(),
+                    "chunkIndex", String.valueOf(meta.chunkIndex()),
+                    "code", code,
+                    "language", "java"
             );
 
             pineconeClient.upsert(meta.id(), vectors.get(i), metadata, String.valueOf(repoId));
@@ -295,8 +300,8 @@ public class RepoIndexingService {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
             boolean isMethodSignature = depth == 1
-                && (line.contains("public ") || line.contains("private ") || line.contains("protected "))
-                && line.contains("(") && !line.contains("class ") && !line.contains("interface ");
+                    && (line.contains("public ") || line.contains("private ") || line.contains("protected "))
+                    && line.contains("(") && !line.contains("class ") && !line.contains("interface ");
 
             if (isMethodSignature && line.contains("{")) {
                 methodStart = i;

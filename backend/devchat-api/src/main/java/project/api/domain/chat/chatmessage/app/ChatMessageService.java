@@ -215,4 +215,12 @@ public class ChatMessageService {
         chatMessageRepository.deleteByChatRoom_Id(roomId);
         chatMessageSearchRepository.deleteByRoomId(roomId);
     }
+
+    @Transactional
+    public ChatMessageResponse updateToSummary(Long messageId, String summarizedContent) {
+        ChatMessage message = chatMessageRepository.findById(messageId)
+                .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));
+        message.updateToSummary(summarizedContent);
+        return messageMapper.toGitResponse(message);
+    }
 }

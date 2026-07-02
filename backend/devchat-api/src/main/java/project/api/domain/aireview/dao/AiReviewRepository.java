@@ -2,7 +2,9 @@ package project.api.domain.aireview.dao;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import project.api.domain.aireview.entity.AiReview;
+import project.api.domain.aireview.entity.AiReviewComment;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface AiReviewRepository extends JpaRepository<AiReview, Long> {
@@ -12,4 +14,6 @@ public interface AiReviewRepository extends JpaRepository<AiReview, Long> {
     void deleteByChatRoom_Id(Long roomId);
 
     boolean existsByChatRoom_IdAndPrNumber(Long roomId, int prNumber);
+
+    List<AiReviewComment> findByAiReview_Id(Long aiReviewId);
 }

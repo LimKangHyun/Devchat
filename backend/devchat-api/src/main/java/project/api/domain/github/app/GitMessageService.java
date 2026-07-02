@@ -15,7 +15,6 @@ import project.api.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.api.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
 import project.api.domain.chat.chatmessage.mapper.ChatMessageMapper;
-import project.api.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.api.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.api.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.api.domain.chat.chatroom.entity.ChatRoom;
@@ -25,12 +24,13 @@ import project.api.domain.github.GitRepoUrlUtils;
 import project.api.domain.github.dto.GitMessageDto;
 import project.api.domain.aireview.entity.PrStatus;
 import project.api.domain.aireview.event.AiReviewRequestedEvent;
+import project.api.domain.github.event.GitSummaryRequestEvent;
+import project.api.domain.github.event.PrMergedEvent;
 import project.api.domain.github.mapper.GitMessageMapper;
 import project.api.domain.member.app.MemberService;
 import project.api.domain.member.entity.Member;
 import project.api.global.exception.errorcode.ChatRoomErrorCode;
 import project.api.global.exception.ex.ChatRoomException;
-import project.api.global.redis.RedisStreamClient;
 import project.common.dto.github.GitRepoDto;
 
 @Service
@@ -51,8 +51,6 @@ public class GitMessageService {
 	private final GitHubBotClient gitHubBotClient;
 	private final GitMessageMapper gitMessageMapper;
 	private final ApplicationEventPublisher eventPublisher;
-	private final ChatParticipantRepository chatParticipantRepository;
-	private final RedisStreamClient redisStreamClient;
 
 	@Value("${url.webhook-url}")
 	private String webhookUrl;
@@ -114,7 +112,8 @@ public class GitMessageService {
 			case OPEN, CLOSED, REOPENED -> aiReviewService.updatePrStatus(room.getId(), prNumber, prStatus);
 			case MERGED -> {
 				aiReviewService.updatePrStatus(room.getId(), prNumber, prStatus);
-				handlePrMerged(room, pr);
+				String headSha = (String) ((Map<String, Object>) pr.get("head")).get("sha");
+				eventPublisher.publishEvent(new PrMergedEvent(room.getId(), prNumber, headSha));
 			}
 			case EDITED -> {
 				String prTitle = (String) pr.get("title");
@@ -122,41 +121,6 @@ public class GitMessageService {
 				aiReviewService.updatePrInfo(room.getId(), prNumber, prTitle, prBody);
 			}
 		}
-	}
-
-	private void handlePrMerged(ChatRoom room, Map<String, Object> pr) {
-		int prNumber = (int) pr.get("number");
-		String headSha = (String) ((Map<String, Object>) pr.get("head")).get("sha");
-
-		Long ownerId = chatParticipantRepository.findByChatRoomIdAndIsOwnerTrue(room.getId())
-			.map(cp -> cp.getParticipant().getId())
-			.orElse(null);
-
-		if (ownerId == null) {
-			log.warn("채팅방 owner 없음, 재인덱싱 스킵. roomId={}", room.getId());
-			return;
-		}
-
-		GitRepoDto repo = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
-		Map<String, String> fileStatuses = gitHubBotClient.getPrFileStatuses(
-			repo.ownerName(), repo.repoName(), prNumber);
-
-		for (Map.Entry<String, String> entry : fileStatuses.entrySet()) {
-			String filePath = entry.getKey();
-			String status = entry.getValue();
-			if (!isReindexableFile(filePath)) continue;
-
-			String fileContent = "removed".equals(status) ? ""
-				: gitHubBotClient.getFileContent(repo.ownerName(), repo.repoName(), filePath, headSha);
-
-			redisStreamClient.publishFileReindex(
-				room.getId(), room.getRepositoryUrl(), ownerId,
-				filePath, status, fileContent, headSha);
-		}
-	}
-
-	private boolean isReindexableFile(String filePath) {
-		return filePath.toLowerCase().endsWith(".java");
 	}
 
 	// OPEN일 때 AI 리뷰 pending 생성 (sendGitMessage 이후 호출)
@@ -215,14 +179,21 @@ public class GitMessageService {
 		Member githubBot = memberService.getMemberByUsername(githubBotUsername);
 		chatRoomRedisRepository.genMessageSeq(room.getId());
 
-		// TODO: AI 요약은 Worker로 이전 예정
-		// if (room.isAiSummaryEnabled()) { ... }
-
 		ChatMessage message = chatMessageMapper.toEntityWithGit(gitMessage, githubBot);
 		chatMessageRepository.save(message);
 
 		ChatMessageResponse response = chatMessageMapper.toGitResponse(message);
 		messagingTemplate.convertAndSend("/topic/chat/" + room.getId(), response);
+
+		if (room.isAiSummaryEnabled()) {
+			eventPublisher.publishEvent(new GitSummaryRequestEvent(
+					room.getId(),
+					message.getId(),
+					gitMessage.getType().name(),
+					gitMessage.getPrStatus() != null ? gitMessage.getPrStatus().name() : null,
+					gitMessage.getFullContent()
+			));
+		}
 	}
 
 	private void handlePrSynchronizeMessage(ChatRoom room, Map<String, Object> payload, GitMessageDto gitMessage) {
@@ -278,6 +249,7 @@ public class GitMessageService {
 		aiReviewPublishService.publishToGitHub(findRoom(roomId), aiReviewId, approverUsername);
 	}
 
+	// 수동 재실행
 	public void retryAiReview(Long roomId, int prNumber) {
 		// TODO: Stream 발행으로 교체
 	}

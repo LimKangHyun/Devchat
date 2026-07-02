@@ -21,6 +21,7 @@ public class AiReviewComment {
 
     private String filePath;
     private Integer lineNumber;
+    private Integer diffLine;
 
     @Column(columnDefinition = "TEXT")
     private String comment;

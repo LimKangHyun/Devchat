@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import project.common.dto.InlineReview;
-import project.common.message.AiReviewRequestMessage;
+import project.common.message.aireview.AiReviewRequestMessage;
 import project.ai.client.GeminiClient;
 import project.ai.domain.aireview.app.AiReviewDiffParser;
 import project.ai.service.RagContextService;
@@ -21,10 +21,17 @@ public class AiReviewProcessor {
     private final RagContextService ragContextService;
     private final AiReviewDiffParser diffParser;
 
+    /**
+     * 파일 하나에 대한 AI 코드 리뷰를 수행한다.
+     * 1. 파일 diff에서 GitHub에 코멘트 가능한 변경 라인 번호 추출
+     * 2. Pinecone RAG로 관련 컨텍스트 조회 (없으면 diff만 전달)
+     * 3. Gemini에 리뷰 요청
+     * 4. 유효하지 않은 리뷰(범위 초과, 빈 코멘트) 필터링
+     * 5. GitHub PR API 제약상 변경 라인에만 코멘트 가능하므로 diffLine 매핑
+     */
     public List<InlineReview> process(AiReviewRequestMessage message) {
         try {
-            Set<Integer> validDiffLines = diffParser.parseDiffLines(message.fileDiff())
-                    .getOrDefault(message.filePath(), Set.of());
+            Set<Integer> validDiffLines = diffParser.parseValidLines(message.fileDiff());
 
             String ragContext = ragContextService.buildContext(
                     message.repoId(), message.filePath(), message.fileDiff());
@@ -37,7 +44,6 @@ public class AiReviewProcessor {
                     diffWithContext, message.fileContent(), message.prTitle(), message.prBody());
 
             List<InlineReview> filtered = diffParser.filterValidReviews(reviews, message.fileContent());
-
             return filtered.stream()
                     .map(r -> {
                         int diffLine = validDiffLines.contains(r.lineNumber())

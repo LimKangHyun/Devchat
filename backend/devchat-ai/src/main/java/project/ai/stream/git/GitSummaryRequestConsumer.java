@@ -1,4 +1,4 @@
-package project.ai.stream.consumer;
+package project.ai.stream.git;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -6,9 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
-import project.common.message.GitSummaryRequestMessage;
+import project.common.message.git.GitSummaryRequestMessage;
 import project.ai.client.GeminiClient;
-import project.ai.stream.producer.GitSummaryResultProducer;
 
 @Slf4j
 @Component
@@ -28,7 +27,7 @@ public class GitSummaryRequestConsumer implements StreamListener<String, ObjectR
             String summarized = geminiClient.summarizeGitEvent(
                 message.eventType(), message.prStatus(), message.fullContent());
 
-            gitSummaryResultProducer.publish(message.roomId(), summarized);
+            gitSummaryResultProducer.publish(message.roomId(), message.messageId(), summarized);
         } catch (Exception e) {
             log.error("Git 요약 처리 실패: {}", e.getMessage(), e);
         }

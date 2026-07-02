@@ -38,10 +38,6 @@ public class AiReview {
     private AiReviewStatus status = AiReviewStatus.PENDING;
 
     @Lob
-    @Column(columnDefinition = "TEXT")
-    private String reviewJson;
-
-    @Lob
     @Column(columnDefinition = "LONGTEXT")
     private String prDiff;
 
@@ -61,15 +57,10 @@ public class AiReview {
 
     private int totalFiles;
     private int completedFiles;
+    private int failedFiles;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
-    public void updateSuccess(String reviewJson) {
-        this.status = AiReviewStatus.SUCCESS;
-        this.reviewJson = reviewJson;
-        this.updatedAt = LocalDateTime.now();
-    }
 
     public void updateFail(String errorMessage) {
         this.status = AiReviewStatus.FAIL;
@@ -87,7 +78,6 @@ public class AiReview {
         this.status = AiReviewStatus.PENDING;
         this.commitSha = commitSha;
         this.prDiff = prDiff;
-        this.reviewJson = null;
         this.errorMessage = null;
         this.githubPublished = false;
         this.publishedBy = null;
@@ -115,7 +105,6 @@ public class AiReview {
         this.ragUsed = true;
     }
 
-
     public void incrementCompletedFiles() {
         this.completedFiles++;
     }
@@ -131,5 +120,13 @@ public class AiReview {
 
     public void updateTotalFiles(int totalFiles) {
         this.totalFiles = totalFiles;
+    }
+
+    public void incrementFailedFiles() {
+        this.failedFiles++;
+    }
+
+    public boolean isAllFilesFailed() {
+        return this.totalFiles > 0 && this.failedFiles >= this.totalFiles;
     }
 }

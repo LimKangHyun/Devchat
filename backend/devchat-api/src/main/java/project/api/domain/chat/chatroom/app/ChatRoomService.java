@@ -13,7 +13,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.api.auth.app.AuthTokenService;
 import project.api.domain.aireview.dto.AiSummaryToggleResponse;
 import project.api.domain.chat.chatmessage.app.ChatMessageService;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
@@ -21,6 +20,7 @@ import project.api.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.api.domain.chat.chatroom.dao.ChatRoomWithSequenceProjection;
 import project.api.domain.chat.chatroom.dto.*;
 import project.api.domain.chat.chatroom.entity.*;
+import project.api.domain.chat.chatroom.event.ChatRoomCreatedEvent;
 import project.api.domain.chat.chatroom.event.DeleteChatRoomEvent;
 import project.api.domain.chat.chatroom.event.JoinChatRoomEvent;
 import project.api.domain.chat.chatroom.mapper.ChatRoomMapper;
@@ -53,7 +53,6 @@ public class ChatRoomService {
     private final ChatRoomAlarmService chatRoomAlarmService;
     private final ChatRoomReadService chatRoomReadService;
     private final ChatRoomParticipantService chatRoomParticipantService;
-    private final AuthTokenService authTokenService;
     private final AiReviewService aiReviewService;
     private final RedisStreamClient redisStreamClient;
 
@@ -65,7 +64,6 @@ public class ChatRoomService {
     @Value("${github.bot.username}")
     private String aiReviewerUsername;
 
-    @Transactional
     public ChatRoomSimpleResponse createChatRoom(ChatRoomRequest request, Long ownerId) {
         Member owner = memberService.getMemberById(ownerId);
 
@@ -83,12 +81,12 @@ public class ChatRoomService {
 
         if (!request.getRepositoryUrl().isBlank()) {
             gitMessageService.registerWebhook(request.getRepositoryUrl(),
-                    savedRoom.getId(), owner.getId());
-            joinGitHubBot(savedRoom);
-            joinReviewBot(savedRoom);
-            redisStreamClient.publishRepoIndexing(savedRoom.getId(), request.getRepositoryUrl(), ownerId);
+                    savedRoom.getId(), owner.getId()); // 트랜잭션내에서 수행
+            joinGitHubBot(savedRoom); // 트랜잭션 내에서 수행
+            joinReviewBot(savedRoom); // 트랜잭션 내에서 수행
+            eventPublisher.publishEvent(
+                    new ChatRoomCreatedEvent(savedRoom.getId(), request.getRepositoryUrl(), ownerId));
         }
-
         return chatRoomMapper.toSimpleResponse(savedRoom, owner);
     }
 
@@ -105,7 +103,6 @@ public class ChatRoomService {
     }
 
     @TimeTrace
-    @Transactional
     public InviteJoinResponse joinChatRoom(String inviteCode, Long memberId) {
         log.info("timetrace 적용");
         try {
@@ -143,6 +140,7 @@ public class ChatRoomService {
                 .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
     }
 
+    @Transactional(readOnly = true)
     public String getRecentRoomInviteCode(Long memberId) {
         Long roomId = memberService.getMemberById(memberId).getRecentRoomId();
         if (roomId == null) {
@@ -161,7 +159,6 @@ public class ChatRoomService {
                 .map(ChatRoomMapper::toListResponse);
     }
 
-    @Transactional
     public void leaveChatRoom(Long roomId, Long memberId) {
         Member member = memberService.getMemberById(memberId);
         chatRoomParticipantService.leaveChatRoom(roomId, memberId, member.getNickname());
@@ -177,6 +174,7 @@ public class ChatRoomService {
                 );
     }
 
+    @Transactional(readOnly = true)
     public List<AllRoomsResponse> findAllRoomsByMemberId(Long memberId) {
         List<ChatRoomWithSequenceProjection> roomProjections =
                 chatRoomRepository.findAllRoomsWithSequenceByParticipantId(memberId);
@@ -192,6 +190,7 @@ public class ChatRoomService {
         return chatRoomReadService.findAllRoomsWithUnread(roomProjections, alarmEnabledMap);
     }
 
+    @Transactional(readOnly = true)
     public EntryRoomResponse getEntryInfo(String inviteCode, Long memberId) {
         ChatRoom room = getByInviteCode(inviteCode);
 
@@ -213,12 +212,12 @@ public class ChatRoomService {
         );
     }
 
+    @Transactional(readOnly = true)
     public RoomInfoResponse getRoomInfo(String inviteCode, Long memberId) {
         ChatRoom room = getByInviteCode(inviteCode);
         return ChatRoomMapper.toListResponse(room);
     }
 
-    @Transactional
     public void deleteChatRoom(Long roomId, Long memberId) {
         ChatRoom room = getRoomById(roomId);
 
@@ -241,16 +240,15 @@ public class ChatRoomService {
         chatRoomRepository.delete(room);
     }
 
-    @Transactional
     public boolean toggleAlarm(Long roomId, Long memberId) {
         return chatRoomAlarmService.toggleAlarm(roomId, memberId);
     }
 
-    @Transactional
     public void updateLastReadSequence(Long roomId, Long memberId) {
         chatRoomReadService.updateLastReadSequence(roomId, memberId);
     }
 
+    @Transactional(readOnly = true)
     public ChatRoom getRoomById(Long roomId) {
         return chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
@@ -261,14 +259,12 @@ public class ChatRoomService {
                 .orElseThrow(() -> new ChatRoomException(ChatRoomErrorCode.CHATROOM_NOT_FOUND));
     }
 
-    @Transactional
     public AiReviewToggleResponse toggleAiReview(Long roomId, Long memberId) {
         ChatRoom room = findRoomAsOwner(roomId, memberId);
         room.toggleAiReview();
         return new AiReviewToggleResponse(room.isAiReviewEnabled());
     }
 
-    @Transactional
     public AiSummaryToggleResponse toggleAiSummary(Long roomId, Long memberId) {
         ChatRoom room = findRoomAsOwner(roomId, memberId);
         room.toggleAiSummary();

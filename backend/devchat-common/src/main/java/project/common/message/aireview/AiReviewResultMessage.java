@@ -1,4 +1,4 @@
-package project.common.message;
+package project.common.message.aireview;
 
 import project.common.dto.InlineReview;
 import java.util.List;

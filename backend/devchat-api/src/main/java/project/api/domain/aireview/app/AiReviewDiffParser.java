@@ -20,6 +20,9 @@ public class AiReviewDiffParser {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 전체 PR diff를 파일별로 Map형태로 쪼갬
+     */
     public Map<String, String> parseFileDiffs(String fullDiff) {
         Map<String, String> fileDiffs = new LinkedHashMap<>();
         String[] parts = fullDiff.split("(?=diff --git )");

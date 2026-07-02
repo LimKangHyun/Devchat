@@ -1,4 +1,4 @@
-package project.common.message;
+package project.common.message.aireview;
 
 public record AiReviewRequestMessage(
         Long aiReviewId,

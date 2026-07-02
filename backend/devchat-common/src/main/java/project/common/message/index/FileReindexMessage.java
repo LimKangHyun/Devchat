@@ -1,4 +1,4 @@
-package project.common.message;
+package project.common.message.index;
 
 public record FileReindexMessage(
     Long roomId,
