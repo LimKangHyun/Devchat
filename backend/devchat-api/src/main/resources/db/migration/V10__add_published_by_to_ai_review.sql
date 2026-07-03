@@ -1,1 +1,0 @@
-ALTER TABLE ai_review ADD COLUMN published_by VARCHAR(100) DEFAULT NULL;

@@ -1,1 +1,0 @@
-ALTER TABLE chat_room ADD CONSTRAINT uq_chat_room_repository_url UNIQUE (repository_url);

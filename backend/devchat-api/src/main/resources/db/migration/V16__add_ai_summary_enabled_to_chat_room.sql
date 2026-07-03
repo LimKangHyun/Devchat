@@ -1,1 +1,0 @@
-ALTER TABLE chat_room ADD COLUMN ai_summary_enabled BOOLEAN NOT NULL DEFAULT TRUE;

@@ -1,2 +1,0 @@
-ALTER TABLE ai_review ADD COLUMN total_files INT NOT NULL DEFAULT 0;
-ALTER TABLE ai_review ADD COLUMN completed_files INT NOT NULL DEFAULT 0;

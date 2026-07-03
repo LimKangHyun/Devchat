@@ -1,1 +1,0 @@
-ALTER TABLE ai_review ADD COLUMN pr_diff LONGTEXT;
