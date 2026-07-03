@@ -30,6 +30,10 @@ services:
     mem_limit: 512m
     ports:
       - "6381:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis-stream/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis-stream-data:/data
     networks:
       - dev-chat-network
 
@@ -172,3 +176,4 @@ volumes:
   mysql-data:
   grafana-data:
   prometheus-data:
+  redis-stream-data:
