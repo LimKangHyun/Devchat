@@ -8,6 +8,7 @@ import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import project.api.domain.chat.chatmessage.app.ChatMessageService;
+import project.api.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.common.message.git.GitSummaryResultMessage;
 
 @Slf4j
@@ -26,10 +27,10 @@ public class GitSummaryResultConsumer implements StreamListener<String, ObjectRe
             GitSummaryResultMessage message = objectMapper.readValue(record.getValue(), GitSummaryResultMessage.class);
             log.info("Git 요약 결과 수신: roomId={}", message.roomId());
 
-            chatMessageService.updateToSummary(message.messageId(), message.summarizedContent());
+            ChatMessageResponse response = chatMessageService.updateToSummary(message.messageId(), message.summarizedContent());
 
-            messagingTemplate.convertAndSend("/topic/chat/" + message.roomId(),
-                    message.summarizedContent());
+            messagingTemplate.convertAndSend("/topic/chat/" + message.roomId(), response);
+
         } catch (Exception e) {
             log.error("Git 요약 결과 처리 실패: {}", e.getMessage(), e);
         }

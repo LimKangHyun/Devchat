@@ -8,6 +8,10 @@ public class IndexingException extends BaseException {
         super(errorCode);
     }
 
+    public IndexingException(IndexingErrorCode errorCode, Throwable cause) {
+        super(errorCode, cause);
+    }
+
     public ErrorCode getErrorCode() {
         return super.getErrorCode();
     }

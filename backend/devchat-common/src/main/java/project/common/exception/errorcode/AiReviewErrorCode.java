@@ -15,8 +15,7 @@ public enum AiReviewErrorCode implements ErrorCode {
     NO_ACTIVE_REVIEWS("AI-007", "활성화된 AI 리뷰가 없습니다.", 422),
     INACTIVE_REASON_REQUIRED("AI-008", "비활성화 시 사유는 필수입니다.", 400),
     OTHER_REASON_REQUIRED("AI-009", "기타 사유를 입력해주세요.", 400),
-    REVIEW_JSON_PARSE_FAILED("AI-010", "리뷰 JSON 파싱에 실패했습니다.", 500),
-    REVIEW_JSON_SERIALIZE_FAILED("AI-011", "리뷰 JSON 직렬화에 실패했습니다.", 500);
+    GEMINI_RESPONSE_PARSE_FAILED("AI-012", "AI 응답 파싱에 실패했습니다.", 500);
 
     private final String code;
     private final String message;

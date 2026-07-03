@@ -72,7 +72,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	}
 
 	private boolean isWhitelisted(String requestURI) {
-		return requestURI.matches("/github/webhook/\\d+") || WHITE_LIST.contains(requestURI);
+		return requestURI.matches("/github/webhook/\\d+")
+				|| requestURI.startsWith("/internal/")
+				|| WHITE_LIST.contains(requestURI);
 	}
 
 	private void sendUnauthorized(HttpServletResponse response, String message) throws IOException {

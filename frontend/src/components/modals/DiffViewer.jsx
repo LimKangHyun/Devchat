@@ -11,7 +11,7 @@ const DiffViewer = ({
   onPendingReasonChange,
   repositoryUrl, prNumber, published,
 }) => {
-  const rows = file.skipped ? [] : buildDiffRows(file.baseContent, file.fileContent);
+  const rows = file.skipped ? [] : buildDiffRows(file.beforeContent, file.fileContent);
   const reviews = file.reviews || [];
 
   const handlePathClick = async () => {

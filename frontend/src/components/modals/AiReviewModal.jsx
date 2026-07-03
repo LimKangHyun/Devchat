@@ -29,15 +29,19 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
       try {
         setLoading(true);
         const res = await axiosInstance.get(`/ai-reviews/${message.aiReviewId}`);
-        const parsed = JSON.parse(res.data.reviewJson);
-        setReviewData(parsed);
-        setPublished(res.data.githubPublished);
-        setPublishedBy(res.data.publishedBy || null);
-        setPrTitle(res.data.prTitle || null);
-        setPrBody(res.data.prBody || null);
+        const data = res.data;
+
+        // files 객체를 DiffViewer가 쓸 수 있는 배열로 변환
+        const filesArray = Object.keys(data.fileContents || {}).map(filePath => ({
+          filePath,
+          fileContent: data.fileContents[filePath] || '',
+          beforeContent: (data.beforeFileContents || {})[filePath] || '',
+          reviews: (data.files || {})[filePath] || [],
+          skipped: false,
+        }));
 
         const initialStates = {};
-        parsed.files.forEach(file => {
+        filesArray.forEach(file => {
           getFileHash(file.filePath);
           (file.reviews || []).forEach(review => {
             if (review.commentId != null) {
@@ -50,7 +54,13 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
             }
           });
         });
+
         setCommentStates(initialStates);
+        setReviewData({ ...data, files: filesArray });
+        setPublished(data.githubPublished);
+        setPublishedBy(data.publishedBy || null);
+        setPrTitle(data.prTitle || null);
+        setPrBody(data.prBody || null);
       } catch (e) {
         console.error('AI 리뷰 로딩 실패:', e);
       } finally {
@@ -234,7 +244,7 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
           </div>
         </div>
 
-        {/* PR 제목/본문 — 헤더 바로 아래 */}
+        {/* PR 제목/본문 */}
         {prTitle && (
           <div style={{ borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
             <div

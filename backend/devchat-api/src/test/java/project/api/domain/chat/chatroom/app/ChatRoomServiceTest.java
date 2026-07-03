@@ -62,7 +62,6 @@ class ChatRoomServiceTest {
     @Mock private ChatRoomAlarmService chatRoomAlarmService;
     @Mock private ChatRoomReadService chatRoomReadService;
     @Mock private ChatRoomParticipantService chatRoomParticipantService;
-    @Mock private RepoIndexingService repoIndexingService;
     @Mock private AuthTokenService authTokenService;
     @Mock private AiReviewService aiReviewService;
     @Mock private ApplicationEventPublisher eventPublisher;

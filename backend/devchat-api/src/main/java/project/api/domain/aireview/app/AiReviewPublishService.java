@@ -1,7 +1,5 @@
 package project.api.domain.aireview.app;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,8 +16,6 @@ import project.api.domain.github.GitRepoUrlUtils;
 import project.api.domain.github.client.GitHubBotClient;
 import project.api.global.exception.errorcode.GitHubErrorCode;
 import project.api.global.exception.ex.GitHubException;
-import project.common.dto.FileReviewResult;
-import project.common.dto.InlineReview;
 import project.common.dto.github.GitRepoDto;
 import project.common.exception.errorcode.AiReviewErrorCode;
 import project.common.exception.ex.AiReviewException;
@@ -37,7 +33,6 @@ public class AiReviewPublishService {
     private final AiCommentModRepository aiCommentModRepository;
     private final GitHubBotClient gitHubBotClient;
     private final AiReviewDiffParser diffParser;
-    private final ObjectMapper objectMapper;
 
     @Transactional
     public void publishToGitHub(ChatRoom room, Long aiReviewId, String approverUsername) {
@@ -51,11 +46,10 @@ public class AiReviewPublishService {
             Set<Long> inactiveCommentIds = resolveInactiveCommentIds(aiReviewId);
             validateActiveComments(allComments, inactiveCommentIds);
 
-            Map<String, Long> commentIdMap = buildCommentIdMap(allComments);
             String fullDiff = gitHubBotClient.getPrDiff(repo.ownerName(), repo.repoName(), aiReview.getPrNumber());
             Map<String, Set<Integer>> diffLineMap = diffParser.parseDiffLines(fullDiff);
 
-            List<PublishComment> comments = buildPublishComments(aiReview, inactiveCommentIds, commentIdMap, diffLineMap);
+            List<PublishComment> comments = buildPublishComments(allComments, inactiveCommentIds, diffLineMap);
             postReviews(repo, aiReview.getPrNumber(), comments, approverUsername);
 
             aiReview.markAsPublished(approverUsername);
@@ -100,15 +94,6 @@ public class AiReviewPublishService {
                 .collect(Collectors.toSet());
     }
 
-    private Map<String, Long> buildCommentIdMap(List<AiReviewComment> comments) {
-        return comments.stream()
-                .collect(Collectors.toMap(
-                        c -> c.getFilePath() + ":" + c.getLineNumber(),
-                        AiReviewComment::getId,
-                        (existing, replacement) -> existing
-                ));
-    }
-
     private void postReviews(GitRepoDto repo, int prNumber, List<PublishComment> comments, String approverUsername) {
         if (!comments.isEmpty()) {
             gitHubBotClient.postInlineReviews(repo.ownerName(), repo.repoName(), prNumber,
@@ -120,37 +105,25 @@ public class AiReviewPublishService {
                 "✅ AI 리뷰가 @" + approverUsername + " 에 의해 등록되었습니다.");
     }
 
-    private List<PublishComment> buildPublishComments(AiReview aiReview, Set<Long> inactiveCommentIds,
-                                                      Map<String, Long> commentIdMap,
+    private List<PublishComment> buildPublishComments(List<AiReviewComment> allComments,
+                                                      Set<Long> inactiveCommentIds,
                                                       Map<String, Set<Integer>> diffLineMap) {
-        List<FileReviewResult> files = parseFileResults(aiReview);
         List<PublishComment> comments = new ArrayList<>();
 
-        for (FileReviewResult file : files) {
-            Set<Integer> validLines = diffLineMap.getOrDefault(file.filePath(), Set.of());
-            for (InlineReview review : file.reviews()) {
-                Long commentId = commentIdMap.get(file.filePath() + ":" + review.lineNumber());
-                if (commentId != null && inactiveCommentIds.contains(commentId)) continue;
-                comments.add(toPublishComment(file.filePath(), review, validLines));
-            }
+        for (AiReviewComment comment : allComments) {
+            if (inactiveCommentIds.contains(comment.getId())) continue;
+            Set<Integer> validLines = diffLineMap.getOrDefault(comment.getFilePath(), Set.of());
+            comments.add(toPublishComment(comment, validLines));
         }
         return comments;
     }
 
-    private PublishComment toPublishComment(String filePath, InlineReview review, Set<Integer> validLines) {
-        if (validLines.contains(review.lineNumber())) {
-            return new PublishComment(filePath, review.lineNumber(), review.comment());
+    private PublishComment toPublishComment(AiReviewComment comment, Set<Integer> validLines) {
+        int lineNumber = comment.getLineNumber();
+        if (validLines.contains(lineNumber)) {
+            return new PublishComment(comment.getFilePath(), lineNumber, comment.getComment());
         }
-        int nearestLine = diffParser.findNearestDiffLine(validLines, review.lineNumber());
-        return new PublishComment(filePath, nearestLine, "(Line " + review.lineNumber() + ") " + review.comment());
-    }
-
-    private List<FileReviewResult> parseFileResults(AiReview aiReview) {
-        try {
-            Map<String, Object> root = objectMapper.readValue(aiReview.getReviewJson(), new TypeReference<>() {});
-            return objectMapper.convertValue(root.get("files"), new TypeReference<List<FileReviewResult>>() {});
-        } catch (Exception e) {
-            throw new AiReviewException(AiReviewErrorCode.REVIEW_JSON_PARSE_FAILED);
-        }
+        int nearestLine = diffParser.findNearestDiffLine(validLines, lineNumber);
+        return new PublishComment(comment.getFilePath(), nearestLine, "(Line " + lineNumber + ") " + comment.getComment());
     }
 }

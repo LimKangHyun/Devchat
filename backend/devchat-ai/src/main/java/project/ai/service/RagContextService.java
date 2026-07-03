@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import project.ai.client.PineconeClient;
+import project.common.exception.ex.IndexingException;
 
 import java.util.*;
 
@@ -54,8 +55,11 @@ public class RagContextService {
 
             return formatContext(filtered);
 
+        } catch (IndexingException e) {
+            log.debug("RAG 임베딩 실패, RAG 없이 리뷰 진행. repoId={}, filePath={}", repoId, filePath);
+            return "";
         } catch (Exception e) {
-            log.warn("RAG 컨텍스트 조회 실패, 빈 문자열 반환. repoId={}, filePath={}", repoId, filePath, e);
+            log.warn("RAG 컨텍스트 조회 중 예상치 못한 오류. repoId={}, filePath={}", repoId, filePath, e);
             return "";
         }
     }

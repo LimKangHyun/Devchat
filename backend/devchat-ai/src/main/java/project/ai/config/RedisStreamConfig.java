@@ -56,9 +56,15 @@ public class RedisStreamConfig {
 
     private void createGroupIfNotExists(String streamKey, String groupName) {
         try {
-            stringRedisTemplate.opsForStream().createGroup(streamKey, groupName);
+            stringRedisTemplate.opsForStream()
+                    .createGroup(streamKey, ReadOffset.from("0"), groupName);
+            log.info("Consumer group created: {} on stream {}", groupName, streamKey);
         } catch (Exception e) {
-            log.info("Consumer group already exists: {}", groupName);
+            if (e.getMessage() != null && e.getMessage().contains("BUSYGROUP")) {
+                log.info("Consumer group already exists: {}", groupName);
+            } else {
+                log.error("Consumer group 생성 실패: streamKey={}, group={}", streamKey, groupName, e);
+            }
         }
     }
 

@@ -39,7 +39,14 @@ public class AiReview {
 
     @Lob
     @Column(columnDefinition = "LONGTEXT")
+    private String fileContents;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String prDiff;
+
+    @Column(columnDefinition = "TEXT")
+    private String skippedFiles;
 
     private String errorMessage;
 
@@ -71,6 +78,11 @@ public class AiReview {
     public void updateSkipped(String reason) {
         this.status = AiReviewStatus.SKIPPED;
         this.errorMessage = reason;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateSkippedFiles(String skippedFiles) {
+        this.skippedFiles = skippedFiles;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -128,5 +140,9 @@ public class AiReview {
 
     public boolean isAllFilesFailed() {
         return this.totalFiles > 0 && this.failedFiles >= this.totalFiles;
+    }
+
+    public void saveFileContents(String fileContents) {
+        this.fileContents = fileContents;
     }
 }

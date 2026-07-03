@@ -14,12 +14,6 @@ spring:
 server:
   port: 8081
 
-internal:
-  api:
-    url: http://devchat-api:8080
-  jwt:
-    secret: b2d8b79adb8fada12b23fa82067de8bdc5ebd55dbcea313008ca29281021c74f
-
 gemini:
   review-api-keys: ${GEMINI_REVIEW_API_KEYS}
   embedding-api-keys: ${GEMINI_EMBEDDING_API_KEYS}

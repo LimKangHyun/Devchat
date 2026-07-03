@@ -82,8 +82,8 @@ public class ChatMessage {
     }
 
     public void updateToSummary(String summarizedContent) {
-        if (summarizedContent != null) {
-            this.content = summarizedContent;
+        if (summarizedContent != null && !summarizedContent.isBlank()) {
+            this.content = this.content + summarizedContent;
         }
     }
 }

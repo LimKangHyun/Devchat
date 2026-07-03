@@ -58,7 +58,7 @@ public class SecurityConfig {
 						.anonymous()
 						.requestMatchers("/token/**", "/logout", "/images/**",
 								"/actuator/health", "/actuator/prometheus", "/ws",
-								"/github/webhook/**")
+								"/github/webhook/**", "/internal/**")
 						.permitAll()
 						.anyRequest()
 						.authenticated())

@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import project.api.global.exception.errorcode.GitHubErrorCode;
 import project.api.global.exception.ex.GitHubException;
 import reactor.core.publisher.Mono;
@@ -70,6 +71,9 @@ public class GitHubUserClient {
     }
 
     public Long registerWebhook(String accessToken, String owner, String repo, String webhookUrl) {
+        log.info("owner={}", owner);
+        log.info("repo={}", repo);
+        log.info("url=https://api.github.com/repos/{}/{}/hooks", owner, repo);
         String apiUrl = "https://api.github.com/repos/" + owner + "/" + repo + "/hooks";
 
         Map<String, Object> requestBody = Map.of(
@@ -97,7 +101,11 @@ public class GitHubUserClient {
 
             Number idNumber = (Number) response.get("id");
             return idNumber.longValue();
+        } catch (WebClientResponseException e) {
+            log.error("GitHub webhook 등록 실패. status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new GitHubException(GitHubErrorCode.WEBHOOK_REGISTER_FAILED);
         } catch (Exception e) {
+            log.error("GitHub webhook 등록 실패(예외 유형: {})", e.getClass().getSimpleName(), e);
             throw new GitHubException(GitHubErrorCode.WEBHOOK_REGISTER_FAILED);
         }
     }

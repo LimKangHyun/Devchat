@@ -1,8 +1,9 @@
 package project.api.global.redis;
 
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -35,7 +36,6 @@ public class RedisStreamConfig {
     private static final String REPO_INDEX_RESULT_GROUP = "api-repo-indexing-group";
     private static final String REPO_INDEX_RESULT_CONSUMER = "api-repo-indexing-1";
 
-
     @Value("${stream.redis.host}")
     private String host;
 
@@ -49,27 +49,14 @@ public class RedisStreamConfig {
     }
 
     @Bean("streamStringRedisTemplate")
-    public StringRedisTemplate streamStringRedisTemplate() {
-        return new StringRedisTemplate(streamRedisConnectionFactory());
-    }
-
-    @PostConstruct
-    public void initConsumerGroups() {
-        createGroupIfNotExists(AI_REVIEW_RESULT_STREAM, AI_REVIEW_RESULT_GROUP);
-        createGroupIfNotExists(GIT_SUMMARY_RESULT_STREAM, GIT_SUMMARY_RESULT_GROUP);
-        createGroupIfNotExists(REPO_INDEX_RESULT_STREAM, REPO_INDEX_RESULT_GROUP);
-    }
-
-    private void createGroupIfNotExists(String streamKey, String groupName) {
-        try {
-            streamStringRedisTemplate().opsForStream().createGroup(streamKey, groupName);
-        } catch (Exception e) {
-            log.info("Consumer group already exists: {}", groupName);
-        }
+    public StringRedisTemplate streamStringRedisTemplate(
+            RedisConnectionFactory streamRedisConnectionFactory) {
+        return new StringRedisTemplate(streamRedisConnectionFactory);
     }
 
     @Bean
     public StreamMessageListenerContainer<String, ObjectRecord<String, String>> streamListenerContainer(
+            RedisConnectionFactory streamRedisConnectionFactory,
             AiReviewResultConsumer aiReviewResultConsumer,
             GitSummaryResultConsumer gitSummaryResultConsumer,
             RepoIndexResultConsumer repoIndexResultConsumer) {
@@ -79,7 +66,7 @@ public class RedisStreamConfig {
                 .targetType(String.class)
                 .build();
 
-        var container = StreamMessageListenerContainer.create(streamRedisConnectionFactory(), options);
+        var container = StreamMessageListenerContainer.create(streamRedisConnectionFactory, options);
 
         container.receive(
                 Consumer.from(AI_REVIEW_RESULT_GROUP, AI_REVIEW_RESULT_CONSUMER),
@@ -98,8 +85,43 @@ public class RedisStreamConfig {
                 StreamOffset.create(REPO_INDEX_RESULT_STREAM, ReadOffset.lastConsumed()),
                 repoIndexResultConsumer
         );
-
-        container.start();
         return container;
+    }
+
+    @Bean
+    public ApplicationRunner initStreamConsumerGroupsAndStartContainer(
+            @Qualifier("streamStringRedisTemplate") StringRedisTemplate streamStringRedisTemplate,
+            StreamMessageListenerContainer<String, ObjectRecord<String, String>> streamListenerContainer) {
+        return args -> {
+            createGroupIfNotExists(streamStringRedisTemplate, AI_REVIEW_RESULT_STREAM, AI_REVIEW_RESULT_GROUP);
+            createGroupIfNotExists(streamStringRedisTemplate, GIT_SUMMARY_RESULT_STREAM, GIT_SUMMARY_RESULT_GROUP);
+            createGroupIfNotExists(streamStringRedisTemplate, REPO_INDEX_RESULT_STREAM, REPO_INDEX_RESULT_GROUP);
+
+            streamListenerContainer.start();
+            log.info("Stream listener container started");
+        };
+    }
+
+    private void createGroupIfNotExists(StringRedisTemplate template, String streamKey, String groupName) {
+        try {
+            template.opsForStream()
+                    .createGroup(streamKey, ReadOffset.from("0"), groupName);
+            log.info("Consumer group created: {} on stream {}", groupName, streamKey);
+        } catch (Exception e) {
+            String rootMessage = getRootCauseMessage(e);
+            if (rootMessage != null && rootMessage.contains("BUSYGROUP")) {
+                log.info("Consumer group already exists: {}", groupName);
+            } else {
+                log.error("Consumer group 생성 실패: streamKey={}, group={}", streamKey, groupName, e);
+            }
+        }
+    }
+
+    private String getRootCauseMessage(Throwable e) {
+        Throwable cause = e;
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        return cause.getMessage();
     }
 }

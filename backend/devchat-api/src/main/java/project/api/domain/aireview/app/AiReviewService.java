@@ -1,5 +1,7 @@
 package project.api.domain.aireview.app;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -25,6 +27,7 @@ import project.common.exception.errorcode.AiReviewErrorCode;
 import project.common.exception.ex.AiReviewException;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -42,6 +45,8 @@ public class AiReviewService {
     private final SimpMessagingTemplate messagingTemplate;
     private final MemberService memberService;
     private final ChatRoomRedisRepository chatRoomRedisRepository;
+    private final AiReviewDiffParser diffParser;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public Long createPendingAndMessage(ChatRoom room, int prNumber, String headSha,
@@ -179,13 +184,31 @@ public class AiReviewService {
                 .map(this::toCommentResponse)
                 .collect(Collectors.groupingBy(AiReviewCommentResponse::filePath));
 
+        Map<String, String> fileContents = parseJsonMap(aiReview.getFileContents());
+        Map<String, String> beforeFileContents =
+                diffParser.parseBeforeContents(aiReview.getPrDiff(), fileContents);
+        Map<String, String> skippedFiles = parseJsonMap(aiReview.getSkippedFiles());
+
         return new AiReviewResponse(
                 filesGrouped,
+                fileContents,
+                beforeFileContents,
+                skippedFiles,
                 aiReview.isGithubPublished(),
                 aiReview.getPublishedBy(),
                 aiReview.getPrTitle(),
                 aiReview.getPrBody()
         );
+    }
+
+    private Map<String, String> parseJsonMap(String json) {
+        if (json == null || json.isBlank()) return Map.of();
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, String>>() {});
+        } catch (Exception e) {
+            log.error("JSON 파싱 실패: {}", json, e);
+            return Map.of();
+        }
     }
 
     private AiReviewCommentResponse toCommentResponse(AiReviewComment comment) {
@@ -259,10 +282,50 @@ public class AiReviewService {
                 .orElseThrow(() -> new AiReviewException(AiReviewErrorCode.AI_REVIEW_NOT_FOUND));
     }
 
+    public AiReview findByIdWithChatRoom(Long aiReviewId) {
+        return aiReviewRepository.findByIdWithChatRoom(aiReviewId)
+                .orElseThrow(() -> new AiReviewException(AiReviewErrorCode.AI_REVIEW_NOT_FOUND));
+    }
+
     @Transactional
     public void updateTotalFiles(Long aiReviewId, int totalFiles) {
         AiReview aiReview = findById(aiReviewId);
         aiReview.updateTotalFiles(totalFiles);
         aiReviewRepository.save(aiReview);
+    }
+
+    @Transactional
+    public void saveFileContents(Long aiReviewId, Map<String, String> fileContentMap) {
+        AiReview aiReview = findById(aiReviewId);
+        try {
+            aiReview.saveFileContents(objectMapper.writeValueAsString(fileContentMap));
+            aiReviewRepository.save(aiReview);
+        } catch (Exception e) {
+            log.error("fileContents 저장 실패. aiReviewId={}", aiReviewId, e);
+        }
+    }
+
+    @Transactional
+    public void updateSkipped(AiReview aiReview, String reason) {
+        aiReview.updateSkipped(reason);
+        aiReviewRepository.save(aiReview);
+        broadcastAiReviewStatus(aiReview.getChatRoom().getId(), aiReview);
+    }
+
+    @Transactional
+    public void addSkippedFile(Long aiReviewId, String filePath, String reason) {
+        AiReview aiReview = findById(aiReviewId);
+        try {
+            Map<String, String> skippedMap = new HashMap<>();
+            if (aiReview.getSkippedFiles() != null) {
+                skippedMap = objectMapper.readValue(aiReview.getSkippedFiles(),
+                        new TypeReference<Map<String, String>>() {});
+            }
+            skippedMap.put(filePath, reason);
+            aiReview.updateSkippedFiles(objectMapper.writeValueAsString(skippedMap));
+            aiReviewRepository.save(aiReview);
+        } catch (Exception e) {
+            log.error("skippedFiles 저장 실패. aiReviewId={}, filePath={}", aiReviewId, filePath, e);
+        }
     }
 }

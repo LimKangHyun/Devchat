@@ -26,13 +26,11 @@ import project.api.domain.member.entity.Member;
 @Component
 public class ChatMessageMapper {
 
-    private final ObjectMapper objectMapper;
     private final String githubProfile;
 
     public ChatMessageMapper(
             ObjectMapper objectMapper,
             @Value("${file.images.profile.github}") String githubProfile) {
-        this.objectMapper = objectMapper;
         this.githubProfile = githubProfile;
     }
 

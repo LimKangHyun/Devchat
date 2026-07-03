@@ -12,7 +12,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import project.common.dto.InlineReview;
+import project.common.exception.errorcode.AiReviewErrorCode;
 import project.common.exception.errorcode.IndexingErrorCode;
+import project.common.exception.ex.AiReviewException;
 import project.common.exception.ex.IndexingException;
 
 import java.io.IOException;
@@ -55,6 +57,13 @@ public class GeminiClient {
         pushSummaryPrompt     = loadPrompt("push-summary");
     }
 
+    @PostConstruct
+    public void logReviewKeys() {
+        apiKeys.forEach(k ->
+                log.info("review key prefix={}", k.substring(0, 10))
+        );
+    }
+
     private String loadPrompt(String name) throws IOException {
         Resource resource = resourceLoader.getResource("classpath:prompts/" + name + ".txt");
         return resource.getContentAsString(StandardCharsets.UTF_8);
@@ -78,7 +87,7 @@ public class GeminiClient {
             return objectMapper.readValue(cleaned, new TypeReference<List<InlineReview>>() {});
         } catch (Exception e) {
             log.error("AI 인라인 리뷰 파싱 실패: {}", response, e);
-            return List.of();
+            throw new AiReviewException(AiReviewErrorCode.GEMINI_RESPONSE_PARSE_FAILED);
         }
     }
 
