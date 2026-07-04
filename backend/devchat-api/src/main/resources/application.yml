@@ -49,7 +49,3 @@ github:
   username: GitHubBot
   bot:
     username: Devchat-Code-Assist
-
-logging:
-  file:
-    name: logs/app.log
