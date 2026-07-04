@@ -150,7 +150,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: backend
-          file: backend/Dockerfile
+          file: backend/devchat-api/Dockerfile
           platforms: linux/arm64
           push: true
           tags: limkanghyun/dev-chat-backend:latest
