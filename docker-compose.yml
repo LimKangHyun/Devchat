@@ -1,10 +1,10 @@
 version: "3.8"
-
 services:
   mysql:
     image: mysql:8.0
     container_name: dev-chat-mysql
     restart: unless-stopped
+    mem_limit: 1g
     env_file:
       - /home/ubuntu/Devchat/.env
     environment:
@@ -23,15 +23,31 @@ services:
       retries: 10
       start_period: 30s
 
+  redis-stream:
+    image: redis:7
+    container_name: redis-stream
+    restart: unless-stopped
+    mem_limit: 512m
+    ports:
+      - "6381:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis-stream/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis-stream-data:/data
+    networks:
+      - dev-chat-network
+
   dev-chat-frontend:
     image: limkanghyun/dev-chat-frontend:latest
     container_name: dev-chat-frontend
+    mem_limit: 64m
     networks:
       - dev-chat-network
 
   dev-chat-backend-blue:
     image: limkanghyun/dev-chat-backend:latest
     container_name: dev-chat-backend-blue
+    mem_limit: 2g
     env_file:
       - /home/ubuntu/Devchat/.env
     environment:
@@ -39,16 +55,23 @@ services:
       - MYSQL_USERNAME=${MYSQL_USERNAME}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - RDS_ENDPOINT=${RDS_ENDPOINT}
+      - INTERNAL_JWT_SECRET=${INTERNAL_JWT_SECRET}
+      - STREAM_REDIS_HOST=redis-stream
+      - STREAM_REDIS_PORT=6379
+      - JAVA_OPTS=-Xmx1400m -Xms700m
     networks:
       - dev-chat-network
       - redis-sentinel_redis-net
     depends_on:
       mysql:
         condition: service_healthy
+      redis-stream:
+        condition: service_started
 
   dev-chat-backend-green:
     image: limkanghyun/dev-chat-backend:latest
     container_name: dev-chat-backend-green
+    mem_limit: 2g
     env_file:
       - /home/ubuntu/Devchat/.env
     environment:
@@ -56,16 +79,48 @@ services:
       - MYSQL_USERNAME=${MYSQL_USERNAME}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - RDS_ENDPOINT=${RDS_ENDPOINT}
+      - INTERNAL_JWT_SECRET=${INTERNAL_JWT_SECRET}
+      - STREAM_REDIS_HOST=redis-stream
+      - STREAM_REDIS_PORT=6379
+      - JAVA_OPTS=-Xmx1400m -Xms700m
     networks:
       - dev-chat-network
       - redis-sentinel_redis-net
     depends_on:
       mysql:
         condition: service_healthy
+      redis-stream:
+        condition: service_started
+
+  dev-chat-ai:
+    image: limkanghyun/dev-chat-ai:latest
+    container_name: dev-chat-ai
+    restart: unless-stopped
+    mem_limit: 1.5g
+    env_file:
+      - /home/ubuntu/Devchat/.env
+    environment:
+      - INTERNAL_JWT_SECRET=${INTERNAL_JWT_SECRET}
+      - INTERNAL_API_URL=${INTERNAL_API_URL}
+      - GEMINI_REVIEW_KEY_1=${GEMINI_REVIEW_KEY_1}
+      - GEMINI_REVIEW_KEY_2=${GEMINI_REVIEW_KEY_2}
+      - GEMINI_EMBEDDING_KEY_1=${GEMINI_EMBEDDING_KEY_1}
+      - GEMINI_EMBEDDING_KEY_2=${GEMINI_EMBEDDING_KEY_2}
+      - GEMINI_EMBEDDING_KEY_3=${GEMINI_EMBEDDING_KEY_3}
+      - GEMINI_EMBEDDING_KEY_4=${GEMINI_EMBEDDING_KEY_4}
+      - GEMINI_EMBEDDING_KEY_5=${GEMINI_EMBEDDING_KEY_5}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - JAVA_OPTS=-Xmx1000m -Xms500m
+    networks:
+      - dev-chat-network
+    depends_on:
+      - redis-stream
+    stop_grace_period: 600s
 
   nginx_proxy:
     image: nginx:latest
     container_name: nginx_proxy
+    mem_limit: 64m
     volumes:
       - ./deployment/nginx_proxy/nginx.conf:/etc/nginx/nginx.conf
       - /etc/letsencrypt:/etc/letsencrypt
@@ -84,6 +139,7 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     restart: unless-stopped
+    mem_limit: 512m
     ports:
       - "9090:9090"
     volumes:
@@ -96,6 +152,7 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     restart: unless-stopped
+    mem_limit: 300m
     ports:
       - "3002:3000"
     volumes:
@@ -112,7 +169,6 @@ networks:
   dev-chat-network:
     driver: bridge
     name: dev-chat-network
-
   redis-sentinel_redis-net:
     external: true
 
@@ -120,3 +176,4 @@ volumes:
   mysql-data:
   grafana-data:
   prometheus-data:
+  redis-stream-data:

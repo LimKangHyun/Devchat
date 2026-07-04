@@ -1,1 +1,0 @@
-ALTER TABLE chat_room ADD COLUMN indexing_status VARCHAR(20) NOT NULL DEFAULT 'NONE';

@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: devchat-ai
+
+  data:
+    redis:
+      host: redis-stream
+      port: 6379
+      timeout: 10000ms
+      connect-timeout: 500ms
+      lettuce:
+        shutdown-timeout: 500ms
+
+server:
+  port: 8081
+
+gemini:
+  review-api-keys: ${GEMINI_REVIEW_API_KEYS}
+  embedding-api-keys: ${GEMINI_EMBEDDING_API_KEYS}
+
+pinecone:
+  api-key: ${PINECONE_API_KEY}
+  index-name: devchat

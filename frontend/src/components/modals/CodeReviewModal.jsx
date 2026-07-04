@@ -110,28 +110,34 @@ const CodeReviewModal = ({ message, onClose }) => {
       try {
         setLoading(true);
 
-        // AI_REVIEW 타입이면 inlineReviews JSON 파싱해서 초기값으로 세팅
         if (isAiReview) {
           const response = await axiosInstance.get(`/ai-reviews/${message.aiReviewId}`);
-          const { files } = JSON.parse(response.data.reviewJson);
-          const firstFile = files[0];
-          setCurrentFileContent(firstFile.fileContent);
+          const { files, fileContents } = response.data;
+
+          // 첫 번째 파일 선택
+          const firstFilePath = Object.keys(files)[0];
+          const firstFileComments = files[firstFilePath] || [];
+
+          // fileContent 설정
+          setCurrentFileContent(fileContents?.[firstFilePath] || '');
 
           const reviewsByLine = {};
-          firstFile.reviews.forEach(item => {
-            const lineNumber = item.lineNumber;
-            if (!reviewsByLine[lineNumber]) reviewsByLine[lineNumber] = [];
-            reviewsByLine[lineNumber].push({
-              id: `ai-${lineNumber}`,
-              content: item.comment,
-              author: 'AI 리뷰봇',
-              authorId: null,
-              timestamp: message.createdAt
-            });
-          });
+          firstFileComments
+              .filter(item => item.active)
+              .forEach(item => {
+                  const lineNumber = item.lineNumber;
+                  if (!reviewsByLine[lineNumber]) reviewsByLine[lineNumber] = [];
+                  reviewsByLine[lineNumber].push({
+                      id: `ai-${item.commentId}`,
+                      content: item.comment,
+                      author: 'AI 리뷰봇',
+                      authorId: null,
+                      timestamp: message.createdAt
+                  });
+              });
           setReviews(reviewsByLine);
           return;
-        }
+      }
 
         // 일반 CODE 타입이면 기존대로 API 호출
         if (!message.messageId) return;

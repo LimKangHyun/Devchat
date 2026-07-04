@@ -1,1 +1,5 @@
 rootProject.name = 'backend'
+
+include 'devchat-api'
+include 'devchat-common'
+include 'devchat-ai'

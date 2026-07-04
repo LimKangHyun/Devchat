@@ -1,0 +1,46 @@
+package project.api.domain.member.mapper;
+
+import lombok.RequiredArgsConstructor;
+import project.api.domain.member.dto.MemberResponse;
+import project.api.domain.member.dto.SignUpRequest;
+import project.api.domain.member.entity.Member;
+import project.api.domain.member.entity.ProviderType;
+import project.api.auth.dto.OAuthMemberDto;
+
+@RequiredArgsConstructor
+public class MemberMapper {
+
+	public static Member toEntity(SignUpRequest request, String encryptedPassword,
+		String defaultProfileImg) {
+		return Member.builder()
+			.username(request.getUsername())
+			.email(request.getEmail())
+			.password(encryptedPassword)
+			.nickname(request.getNickname())
+			.provider(ProviderType.LOCAL)
+			.profileImage(defaultProfileImg)
+			.build();
+	}
+
+	public static MemberResponse toResponse(Member member) {
+		return MemberResponse.builder()
+			.id(member.getId())
+			.username(member.getUsername())
+			.email(member.getEmail())
+			.nickname(member.getNickname())
+			.provider(member.getProvider())
+			.profileImg(member.getProfileImage())
+			.build();
+	}
+
+	public static Member toEntity(OAuthMemberDto request, String defaultProfileImg) {
+		return Member.builder()
+			.username(request.login())
+			.email(request.email())
+			.nickname(request.nickname())
+			.provider(ProviderType.GITHUB)
+			.profileImage(defaultProfileImg)
+			.build();
+	}
+
+}

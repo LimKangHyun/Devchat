@@ -1,0 +1,157 @@
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui
+    config-url: /v3/api-docs/swagger-config
+    url: /v3/api-docs
+
+server:
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  session:
+    store-type: none
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    url: jdbc:mysql://${RDS_ENDPOINT}:3306/devchat
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 3000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  data:
+    redis:
+      sentinel:
+        master: mymaster
+        nodes: sentinel1:26379,sentinel2:26379,sentinel3:26379
+      timeout: 500ms
+      connect-timeout: 500ms
+      lettuce:
+        shutdown-timeout: 500ms
+
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${OAUTH_GITHUB_CLIENT_ID}
+            client-secret: ${OAUTH_GITHUB_SECRET}
+            redirect-uri: https://thedevchat.duckdns.org/api/login/oauth2/code/github
+            scope:
+              - repo
+              - admin:repo_hook
+              - user
+        provider:
+          github:
+            user-name-attribute: login
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        show_sql: false
+        format_sql: false
+
+resilience4j:
+  circuit breaker:
+    instances:
+      redis:
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 10
+        sliding-window-size: 20
+        sliding-window-type: COUNT_BASED
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 500ms
+        record-exceptions:
+          - org.springframework.data.redis.RedisConnectionFailureException
+          - io.lettuce.core.RedisException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.dao.QueryTimeoutException
+        ignore-exceptions:
+          - project.api.global.exception.ex.ChatRoomException
+          - project.api.global.exception.ex.ChatMessageException
+
+file:
+  images:
+    profile:
+      path: images/profile/
+      default: default-profile.png
+      github: github-profile.png
+      ai-reviewer: devchat_code_reviewer.webp
+    chat:
+      path: images/chat/
+
+github:
+  username: GitHubBot
+  bot:
+    pat: ${BOT_GITHUB_BOT_PAT}
+    username: Devchat-Code-Assist
+
+url:
+  domain-url: ${DOMAIN_URL}
+  image-url: ${IMAGE_URL}
+  webhook-url: ${WEBHOOK_URL}
+
+r2:
+  bucket: ${R2_BUCKET_NAME}
+  access-key: ${R2_ACCESS_KEY}
+  secret-key: ${R2_SECRET_KEY}
+  endpoint: ${R2_ENDPOINT}
+
+jwt:
+  redirection:
+    base: ${DOMAIN_URL}
+  info:
+    secret: ${JWT_SECRET}
+
+encrypt:
+  secret: ${ENCRYPT_SECRET}
+
+internal:
+  jwt:
+    secret: ${INTERNAL_JWT_SECRET}
+
+stream:
+  redis:
+    host: ${STREAM_REDIS_HOST}
+    port: ${STREAM_REDIS_PORT}
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  metrics:
+    tags:
+      application: devchat

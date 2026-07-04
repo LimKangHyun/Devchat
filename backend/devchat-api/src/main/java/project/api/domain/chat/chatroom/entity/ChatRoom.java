@@ -1,0 +1,103 @@
+package project.api.domain.chat.chatroom.entity;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import project.api.domain.chat.chatmessage.entity.ChatMessage;
+import project.common.enums.IndexingStatus;
+
+@Entity
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@Getter
+public class ChatRoom {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "room_id")
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    private LocalDateTime createdAt;
+
+    @Column(unique = true)
+    private String repositoryUrl;
+
+    private String inviteCode;
+
+    private Long webhookId;
+
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ChatMessage> messages = new ArrayList<>();
+
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ChatParticipant> participants = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private IndexingStatus indexingStatus = IndexingStatus.NONE;
+
+    @Column(name = "last_sequence", nullable = false)
+    private Long lastSequence = 0L;
+
+    @Column(nullable = false)
+    private boolean aiReviewEnabled = true;
+
+    @Column(nullable = false)
+    private boolean aiSummaryEnabled = true;
+
+    @Builder
+    public ChatRoom(String name, LocalDateTime createdAt, String repositoryUrl, String inviteCode,
+        Long webhookId, List<ChatMessage> messages, List<ChatParticipant> participants) {
+        this.name = name;
+        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+        this.repositoryUrl = repositoryUrl;
+        this.inviteCode = inviteCode;
+        this.webhookId = webhookId;
+        if (messages != null) {
+            this.messages = messages;
+        }
+        if (participants != null) {
+            this.participants = participants;
+        }
+    }
+
+    public void updateLastSequence(Long sequence) {
+        this.lastSequence = sequence;
+    }
+
+    public void addParticipant(ChatParticipant chatParticipant) {
+        participants.add(chatParticipant);
+    }
+
+    public int getActiveParticipantCount() {
+        return (int) participants.stream()
+            .filter(ChatParticipant::isActive)
+            .count();
+    }
+
+    public void updateWebhookId(Long webhookId) {
+        this.webhookId = webhookId;
+    }
+
+    public void toggleAiReview() {
+        this.aiReviewEnabled = !this.aiReviewEnabled;
+    }
+
+    public void updateIndexingStatus(IndexingStatus status) {
+        this.indexingStatus = status;
+    }
+
+    public void toggleAiSummary() {
+        this.aiSummaryEnabled = !this.aiSummaryEnabled;
+    }
+}

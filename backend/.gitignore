@@ -43,7 +43,7 @@ out/
 /src/main/resources/keystore.p12
 
 # Spring Boot #
-/src/main/resources/application-prod.yml
+**/application-local.yml
 
 # 그라파나 데이터
 grafana-data/
