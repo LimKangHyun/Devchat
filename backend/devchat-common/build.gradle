@@ -1,5 +1,5 @@
 dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
-    compileOnly 'org.projectlombok:lombok:1.18.36'
-    annotationProcessor 'org.projectlombok:lombok:1.18.36'
+    compileOnly 'org.projectlombok:lombok:1.18.42'
+    annotationProcessor 'org.projectlombok:lombok:1.18.42'
 }

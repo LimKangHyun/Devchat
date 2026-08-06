@@ -3,7 +3,8 @@ package project.ai.client;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -25,20 +26,20 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class GeminiClient {
 
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
     private final ResourceLoader resourceLoader;
+    private final Validator validator;
     private final AtomicInteger keyIndex = new AtomicInteger(0);
 
     @Value("#{'${gemini.review-api-keys}'.split(',')}")
     private List<String> apiKeys;
 
     private static final String GEMINI_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
     private String inlineReviewPrompt;
     private String issueSummaryPrompt;
@@ -46,6 +47,14 @@ public class GeminiClient {
     private String prReviewSummaryPrompt;
     private String workflowSummaryPrompt;
     private String pushSummaryPrompt;
+
+    public GeminiClient(WebClient.Builder webClientBuilder, ObjectMapper objectMapper,
+        ResourceLoader resourceLoader) {
+        this.webClientBuilder = webClientBuilder;
+        this.objectMapper = objectMapper;
+        this.resourceLoader = resourceLoader;
+        this.validator = Validation.buildDefaultValidatorFactory().getValidator();
+    }
 
     @PostConstruct
     public void loadPrompts() throws IOException {
@@ -60,7 +69,7 @@ public class GeminiClient {
     @PostConstruct
     public void logReviewKeys() {
         apiKeys.forEach(k ->
-                log.info("review key prefix={}", k.substring(0, 10))
+            log.info("review key prefix={}", k.substring(0, 10))
         );
     }
 
@@ -69,22 +78,42 @@ public class GeminiClient {
         return resource.getContentAsString(StandardCharsets.UTF_8);
     }
 
-    public List<InlineReview> reviewPrDiffInline(String diff, String fileContent, String prTitle, String prBody) {
-        String truncatedDiff    = truncate(diff, 4000);
+    public List<InlineReview> reviewPrDiffInline(
+        String diff, String ragContext, String fileContent, String prTitle, String prBody) {
+
+        String truncatedDiff = truncate(diff, 4000);
         String truncatedContent = truncate(fileContent, 4000);
 
         String prInfo = "[PR 정보]\n제목: " + (prTitle != null ? prTitle : "") + "\n내용: " + (prBody != null ? prBody : "");
 
-        String prompt = inlineReviewPrompt
-                + "\n\n" + prInfo
-                + "\n\n[PR DIFF]\n" + truncatedDiff
-                + "\n\n[전체 파일 코드 - 앞의 숫자가 lineNumber]\n" + addLineNumbers(truncatedContent);
+        StringBuilder promptBuilder = new StringBuilder(inlineReviewPrompt)
+            .append("\n\n").append(prInfo);
 
-        String response = callGemini(prompt);
+        if (ragContext != null && !ragContext.isBlank()) {
+            promptBuilder.append("\n\n").append(ragContext);
+        }
+
+        promptBuilder
+            .append("\n\n[PR DIFF]\n").append(truncatedDiff)
+            .append("\n\n[전체 파일 코드 - 앞의 숫자가 lineNumber]\n").append(addLineNumbers(truncatedContent));
+
+        String response = callGemini(promptBuilder.toString());
 
         try {
-            String cleaned = response.replaceAll("```json", "").replaceAll("```", "").trim();
-            return objectMapper.readValue(cleaned, new TypeReference<List<InlineReview>>() {});
+            List<InlineReview> reviews = objectMapper.readValue(
+                response, new TypeReference<List<InlineReview>>() {});
+
+            return reviews.stream()
+                .filter(review -> {
+                    var violations = validator.validate(review);
+                    if (!violations.isEmpty()) {
+                        log.warn("[리뷰 검증 실패] violations={}", violations);
+                        return false;
+                    }
+                    return true;
+                })
+                .toList();
+
         } catch (Exception e) {
             log.error("AI 인라인 리뷰 파싱 실패: {}", response, e);
             throw new AiReviewException(AiReviewErrorCode.GEMINI_RESPONSE_PARSE_FAILED);
@@ -106,11 +135,14 @@ public class GeminiClient {
 
     private String callGemini(String prompt) {
         Map<String, Object> requestBody = Map.of(
-                "contents", List.of(
-                        Map.of("parts", List.of(
-                                Map.of("text", prompt)
-                        ))
-                )
+            "contents", List.of(
+                Map.of("parts", List.of(
+                    Map.of("text", prompt)
+                ))
+            ),
+            "generationConfig", Map.of(
+                "responseMimeType", "application/json"
+            )
         );
 
         int totalAttempts = apiKeys.size() * 2;
@@ -122,7 +154,7 @@ public class GeminiClient {
             } catch (WebClientResponseException e) {
                 delay = handleApiException(e, attempt, totalAttempts, delay);
             } catch (Exception e) {
-                handleUnexpectedException(e, attempt, totalAttempts);
+                delay = handleUnexpectedException(e, attempt, totalAttempts, delay);
             }
         }
         throw new IndexingException(IndexingErrorCode.EMBEDDING_EXHAUSTED);
@@ -130,13 +162,13 @@ public class GeminiClient {
 
     private String callGeminiApi(Map<String, Object> requestBody) {
         GeminiResponse response = webClientBuilder.build()
-                .post()
-                .uri(GEMINI_URL + "?key=" + nextKey())
-                .header("Content-Type", "application/json")
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(GeminiResponse.class)
-                .block();
+            .post()
+            .uri(GEMINI_URL + "?key=" + nextKey())
+            .header("Content-Type", "application/json")
+            .bodyValue(requestBody)
+            .retrieve()
+            .bodyToMono(GeminiResponse.class)
+            .block();
 
         return Objects.requireNonNull(response).candidates().get(0).content().parts().get(0).text();
     }
@@ -179,9 +211,11 @@ public class GeminiClient {
         return delay * 2;
     }
 
-    private void handleUnexpectedException(Exception e, int attempt, int totalAttempts) {
+    private long handleUnexpectedException(Exception e, int attempt, int totalAttempts, long delay) {
         log.warn("Gemini 예외 [시도 {}/{}]: {}", attempt, totalAttempts, e.getMessage());
         throwIfExhausted(attempt, totalAttempts, e);
+        backoff(delay);
+        return delay * 2;
     }
 
     private void throwIfExhausted(int attempt, int totalAttempts, Exception e) {

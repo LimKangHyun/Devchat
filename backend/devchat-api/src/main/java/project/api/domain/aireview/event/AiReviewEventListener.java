@@ -1,5 +1,6 @@
 package project.api.domain.aireview.event;
 
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -54,6 +55,9 @@ public class AiReviewEventListener {
             aiReviewService.updateSkipped(aiReview, "변경 파일 수 초과 (" + reviewableFileDiffs.size() + "개)");
             return;
         }
+
+        List<String> changedFilesInPr = List.copyOf(reviewableFileDiffs.keySet());
+
         long totalDiffLines = reviewableFileDiffs.values().stream()
                 .mapToLong(diff -> diff.lines().count())
                 .sum();
@@ -95,7 +99,8 @@ public class AiReviewEventListener {
                     fileContent,
                     baseContent,
                     aiReview.getPrTitle(),
-                    aiReview.getPrBody()
+                    aiReview.getPrBody(),
+                    changedFilesInPr
             );
         }
 

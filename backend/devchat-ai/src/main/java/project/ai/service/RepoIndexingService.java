@@ -8,8 +8,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import project.ai.client.PineconeClient;
 import project.ai.internal.InternalAuthClient;
+import project.ai.service.chunker.AstChunkExtractor;
 import project.ai.stream.index.RepoIndexResultProducer;
-import project.common.dto.ChunkMeta;
+import project.ai.service.chunker.ChunkMeta;
 import project.common.exception.errorcode.IndexingErrorCode;
 import project.common.exception.ex.IndexingException;
 import project.common.message.index.FileReindexMessage;
@@ -19,8 +20,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 @Slf4j
 @Service
@@ -32,17 +32,25 @@ public class RepoIndexingService {
     private static final Duration LOCK_TTL = Duration.ofMinutes(30);
     private static final int MAX_WAIT_SECONDS = 60;
     private static final long POLL_INTERVAL_MS = 500;
-    private static final int BATCH_SIZE = 20;
+    private static final int BATCH_SIZE = 100;
     private static final long MAX_FILE_SIZE_BYTES = 100 * 1024;
 
+    /**
+     * 배치 간 병렬 처리 동시성 제한.
+     * Gemini TPM/RPM을 고려해 4로 시작 → 실측 후 8/16으로 조정 예정.
+     */
+    private static final int BATCH_CONCURRENCY = 1;
+
     private static final Set<String> EXCLUDED_DIRS = Set.of(
-            "node_modules", ".git", "build", "out", "target", ".gradle", "test"
+        "node_modules", ".git", "build", "out", "target", ".gradle", "test", "dto"
     );
 
-    private static final Set<String> INCLUDED_PATHS = Set.of(
-            "app", "service", "api", "controller", "entity", "dao", "repository", "event", "scheduler"
+    private static final Set<String> EXCLUDED_KEYWORDS = Set.of(
+        "dto", "config", "exception", "mapper"
     );
 
+    @Qualifier("batchIndexingExecutor")
+    private final ExecutorService batchIndexingExecutor;
     private final EmbeddingService embeddingService;
     private final PineconeClient pineconeClient;
 
@@ -51,22 +59,27 @@ public class RepoIndexingService {
 
     private final InternalAuthClient internalAuthClient;
     private final RepoIndexResultProducer repoIndexResultProducer;
+    private final AstChunkExtractor astChunkExtractor;
 
+    /** 레포 간 동시 인덱싱 제한 (inter-request) */
     private final Semaphore semaphore = new Semaphore(4);
+
+    /** 배치 간 동시 처리 제한 (intra-request, Gemini Rate Limit 대응) */
+    private final Semaphore batchSemaphore = new Semaphore(BATCH_CONCURRENCY);
 
     @Async("repoIndexingExecutor")
     public void indexRepository(Long repoId, String repoUrl, Long memberId) {
         String lockKey = LOCK_PREFIX + repoId;
 
         Boolean acquired = redisTemplate.opsForValue()
-                .setIfAbsent(lockKey, "1", LOCK_TTL);
+            .setIfAbsent(lockKey, "1", LOCK_TTL);
         if (!Boolean.TRUE.equals(acquired)) {
             log.info("이미 인덱싱 중인 레포. repoId={}", repoId);
             return;
         }
 
         Path repoPath = Paths.get(
-                System.getProperty("java.io.tmpdir"), "devchat", UUID.randomUUID().toString()
+            System.getProperty("java.io.tmpdir"), "devchat", UUID.randomUUID().toString()
         );
 
         try {
@@ -75,7 +88,13 @@ public class RepoIndexingService {
             log.info("레포 인덱싱 시작. repoId={}", repoId);
 
             String token = internalAuthClient.getGithubToken(memberId);
+
+            long cloneStart = System.currentTimeMillis();
+            log.info("[{}] git clone 시작. repoId={}", Thread.currentThread().getName(), repoId);
             cloneRepo(repoUrl, token, repoPath);
+            log.info("[{}] git clone 완료. repoId={}, 소요={}ms",
+                Thread.currentThread().getName(), repoId, System.currentTimeMillis() - cloneStart);
+
             processAndIndex(repoId, repoPath);
 
             log.info("레포 인덱싱 완료. repoId={}, 소요시간={}ms", repoId, System.currentTimeMillis() - startTime);
@@ -95,11 +114,14 @@ public class RepoIndexingService {
         }
     }
 
-    /**
-     * PR 머지 시 변경된 단일 파일을 재인덱싱한다.
-     * - removed: 기존 청크 삭제만 수행
-     * - added/modified: 기존 청크 삭제 후 재청크 → 재임베딩 → upsert
-     */
+    private List<ChunkMeta> chunk(String content, String relativePath) {
+        List<ChunkMeta> chunks = astChunkExtractor.extract(content, relativePath); // relativePath 파라미터 제거 후
+        if (!chunks.isEmpty()) return chunks;
+        return slidingWindow(content, 100, 10).stream()
+            .map(ChunkMeta::fallback)
+            .toList();
+    }
+
     public void reindexFile(FileReindexMessage message) {
         Long roomId = message.roomId();
         String namespace = String.valueOf(roomId);
@@ -119,11 +141,11 @@ public class RepoIndexingService {
                 return;
             }
 
-            List<String> chunks = chunk(content);
+            List<ChunkMeta> chunks = chunk(content, filePath);
             List<ChunkMeta> metas = new ArrayList<>();
             for (int i = 0; i < chunks.size(); i++) {
                 String id = roomId + "-" + filePath.replace("/", "_") + "-" + i;
-                metas.add(new ChunkMeta(id, filePath, i, chunks.get(i)));
+                metas.add(chunks.get(i).withIndexingInfo(id, filePath, i));
             }
 
             if (!metas.isEmpty()) {
@@ -161,11 +183,11 @@ public class RepoIndexingService {
         Files.createDirectories(targetPath);
 
         String gitPath = System.getProperty("os.name").toLowerCase().contains("win")
-                ? "C:\\Program Files\\Git\\bin\\git.exe"
-                : "git";
+            ? "C:\\Program Files\\Git\\bin\\git.exe"
+            : "git";
 
         ProcessBuilder pb = new ProcessBuilder(
-                gitPath, "clone", "--depth", "1", authenticatedUrl, targetPath.toString()
+            gitPath, "clone", "--depth", "1", authenticatedUrl, targetPath.toString()
         );
         pb.environment().remove("GIT_ASKPASS");
         pb.redirectErrorStream(true);
@@ -200,7 +222,7 @@ public class RepoIndexingService {
                 String filePath = file.toString().toLowerCase();
                 if (!filePath.endsWith(".java")) return FileVisitResult.CONTINUE;
                 if (attrs.size() > MAX_FILE_SIZE_BYTES) return FileVisitResult.CONTINUE;
-                if (INCLUDED_PATHS.stream().noneMatch(filePath::contains)) return FileVisitResult.CONTINUE;
+                if (EXCLUDED_KEYWORDS.stream().anyMatch(filePath::contains)) return FileVisitResult.CONTINUE;
                 javaFiles.add(file);
                 return FileVisitResult.CONTINUE;
             }
@@ -208,119 +230,126 @@ public class RepoIndexingService {
         return javaFiles;
     }
 
+    /**
+     * 파일 목록을 청킹 → 배치 수집 → 배치 병렬 처리.
+     * BATCH_CONCURRENCY 개의 배치를 동시에 처리하며 Gemini Rate Limit을 준수한다.
+     */
     private void indexFiles(Long repoId, Path repoPath, List<Path> javaFiles) {
-        int totalFiles = javaFiles.size();
-        int indexedFiles = 0;
+        // 1. 청킹 → 전체 배치 목록 수집
+        List<List<ChunkMeta>> batches = new ArrayList<>();
         List<ChunkMeta> buffer = new ArrayList<>();
 
         for (Path file : javaFiles) {
             if (isCancelled(repoId)) {
-                log.info("인덱싱 취소 감지. repoId={}", repoId);
+                log.info("인덱싱 취소 감지 (청킹 단계). repoId={}", repoId);
                 return;
             }
-
             try {
-                buffer = bufferChunks(repoId, repoPath, file, buffer);
-                indexedFiles++;
-                log.info("인덱싱 진행: repoId={}, {}/{}", repoId, indexedFiles, totalFiles);
-            } catch (IndexingException e) {
-                if (e.getErrorCode() == IndexingErrorCode.EMBEDDING_EXHAUSTED) {
-                    log.error("임베딩 키 소진 - 인덱싱 중단. repoId={}", repoId);
-                    throw e;
+                String content = Files.readString(file);
+                if (content.isBlank()) continue;
+
+                String relativePath = repoPath.relativize(file).toString();
+                long chunkStart = System.currentTimeMillis();
+                List<ChunkMeta> chunks = chunk(content, relativePath);
+                log.info("[{}] 청킹 완료. file={}, chunkCount={}, 소요={}ms",
+                    Thread.currentThread().getName(), relativePath, chunks.size(),
+                    System.currentTimeMillis() - chunkStart);
+
+                for (int i = 0; i < chunks.size(); i++) {
+                    String id = repoId + "-" + relativePath.replace("/", "_") + "-" + i;
+                    buffer.add(chunks.get(i).withIndexingInfo(id, relativePath, i));
                 }
-                log.warn("파일 처리 실패, 스킵. file={}", file, e);
+
+                while (buffer.size() >= BATCH_SIZE) {
+                    batches.add(new ArrayList<>(buffer.subList(0, BATCH_SIZE)));
+                    buffer = new ArrayList<>(buffer.subList(BATCH_SIZE, buffer.size()));
+                }
             } catch (Exception e) {
-                log.warn("파일 처리 실패, 스킵. file={}", file, e);
+                log.warn("파일 청킹 실패, 스킵. file={}", file, e);
             }
         }
+        if (!buffer.isEmpty()) batches.add(buffer);
 
-        flushRemaining(repoId, buffer);
+        log.info("배치 수집 완료. repoId={}, 총 배치수={}", repoId, batches.size());
+
+        // 2. 배치 병렬 처리
+        // 2. 배치 병렬 처리
+        List<Future<Void>> futures = new ArrayList<>();
+        for (List<ChunkMeta> batch : batches) {
+            if (isCancelled(repoId)) {
+                log.info("인덱싱 취소 감지 (배치 처리 단계). repoId={}", repoId);
+                break;
+            }
+            futures.add(batchIndexingExecutor.submit(() -> {
+                batchSemaphore.acquire();
+                try {
+                    flushBatch(repoId, batch);
+                } finally {
+                    batchSemaphore.release();
+                }
+                return null;
+            }));
+        }
+
+        try {
+            for (Future<Void> future : futures) {
+                future.get();
+            }
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IndexingException ie) {
+                if (ie.getErrorCode() == IndexingErrorCode.EMBEDDING_EXHAUSTED) {
+                    log.error("임베딩 키 소진 - 인덱싱 중단. repoId={}", repoId);
+                }
+                throw ie;
+            }
+            throw new RuntimeException("배치 병렬 처리 실패. repoId=" + repoId, cause);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("배치 병렬 처리 인터럽트. repoId=" + repoId, e);
+        }
+
         log.info("인덱싱 완료. repoId={}, 총 API 호출 횟수={}", repoId, embeddingService.getAndResetCount());
-    }
-
-    private List<ChunkMeta> bufferChunks(Long repoId, Path repoPath, Path file, List<ChunkMeta> buffer) throws IOException {
-        String content = Files.readString(file);
-        if (content.isBlank()) return buffer;
-
-        String relativePath = repoPath.relativize(file).toString();
-        List<String> chunks = chunk(content);
-
-        for (int i = 0; i < chunks.size(); i++) {
-            String id = repoId + "-" + relativePath.replace("/", "_") + "-" + i;
-            buffer.add(new ChunkMeta(id, relativePath, i, chunks.get(i)));
-        }
-
-        buffer = new ArrayList<>(buffer);
-        while (buffer.size() >= BATCH_SIZE) {
-            flushBatch(repoId, buffer.subList(0, BATCH_SIZE));
-            buffer = new ArrayList<>(buffer.subList(BATCH_SIZE, buffer.size()));
-        }
-
-        return buffer;
-    }
-
-    private void flushRemaining(Long repoId, List<ChunkMeta> buffer) {
-        if (!buffer.isEmpty()) {
-            flushBatch(repoId, buffer);
-        }
     }
 
     private void flushBatch(Long repoId, List<ChunkMeta> batch) {
         List<String> texts = batch.stream().map(ChunkMeta::chunk).toList();
-        List<float[]> vectors = embeddingService.embedBatch(texts);
 
+        long embedStart = System.currentTimeMillis();
+        log.info("[{}] 임베딩 호출 시작. repoId={}, chunkCount={}",
+            Thread.currentThread().getName(), repoId, batch.size());
+        List<float[]> vectors = embeddingService.embedBatch(texts);
+        log.info("[{}] 임베딩 호출 완료. repoId={}, 소요={}ms",
+            Thread.currentThread().getName(), repoId, System.currentTimeMillis() - embedStart);
+
+        long upsertStart = System.currentTimeMillis();
+        List<PineconeClient.UpsertItem> items = new ArrayList<>(batch.size());
         for (int i = 0; i < batch.size(); i++) {
             ChunkMeta meta = batch.get(i);
             String code = meta.chunk().length() > 1000 ? meta.chunk().substring(0, 1000) : meta.chunk();
 
-            Map<String, String> metadata = Map.of(
-                    "repoId", String.valueOf(repoId),
-                    "filePath", meta.relativePath(),
-                    "chunkIndex", String.valueOf(meta.chunkIndex()),
-                    "code", code,
-                    "language", "java"
-            );
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("repoId", String.valueOf(repoId));
+            metadata.put("filePath", meta.relativePath());
+            metadata.put("chunkIndex", String.valueOf(meta.chunkIndex()));
+            metadata.put("code", code);
+            metadata.put("language", "java");
+            metadata.put("className", meta.className() != null ? meta.className() : "");
+            metadata.put("methodName", meta.methodName() != null ? meta.methodName() : "");
+            metadata.put("methodSignature", meta.methodSignature() != null ? meta.methodSignature() : "");
+            metadata.put("packageName", meta.packageName() != null ? meta.packageName() : "");
+            metadata.put("superClassName", meta.superClassName() != null ? meta.superClassName() : "");
+            metadata.put("interfaceNames", meta.interfaceNames() != null ? meta.interfaceNames() : List.of());
+            metadata.put("calledMethodNames", meta.calledMethodNames() != null ? meta.calledMethodNames() : List.of());
+            metadata.put("referencedTypeNames", meta.referencedTypeNames() != null ? meta.referencedTypeNames() : List.of());
+            metadata.put("annotations", meta.annotations() != null ? meta.annotations() : List.of());
 
-            pineconeClient.upsert(meta.id(), vectors.get(i), metadata, String.valueOf(repoId));
+            items.add(new PineconeClient.UpsertItem(meta.id(), vectors.get(i), metadata));
         }
-    }
 
-    private List<String> chunk(String content) {
-        List<String> chunks = extractMethods(content);
-        if (!chunks.isEmpty()) return chunks;
-        return slidingWindow(content, 100, 10);
-    }
-
-    private List<String> extractMethods(String content) {
-        List<String> methods = new ArrayList<>();
-        String[] lines = content.split("\n");
-        int depth = 0;
-        int methodStart = -1;
-
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            boolean isMethodSignature = depth == 1
-                    && (line.contains("public ") || line.contains("private ") || line.contains("protected "))
-                    && line.contains("(") && !line.contains("class ") && !line.contains("interface ");
-
-            if (isMethodSignature && line.contains("{")) {
-                methodStart = i;
-            }
-
-            for (char c : line.toCharArray()) {
-                if (c == '{') depth++;
-                else if (c == '}') depth--;
-            }
-
-            if (methodStart != -1 && depth == 1) {
-                String method = String.join("\n", Arrays.copyOfRange(lines, methodStart, i + 1));
-                if (method.split("\n").length >= 3) {
-                    methods.add(method);
-                }
-                methodStart = -1;
-            }
-        }
-        return methods;
+        pineconeClient.upsertBatch(items, String.valueOf(repoId));
+        log.info("[{}] Pinecone upsert 완료. repoId={}, 청크수={}, 소요={}ms",
+            Thread.currentThread().getName(), repoId, batch.size(), System.currentTimeMillis() - upsertStart);
     }
 
     private List<String> slidingWindow(String content, int windowSize, int overlap) {
@@ -381,6 +410,102 @@ public class RepoIndexingService {
             Thread.sleep(RepoIndexingService.POLL_INTERVAL_MS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    public List<String> chunkOnlyForMeasurement(String repoUrl, Long memberId) throws IOException, InterruptedException {
+        Path repoPath = Paths.get(
+            System.getProperty("java.io.tmpdir"), "devchat-measure", UUID.randomUUID().toString()
+        );
+        try {
+            String token = internalAuthClient.getGithubToken(memberId);
+            cloneRepo(repoUrl, token, repoPath);
+
+            List<Path> files = collectFiles(repoPath);
+            log.info("[측정] 청킹 대상 파일 수: {}", files.size());
+
+            List<String> allChunks = new ArrayList<>();
+            for (Path file : files) {
+                String content = Files.readString(file);
+                if (content.isBlank()) continue;
+                String relativePath = repoPath.relativize(file).toString();
+                allChunks.addAll(chunk(content, relativePath).stream().map(ChunkMeta::chunk).toList());
+            }
+
+            log.info("[측정] 총 청크 수: {}", allChunks.size());
+            return allChunks;
+        } finally {
+            deleteDirectory(repoPath);
+        }
+    }
+
+    public List<String> chunkOnlyForMeasurement(String repoUrl) throws IOException, InterruptedException {
+        Path repoPath = Paths.get(
+            System.getProperty("java.io.tmpdir"), "devchat-measure", UUID.randomUUID().toString()
+        );
+        try {
+            cloneRepoPublicOnly(repoUrl, repoPath);
+
+            List<Path> files = collectFiles(repoPath);
+            log.info("[측정] 청킹 대상 파일 수: {}", files.size());
+
+            List<String> allChunks = new ArrayList<>();
+            for (Path file : files) {
+                String content = Files.readString(file);
+                if (content.isBlank()) continue;
+                String relativePath = repoPath.relativize(file).toString();
+                allChunks.addAll(chunk(content, relativePath).stream().map(ChunkMeta::chunk).toList());
+            }
+
+            log.info("[측정] 총 청크 수: {}", allChunks.size());
+            return allChunks;
+        } finally {
+            deleteDirectory(repoPath);
+        }
+    }
+
+    private void cloneRepoPublicOnly(String repoUrl, Path targetPath) throws IOException, InterruptedException {
+        Files.createDirectories(targetPath);
+
+        String gitPath = System.getProperty("os.name").toLowerCase().contains("win")
+            ? "C:\\Program Files\\Git\\bin\\git.exe"
+            : "git";
+
+        ProcessBuilder pb = new ProcessBuilder(
+            gitPath, "clone", "--depth", "1", repoUrl, targetPath.toString()
+        );
+        pb.environment().remove("GIT_ASKPASS");
+        pb.redirectErrorStream(true);
+
+        Process process = pb.start();
+        int exitCode = process.waitFor();
+
+        if (exitCode != 0) {
+            throw new IOException("git clone 실패. exitCode=" + exitCode);
+        }
+    }
+
+    public List<String> chunkOnlyForMeasurementSlidingOnly(String repoUrl) throws IOException, InterruptedException {
+        Path repoPath = Paths.get(
+            System.getProperty("java.io.tmpdir"), "devchat-measure", UUID.randomUUID().toString()
+        );
+        try {
+            cloneRepoPublicOnly(repoUrl, repoPath);
+
+            List<Path> files = collectFiles(repoPath);
+            log.info("[측정-슬라이딩] 청킹 대상 파일 수: {}", files.size());
+
+            List<String> allChunks = new ArrayList<>();
+            for (Path file : files) {
+                String content = Files.readString(file);
+                if (content.isBlank()) continue;
+                allChunks.addAll(slidingWindow(content, 100, 10)); // AST 안 거치고 무조건 슬라이딩 윈도우
+            }
+
+            log.info("[측정-슬라이딩] 총 청크 수: {}", allChunks.size());
+            return allChunks;
+        } finally {
+            deleteDirectory(repoPath);
         }
     }
 }

@@ -1,6 +1,7 @@
 package project.api.global.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
@@ -39,10 +40,10 @@ public class RedisStreamClient {
 
     public void publishAiReviewRequest(Long aiReviewId, Long chatRoomId, Long repoId,
         String filePath, String fileDiff, String fileContent,
-        String baseContent, String prTitle, String prBody) {
+        String baseContent, String prTitle, String prBody, List<String> changedFilesInPr) {
         try {
             String json = objectMapper.writeValueAsString(
-                new AiReviewRequestMessage(aiReviewId, chatRoomId, repoId, filePath, fileDiff, fileContent, baseContent, prTitle, prBody));
+                new AiReviewRequestMessage(aiReviewId, chatRoomId, repoId, filePath, fileDiff, fileContent, baseContent, prTitle, prBody, changedFilesInPr));
             publish(AI_REVIEW_REQUEST_STREAM, json);
         } catch (Exception e) {
             throw new RuntimeException("Redis Stream 발행 실패", e);

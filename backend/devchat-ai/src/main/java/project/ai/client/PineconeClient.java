@@ -43,22 +43,50 @@ public class PineconeClient {
      * id: "{repoId}-{filePath}-{chunkIndex}" 형태
      * metadata: repoId, filePath, chunkIndex, code, language 저장
      */
-    public void upsert(String id, float[] vector, Map<String, String> metadata, String namespace) {
-        Struct.Builder metaBuilder = Struct.newBuilder();
-        metadata.forEach((k, v) ->
-                metaBuilder.putFields(k, com.google.protobuf.Value.newBuilder().setStringValue(v).build())
-        );
+    public void upsertBatch(List<UpsertItem> items, String namespace) {
+        List<VectorWithUnsignedIndices> vectors = items.stream()
+            .map(item -> {
+                Struct.Builder metaBuilder = Struct.newBuilder();
+                item.metadata().forEach((k, v) -> {
+                    if (v instanceof List<?> list) {
+                        com.google.protobuf.ListValue.Builder listBuilder =
+                            com.google.protobuf.ListValue.newBuilder();
+                        for (Object element : list) {
+                            listBuilder.addValues(
+                                com.google.protobuf.Value.newBuilder()
+                                    .setStringValue(String.valueOf(element))
+                                    .build()
+                            );
+                        }
+                        metaBuilder.putFields(k,
+                            com.google.protobuf.Value.newBuilder()
+                                .setListValue(listBuilder.build())
+                                .build()
+                        );
+                    } else {
+                        metaBuilder.putFields(k,
+                            com.google.protobuf.Value.newBuilder()
+                                .setStringValue(String.valueOf(v))
+                                .build()
+                        );
+                    }
+                });
 
-        List<Float> vectorList = new java.util.ArrayList<>();
-        for (float v : vector) vectorList.add(v);
+                List<Float> vectorList = new java.util.ArrayList<>();
+                for (float f : item.vector()) vectorList.add(f);
 
-        VectorWithUnsignedIndices vec = buildUpsertVectorWithUnsignedIndices(
-                id, vectorList, null, null, metaBuilder.build()
-        );
+                return buildUpsertVectorWithUnsignedIndices(
+                    item.id(), vectorList, null, null, metaBuilder.build()
+                );
+            })
+            .toList();
 
-        UpsertResponse response = index.upsert(List.of(vec), namespace);
-        log.debug("Pinecone upsert. id={}, namespace={}, upsertedCount={}", id, namespace, response.getUpsertedCount());
+        UpsertResponse response = index.upsert(vectors, namespace);
+        log.debug("Pinecone batch upsert. namespace={}, count={}, upsertedCount={}",
+            namespace, vectors.size(), response.getUpsertedCount());
     }
+
+    public record UpsertItem(String id, float[] vector, Map<String, Object> metadata) {}
 
     /**
      * 유사 벡터 Top K 검색
@@ -69,7 +97,7 @@ public class PineconeClient {
         for (float v : vector) vectorList.add(v);
 
         QueryResponseWithUnsignedIndices response = index.query(
-                topK, vectorList, null, null, null, namespace, null, false, true
+            topK, vectorList, null, null, null, namespace, null, false, true
         );
 
         return response.getMatchesList();
