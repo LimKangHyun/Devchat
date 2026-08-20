@@ -1,6 +1,7 @@
 package project.api.global.config.async;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,18 @@ public class AsyncConfig {
         executor.setQueueCapacity(100); // 작업 대기열
         executor.setThreadNamePrefix("ChatRoomEvent-");
         executor.setRejectedExecutionHandler(customRejectedExecutionHandler);
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean("checkpointExecutor")
+    public Executor checkpointExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(8);          // 커넥션 풀보다 작게
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("checkpoint-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         return executor;
     }

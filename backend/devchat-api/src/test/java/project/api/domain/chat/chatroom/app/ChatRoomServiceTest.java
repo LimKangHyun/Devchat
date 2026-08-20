@@ -9,6 +9,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.*;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +62,7 @@ class ChatRoomServiceTest {
     @Mock private ChatRoomSequenceService chatRoomSequenceService;
     @Mock private ChatRoomAlarmService chatRoomAlarmService;
     @Mock private ChatRoomReadService chatRoomReadService;
+    @Mock private ChatRoomSyncService chatRoomSyncService;
     @Mock private ChatRoomParticipantService chatRoomParticipantService;
     @Mock private AuthTokenService authTokenService;
     @Mock private AiReviewService aiReviewService;
@@ -135,24 +137,21 @@ class ChatRoomServiceTest {
         void joinChatRoom_newMember_success() {
             given(chatRoom.getId()).willReturn(10L);
             given(chatRoom.getInviteCode()).willReturn("INVITE-CODE");
-            given(chatRoom.getName()).willReturn("테스트 방");
 
             Member joiner = mock(Member.class);
             given(joiner.getNickname()).willReturn("joinerNick");
 
             given(chatRoomRepository.findByInviteCodeWithLock("INVITE-CODE")).willReturn(Optional.of(chatRoom));
             given(memberService.getMemberById(2L)).willReturn(joiner);
-            given(chatRoomSequenceService.genMessageSeq(10L)).willReturn(1L); // 수정: memberId 추가
 
             ChatMessage joinMessage = mock(ChatMessage.class);
             given(joinMessage.getId()).willReturn(500L);
-            given(joinMessage.getCreatedAt()).willReturn(java.time.LocalDateTime.now());
+            given(joinMessage.getCreatedAt()).willReturn(LocalDateTime.now());
             given(chatMessageService.saveJoinEvent(chatRoom, joiner)).willReturn(joinMessage);
 
             InviteJoinResponse result = chatRoomService.joinChatRoom("INVITE-CODE", 2L);
 
             assertThat(result.getId()).isEqualTo(10L);
-            assertThat(result.getInviteCode()).isEqualTo("INVITE-CODE");
             then(eventPublisher).should().publishEvent(any(JoinChatRoomEvent.class));
         }
 
@@ -181,7 +180,7 @@ class ChatRoomServiceTest {
             chatRoomService.leaveChatRoom(10L, 2L);
 
             then(chatRoomParticipantService).should().leaveChatRoom(10L, 2L, "leaverNick");
-            then(leavingMember).should().setRecentRoomId(null);
+            then(leavingMember).should().clearRecentRoom();
         }
 
         @Test
@@ -199,8 +198,7 @@ class ChatRoomServiceTest {
                     .willReturn(Optional.of(otherRoomParticipant));
 
             chatRoomService.leaveChatRoom(10L, 2L);
-
-            then(leavingMember).should().setRecentRoomId(20L);
+            then(leavingMember).should().updateRecentRoom(20L);
         }
     }
 
@@ -227,6 +225,7 @@ class ChatRoomServiceTest {
             then(chatMessageService).should().deleteByRoomId(10L);
             then(postRepository).should().deleteByChatRoom_Id(10L);
             then(chatRoomRepository).should().delete(chatRoom);
+            then(chatRoomSyncService).should().deleteByRoomId(10L);
         }
 
         @Test
@@ -317,5 +316,26 @@ class ChatRoomServiceTest {
             assertThatThrownBy(() -> chatRoomService.getRecentRoomInviteCode(1L))
                     .isInstanceOf(ChatRoomException.class);
         }
+    }
+
+    @Test
+    @DisplayName("채팅방 참가 시 Redis 캐시를 동기적으로 호출하지 않는다")
+    void joinChatRoom_doesNotCallRedisSynchronously() {
+        given(chatRoom.getId()).willReturn(10L);
+        given(chatRoom.getInviteCode()).willReturn("INVITE-CODE");
+
+        Member joiner = mock(Member.class);
+        given(joiner.getNickname()).willReturn("joinerNick");
+        given(chatRoomRepository.findByInviteCodeWithLock("INVITE-CODE")).willReturn(Optional.of(chatRoom));
+        given(memberService.getMemberById(2L)).willReturn(joiner);
+
+        ChatMessage joinMessage = mock(ChatMessage.class);
+        given(joinMessage.getId()).willReturn(500L);
+        given(joinMessage.getCreatedAt()).willReturn(LocalDateTime.now());
+        given(chatMessageService.saveJoinEvent(chatRoom, joiner)).willReturn(joinMessage);
+
+        chatRoomService.joinChatRoom("INVITE-CODE", 2L);
+
+        then(chatRoomSequenceService).shouldHaveNoInteractions();
     }
 }

@@ -40,4 +40,9 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     List<ChatMessageSearchProjection> findTop100WithIndexStatus();
 
     Optional<ChatMessage> findByChatRoom_IdAndPrNumberAndType(Long roomId, Integer prNumber, MessageType type);
+
+    @Query("SELECT MAX(m.id) FROM ChatMessage m WHERE m.chatRoom.id = :roomId")
+    Long findMaxIdByChatRoom_Id(@Param("roomId") Long roomId);
+
+    long countByChatRoom_IdAndIdGreaterThan(Long roomId, Long id);
 }

@@ -20,12 +20,19 @@ CREATE TABLE `chat_room` (
                              `created_at` datetime(6) DEFAULT NULL,
                              `indexing_status` enum('COMPLETED','FAILED','NONE','RUNNING') NOT NULL,
                              `invite_code` varchar(255) DEFAULT NULL,
-                             `last_sequence` bigint NOT NULL,
                              `name` varchar(255) NOT NULL,
                              `repository_url` varchar(255) DEFAULT NULL,
                              `webhook_id` bigint DEFAULT NULL,
                              PRIMARY KEY (`room_id`),
                              UNIQUE KEY `UKd8gcrpwekat0x9w2wgguima49` (`repository_url`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `chat_room_checkpoint` (
+                                        `room_id` bigint NOT NULL,
+                                        `synced_message_id` bigint NOT NULL DEFAULT 0,
+                                        `cumulative_count` bigint NOT NULL DEFAULT 0,
+                                        PRIMARY KEY (`room_id`),
+                                        CONSTRAINT `fk_checkpoint_room` FOREIGN KEY (`room_id`) REFERENCES `chat_room` (`room_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `image_file` (
@@ -103,6 +110,7 @@ CREATE TABLE `chat_message` (
                                 UNIQUE KEY `UKoe97nllv21drvrvg0s856q76n` (`chat_image_id`),
                                 KEY `FKmptl325jjoxxsaudpuy2r0tfo` (`ai_review_id`),
                                 KEY `FKfvbc4wvhk51y0qtnjrbminxfu` (`room_id`),
+                                KEY `idx_chat_message_room_msg` (`room_id`,`message_id`),
                                 KEY `FKynfbnbqot8mpd1tquoc2s1w5` (`member_id`),
                                 CONSTRAINT `FK9f6mwuygn32hodksh3xhtr0k2` FOREIGN KEY (`chat_image_id`) REFERENCES `image_file` (`image_id`),
                                 CONSTRAINT `FKfvbc4wvhk51y0qtnjrbminxfu` FOREIGN KEY (`room_id`) REFERENCES `chat_room` (`room_id`),
@@ -183,12 +191,6 @@ CREATE TABLE `dm_message` (
                               KEY `FK2hprvh2kds87xoa1rmggmcdnm` (`sender_id`),
                               CONSTRAINT `FK2hprvh2kds87xoa1rmggmcdnm` FOREIGN KEY (`sender_id`) REFERENCES `member` (`member_id`),
                               CONSTRAINT `FKf3ugohib8ailcfqq8n6ijgxtc` FOREIGN KEY (`room_id`) REFERENCES `dm_room` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE `fallback_sequence_recovery` (
-                                              `room_id` bigint NOT NULL,
-                                              `created_at` datetime(6) DEFAULT NULL,
-                                              PRIMARY KEY (`room_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `friend_request` (

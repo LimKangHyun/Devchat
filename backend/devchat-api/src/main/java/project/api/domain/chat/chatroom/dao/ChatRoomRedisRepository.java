@@ -23,7 +23,6 @@ public class ChatRoomRedisRepository {
 
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> genMessageSeqScript;
-    private final DefaultRedisScript<Long> recoverAndIncrScript;
     private final DefaultRedisScript<List> getAndClearUpdatedRoomsScript;
     private final DefaultRedisScript<Long> setSequenceScript;
     private final DefaultRedisScript<Void> bulkSetSequenceScript;
@@ -32,18 +31,6 @@ public class ChatRoomRedisRepository {
         return redisTemplate.execute(
                 genMessageSeqScript,
                 List.of(String.format(ROOM_SEQUENCE_KEY, roomId), RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
-                String.valueOf(SEQUENCE_TTL_SEC),
-                String.valueOf(System.currentTimeMillis()),
-                String.valueOf(roomId),
-                String.valueOf(-MAX_RANKING_SIZE - 1)
-        );
-    }
-
-    public Long recoverAndIncr(Long roomId, Long dbSeq) {
-        return redisTemplate.execute(
-                recoverAndIncrScript,
-                List.of(String.format(ROOM_SEQUENCE_KEY, roomId), RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
-                String.valueOf(dbSeq),
                 String.valueOf(SEQUENCE_TTL_SEC),
                 String.valueOf(System.currentTimeMillis()),
                 String.valueOf(roomId),

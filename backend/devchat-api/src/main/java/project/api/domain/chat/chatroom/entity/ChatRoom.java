@@ -46,9 +46,6 @@ public class ChatRoom {
     @Column(nullable = false)
     private IndexingStatus indexingStatus = IndexingStatus.NONE;
 
-    @Column(name = "last_sequence", nullable = false)
-    private Long lastSequence = 0L;
-
     @Column(nullable = false)
     private boolean aiReviewEnabled = true;
 
@@ -69,10 +66,6 @@ public class ChatRoom {
         if (participants != null) {
             this.participants = participants;
         }
-    }
-
-    public void updateLastSequence(Long sequence) {
-        this.lastSequence = sequence;
     }
 
     public void addParticipant(ChatParticipant chatParticipant) {

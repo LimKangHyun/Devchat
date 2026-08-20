@@ -16,7 +16,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import project.api.auth.dto.MemberDetails;
 import project.api.domain.chat.chatroom.entity.ChatParticipant;
@@ -63,7 +62,6 @@ public class Member {
     @Column(nullable = false)
     private String profileImage;
 
-    @Setter
     private Long recentRoomId;
 
     public static Member of(MemberDetails memberDetails) {
@@ -93,6 +91,14 @@ public class Member {
 
     public void updateProfileImage(String profileImage) {
         this.profileImage = profileImage;
+    }
+
+    public void updateRecentRoom(Long roomId) {
+        this.recentRoomId = roomId;
+    }
+
+    public void clearRecentRoom() {
+        this.recentRoomId = null;
     }
 
     public void addFriend(Friends friend) {

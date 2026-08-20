@@ -9,6 +9,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import project.api.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
 import project.api.domain.chat.chatmessage.mapper.ChatMessageMapper;
+import project.api.domain.chat.chatroom.app.ChatRoomSequenceService;
 import project.api.domain.chat.chatroom.app.ChatRoomService;
 import project.api.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 import project.api.domain.chat.chatmessage.event.EventMessageResponse;
@@ -30,6 +31,7 @@ public class ChatRoomEventListener {
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRedisRepository chatRoomRedisRepository;
+    private final ChatRoomSequenceService chatRoomSequenceService;
     private final ChatRoomService chatRoomService;
     private final MemberService memberService;
 
@@ -39,12 +41,10 @@ public class ChatRoomEventListener {
     @Async("chatRoomEventExecutor")
     @TransactionalEventListener(phase = AFTER_COMMIT)
     public void handleMemberJoin(JoinChatRoomEvent joinEvent) {
+        chatRoomSequenceService.incrementCache(joinEvent.roomId());  // 실패해도 무해
 
-        EventMessageResponse eventMessageResponse = ChatRoomMapper.toJoinEventMessageResponse(
-            joinEvent);
-
-        simpMessagingTemplate.convertAndSend("/topic/chat/" + joinEvent.roomId(),
-            eventMessageResponse);
+        EventMessageResponse response = ChatRoomMapper.toJoinEventMessageResponse(joinEvent);
+        simpMessagingTemplate.convertAndSend("/topic/chat/" + joinEvent.roomId(), response);
     }
 
     @Async("chatRoomEventExecutor")
@@ -67,6 +67,8 @@ public class ChatRoomEventListener {
         ChatMessage message = chatMessageMapper.toEntityWithLeaveEvent(chatRoom, member,
             leaveEvent);
         ChatMessage savedMessage = chatMessageRepository.save(message);
+
+        chatRoomSequenceService.incrementCache(leaveEvent.roomId());
 
         EventMessageResponse eventMessageResponse = ChatRoomMapper.toLeaveEventMessageResponse(
             leaveEvent, savedMessage.getId());
