@@ -35,7 +35,6 @@ import project.api.global.exception.ex.ChatRoomException;
 
 @Slf4j
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class ChatRoomService {
 
@@ -145,11 +144,6 @@ public class ChatRoomService {
     public Page<MyChatRoomResponse> findAllRoomsByOwnerId(Long memberId, Pageable pageable) {
         return chatRoomRepository.findAllRoomsByOwnerId(memberId, pageable)
                 .map(ChatRoomMapper::toProfileResponse);
-    }
-
-    public Page<RoomInfoResponse> findChatRoomsByMemberId(Long memberId, Pageable pageable) {
-        return chatRoomRepository.findChatRoomsByParticipantId(memberId, pageable)
-                .map(ChatRoomMapper::toListResponse);
     }
 
     public void leaveChatRoom(Long roomId, Long memberId) {

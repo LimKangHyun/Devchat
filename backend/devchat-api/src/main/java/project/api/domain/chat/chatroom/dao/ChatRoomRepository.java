@@ -13,15 +13,6 @@ import project.api.domain.chat.chatroom.entity.ChatRoom;
 
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
-    @Query("""
-        SELECT DISTINCT cr
-        FROM ChatRoom cr
-        JOIN cr.participants cp
-        WHERE cp.participant.id = :memberId AND cp.isActive = true
-        """)
-    Page<ChatRoom> findChatRoomsByParticipantId(@Param("memberId") Long memberId,
-        Pageable pageable);
-
     Optional<ChatRoom> findByInviteCode(String inviteCode);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

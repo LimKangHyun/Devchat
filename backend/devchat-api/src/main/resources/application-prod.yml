@@ -73,7 +73,7 @@ spring:
         format_sql: false
 
 resilience4j:
-  circuit breaker:
+  circuitbreaker:
     instances:
       redis:
         failure-rate-threshold: 50
