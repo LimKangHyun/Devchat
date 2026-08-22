@@ -67,16 +67,6 @@ public class ChatRoomController {
         return new RecentChatRoomResponse(inviteCode);
     }
 
-    @Operation(summary = "참여 중인 채팅방 목록 조회")
-    @GetMapping
-    public Page<RoomInfoResponse> getChatRooms(
-        @AuthenticationPrincipal MemberDetails memberDetails,
-        @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-
-        Long memberId = memberDetails.getId();
-        return chatRoomService.findChatRoomsByMemberId(memberId, pageable);
-    }
-
     @Operation(summary = "채팅방 참여자 조회")
     @GetMapping("/{roomId}/participants")
     public List<ChatParticipantResponse> getParticipants(

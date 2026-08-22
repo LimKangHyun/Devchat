@@ -31,7 +31,7 @@ const CommunityWrite = () => {
   useEffect(() => {
     const fetchChatRooms = async () => {
       try {
-        const res = await axiosInstance.get('/chat-rooms');
+        const res = await axiosInstance.get('/chat-rooms/all');
         setChatRooms(res.data.content ?? res.data);
       } catch (err) {
         console.error('채팅방 목록 불러오기 실패', err);
