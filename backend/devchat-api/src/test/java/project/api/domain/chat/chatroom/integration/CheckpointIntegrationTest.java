@@ -85,6 +85,7 @@ class CheckpointIntegrationTest {
         chatMessageRepository.deleteAll();
         checkpointRepository.deleteAll();
         chatRoomRepository.deleteAll();
+        memberRepository.deleteAll();
         redisTemplate.getConnectionFactory().getConnection().serverCommands().flushAll();
 
         sender = memberRepository.save(
