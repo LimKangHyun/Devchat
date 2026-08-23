@@ -17,7 +17,7 @@ import project.ai.stream.producer.AiReviewResultProducer;
 public class AiReviewRequestConsumer implements StreamListener<String, ObjectRecord<String, String>> {
 
     private final ObjectMapper objectMapper;
-    private final AiReviewProcessor aiReviewProcessor;
+    private final RagEvaluationProcessor aiReviewProcessor;
     private final AiReviewResultProducer aiReviewResultProducer;
 
     @Override

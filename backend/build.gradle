@@ -28,7 +28,6 @@ subprojects {
         annotationProcessor 'org.projectlombok:lombok:1.18.42'
         testCompileOnly 'org.projectlombok:lombok:1.18.42'
         testAnnotationProcessor 'org.projectlombok:lombok:1.18.42'
-        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     }
 
     tasks.named('test') {

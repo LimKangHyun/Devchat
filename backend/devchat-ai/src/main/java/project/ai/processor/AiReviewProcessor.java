@@ -26,7 +26,8 @@ public class AiReviewProcessor {
         Set<Integer> validDiffLines = diffParser.parseValidLines(message.fileDiff());
 
         String ragContext = ragContextService.buildContext(
-            message.repoId(), message.filePath(), message.fileDiff(), Set.copyOf(message.changedFilesInPr()));
+            message.repoId(), message.filePath(), message.fileDiff(),
+            message.fileContent(), Set.copyOf(message.changedFilesInPr()));
 
         List<InlineReview> reviews = geminiClient.reviewPrDiffInline(
             message.fileDiff(), ragContext, message.fileContent(), message.prTitle(), message.prBody());

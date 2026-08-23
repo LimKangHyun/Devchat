@@ -14,19 +14,23 @@ public record ChunkMeta(
     String superClassName,
     List<String> interfaceNames,
     List<String> calledMethodNames,
+    List<CalledMethodRef> calledMethodRefs,
+    /** "클래스.메서드" 조합. 호출자 검색을 이름만이 아닌 대상 클래스까지 포함해 매칭하기 위한 인덱스용 필드. */
+    List<String> calledMethodQualified,
     List<String> referencedTypeNames,
     List<String> annotations
 ) {
-    /** AST 파싱 실패 시 슬라이딩 윈도우 폴백용. id/relativePath/chunkIndex는 이후 withIndexingInfo()로 채운다. */
+    public record CalledMethodRef(String methodName, String targetClassHint) {}
+
     public static ChunkMeta fallback(String code) {
         return new ChunkMeta(null, null, -1, code, null, null, null,
-            null, null, List.of(), List.of(), List.of(), List.of());
+            null, null, List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
-    /** AST 추출 직후엔 비어있는 id/relativePath/chunkIndex를 인덱싱 시점에 채워서 새 인스턴스를 반환한다. */
     public ChunkMeta withIndexingInfo(String id, String relativePath, int chunkIndex) {
         return new ChunkMeta(id, relativePath, chunkIndex, chunk, className,
             methodName, methodSignature, packageName, superClassName,
-            interfaceNames, calledMethodNames, referencedTypeNames, annotations);
+            interfaceNames, calledMethodNames, calledMethodRefs, calledMethodQualified,
+            referencedTypeNames, annotations);
     }
 }

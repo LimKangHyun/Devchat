@@ -46,7 +46,7 @@ public class RepoIndexingService {
     );
 
     private static final Set<String> EXCLUDED_KEYWORDS = Set.of(
-        "dto", "config", "exception", "mapper"
+        "exception", "mapper"
     );
 
     @Qualifier("batchIndexingExecutor")
@@ -341,6 +341,7 @@ public class RepoIndexingService {
             metadata.put("superClassName", meta.superClassName() != null ? meta.superClassName() : "");
             metadata.put("interfaceNames", meta.interfaceNames() != null ? meta.interfaceNames() : List.of());
             metadata.put("calledMethodNames", meta.calledMethodNames() != null ? meta.calledMethodNames() : List.of());
+            metadata.put("calledMethodQualified", meta.calledMethodQualified() != null ? meta.calledMethodQualified() : List.of());
             metadata.put("referencedTypeNames", meta.referencedTypeNames() != null ? meta.referencedTypeNames() : List.of());
             metadata.put("annotations", meta.annotations() != null ? meta.annotations() : List.of());
 

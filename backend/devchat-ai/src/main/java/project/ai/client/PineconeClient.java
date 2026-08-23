@@ -103,6 +103,19 @@ public class PineconeClient {
         return response.getMatchesList();
     }
 
+    public List<ScoredVectorWithUnsignedIndices> queryWithFilter(
+        float[] vector, int topK, String namespace, Struct filter) {
+
+        List<Float> vectorList = new java.util.ArrayList<>();
+        for (float v : vector) vectorList.add(v);
+
+        QueryResponseWithUnsignedIndices response = index.query(
+            topK, vectorList, null, null, null, namespace, filter, false, true
+        );
+
+        return response.getMatchesList();
+    }
+
     public void deleteNamespace(String namespace) {
         index.deleteAll(namespace);
         log.info("Pinecone namespace 삭제. namespace={}", namespace);

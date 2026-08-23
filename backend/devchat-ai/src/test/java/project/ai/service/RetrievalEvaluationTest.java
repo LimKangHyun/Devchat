@@ -32,7 +32,9 @@ class RetrievalEvaluationTest {
                 repoId,
                 filePath,
                 diff,
-                5
+                filePath,
+                5,
+                null
             );
 
         System.out.println("=================================");
