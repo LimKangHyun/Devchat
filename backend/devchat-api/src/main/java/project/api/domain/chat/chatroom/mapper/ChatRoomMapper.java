@@ -50,12 +50,13 @@ public class ChatRoomMapper {
     }
 
     public ChatRoom toEntity(ChatRoomRequest dto) {
+        String repoUrl = dto.getRepositoryUrl();
         return ChatRoom.builder()
-            .name(dto.getName())
-            .createdAt(LocalDateTime.now())
-            .repositoryUrl(dto.getRepositoryUrl())
-            .inviteCode(generateInviteCode())
-            .build();
+                .name(dto.getName())
+                .createdAt(LocalDateTime.now())
+                .repositoryUrl(repoUrl == null || repoUrl.isBlank() ? null : repoUrl)
+                .inviteCode(generateInviteCode())
+                .build();
     }
 
     public static MyChatRoomResponse toProfileResponse(ChatRoom chatRoom) {

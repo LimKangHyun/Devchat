@@ -107,8 +107,6 @@ public class ApplicantService {
         chatParticipantRepository.save(participant);
 
         chatRoomAlarmService.createAlarm(member.getId(), post.getChatRoom().getId());
-
-        chatRoomSequenceService.genMessageSeq(post.getChatRoomId());
         return chatMessageService.saveJoinEvent(post.getChatRoom(), member);
     }
 

@@ -4,6 +4,7 @@ import java.util.*;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.connection.ReturnType;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -23,27 +24,13 @@ public class ChatRoomRedisRepository {
 
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> genMessageSeqScript;
-    private final DefaultRedisScript<Long> recoverAndIncrScript;
     private final DefaultRedisScript<List> getAndClearUpdatedRoomsScript;
-    private final DefaultRedisScript<Long> setSequenceScript;
-    private final DefaultRedisScript<Void> bulkSetSequenceScript;
+    private final DefaultRedisScript<Long> setSequenceIfGreaterScript;
 
     public Long genMessageSeq(Long roomId) {
         return redisTemplate.execute(
                 genMessageSeqScript,
                 List.of(String.format(ROOM_SEQUENCE_KEY, roomId), RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
-                String.valueOf(SEQUENCE_TTL_SEC),
-                String.valueOf(System.currentTimeMillis()),
-                String.valueOf(roomId),
-                String.valueOf(-MAX_RANKING_SIZE - 1)
-        );
-    }
-
-    public Long recoverAndIncr(Long roomId, Long dbSeq) {
-        return redisTemplate.execute(
-                recoverAndIncrScript,
-                List.of(String.format(ROOM_SEQUENCE_KEY, roomId), RANKING_ROOMS_KEY, UPDATED_ROOMS_KEY),
-                String.valueOf(dbSeq),
                 String.valueOf(SEQUENCE_TTL_SEC),
                 String.valueOf(System.currentTimeMillis()),
                 String.valueOf(roomId),
@@ -83,26 +70,39 @@ public class ChatRoomRedisRepository {
         return new HashSet<>(result);
     }
 
-    public void setSequence(Long roomId, Long sequence) {
+    /**
+     * 기존 값보다 클 때만 갱신한다 (역행 방지).
+     * DB(checkpoint)에서 읽은 값을 캐시에 되쓸 때(read-through) 사용해,
+     * 요청 간 fallback 여부가 갈리는 상황에서 stale한 값이 이미 최신인
+     * 캐시를 덮어써 카운트가 순간적으로 줄어드는 것을 방지한다.
+     */
+    public void setSequenceIfGreater(Long roomId, Long value) {
         redisTemplate.execute(
-                setSequenceScript,
+                setSequenceIfGreaterScript,
                 List.of(String.format(ROOM_SEQUENCE_KEY, roomId)),
-                String.valueOf(sequence),
+                String.valueOf(value),
                 String.valueOf(SEQUENCE_TTL_SEC)
         );
     }
 
-    public void bulkSetSequences(Map<Long, Long> sequences) {
+    public void bulkSetSequencesIfGreater(Map<Long, Long> sequences) {
         if (sequences == null || sequences.isEmpty()) return;
 
-        List<String> keys = new ArrayList<>();
-        List<String> args = new ArrayList<>();
+        byte[] scriptBytes = setSequenceIfGreaterScript.getScriptAsString().getBytes();
 
-        sequences.forEach((roomId, seq) -> keys.add(String.format(ROOM_SEQUENCE_KEY, roomId)));
-        sequences.forEach((roomId, seq) -> args.add(String.valueOf(seq)));
-        sequences.forEach((roomId, seq) -> args.add(String.valueOf(SEQUENCE_TTL_SEC)));
-
-        redisTemplate.execute(bulkSetSequenceScript, keys, args.toArray(new String[0]));
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            sequences.forEach((roomId, value) -> {
+                connection.eval(
+                        scriptBytes,
+                        ReturnType.INTEGER,
+                        1,
+                        toBytes(String.format(ROOM_SEQUENCE_KEY, roomId)),
+                        toBytes(String.valueOf(value)),
+                        toBytes(String.valueOf(SEQUENCE_TTL_SEC))
+                );
+            });
+            return null;
+        });
     }
 
     public Long getSequence(Long roomId) {

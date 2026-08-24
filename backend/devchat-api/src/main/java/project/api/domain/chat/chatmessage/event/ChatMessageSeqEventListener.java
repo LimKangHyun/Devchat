@@ -17,12 +17,7 @@ public class ChatMessageSeqEventListener {
 
     @Async("chatSeqExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void genMessageSeq(ChatMessageSavedEvent event) {
-        try {
-            chatRoomSequenceService.genMessageSeq(event.roomId());
-        } catch (Exception e) {
-            log.error("[ChatSeq] Redis 및 DB fallback 모두 실패 - seq 유실, roomId={}, cause={}",
-                    event.roomId(), e.getMessage());
-        }
+    public void incrementUnreadCache(ChatMessageSavedEvent event) {
+        chatRoomSequenceService.incrementCache(event.roomId());
     }
 }

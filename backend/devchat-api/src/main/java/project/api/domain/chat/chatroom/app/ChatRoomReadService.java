@@ -12,13 +12,13 @@ import java.util.*;
 
 @Slf4j
 @Service
-@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class ChatRoomReadService {
 
     private final ChatParticipantRepository chatParticipantRepository;
     private final ChatRoomSequenceService chatRoomSequenceService;
 
+    @Transactional(readOnly = true)
     public List<AllRoomsResponse> findAllRoomsWithUnread(List<ChatRoomWithSequenceProjection> roomProjections,
                                                          Map<Long, Boolean> alarmEnabledMap) {
         List<Long> roomIds = new ArrayList<>(roomProjections.size());

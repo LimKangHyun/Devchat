@@ -32,12 +32,9 @@ import project.api.domain.member.app.MemberService;
 import project.api.domain.member.entity.Member;
 import project.api.global.exception.errorcode.ChatRoomErrorCode;
 import project.api.global.exception.ex.ChatRoomException;
-import project.api.global.metric.TimeTrace;
-import project.api.global.redis.RedisStreamClient;
 
 @Slf4j
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class ChatRoomService {
 
@@ -49,12 +46,11 @@ public class ChatRoomService {
     private final MemberService memberService;
     private final ChatMessageService chatMessageService;
     private final GitMessageService gitMessageService;
-    private final ChatRoomSequenceService chatRoomSequenceService;
     private final ChatRoomAlarmService chatRoomAlarmService;
     private final ChatRoomReadService chatRoomReadService;
     private final ChatRoomParticipantService chatRoomParticipantService;
+    private final ChatRoomSyncService chatRoomSyncService;
     private final AiReviewService aiReviewService;
-    private final RedisStreamClient redisStreamClient;
 
     private final ApplicationEventPublisher eventPublisher;
 
@@ -102,17 +98,13 @@ public class ChatRoomService {
         room.addParticipant(gitParticipant);
     }
 
-    @TimeTrace
     public InviteJoinResponse joinChatRoom(String inviteCode, Long memberId) {
-        log.info("timetrace 적용");
         try {
             ChatRoom room = getByInviteCodeWithLock(inviteCode);
             Member member = memberService.getMemberById(memberId);
 
             chatRoomParticipantService.handleParticipantJoin(room, member);
-
             chatRoomAlarmService.createAlarm(memberId, room.getId());
-            chatRoomSequenceService.genMessageSeq(room.getId());
 
             ChatMessage savedMessage = chatMessageService.saveJoinEvent(room, member);
 
@@ -154,11 +146,6 @@ public class ChatRoomService {
                 .map(ChatRoomMapper::toProfileResponse);
     }
 
-    public Page<RoomInfoResponse> findChatRoomsByMemberId(Long memberId, Pageable pageable) {
-        return chatRoomRepository.findChatRoomsByParticipantId(memberId, pageable)
-                .map(ChatRoomMapper::toListResponse);
-    }
-
     public void leaveChatRoom(Long roomId, Long memberId) {
         Member member = memberService.getMemberById(memberId);
         chatRoomParticipantService.leaveChatRoom(roomId, memberId, member.getNickname());
@@ -169,8 +156,8 @@ public class ChatRoomService {
         Member member = memberService.getMemberById(memberId);
         chatRoomParticipantService.findTopRecentActiveRoom(memberId)
                 .ifPresentOrElse(
-                        p -> member.setRecentRoomId(p.getChatRoom().getId()),
-                        () -> member.setRecentRoomId(null)
+                        p -> member.updateRecentRoom(p.getChatRoom().getId()),
+                        member::clearRecentRoom
                 );
     }
 
@@ -201,7 +188,7 @@ public class ChatRoomService {
         Long currentSequence = chatRoomReadService.getLatestSequence(room.getId());
         participant.updateLastReadSequence(currentSequence);
 
-        memberService.getMemberById(memberId).setRecentRoomId(room.getId());
+        memberService.getMemberById(memberId).updateRecentRoom(room.getId());
 
         Long ownerId = chatRoomParticipantService.findOwnerId(room.getId());
         boolean alarmEnable = chatRoomAlarmService.isAlarmEnabled(memberId, room.getId());
@@ -237,6 +224,7 @@ public class ChatRoomService {
         chatRoomParticipantService.deleteAllByRoomId(roomId);
         chatMessageService.deleteByRoomId(roomId);
         postRepository.deleteByChatRoom_Id(roomId);
+        chatRoomSyncService.deleteByRoomId(roomId);
         chatRoomRepository.delete(room);
     }
 

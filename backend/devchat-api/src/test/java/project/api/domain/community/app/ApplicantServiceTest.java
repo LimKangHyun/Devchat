@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -23,7 +24,6 @@ import project.api.auth.dto.MemberDetails;
 import project.api.domain.chat.chatmessage.app.ChatMessageService;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
 import project.api.domain.chat.chatroom.app.ChatRoomAlarmService;
-import project.api.domain.chat.chatroom.app.ChatRoomSequenceService;
 import project.api.domain.chat.chatroom.app.ChatRoomReadService;
 import project.api.domain.chat.chatroom.dao.ChatParticipantRepository;
 import project.api.domain.chat.chatroom.entity.ChatParticipant;
@@ -49,7 +49,6 @@ class ApplicantServiceTest {
     @Mock private ChatParticipantRepository chatParticipantRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private ChatMessageService chatMessageService;
-    @Mock private ChatRoomSequenceService chatRoomSequenceService;
     @Mock private ChatRoomReadService chatRoomReadService;
     @Mock private ChatRoomAlarmService chatRoomAlarmService;
 
@@ -196,14 +195,12 @@ class ApplicantServiceTest {
             given(applicant.getMember()).willReturn(applicantMember);
             given(post.getAuthor()).willReturn(author);
             given(post.getChatRoom()).willReturn(chatRoom);
-            given(post.getChatRoomId()).willReturn(10L);
             given(post.isFull()).willReturn(false);
             given(chatRoom.getId()).willReturn(10L);
 
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
             given(applicantRepository.findById(10L)).willReturn(Optional.of(applicant));
             given(chatRoomReadService.getLatestSequence(10L)).willReturn(5L);
-            given(chatRoomSequenceService.genMessageSeq(10L)).willReturn(6L); // 수정
 
             ChatMessage joinMessage = mock(ChatMessage.class);
             given(chatMessageService.saveJoinEvent(chatRoom, applicantMember)).willReturn(joinMessage);
@@ -227,14 +224,12 @@ class ApplicantServiceTest {
             given(applicant.getMember()).willReturn(applicantMember);
             given(post.getAuthor()).willReturn(author);
             given(post.getChatRoom()).willReturn(chatRoom);
-            given(post.getChatRoomId()).willReturn(10L);
             given(post.isFull()).willReturn(true);
             given(chatRoom.getId()).willReturn(10L);
 
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
             given(applicantRepository.findById(10L)).willReturn(Optional.of(applicant));
             given(chatRoomReadService.getLatestSequence(10L)).willReturn(3L);
-            given(chatRoomSequenceService.genMessageSeq(10L)).willReturn(4L);
 
             ChatMessage joinMessage = mock(ChatMessage.class);
             given(chatMessageService.saveJoinEvent(chatRoom, applicantMember)).willReturn(joinMessage);
@@ -303,5 +298,33 @@ class ApplicantServiceTest {
             assertThatThrownBy(() -> applicantService.updateStatus(1L, 10L, ApplicantStatus.REJECTED, ownerDetails))
                     .isInstanceOf(PostException.class);
         }
+    }
+
+    @Test
+    @DisplayName("승인 시 참가자의 lastReadSequence가 현재 누적 카운트로 설정된다")
+    void approve_setsLastReadSequenceToCurrentCount() {
+        given(ownerDetails.getId()).willReturn(1L);
+        given(author.getId()).willReturn(1L);
+        given(applicantMember.getId()).willReturn(2L);
+
+        Applicant applicant = mock(Applicant.class);
+        given(applicant.getMember()).willReturn(applicantMember);
+        given(post.getAuthor()).willReturn(author);
+        given(post.getChatRoom()).willReturn(chatRoom);
+        given(post.isFull()).willReturn(false);
+        given(chatRoom.getId()).willReturn(10L);
+
+        given(postRepository.findById(1L)).willReturn(Optional.of(post));
+        given(applicantRepository.findById(10L)).willReturn(Optional.of(applicant));
+        given(chatRoomReadService.getLatestSequence(10L)).willReturn(42L);
+        given(chatMessageService.saveJoinEvent(chatRoom, applicantMember))
+                .willReturn(mock(ChatMessage.class));
+
+        ArgumentCaptor<ChatParticipant> captor = ArgumentCaptor.forClass(ChatParticipant.class);
+
+        applicantService.updateStatus(1L, 10L, ApplicantStatus.APPROVED, ownerDetails);
+
+        then(chatParticipantRepository).should().save(captor.capture());
+        assertThat(captor.getValue().getLastReadSequence()).isEqualTo(42L);
     }
 }

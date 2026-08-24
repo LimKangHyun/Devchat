@@ -8,17 +8,16 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ChatRoomSequenceScheduler {
+public class ChatRoomCheckpointScheduler {
 
     private final ChatRoomSyncService chatRoomSyncService;
 
-    @Scheduled(fixedRate = 60000)
-    public void syncLastSequence() {
+    @Scheduled(fixedDelay = 30_000)
+    public void syncCheckpoints() {
         try {
             chatRoomSyncService.syncToDb();
-            log.info("last_sequence 동기화 배치 완료");
         } catch (Exception e) {
-            log.error("시퀀스 동기화 배치 중 에러 발생: {}", e.getMessage());
+            log.error("checkpoint 동기화 배치 실패", e);
         }
     }
 }

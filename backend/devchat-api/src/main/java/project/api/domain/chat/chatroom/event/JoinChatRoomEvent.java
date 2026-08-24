@@ -6,4 +6,3 @@ public record JoinChatRoomEvent(Long roomId, Long memberId, String nickname, lon
                                 LocalDateTime joinAt) {
 
 }
-
