@@ -16,6 +16,8 @@ import project.common.exception.ex.IndexingException;
 import project.common.message.index.FileReindexMessage;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
@@ -78,9 +80,7 @@ public class RepoIndexingService {
             return;
         }
 
-        Path repoPath = Paths.get(
-            System.getProperty("java.io.tmpdir"), "devchat", UUID.randomUUID().toString()
-        );
+        Path repoPath = Paths.get("C:\\dc", UUID.randomUUID().toString().substring(0, 8));
 
         try {
             semaphore.acquire();
@@ -183,20 +183,28 @@ public class RepoIndexingService {
         Files.createDirectories(targetPath);
 
         String gitPath = System.getProperty("os.name").toLowerCase().contains("win")
-            ? "C:\\Program Files\\Git\\bin\\git.exe"
-            : "git";
+                ? "C:\\Program Files\\Git\\bin\\git.exe"
+                : "git";
 
         ProcessBuilder pb = new ProcessBuilder(
-            gitPath, "clone", "--depth", "1", authenticatedUrl, targetPath.toString()
+                gitPath, "clone", "--depth", "1", authenticatedUrl, targetPath.toString()
         );
         pb.environment().remove("GIT_ASKPASS");
         pb.redirectErrorStream(true);
 
         Process process = pb.start();
+
+        String output;
+        try (InputStream is = process.getInputStream()) {
+            output = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
         int exitCode = process.waitFor();
 
         if (exitCode != 0) {
-            throw new IOException("git clone 실패. exitCode=" + exitCode);
+            // 토큰이 URL에 포함돼 있으니 로그에 그대로 찍히지 않게 마스킹
+            String safeOutput = output.replace(token, "****");
+            throw new IOException("git clone 실패. exitCode=" + exitCode + ", output=" + safeOutput);
         }
     }
 
@@ -318,7 +326,7 @@ public class RepoIndexingService {
         long embedStart = System.currentTimeMillis();
         log.info("[{}] 임베딩 호출 시작. repoId={}, chunkCount={}",
             Thread.currentThread().getName(), repoId, batch.size());
-        List<float[]> vectors = embeddingService.embedBatch(texts);
+        List<float[]> vectors = embeddingService.embedDocuments(texts);
         log.info("[{}] 임베딩 호출 완료. repoId={}, 소요={}ms",
             Thread.currentThread().getName(), repoId, System.currentTimeMillis() - embedStart);
 
@@ -415,9 +423,7 @@ public class RepoIndexingService {
     }
 
     public List<String> chunkOnlyForMeasurement(String repoUrl, Long memberId) throws IOException, InterruptedException {
-        Path repoPath = Paths.get(
-            System.getProperty("java.io.tmpdir"), "devchat-measure", UUID.randomUUID().toString()
-        );
+        Path repoPath = Paths.get("C:\\dc", UUID.randomUUID().toString().substring(0, 8));
         try {
             String token = internalAuthClient.getGithubToken(memberId);
             cloneRepo(repoUrl, token, repoPath);

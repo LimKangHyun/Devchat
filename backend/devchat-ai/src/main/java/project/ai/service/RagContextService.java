@@ -44,7 +44,7 @@ public class RagContextService {
         String fileContent, Set<String> changedFilesInPr) {
         try {
             String embeddingInput = "File: " + filePath + "\nDiff:\n" + truncate(diff, 2000);
-            float[] vector = embeddingService.embed(embeddingInput);
+            float[] vector = embeddingService.embedQuery(embeddingInput);
             String namespace = String.valueOf(repoId);
 
             // 1. 구조 정보 추출
@@ -589,7 +589,7 @@ public class RagContextService {
         int topK, Set<String> changedFilesInPr) {
 
         String embeddingInput = "File: " + filePath + "\nDiff:\n" + truncate(diff, 2000);
-        float[] vector = embeddingService.embed(embeddingInput);
+        float[] vector = embeddingService.embedQuery(embeddingInput);
         String namespace = String.valueOf(repoId);
 
         StructuralInfo info = extractStructuralInfo(fileContent, filePath);
