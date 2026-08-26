@@ -4,6 +4,7 @@ import io.pinecone.unsigned_indices_model.ScoredVectorWithUnsignedIndices;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import project.ai.rag.RagContextService;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

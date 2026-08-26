@@ -1,4 +1,4 @@
-package project.ai.service;
+package project.ai.indexing;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;

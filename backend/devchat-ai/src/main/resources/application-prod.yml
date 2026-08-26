@@ -14,6 +14,9 @@ spring:
 server:
   port: 8081
 
+indexing:
+  executor-type: virtual
+
 internal:
   api:
     url: ${INTERNAL_API_URL}

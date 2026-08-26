@@ -1,4 +1,4 @@
-package project.ai.internal;
+package project.ai.client.internal;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;

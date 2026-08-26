@@ -1,4 +1,4 @@
-package project.ai.stream.consumer;
+package project.ai.stream.aireview;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -8,8 +8,6 @@ import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
 import project.ai.processor.RagEvaluationProcessor;
 import project.common.message.aireview.AiReviewRequestMessage;
-import project.ai.processor.AiReviewProcessor;
-import project.ai.stream.producer.AiReviewResultProducer;
 
 @Slf4j
 @Component

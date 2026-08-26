@@ -1,4 +1,4 @@
-package project.ai.service;
+package project.ai.client;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,7 +10,7 @@ import java.util.Map;
 
 @Slf4j
 @Service
-public class CohereRerankService {
+public class CohereClient {
 
     private final WebClient webClient;
 
@@ -20,7 +20,7 @@ public class CohereRerankService {
     private static final String RERANK_URL = "https://api.cohere.com/v2/rerank";
     private static final String MODEL = "rerank-v3.5";
 
-    public CohereRerankService(WebClient.Builder webClientBuilder) {
+    public CohereClient(WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder.build();
     }
 

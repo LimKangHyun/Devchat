@@ -1,4 +1,4 @@
-package project.ai.service.chunker;
+package project.ai.indexing.chunking;
 
 import java.util.List;
 

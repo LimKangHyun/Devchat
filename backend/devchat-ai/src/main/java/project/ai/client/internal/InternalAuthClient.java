@@ -1,4 +1,4 @@
-package project.ai.internal;
+package project.ai.client.internal;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

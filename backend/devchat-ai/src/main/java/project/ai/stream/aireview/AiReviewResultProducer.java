@@ -1,4 +1,4 @@
-package project.ai.stream.producer;
+package project.ai.stream.aireview;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;

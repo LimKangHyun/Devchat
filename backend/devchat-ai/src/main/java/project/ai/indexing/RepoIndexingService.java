@@ -1,4 +1,4 @@
-package project.ai.service;
+package project.ai.indexing;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,10 +7,10 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import project.ai.client.PineconeClient;
-import project.ai.internal.InternalAuthClient;
-import project.ai.service.chunker.AstChunkExtractor;
+import project.ai.client.internal.InternalAuthClient;
+import project.ai.indexing.chunking.AstChunkExtractor;
 import project.ai.stream.index.RepoIndexResultProducer;
-import project.ai.service.chunker.ChunkMeta;
+import project.ai.indexing.chunking.ChunkMeta;
 import project.common.exception.errorcode.IndexingErrorCode;
 import project.common.exception.ex.IndexingException;
 import project.common.message.index.FileReindexMessage;

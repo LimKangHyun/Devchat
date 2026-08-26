@@ -1,4 +1,4 @@
-package project.ai.service.chunker;
+package project.ai.indexing.chunking;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
@@ -16,9 +16,10 @@ import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import project.ai.service.chunker.ChunkMeta.CalledMethodRef;
+import project.ai.indexing.chunking.ChunkMeta.CalledMethodRef;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AstChunkExtractor {
 
     private static final int MIN_METHOD_LINES = 3;
@@ -48,45 +50,44 @@ public class AstChunkExtractor {
 
     private final JavaParser javaParser;
 
-    public AstChunkExtractor() {
-        ParserConfiguration configuration = new ParserConfiguration();
-        configuration.setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21);
-        this.javaParser = new JavaParser(configuration);
+    public List<ChunkMeta> extract(String content, String relativePath) {
+        return extractWithImports(content, relativePath).chunks();
     }
 
-    public List<ChunkMeta> extract(String content, String relativePath) {
+    public record ExtractionResult(List<ChunkMeta> chunks, List<String> imports) {}
+
+    public ExtractionResult extractWithImports(String content, String relativePath) {
         try {
             ParseResult<CompilationUnit> parseResult = javaParser.parse(content);
             if (!parseResult.isSuccessful() || parseResult.getResult().isEmpty()) {
                 log.warn("AST 파싱 실패. file={}", relativePath);
-                return List.of();
+                return new ExtractionResult(List.of(), List.of());
             }
             CompilationUnit cu = parseResult.getResult().get();
             String packageName = cu.getPackageDeclaration()
-                .map(pd -> pd.getNameAsString())
-                .orElse("");
+                    .map(pd -> pd.getNameAsString())
+                    .orElse("");
 
-            // 클래스 선언별 "필드명 -> 필드 타입명" 맵 캐시.
-            // Node.equals()가 구조 비교라 IdentityHashMap으로 노드 동일성을 기준 삼는다.
+            List<String> imports = cu.getImports().stream()
+                    .filter(i -> !i.isAsterisk() && !i.isStatic())
+                    .map(i -> i.getNameAsString())
+                    .toList();
+
             Map<ClassOrInterfaceDeclaration, Map<String, List<String>>> fieldTypeCache =
-                new IdentityHashMap<>();
+                    new IdentityHashMap<>();
 
             List<ChunkMeta> result = new ArrayList<>();
-
             for (MethodDeclaration method : cu.findAll(MethodDeclaration.class)) {
-                if (method.findAncestor(MethodDeclaration.class).isPresent()) {
-                    continue;
-                }
-
+                if (method.findAncestor(MethodDeclaration.class).isPresent()) continue;
                 String code = method.toString();
                 if (code.lines().count() < MIN_METHOD_LINES) continue;
-
                 result.add(buildChunk(method, packageName, fieldTypeCache));
             }
-            return result;
+
+            return new ExtractionResult(result, imports);
         } catch (Exception e) {
             log.warn("AST 파싱 실패. file={}, error={}", relativePath, e.getMessage());
-            return List.of();
+            return new ExtractionResult(List.of(), List.of());
         }
     }
 

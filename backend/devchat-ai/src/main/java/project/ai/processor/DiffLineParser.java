@@ -1,18 +1,24 @@
-package project.ai.domain.aireview.app;
+package project.ai.processor;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import project.common.dto.InlineReview;
 
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.OptionalInt;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * unified diff 텍스트를 파싱해서 유효 변경 라인을 추출한다.
+ * AI 리뷰를 포함해 어떤 도메인에서도 재사용 가능한 순수 diff 유틸.
+ */
 @Slf4j
 @Component
-public class AiReviewDiffParser {
+public class DiffLineParser {
 
     private static final int MAX_LINE_DISTANCE = 20;
+    private static final Pattern HUNK_HEADER_PATTERN = Pattern.compile("\\+([0-9]+)");
 
     public Set<Integer> parseValidLines(String fileDiff) {
         Set<Integer> validLines = new LinkedHashSet<>();
@@ -20,7 +26,7 @@ public class AiReviewDiffParser {
 
         for (String line : fileDiff.split("\n")) {
             if (line.startsWith("@@ ")) {
-                Matcher m = Pattern.compile("\\+([0-9]+)").matcher(line);
+                Matcher m = HUNK_HEADER_PATTERN.matcher(line);
                 if (m.find()) headLineNum = Integer.parseInt(m.group(1)) - 1;
             } else if (line.startsWith("+") && !line.startsWith("+++")) {
                 headLineNum++;
@@ -35,7 +41,7 @@ public class AiReviewDiffParser {
     /**
      * 유효한 변경 라인 중 target과 가장 가까운 라인을 찾는다.
      * 20줄 이내에 유효 라인이 없으면 빈 값을 반환한다.
-     * → 호출 측(AiReviewProcessor)에서 전체 코멘트로 전환한다.
+     * → 호출 측에서 전체 코멘트로 전환할지 판단한다.
      */
     public OptionalInt findNearestDiffLine(Set<Integer> validLines, int target) {
         if (validLines.contains(target)) return OptionalInt.of(target);
@@ -52,23 +58,5 @@ public class AiReviewDiffParser {
         }
 
         return minDist <= MAX_LINE_DISTANCE ? OptionalInt.of(closest) : OptionalInt.empty();
-    }
-
-    public List<InlineReview> filterValidReviews(List<InlineReview> reviews, String fileContent) {
-        int totalLines = fileContent.split("\n").length;
-
-        return reviews.stream()
-            .filter(review -> {
-                if (review.lineNumber() == null || review.lineNumber() < 1 || review.lineNumber() > totalLines) {
-                    log.warn("lineNumber 범위 초과 제거: lineNumber={}, totalLines={}", review.lineNumber(), totalLines);
-                    return false;
-                }
-                if (review.comment() == null || review.comment().isBlank()) {
-                    log.warn("빈 comment 제거: lineNumber={}", review.lineNumber());
-                    return false;
-                }
-                return true;
-            })
-            .toList();
     }
 }
