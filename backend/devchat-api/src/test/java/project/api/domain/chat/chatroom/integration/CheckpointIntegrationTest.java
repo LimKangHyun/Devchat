@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -31,12 +32,18 @@ import project.api.domain.member.entity.Member;
 import project.api.global.config.TestRedisConfig;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * NOTE: CheckpointWriter는 이제 "createdAt이 watermark-lag-seconds 전보다 오래된
+ * 메시지"만 안전 워터마크 후보로 본다 (기본 5초). 이 테스트 파일에서 "이미 안전하게
+ * 집계되어야 하는" 메시지는 insertMessages(count, ago)로 충분히 과거 시각을 부여한다.
+ * LocalDateTime.now()로 방금 넣은 메시지는 이 lag 안에 걸려 있어 즉시 집계되지
+ * 않는 게 정상 동작이며, 그 자체를 검증하는 테스트를 별도로 둔다.
+ */
 @SpringBootTest
 @Testcontainers
 @ActiveProfiles("test")
@@ -76,6 +83,11 @@ class CheckpointIntegrationTest {
     @Autowired StringRedisTemplate redisTemplate;
     @Autowired ChatMessageMapper messageMapper;
 
+    // CheckpointWriter와 동일한 프로퍼티를 읽어, "안전하게 지난 시각"을 lag와
+    // 무관하게 항상 넉넉히 벌려준다. lag 설정값이 바뀌어도 테스트가 깨지지 않는다.
+    @Value("${chat.checkpoint.watermark-lag-seconds:5}")
+    private long watermarkLagSeconds;
+
     private ChatRoom room;
     private Member sender;
 
@@ -93,7 +105,13 @@ class CheckpointIntegrationTest {
         room = chatRoomRepository.save(ChatRoom.builder().name("테스트방").build());
     }
 
-    private void insertMessages(int count) {
+    /**
+     * 워터마크 lag보다 충분히 이전 시각으로 메시지를 넣는다.
+     * "이미 커밋이 끝난 지 오래된, 안전하게 집계되어야 할 메시지"를 만들 때 쓴다.
+     * lag의 10배 여유를 둬서, 설정값이 바뀌거나 테스트 실행이 느려져도 흔들리지 않는다.
+     */
+    private void insertSafeMessages(int count) {
+        LocalDateTime safeTime = LocalDateTime.now().minusSeconds(watermarkLagSeconds * 10 + 5);
         for (int i = 0; i < count; i++) {
             chatMessageRepository.save(
                     ChatMessage.builder()
@@ -101,16 +119,32 @@ class CheckpointIntegrationTest {
                             .sender(sender)
                             .content("message-" + i)
                             .type(MessageType.TEXT)
-                            .createdAt(LocalDateTime.now())
+                            .createdAt(safeTime)
+                            .build()
+            );
+        }
+    }
+
+    /** 방금 생성된 것으로 취급되어야 하는, 워터마크 lag 안에 걸리는 메시지. */
+    private void insertRecentMessages(int count) {
+        LocalDateTime now = LocalDateTime.now();
+        for (int i = 0; i < count; i++) {
+            chatMessageRepository.save(
+                    ChatMessage.builder()
+                            .chatRoom(room)
+                            .sender(sender)
+                            .content("recent-" + i)
+                            .type(MessageType.TEXT)
+                            .createdAt(now)
                             .build()
             );
         }
     }
 
     @Test
-    @DisplayName("체크포인트가 없으면 전체 메시지를 집계하여 초기화한다")
+    @DisplayName("체크포인트가 없으면 안전 워터마크 이전 메시지를 집계하여 초기화한다")
     void reconstruct_noCheckpoint_countsAll() {
-        insertMessages(50);
+        insertSafeMessages(50);
 
         Long result = checkpointWriter.reconstruct(room.getId());
 
@@ -122,13 +156,13 @@ class CheckpointIntegrationTest {
     }
 
     @Test
-    @DisplayName("두 번째 호출은 체크포인트 이후 구간만 집계한다")
+    @DisplayName("두 번째 호출은 체크포인트 이후 안전 구간만 집계한다")
     void reconstruct_secondCall_countsOnlyDelta() {
-        insertMessages(50);
+        insertSafeMessages(50);
         checkpointWriter.reconstruct(room.getId());
         Long firstSyncedId = checkpointRepository.findById(room.getId()).orElseThrow().getSyncedMessageId();
 
-        insertMessages(8);
+        insertSafeMessages(8);
         Long result = checkpointWriter.reconstruct(room.getId());
 
         assertThat(result).isEqualTo(58L);
@@ -139,7 +173,7 @@ class CheckpointIntegrationTest {
     @Test
     @DisplayName("새 메시지가 없으면 체크포인트가 변하지 않는다")
     void reconstruct_noNewMessages_unchanged() {
-        insertMessages(10);
+        insertSafeMessages(10);
         checkpointWriter.reconstruct(room.getId());
         ChatRoomCheckpoint before = checkpointRepository.findById(room.getId()).orElseThrow();
         Long beforeSyncedId = before.getSyncedMessageId();
@@ -162,9 +196,44 @@ class CheckpointIntegrationTest {
     }
 
     @Test
+    @DisplayName("워터마크 lag 이내에 생성된 메시지는 아직 집계되지 않는다")
+    void reconstruct_recentMessages_excludedByWatermarkLag() {
+        insertSafeMessages(10);
+        checkpointWriter.reconstruct(room.getId());
+
+        // 방금 생성된 메시지 - createdAt이 threshold(now - lag)보다 나중이라
+        // findMaxIdByRoomIdAndCreatedBefore 조회에 잡히지 않아야 한다.
+        insertRecentMessages(5);
+        Long result = checkpointWriter.reconstruct(room.getId());
+
+        // 늦게 커밋될 수 있는 메시지를 위한 지연이 실제로 동작한다는 것을 증명한다.
+        // 이 5개가 즉시 반영되면, 커밋 순서 역전 상황에서 영구 누락이 재발할 수 있다.
+        assertThat(result).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("lag 시간이 지나면 이전에 제외됐던 메시지도 다음 재구성에서 집계된다")
+    void reconstruct_afterLagPasses_countsPreviouslyExcluded() throws InterruptedException {
+        insertSafeMessages(10);
+        checkpointWriter.reconstruct(room.getId());
+
+        insertRecentMessages(5);
+        checkpointWriter.reconstruct(room.getId()); // 이 시점엔 아직 lag 안 → 10 유지
+
+        // lag 시간만큼 대기 후 재실행하면 그때는 안전 구간에 들어와 집계된다.
+        // 실제 lag(기본 5초)만큼 기다리므로 이 테스트는 다소 느리다 - CI에서
+        // watermark-lag-seconds를 짧게(예: 1초) 오버라이드해 실행 시간을 줄이는 것을 권장.
+        Thread.sleep((watermarkLagSeconds + 2) * 1000);
+
+        Long result = checkpointWriter.reconstruct(room.getId());
+
+        assertThat(result).isEqualTo(15L);
+    }
+
+    @Test
     @DisplayName("100개 스레드가 동시에 재구성해도 카운트가 중복 누적되지 않는다")
     void reconstruct_concurrent_noDoubleCounting() throws InterruptedException {
-        insertMessages(100);
+        insertSafeMessages(100);
 
         int threadCount = 100;
         ExecutorService executor = Executors.newFixedThreadPool(32);
@@ -198,7 +267,7 @@ class CheckpointIntegrationTest {
     @Test
     @DisplayName("Redis가 비어 있어도 체크포인트만으로 정확한 값을 반환한다")
     void reconstruct_withoutRedis_returnsAccurateCount() {
-        insertMessages(30);
+        insertSafeMessages(30);
         redisTemplate.getConnectionFactory().getConnection().serverCommands().flushAll();
 
         Long result = checkpointWriter.reconstruct(room.getId());
@@ -209,7 +278,7 @@ class CheckpointIntegrationTest {
     @Test
     @DisplayName("재구성 후 Redis 캐시에도 동일한 값이 반영된다")
     void reconstruct_syncsToRedisCache() {
-        insertMessages(15);
+        insertSafeMessages(15);
 
         checkpointWriter.reconstruct(room.getId());
 
