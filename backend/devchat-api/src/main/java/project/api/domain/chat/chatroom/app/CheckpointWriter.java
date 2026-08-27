@@ -1,7 +1,9 @@
 package project.api.domain.chat.chatroom.app;
 
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.api.domain.chat.chatmessage.dao.ChatMessageRepository;
@@ -18,19 +20,29 @@ public class CheckpointWriter {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRedisRepository chatRoomRedisRepository;
 
+    @Value("${chat.checkpoint.watermark-lag-seconds:5}")
+    private long watermarkLagSeconds;
+
     @Transactional
     public Long reconstruct(Long roomId) {
         ChatRoomCheckpoint cp = checkpointRepository.findByRoomIdForUpdate(roomId)
-                .orElseGet(() -> checkpointRepository.save(new ChatRoomCheckpoint(roomId)));
+            .orElseGet(() -> checkpointRepository.save(new ChatRoomCheckpoint(roomId)));
 
         Long syncedId = cp.getSyncedMessageId();
-        Long newMaxId = chatMessageRepository.findMaxIdByChatRoom_Id(roomId);
 
-        if (newMaxId != null && newMaxId > syncedId) {
-            long delta = chatMessageRepository.countByChatRoom_IdAndIdGreaterThan(roomId, syncedId);
-            cp.advance(newMaxId, delta);
-            log.info("checkpoint 갱신 - roomId={}, syncedId={}->{}, delta={}, cumulative={}",
-                    roomId, syncedId, newMaxId, delta, cp.getCumulativeCount());
+        // 현재 시각이 아니라 lag만큼 과거를 기준으로 확정한다.
+        LocalDateTime threshold = LocalDateTime.now().minusSeconds(watermarkLagSeconds);
+        Long safeMaxId = chatMessageRepository
+            .findMaxIdByRoomIdAndCreatedBefore(roomId, threshold);
+
+        if (safeMaxId != null && safeMaxId > syncedId) {
+            long delta = chatMessageRepository
+                .countByChatRoom_IdAndIdGreaterThanAndIdLessThanEqual(
+                    roomId, syncedId, safeMaxId);
+
+            cp.advance(safeMaxId, delta);
+            log.info("checkpoint 갱신 - roomId={}, syncedId={}->{}, delta={}, cumulative={}, threshold={}",
+                roomId, syncedId, safeMaxId, delta, cp.getCumulativeCount(), threshold);
         }
 
         Long result = cp.getCumulativeCount();

@@ -55,7 +55,7 @@ public class ChatMessageService {
     private final EntityManager entityManager;
     private final ChatMessageMapper messageMapper;
 
-    @Transactional
+    @Transactional(timeout = 3)
     public void save(Long roomId, ChatMessageRequest request,
                                     MemberDetails memberDetails) {
 

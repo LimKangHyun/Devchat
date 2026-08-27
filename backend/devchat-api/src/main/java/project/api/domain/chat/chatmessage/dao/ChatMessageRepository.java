@@ -1,5 +1,6 @@
 package project.api.domain.chat.chatmessage.dao;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,4 +46,17 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     Long findMaxIdByChatRoom_Id(@Param("roomId") Long roomId);
 
     long countByChatRoom_IdAndIdGreaterThan(Long roomId, Long id);
+
+    @Query("SELECT MAX(m.id) FROM ChatMessage m " +
+        "WHERE m.chatRoom.id = :roomId AND m.createdAt < :threshold")
+    Long findMaxIdByRoomIdAndCreatedBefore(@Param("roomId") Long roomId,
+        @Param("threshold") LocalDateTime threshold);
+
+    /**
+     * 증분 카운트. 상한(maxId)을 반드시 함께 받는다 —
+     * 워터마크가 safeMaxId까지만 전진하는데 카운트가 그 너머까지 세면,
+     * 다음 실행에서 같은 구간을 다시 세어 중복 집계된다.
+     */
+    long countByChatRoom_IdAndIdGreaterThanAndIdLessThanEqual(
+        Long roomId, Long exclusiveFrom, Long inclusiveTo);
 }
