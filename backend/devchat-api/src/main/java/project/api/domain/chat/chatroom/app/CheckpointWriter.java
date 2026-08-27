@@ -52,7 +52,7 @@ public class CheckpointWriter {
 
     private void safeSetCache(Long roomId, Long value) {
         try {
-            chatRoomRedisRepository.setSequence(roomId, value);
+            chatRoomRedisRepository.setSequenceIfGreater(roomId, value);
         } catch (Exception e) {
             log.debug("Redis 캐시 갱신 실패 (무시) - roomId={}", roomId);
         }

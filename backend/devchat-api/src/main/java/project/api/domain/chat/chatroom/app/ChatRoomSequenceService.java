@@ -64,7 +64,7 @@ public class ChatRoomSequenceService {
         // 목록 조회는 room이 다수이므로 개별 재구성 대신 checkpoint 값을 일괄 조회
         if (!missingRoomIds.isEmpty()) {
             Map<Long, Long> fromDb = chatRoomSyncService.getCumulativeCounts(missingRoomIds);
-            chatRoomRedisRepository.bulkSetSequences(fromDb);
+            chatRoomRedisRepository.bulkSetSequencesIfGreater(fromDb);
             result.putAll(fromDb);
         }
         return result;

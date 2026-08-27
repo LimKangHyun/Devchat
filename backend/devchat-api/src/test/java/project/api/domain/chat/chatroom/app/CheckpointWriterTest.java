@@ -133,12 +133,30 @@ class CheckpointWriterTest {
             given(chatMessageRepository.findMaxIdByChatRoom_Id(10L)).willReturn(858L);
             given(chatMessageRepository.countByChatRoom_IdAndIdGreaterThan(10L, 850L)).willReturn(8L);
             doThrow(new RuntimeException("Redis down"))
-                    .when(chatRoomRedisRepository).setSequence(anyLong(), anyLong());
+                    .when(chatRoomRedisRepository).setSequenceIfGreater(anyLong(), anyLong());
 
             Long result = checkpointWriter.reconstruct(10L);
 
             assertThat(result).isEqualTo(108L);
             assertThat(cp.getCumulativeCount()).isEqualTo(108L);
+        }
+    }
+
+    @Nested
+    @DisplayName("캐시 갱신")
+    class CacheUpdate {
+
+        @Test
+        @DisplayName("재구성 결과를 역행 방지 방식으로 캐시에 반영한다")
+        void reconstruct_updatesCache_withOverwriteProtection() {
+            ChatRoomCheckpoint cp = checkpointWith(850L, 100L);
+            given(checkpointRepository.findByRoomIdForUpdate(10L)).willReturn(Optional.of(cp));
+            given(chatMessageRepository.findMaxIdByChatRoom_Id(10L)).willReturn(858L);
+            given(chatMessageRepository.countByChatRoom_IdAndIdGreaterThan(10L, 850L)).willReturn(8L);
+
+            checkpointWriter.reconstruct(10L);
+
+            then(chatRoomRedisRepository).should().setSequenceIfGreater(10L, 108L);
         }
     }
 }

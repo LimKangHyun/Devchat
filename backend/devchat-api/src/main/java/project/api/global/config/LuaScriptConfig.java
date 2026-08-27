@@ -27,8 +27,8 @@ public class LuaScriptConfig {
     }
 
     @Bean
-    public DefaultRedisScript<Long> setSequenceScript() {
-        return loadScript("scripts/set_sequence.lua", Long.class);
+    public DefaultRedisScript<Long> setSequenceIfGreaterScript() {
+        return loadScript("scripts/set_sequence_if_greater.lua", Long.class);
     }
 
     @Bean
