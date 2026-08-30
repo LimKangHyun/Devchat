@@ -255,9 +255,12 @@ class CheckpointIntegrationTest {
         }
 
         startLatch.countDown();
-        doneLatch.await(30, TimeUnit.SECONDS);
+        boolean finished = doneLatch.await(30, TimeUnit.SECONDS);
         executor.shutdown();
+        boolean terminated = executor.awaitTermination(10, TimeUnit.SECONDS);
 
+        assertThat(finished).as("100개 스레드가 30초 내에 끝나지 않음").isTrue();
+        assertThat(terminated).as("executor가 정상 종료되지 않음").isTrue();
         assertThat(errorCount.get()).isZero();
         // FOR UPDATE + single-flight로 중복 집계가 방지되어 정확히 100
         ChatRoomCheckpoint cp = checkpointRepository.findById(room.getId()).orElseThrow();
