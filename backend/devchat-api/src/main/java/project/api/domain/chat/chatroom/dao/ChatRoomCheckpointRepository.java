@@ -20,14 +20,4 @@ public interface ChatRoomCheckpointRepository extends JpaRepository<ChatRoomChec
     List<ChatRoomCheckpoint> findByRoomIdIn(List<Long> roomIds);
 
     void deleteByRoomId(Long roomId);
-
-    @Query("""
-        SELECT c.roomId FROM ChatRoomCheckpoint c
-        WHERE EXISTS (
-            SELECT 1 FROM ChatMessage m
-            WHERE m.chatRoom.id = c.roomId AND m.id > c.syncedMessageId
-        )
-        ORDER BY c.roomId ASC
-        """)
-    List<Long> findStaleRoomIds(Pageable pageable);
 }
