@@ -26,7 +26,8 @@ public class ChatRoomSyncService {
     private final ChatMessageRepository chatMessageRepository;
     private final CheckpointWriter checkpointWriter;
 
-    private static final int LOOKBACK_MINUTES = 6;
+    private static final int RECONCILE_LOOKBACK_MINUTES = 6;
+    private static final int FAST_PATH_LOOKBACK_SECONDS = 60;
 
     @Value("${chat.checkpoint.watermark-lag-seconds:5}")
     private long watermarkLagSeconds;
@@ -35,25 +36,30 @@ public class ChatRoomSyncService {
         Set<Long> targets;
         try {
             targets = chatRoomRedisRepository.getAndClearUpdatedRooms().stream()
-                .map(Long::valueOf)
-                .collect(Collectors.toSet());
+                    .map(Long::valueOf)
+                    .collect(Collectors.toSet());
         } catch (Exception e) {
-            log.warn("Redis updated-set 조회 실패 - 이번 사이클 건너뜀 (안전망이 회수)");
-            return;
+            log.warn("Redis updated-set 조회 실패 - created_at 기반 대상 탐색으로 전환");
+            targets = findRoomsByRecentMessages(FAST_PATH_LOOKBACK_SECONDS);
         }
         reconstructAll(targets, "동기화");
     }
 
     public void reconcileFromDb() {
+        Set<Long> targets = findRoomsByRecentMessages(RECONCILE_LOOKBACK_MINUTES * 60);
+        reconstructAll(targets, "정합성 보정");
+    }
+
+    private Set<Long> findRoomsByRecentMessages(long lookbackSeconds) {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime from = now.minusMinutes(LOOKBACK_MINUTES);
+        LocalDateTime from = now.minusSeconds(lookbackSeconds);
         LocalDateTime to = now.minusSeconds(watermarkLagSeconds);
 
         Set<Long> targets = Set.copyOf(
-            chatMessageRepository.findDistinctRoomIdsByCreatedAtBetween(from, to));
+                chatMessageRepository.findDistinctRoomIdsByCreatedAtBetween(from, to));
 
-        log.debug("정합성 보정 대상 조회 - 구간=[{} ~ {}], 대상={}개", from, to, targets.size());
-        reconstructAll(targets, "정합성 보정");
+        log.debug("created_at 기반 대상 조회 - 구간=[{} ~ {}], 대상={}개", from, to, targets.size());
+        return targets;
     }
 
     private void reconstructAll(Set<Long> targets, String label) {
@@ -75,9 +81,9 @@ public class ChatRoomSyncService {
     public Map<Long, Long> getCumulativeCounts(List<Long> roomIds) {
         if (roomIds == null || roomIds.isEmpty()) return Map.of();
         return checkpointRepository.findByRoomIdIn(roomIds).stream()
-            .collect(Collectors.toMap(
-                ChatRoomCheckpoint::getRoomId,
-                ChatRoomCheckpoint::getCumulativeCount));
+                .collect(Collectors.toMap(
+                        ChatRoomCheckpoint::getRoomId,
+                        ChatRoomCheckpoint::getCumulativeCount));
     }
 
     @Transactional
