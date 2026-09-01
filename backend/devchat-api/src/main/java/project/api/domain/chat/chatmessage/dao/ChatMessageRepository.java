@@ -1,5 +1,6 @@
 package project.api.domain.chat.chatmessage.dao;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,5 +45,16 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @Query("SELECT MAX(m.id) FROM ChatMessage m WHERE m.chatRoom.id = :roomId")
     Long findMaxIdByChatRoom_Id(@Param("roomId") Long roomId);
 
-    long countByChatRoom_IdAndIdGreaterThan(Long roomId, Long id);
+    @Query("SELECT MAX(m.id) FROM ChatMessage m " +
+        "WHERE m.chatRoom.id = :roomId AND m.createdAt < :threshold")
+    Long findMaxIdByRoomIdAndCreatedBefore(@Param("roomId") Long roomId,
+        @Param("threshold") LocalDateTime threshold);
+
+    long countByChatRoom_IdAndIdGreaterThanAndIdLessThanEqual(
+        Long roomId, Long exclusiveFrom, Long inclusiveTo);
+
+    @Query("SELECT DISTINCT m.chatRoom.id FROM ChatMessage m " +
+        "WHERE m.createdAt >= :from AND m.createdAt < :to")
+    List<Long> findDistinctRoomIdsByCreatedAtBetween(@Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to);
 }
