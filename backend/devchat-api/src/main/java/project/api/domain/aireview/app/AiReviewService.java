@@ -4,11 +4,13 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.api.domain.aireview.dao.AiCommentModRepository;
 import project.api.domain.aireview.dao.AiReviewCommentRepository;
+import project.api.domain.aireview.dao.AiReviewFileRepository;
 import project.api.domain.aireview.dao.AiReviewRepository;
 import project.api.domain.aireview.dto.AiReviewCommentResponse;
 import project.api.domain.aireview.dto.AiReviewResponse;
@@ -41,6 +43,7 @@ public class AiReviewService {
     private final AiReviewRepository aiReviewRepository;
     private final AiReviewCommentRepository aiReviewCommentRepository;
     private final AiCommentModRepository aiCommentModRepository;
+    private final AiReviewFileRepository aiReviewFileRepository;
     private final ChatMessageMapper chatMessageMapper;
     private final SimpMessagingTemplate messagingTemplate;
     private final MemberService memberService;
@@ -79,6 +82,12 @@ public class AiReviewService {
     public void saveFileReviewResult(Long aiReviewId, Long chatRoomId, String filePath, List<InlineReview> reviews) {
         AiReview aiReview = findById(aiReviewId);
 
+        // 이 파일을 이미 처리했는지 UNIQUE 제약으로 원자적으로 판별한다.
+        // 중복이면 코멘트 저장과 카운터 증가를 모두 건너뛴다.
+        if (!markFileProcessed(aiReview, filePath, FileReviewStatus.COMPLETED)) {
+            return;
+        }
+
         for (InlineReview review : reviews) {
             AiReviewComment comment = AiReviewComment.builder()
                     .aiReview(aiReview)
@@ -101,30 +110,62 @@ public class AiReviewService {
         aiReview.incrementCompletedFiles();
         aiReviewRepository.save(aiReview);
 
-        if (aiReview.isAllFilesCompleted()) {
-            aiReview.updateSuccess();
-            aiReviewRepository.save(aiReview);
-            broadcastAiReviewStatus(chatRoomId, aiReview);
-        }
+        completeIfAllFilesDone(chatRoomId, aiReview);
     }
 
     @Transactional
     public void saveFileReviewFail(Long aiReviewId, Long chatRoomId, String filePath, String errorMessage) {
         AiReview aiReview = findById(aiReviewId);
+
+        if (!markFileProcessed(aiReview, filePath, FileReviewStatus.FAILED)) {
+            return;
+        }
+
         aiReview.incrementCompletedFiles();
         aiReview.incrementFailedFiles();
         log.warn("파일 리뷰 실패: aiReviewId={}, filePath={}, error={}", aiReviewId, filePath, errorMessage);
         aiReviewRepository.save(aiReview);
 
-        if (aiReview.isAllFilesCompleted()) {
-            if (aiReview.isAllFilesFailed()) {
-                aiReview.updateFail("모든 파일 리뷰 실패");
-            } else {
-                aiReview.updateSuccess();
-            }
-            aiReviewRepository.save(aiReview);
-            broadcastAiReviewStatus(chatRoomId, aiReview);
+        completeIfAllFilesDone(chatRoomId, aiReview);
+    }
+
+    private boolean markFileProcessed(AiReview aiReview, String filePath, FileReviewStatus status) {
+        try {
+            aiReviewFileRepository.saveAndFlush(AiReviewFile.builder()
+                    .aiReview(aiReview)
+                    .filePath(filePath)
+                    .status(status)
+                    .createdAt(LocalDateTime.now())
+                    .build());
+            return true;
+        } catch (DataIntegrityViolationException e) {
+            log.info("이미 처리된 파일, 중복 메시지 스킵 - aiReviewId={}, filePath={}",
+                    aiReview.getId(), filePath);
+            return false;
         }
+    }
+
+    private void completeIfAllFilesDone(Long chatRoomId, AiReview aiReview) {
+        if (!aiReview.isAllFilesCompleted()) return;
+
+        AiReviewStatus finalStatus = aiReview.isAllFilesFailed()
+                ? AiReviewStatus.FAIL
+                : AiReviewStatus.SUCCESS;
+
+        int updated = aiReviewRepository.markFinalStatusIfPending(
+                aiReview.getId(), finalStatus, LocalDateTime.now());
+
+        if (updated == 0) {
+            log.info("이미 다른 인스턴스가 완료 처리함, 알림 스킵 - aiReviewId={}", aiReview.getId());
+            return;
+        }
+
+        if (finalStatus == AiReviewStatus.FAIL) {
+            aiReview.updateFail("모든 파일 리뷰 실패");
+        } else {
+            aiReview.updateSuccess();
+        }
+        broadcastAiReviewStatus(chatRoomId, aiReview);
     }
 
     @Transactional
@@ -132,6 +173,7 @@ public class AiReviewService {
         AiReview aiReview = findAiReview(room.getId(), prNumber);
         aiCommentModRepository.deleteByComment_AiReview_Id(aiReview.getId());
         aiReviewCommentRepository.deleteByAiReview_Id(aiReview.getId());
+        aiReviewFileRepository.deleteByAiReview_Id(aiReview.getId());
         aiReview.resetToPending(headSha, prDiff);
         aiReviewRepository.save(aiReview);
         broadcastAiReviewStatus(room.getId(), aiReview);
@@ -249,6 +291,7 @@ public class AiReviewService {
     public void deleteByRoomId(Long roomId) {
         aiCommentModRepository.deleteByComment_AiReview_ChatRoom_Id(roomId);
         aiReviewCommentRepository.deleteByAiReview_ChatRoom_Id(roomId);
+        aiReviewFileRepository.deleteByAiReview_ChatRoom_Id(roomId);
         aiReviewRepository.deleteByChatRoom_Id(roomId);
     }
 
