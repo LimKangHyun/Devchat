@@ -20,7 +20,7 @@ public record ChunkMeta(
     List<String> referencedTypeNames,
     List<String> annotations
 ) {
-    public record CalledMethodRef(String methodName, String targetClassHint) {}
+    public record CalledMethodRef(String methodName, String targetClassHint, boolean resolved) {}
 
     public static ChunkMeta fallback(String code) {
         return new ChunkMeta(null, null, -1, code, null, null, null,

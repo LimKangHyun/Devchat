@@ -19,9 +19,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import static project.ai.indexing.structural.MethodNameFilter.isMeaningful;
 import static project.ai.rag.PineconeResultUtils.getStringField;
-import static project.ai.indexing.structural.ProjectTypeFilter.isProjectType;
 
 /**
  * 구조적 관계(구현/상속/호출/참조) 기반 검색을 담당한다.
@@ -51,11 +49,13 @@ public class StructuralSearchService {
     // 변경으로 "깨질 수 있는" 쪽(변경된 파일을 쓰는 코드)을 먼저 가져온다.
     // 인터페이스/부모 시그니처가 바뀌면 구현체·상속체가 컴파일 에러가 나므로 리뷰에 필수.
     // 반대로 "변경 코드가 쓰는 타입/메서드"는 이 PR에서 안 바뀌므로 깨지지 않는다(맥락용).
+    // 확정/추정 구분: 대상 클래스를 선언 타입에서 읽은 것(사용호출)이 이름 관례로 추정한
+    // 것(사용호출(추정))보다 신뢰도가 높다.
     // 주의: 이 문자열은 buildFilterQueries()가 붙이는 태그와 contains로 매칭되므로
     //       태그 문구를 수정하면 여기도 함께 고쳐야 한다.
     private static final List<String> PRIORITY_ORDER = List.of(
             "구현체:", "자식클래스:", "호출자:", "참조자:", "호출자(이름만):",
-            "형제(구현):", "형제(상속):", "사용타입:", "사용호출:"
+            "형제(구현):", "형제(상속):", "사용타입:", "사용호출:", "사용호출(추정):"
     );
 
     public record StructuralSearchResult(
@@ -99,8 +99,8 @@ public class StructuralSearchService {
                 }
             }
 
-            log.info("[RAG-구조] filePath={}, 쿼리={}회, 후보={}개",
-                    filePath, queries.size(), results.size());
+            log.info("[RAG-구조] filePath={}, 변경심볼={}개, 쿼리={}회, 후보={}개",
+                    filePath, changedSymbols.size(), queries.size(), results.size());
 
             return new StructuralSearchResult(results, tags);
 
@@ -261,7 +261,6 @@ public class StructuralSearchService {
     /**
      * 폴백: 변경 심볼을 특정하지 못했을 때 파일 전체 구조를 기준으로 쿼리를 만든다.
      * 정밀하게 좁히진 못하지만, 구조 검색이 통째로 비는 것보다는 넓게라도 잡는 편이 낫다.
-     * (기존 파일 전체 기준 로직과 동일)
      */
     private List<FilterQuery> buildFileWideQueries(StructuralInfo info) {
         List<FilterQuery> queries = new ArrayList<>();
@@ -285,16 +284,18 @@ public class StructuralSearchService {
             queries.add(eqQuery("referencedTypeNames", info.className(),
                     "참조자: " + info.className() + "를 참조하는 코드"));
 
-            for (String methodName : info.methodNames().stream()
+            List<String> meaningfulMethods = info.methodNames().stream()
                     .filter(MethodNameFilter::isMeaningful)
-                    .limit(MAX_METHOD_QUERIES).toList()) {
+                    .limit(MAX_METHOD_QUERIES).toList();
+
+            for (String methodName : meaningfulMethods) {
                 queries.add(eqQuery("calledMethodQualified", info.className() + "." + methodName,
                         "호출자: " + info.className() + "." + methodName + "()를 호출하는 코드"));
             }
 
-            for (String methodName : info.methodNames().stream()
-                    .filter(MethodNameFilter::isMeaningful)
-                    .limit(MAX_METHOD_QUERIES).toList()) {
+            // 폴백: 대상 클래스가 추정이거나 인덱싱 시점에 확정되지 않아
+            // calledMethodQualified가 비어 있을 수 있으므로 이름만 매칭도 남긴다.
+            for (String methodName : meaningfulMethods) {
                 queries.add(eqQuery("calledMethodNames", methodName,
                         "호출자(이름만): 변경된 클래스의 메서드를 호출하는 코드"));
             }
@@ -309,18 +310,20 @@ public class StructuralSearchService {
         for (CalledMethodRef ref : info.calledMethodRefs().stream()
                 .filter(r -> MethodNameFilter.isMeaningful(r.methodName()))
                 .limit(MAX_CALLED_REF_QUERIES).toList()) {
-            if (ref.targetClassHint() != null) {
+            if (ref.resolved()) {
+                // 선언 타입에서 확정된 힌트 - className + methodName AND로 동명이인 배제
                 queries.add(compoundQuery(
                         "className", ref.targetClassHint(), "methodName", ref.methodName(),
                         "사용호출: 변경 코드가 " + ref.targetClassHint() + "." + ref.methodName() + "()를 호출"));
             } else {
+                // 이름 관례 추정이거나 대상 불명 - 틀린 클래스로 걸면 0건이 되므로 메서드명만 매칭
                 queries.add(eqQuery("methodName", ref.methodName(),
-                        "사용호출: 변경 코드가 " + ref.methodName() + "()를 호출 (클래스 특정 불가)"));
+                        "사용호출(추정): 변경 코드가 " + ref.methodName() + "()를 호출"));
             }
         }
 
         queries.removeIf(Objects::isNull);
-        return queries;
+        return dedupByFilter(queries);
     }
 
     /**

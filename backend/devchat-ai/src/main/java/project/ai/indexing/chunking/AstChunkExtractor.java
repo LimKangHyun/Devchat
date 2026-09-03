@@ -2,7 +2,6 @@ package project.ai.indexing.chunking;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
-import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
@@ -24,7 +23,6 @@ import project.ai.indexing.chunking.ChunkMeta.CalledMethodRef;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -44,8 +42,8 @@ public class AstChunkExtractor {
      * 검색 변별력이 없는 범용 타입. 기존 if-chain을 Set으로 옮긴 것으로 대상은 동일하다.
      */
     private static final Set<String> IGNORED_TYPE_NAMES = Set.of(
-        "String", "List", "Map", "Set", "Optional", "Object",
-        "Class", "Collection", "Integer", "Long", "Boolean", "Exception"
+            "String", "List", "Map", "Set", "Optional", "Object",
+            "Class", "Collection", "Integer", "Long", "Boolean", "Exception"
     );
 
     private final JavaParser javaParser;
@@ -92,62 +90,72 @@ public class AstChunkExtractor {
     }
 
     private ChunkMeta buildChunk(MethodDeclaration method, String packageName,
-        Map<ClassOrInterfaceDeclaration, Map<String, List<String>>> fieldTypeCache) {
+                                 Map<ClassOrInterfaceDeclaration, Map<String, List<String>>> fieldTypeCache) {
         ClassOrInterfaceDeclaration owner = method.findAncestor(ClassOrInterfaceDeclaration.class)
-            .orElse(null);
+                .orElse(null);
 
         String className = owner != null ? owner.getNameAsString() : "";
         String superClassName = (owner != null && !owner.getExtendedTypes().isEmpty())
-            ? owner.getExtendedTypes(0).getNameAsString()
-            : null;
+                ? owner.getExtendedTypes(0).getNameAsString()
+                : null;
         List<String> interfaceNames = owner != null
-            ? owner.getImplementedTypes().stream()
-            .map(ClassOrInterfaceType::getNameAsString)
-            .collect(Collectors.toList())
-            : List.of();
+                ? owner.getImplementedTypes().stream()
+                .map(ClassOrInterfaceType::getNameAsString)
+                .collect(Collectors.toList())
+                : List.of();
 
         String methodName = method.getNameAsString();
         List<String> parameterTypes = method.getParameters().stream()
-            .map(p -> p.getType().asString())
-            .collect(Collectors.toList());
+                .map(p -> p.getType().asString())
+                .collect(Collectors.toList());
         String methodSignature = methodName + "(" + String.join(", ", parameterTypes) + ")";
 
         List<String> annotations = method.getAnnotations().stream()
-            .map(AnnotationExpr::getNameAsString)
-            .collect(Collectors.toList());
+                .map(AnnotationExpr::getNameAsString)
+                .collect(Collectors.toList());
 
         Map<String, List<String>> fieldTypes =
-            fieldTypeCache.computeIfAbsent(owner, this::buildFieldTypeMap);
-        Set<String> shadowed = collectShadowedNames(method);
+                fieldTypeCache.computeIfAbsent(owner, this::buildFieldTypeMap);
+        Map<String, List<String>> localTypes = buildLocalTypeMap(method);
+        Set<String> shadowed = localTypes.keySet();
 
-        // 호출된 메서드 + 대상 클래스 힌트. 리시버가 필드면 선언 타입을 확정 정보로 사용하고,
-        // 지역변수 등 필드가 아니면 이름 관례(userService -> UserService)로 추정한다.
-        List<CalledMethodRef> calledMethodRefs = extractCalledMethods(method, fieldTypes, shadowed);
+        // 호출된 메서드 + 대상 클래스 힌트. 리시버가 지역변수나 필드면 선언 타입을 그대로 쓰고(확정),
+        // 타입을 알 수 없을 때만 이름 관례(userService -> UserService)로 추정한다.
+        List<CalledMethodRef> calledMethodRefs = extractCalledMethods(method, fieldTypes, localTypes);
         List<String> calledMethodNames = calledMethodRefs.stream()
-            .map(CalledMethodRef::methodName)
-            .distinct()
-            .collect(Collectors.toList());
+                .map(CalledMethodRef::methodName)
+                .distinct()
+                .collect(Collectors.toList());
 
-        // [추가] 대상 클래스가 추정된 호출만 "클래스.메서드" 형태로 저장 (호출자 검색용)
+        // 대상 클래스가 확정된 호출만 "클래스.메서드"로 저장. 추정 힌트는 틀릴 수 있어 제외하며,
+        // 그 케이스는 조회 시 이름만 매칭하는 폴백 검색이 담당한다.
         List<String> calledMethodQualified = calledMethodRefs.stream()
-            .filter(ref -> ref.targetClassHint() != null)
-            .map(ref -> ref.targetClassHint() + "." + ref.methodName())
-            .distinct()
-            .collect(Collectors.toList());
+                .filter(CalledMethodRef::resolved)
+                .map(ref -> ref.targetClassHint() + "." + ref.methodName())
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (log.isDebugEnabled()) {
+            long withHint = calledMethodRefs.stream()
+                    .filter(r -> r.targetClassHint() != null).count();
+            long guessed = calledMethodRefs.stream()
+                    .filter(r -> r.targetClassHint() != null && !r.resolved()).count();
+            log.debug("[AST] {}.{} 힌트 {}개 중 추정 {}개", className, methodName, withHint, guessed);
+        }
 
         // 메서드 본문에 직접 등장하는 타입 + 본문이 사용하는 "필드의 선언 타입"을 합친다.
         // this.accessTokenCustomizer.customize(...) 처럼 필드 경유 호출은
         // 본문에 타입명이 나타나지 않으므로 필드 선언부에서 역추적해야 한다.
         List<String> referencedTypeNames = new ArrayList<>(new LinkedHashSet<>(
-            concat(extractReferencedTypes(method), resolveFieldTypes(method, fieldTypes, shadowed))
+                concat(extractReferencedTypes(method), resolveFieldTypes(method, fieldTypes, shadowed))
         ));
 
         return new ChunkMeta(
-            null, null, -1, method.toString(),
-            className, methodName, methodSignature,
-            packageName, superClassName, interfaceNames,
-            calledMethodNames, calledMethodRefs, calledMethodQualified,
-            referencedTypeNames, annotations
+                null, null, -1, method.toString(),
+                className, methodName, methodSignature,
+                packageName, superClassName, interfaceNames,
+                calledMethodNames, calledMethodRefs, calledMethodQualified,
+                referencedTypeNames, annotations
         );
     }
 
@@ -180,17 +188,29 @@ public class AstChunkExtractor {
     }
 
     /**
-     * 메서드 안에서 지역변수/파라미터로 선언된 이름 집합.
-     * 같은 이름의 필드가 있어도 이 안에서는 지역변수가 우선(shadow)하므로,
-     * 필드 조회(선언 타입 확정) 대상에서 제외하는 데 쓴다.
+     * 메서드 파라미터와 지역변수의 "이름 -> 선언 타입" 맵.
+     * 자바는 정적 타입이라 선언부에 타입이 명시돼 있으므로, 리시버가 지역변수여도
+     * 이름 관례 추정 없이 타입을 확정할 수 있다.
+     * var로 선언된 경우는 타입을 알 수 없어 빈 리스트로 두되, 키는 남겨서
+     * 같은 이름의 필드가 잘못 조회되는 것(shadowing)을 막는다.
+     * keySet()은 기존 collectShadowedNames()와 동일한 shadowed 이름 집합이다.
      */
-    private Set<String> collectShadowedNames(MethodDeclaration method) {
-        Set<String> shadowed = new HashSet<>();
-        method.getParameters().forEach(p -> shadowed.add(p.getNameAsString()));
-        method.findAll(VariableDeclarationExpr.class)
-            .forEach(expr -> expr.getVariables()
-                .forEach(v -> shadowed.add(v.getNameAsString())));
-        return shadowed;
+    private Map<String, List<String>> buildLocalTypeMap(MethodDeclaration method) {
+        Map<String, List<String>> map = new LinkedHashMap<>();
+
+        method.getParameters().forEach(p ->
+                map.put(p.getNameAsString(), collectTypeNames(p.getType())));
+
+        method.findAll(VariableDeclarationExpr.class).forEach(expr ->
+                expr.getVariables().forEach(v -> {
+                    if (v.getType().isVarType()) {
+                        map.put(v.getNameAsString(), List.of());
+                    } else {
+                        map.put(v.getNameAsString(), collectTypeNames(v.getType()));
+                    }
+                }));
+
+        return map;
     }
 
     /**
@@ -198,7 +218,7 @@ public class AstChunkExtractor {
      * 지역변수/파라미터에 가려진(shadowed) 이름은 제외한다.
      */
     private List<String> resolveFieldTypes(
-        MethodDeclaration method, Map<String, List<String>> fieldTypes, Set<String> shadowed) {
+            MethodDeclaration method, Map<String, List<String>> fieldTypes, Set<String> shadowed) {
         if (fieldTypes.isEmpty()) return List.of();
 
         Set<String> usedFieldNames = extractUsedFieldNames(method, shadowed);
@@ -234,32 +254,49 @@ public class AstChunkExtractor {
         return used;
     }
 
+    /** 힌트 판별 결과. hint가 null이면 대상 특정 불가, resolved가 false면 이름 관례 추정값. */
+    private record HintResult(String hint, boolean resolved) {
+        static final HintResult NONE = new HintResult(null, false);
+
+        static HintResult declared(String type) {
+            return new HintResult(type, true);
+        }
+
+        static HintResult guessed(String receiverName) {
+            return new HintResult(capitalizeFirst(receiverName), false);
+        }
+    }
+
     /**
-     * 메서드 호출부에서 (호출 메서드명, 대상 클래스 힌트)를 함께 뽑는다.
-     * 힌트 판별 우선순위:
-     *  1) 리시버가 필드로 확인되면 그 선언 타입을 그대로 사용 (확정 정보)
-     *  2) 필드가 아니면(지역변수/파라미터 등) "변수명 -> 클래스명" 관례로 추정
-     *     (예: userService -> UserService)
-     *  3) 스코프가 없는 호출(this.foo(), 정적 임포트 등)이나 체이닝 호출은 힌트 없음(null)
+     * 메서드 호출부에서 (호출 메서드명, 대상 클래스 힌트, 확정 여부)를 함께 뽑는다.
      */
     private List<CalledMethodRef> extractCalledMethods(
-        MethodDeclaration method, Map<String, List<String>> fieldTypes, Set<String> shadowed) {
+            MethodDeclaration method, Map<String, List<String>> fieldTypes,
+            Map<String, List<String>> localTypes) {
 
         Set<CalledMethodRef> called = new LinkedHashSet<>();
         method.accept(new VoidVisitorAdapter<Void>() {
             @Override
             public void visit(MethodCallExpr call, Void arg) {
                 super.visit(call, arg);
-                String methodName = call.getNameAsString();
-                String targetClassHint = resolveTargetClassHint(call, fieldTypes, shadowed);
-                called.add(new CalledMethodRef(methodName, targetClassHint));
+                HintResult hint = resolveTargetClassHint(call, fieldTypes, localTypes);
+                called.add(new CalledMethodRef(
+                        call.getNameAsString(), hint.hint(), hint.resolved()));
             }
         }, null);
         return List.copyOf(called);
     }
 
-    private String resolveTargetClassHint(
-        MethodCallExpr call, Map<String, List<String>> fieldTypes, Set<String> shadowed) {
+    /**
+     * 힌트 판별 우선순위:
+     *  1) 리시버가 지역변수/파라미터면 그 선언 타입 (확정)
+     *  2) 지역변수가 아니고 필드면 필드 선언 타입 (확정)
+     *  3) var로 선언돼 타입을 모르거나 어느 쪽도 아니면 이름 관례로 추정 (부정확할 수 있음)
+     *  4) 스코프 없는 호출(this.foo(), 정적 임포트)이나 체이닝 호출은 힌트 없음
+     */
+    private HintResult resolveTargetClassHint(
+            MethodCallExpr call, Map<String, List<String>> fieldTypes,
+            Map<String, List<String>> localTypes) {
 
         return call.getScope().map(scope -> {
             String receiverName;
@@ -268,18 +305,23 @@ public class AstChunkExtractor {
             } else if (scope.isFieldAccessExpr()) {
                 receiverName = scope.asFieldAccessExpr().getNameAsString();
             } else {
-                return null; // 체이닝 호출(a.b().c()) 등은 대상 특정 안 함
+                return HintResult.NONE; // 체이닝 호출(a.b().c()) 등은 대상 특정 안 함
             }
-            if (receiverName.isEmpty()) return null;
+            if (receiverName.isEmpty()) return HintResult.NONE;
 
-            if (!shadowed.contains(receiverName)) {
-                List<String> declaredTypes = fieldTypes.get(receiverName);
-                if (declaredTypes != null && !declaredTypes.isEmpty()) {
-                    return declaredTypes.get(0); // 필드 선언 타입 - 확정 정보
-                }
+            List<String> localDeclared = localTypes.get(receiverName);
+            if (localDeclared != null) {
+                // 지역변수가 필드를 가리므로, var여서 타입을 몰라도 필드는 조회하지 않는다.
+                if (!localDeclared.isEmpty()) return HintResult.declared(localDeclared.get(0));
+                return HintResult.guessed(receiverName);
             }
-            return capitalizeFirst(receiverName); // 지역변수 등 - 관례 추정 (폴백)
-        }).orElse(null);
+
+            List<String> fieldDeclared = fieldTypes.get(receiverName);
+            if (fieldDeclared != null && !fieldDeclared.isEmpty()) {
+                return HintResult.declared(fieldDeclared.get(0));
+            }
+            return HintResult.guessed(receiverName);
+        }).orElse(HintResult.NONE);
     }
 
     private static String capitalizeFirst(String s) {
@@ -310,10 +352,10 @@ public class AstChunkExtractor {
      */
     private List<String> collectTypeNames(Type type) {
         return type.findAll(ClassOrInterfaceType.class).stream()
-            .map(ClassOrInterfaceType::getNameAsString)
-            .filter(this::isMeaningfulTypeName)
-            .distinct()
-            .collect(Collectors.toList());
+                .map(ClassOrInterfaceType::getNameAsString)
+                .filter(this::isMeaningfulTypeName)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     private boolean isMeaningfulTypeName(String name) {
