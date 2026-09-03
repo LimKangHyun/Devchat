@@ -13,6 +13,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.ExceptionTranslationFilter;
 import project.api.auth.app.CustomOAuth2UserService;
 import project.api.global.security.entrypoint.RestAuthenticationEntryPoint;
+import project.api.global.security.filter.InternalJwtAuthenticationFilter;
 import project.api.global.security.filter.JwtAuthenticationFilter;
 import project.api.global.security.handler.form.FormFailureHandler;
 import project.api.global.security.handler.form.FormSuccessHandler;
@@ -30,6 +31,7 @@ public class SecurityConfig {
 	private final CustomOAuth2UserService oAuth2UserService;
 	private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final InternalJwtAuthenticationFilter internalJwtAuthenticationFilter;
 
 	@Bean
 	public PasswordEncoder passwordEncoder() {
@@ -56,9 +58,13 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/signup", "/login", "/login/oauth2/**", "/error")
 						.anonymous()
+						// 내부 서비스 간 호출은 permitAll이 아니라 전용 권한을 요구한다.
+						// InternalJwtAuthenticationFilter가 부여한 권한이 없으면 여기서 차단된다.
+						.requestMatchers("/internal/**")
+						.hasRole("INTERNAL_SERVICE")
 						.requestMatchers("/token/**", "/logout", "/images/**",
 								"/actuator/health", "/actuator/prometheus", "/ws",
-								"/github/webhook/**", "/internal/**")
+								"/github/webhook/**")
 						.permitAll()
 						.anyRequest()
 						.authenticated())
@@ -75,6 +81,7 @@ public class SecurityConfig {
 				.exceptionHandling(exception ->
 						exception.authenticationEntryPoint(restAuthenticationEntryPoint))
 
+				.addFilterBefore(internalJwtAuthenticationFilter, JwtAuthenticationFilter.class)
 				.addFilterBefore(jwtAuthenticationFilter, ExceptionTranslationFilter.class)
 				.build();
 	}

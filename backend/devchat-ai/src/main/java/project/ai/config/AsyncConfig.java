@@ -3,7 +3,10 @@ package project.ai.config;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+
 import lombok.extern.slf4j.Slf4j;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -74,15 +77,21 @@ public class AsyncConfig {
         }
 
         log.info("structuralSearchExecutor: 플랫폼 스레드 풀 사용");
+        ThreadPoolTaskExecutor executor = getThreadPoolTaskExecutor();
+        executor.initialize();
+        return executor.getThreadPoolExecutor();
+    }
+
+    private static @NonNull ThreadPoolTaskExecutor getThreadPoolTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         // 요청 하나당 최대 ~20개 필터 쿼리가 동시에 뜬다. 플랫폼 스레드로 돌릴 경우
         // 이 정도 동시성은 필요하지만, PR 파일 여러 개가 겹치면 스레드 수가 배로 늘어날 수 있어
         // 상한을 둔다. (Virtual Thread면 이 제약 자체가 사라지는 게 핵심 이점이다)
         executor.setCorePoolSize(10);
         executor.setMaxPoolSize(20);
-        executor.setQueueCapacity(50);
+        executor.setQueueCapacity(200);
         executor.setThreadNamePrefix("StructuralSearch-");
-        executor.initialize();
-        return executor.getThreadPoolExecutor();
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        return executor;
     }
 }
