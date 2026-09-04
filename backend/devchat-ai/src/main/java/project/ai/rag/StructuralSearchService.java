@@ -51,12 +51,28 @@ public class StructuralSearchService {
     // 반대로 "변경 코드가 쓰는 타입/메서드"는 이 PR에서 안 바뀌므로 깨지지 않는다(맥락용).
     // 확정/추정 구분: 대상 클래스를 선언 타입에서 읽은 것(사용호출)이 이름 관례로 추정한
     // 것(사용호출(추정))보다 신뢰도가 높다.
-    // 주의: 이 문자열은 buildFilterQueries()가 붙이는 태그와 contains로 매칭되므로
+    // 주의: 이 문자열은 buildFilterQueries()가 붙이는 태그와 startsWith 매칭되므로
     //       태그 문구를 수정하면 여기도 함께 고쳐야 한다.
     private static final List<String> PRIORITY_ORDER = List.of(
-            "구현체:", "자식클래스:", "호출자:", "참조자:", "호출자(이름만):",
-            "형제(구현):", "형제(상속):", "사용타입:", "사용호출:", "사용호출(추정):"
+        "구현체:", "자식클래스:", "호출자:", "참조자:", "호출자(이름만):",
+        "호출자(파일전체):",
+        "형제(구현):", "형제(상속):", "사용타입:", "사용호출:", "사용호출(추정):"
     );
+
+    /**
+     * 확정 슬롯(rerank 우회)에 넣을 수 있는 관계.
+     * 구현체/자식클래스는 AST 구조상 확정이고, "호출자:"는 calledMethodQualified
+     * (클래스명까지 확정된 호출)로 매칭된 결과라 대상이 특정된다.
+     */
+    private static final Set<String> STRONG_RELATION_TAGS = Set.of(
+        "구현체:", "자식클래스:", "호출자:"
+    );
+
+    private boolean isStrongRelation(String tag) {
+        // "호출자(이름만):"이 "호출자:"를 포함하지 않도록 정확한 접두어로 판별한다.
+        // PRIORITY_ORDER 항목은 콜론까지 포함하므로 startsWith로 구분된다.
+        return STRONG_RELATION_TAGS.stream().anyMatch(tag::startsWith);
+    }
 
     public record StructuralSearchResult(
             List<ScoredVectorWithUnsignedIndices> candidates,
@@ -132,6 +148,11 @@ public class StructuralSearchService {
         Set<String> seenClasses = new HashSet<>();
         List<ScoredVectorWithUnsignedIndices> diversified = new ArrayList<>();
         for (ScoredVectorWithUnsignedIndices r : sorted) {
+            String tag = result.relationshipTags().getOrDefault(r.getId(), "");
+            // sorted는 우선순위 순이므로, 강한 관계가 끝나면 이후는 전부 약한 관계다.
+            // 슬롯이 남더라도 채우지 않고 중단한다 — 빈 슬롯은 rerank가 가져간다.
+            if (!isStrongRelation(tag)) break;
+
             if (changedFilesInPr.contains(getStringField(r, "filePath"))) continue;
             String cls = getStringField(r, "className");
             if (!seenClasses.add(cls)) continue;
@@ -150,7 +171,7 @@ public class StructuralSearchService {
 
     private int priorityOf(String tag) {
         for (int i = 0; i < PRIORITY_ORDER.size(); i++) {
-            if (tag.contains(PRIORITY_ORDER.get(i))) return i;
+            if (tag.startsWith(PRIORITY_ORDER.get(i))) return i;
         }
         return PRIORITY_ORDER.size();
     }
@@ -290,7 +311,7 @@ public class StructuralSearchService {
 
             for (String methodName : meaningfulMethods) {
                 queries.add(eqQuery("calledMethodQualified", info.className() + "." + methodName,
-                        "호출자: " + info.className() + "." + methodName + "()를 호출하는 코드"));
+                    "호출자(파일전체): " + info.className() + "." + methodName + "()를 호출하는 코드"));
             }
 
             // 폴백: 대상 클래스가 추정이거나 인덱싱 시점에 확정되지 않아
