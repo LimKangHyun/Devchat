@@ -56,7 +56,7 @@ public class ChangedSymbolResolver {
             for (ClassOrInterfaceDeclaration clazz : cu.findAll(ClassOrInterfaceDeclaration.class)) {
                 if (headerRange(clazz).map(r -> overlaps(r, changedLines)).orElse(false)) {
                     symbols.add(new ChangedSymbol(ChangedSymbol.Kind.CLASS_HEADER,
-                            clazz.getNameAsString()));
+                        clazz.getNameAsString()));
                 }
             }
 
@@ -70,10 +70,10 @@ public class ChangedSymbolResolver {
 
                 if (overlaps(signatureRange(method), changedLines)) {
                     symbols.add(new ChangedSymbol(ChangedSymbol.Kind.METHOD_SIGNATURE,
-                            method.getNameAsString()));
+                        method.getNameAsString()));
                 } else {
                     symbols.add(new ChangedSymbol(ChangedSymbol.Kind.METHOD_BODY,
-                            method.getNameAsString()));
+                        method.getNameAsString()));
                 }
             }
 
@@ -83,7 +83,7 @@ public class ChangedSymbolResolver {
                 if (range == null || !overlaps(range, changedLines)) continue;
 
                 field.getVariables().forEach(v ->
-                        symbols.add(new ChangedSymbol(ChangedSymbol.Kind.FIELD, v.getNameAsString())));
+                    symbols.add(new ChangedSymbol(ChangedSymbol.Kind.FIELD, v.getNameAsString())));
             }
 
             log.info("[변경심볼] {}개: {}", symbols.size(), symbols);
@@ -96,6 +96,39 @@ public class ChangedSymbolResolver {
     }
 
     /**
+     * 파일에 선언된 최상위 메서드 이름을 전부 뽑는다.
+     *
+     * resolve()는 변경 "후" 파일만 보므로, 메서드가 리네이밍되거나 삭제되면
+     * 옛 이름을 알 수 없어 그 이름으로 호출하던 코드를 놓친다.
+     * 변경 전/후 파일에 각각 적용해 차집합을 구하면 그 옛 이름을 복원할 수 있다.
+     *
+     * 필드는 제외한다 — 호출자 검색(calledMethodQualified)의 대상이 아니라
+     * 쿼리를 만들어도 결과가 나오지 않는다.
+     */
+    public Set<String> resolveMethodNames(String fileContent) {
+        if (fileContent == null || fileContent.isBlank()) return Set.of();
+
+        try {
+            ParseResult<CompilationUnit> parseResult = javaParser.parse(fileContent);
+            if (!parseResult.isSuccessful() || parseResult.getResult().isEmpty()) {
+                return Set.of();
+            }
+            CompilationUnit cu = parseResult.getResult().get();
+
+            Set<String> names = new LinkedHashSet<>();
+            for (MethodDeclaration method : cu.findAll(MethodDeclaration.class)) {
+                if (method.findAncestor(MethodDeclaration.class).isPresent()) continue;
+                names.add(method.getNameAsString());
+            }
+            return names;
+
+        } catch (Exception e) {
+            log.warn("[변경심볼] 메서드 이름 추출 실패", e);
+            return Set.of();
+        }
+    }
+
+    /**
      * 메서드 시그니처 영역의 라인 범위.
      * 메서드 시작 라인부터 본문 여는 '{' 라인까지를 시그니처로 본다.
      * abstract/interface 메서드는 본문이 없으므로 선언 전체가 시그니처.
@@ -103,9 +136,9 @@ public class ChangedSymbolResolver {
     private Range signatureRange(MethodDeclaration method) {
         int begin = method.getRange().get().begin.line;
         int sigEnd = method.getBody()
-                .flatMap(body -> body.getRange())
-                .map(r -> r.begin.line)   // 본문 '{'가 있는 라인
-                .orElse(method.getRange().get().end.line);
+            .flatMap(body -> body.getRange())
+            .map(r -> r.begin.line)   // 본문 '{'가 있는 라인
+            .orElse(method.getRange().get().end.line);
         return rangeOfLines(begin, sigEnd);
     }
 
@@ -118,8 +151,8 @@ public class ChangedSymbolResolver {
             int begin = full.begin.line;
             // 멤버가 있으면 첫 멤버 직전까지, 없으면 클래스 시작 라인만
             int headerEnd = clazz.getMembers().isEmpty()
-                    ? begin
-                    : clazz.getMembers().get(0).getRange()
+                ? begin
+                : clazz.getMembers().get(0).getRange()
                     .map(r -> r.begin.line - 1).orElse(begin);
             return rangeOfLines(begin, Math.max(begin, headerEnd));
         });
@@ -135,7 +168,7 @@ public class ChangedSymbolResolver {
     /** 라인 번호 두 개로 Range를 만든다 (컬럼은 판별에 안 쓰므로 1로 고정). */
     private Range rangeOfLines(int beginLine, int endLine) {
         return new Range(
-                new com.github.javaparser.Position(beginLine, 1),
-                new com.github.javaparser.Position(endLine, 1));
+            new com.github.javaparser.Position(beginLine, 1),
+            new com.github.javaparser.Position(endLine, 1));
     }
 }

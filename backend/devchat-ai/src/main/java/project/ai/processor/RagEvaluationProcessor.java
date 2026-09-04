@@ -20,36 +20,37 @@ public class RagEvaluationProcessor {
     public List<InlineReview> process(AiReviewRequestMessage message) {
 
         var results = ragContextService.searchForEvaluation(
-                message.repoId(),
-                message.filePath(),
-                message.fileDiff(),
-                message.fileContent(),
-                5,
-                Set.copyOf(message.changedFilesInPr())
+            message.repoId(),
+            message.filePath(),
+            message.fileDiff(),
+            message.fileContent(),
+            message.baseContent(),
+            5,
+            Set.copyOf(message.changedFilesInPr())
         );
 
         results.forEach(r -> {
             log.info("[RAG EVAL] score={}, path={}, class={}, method={}",
-                    r.getScore(),
-                    getMetaField(r, "filePath"),
-                    getMetaField(r, "className"),
-                    getMetaField(r, "methodSignature"));
+                r.getScore(),
+                getMetaField(r, "filePath"),
+                getMetaField(r, "className"),
+                getMetaField(r, "methodSignature"));
         });
 
         return List.of();
     }
 
     private String getMetaField(
-            ScoredVectorWithUnsignedIndices result,
-            String key) {
+        ScoredVectorWithUnsignedIndices result,
+        String key) {
 
         return result.getMetadata()
-                .getFieldsOrDefault(
-                        key,
-                        com.google.protobuf.Value.newBuilder()
-                                .setStringValue("")
-                                .build()
-                )
-                .getStringValue();
+            .getFieldsOrDefault(
+                key,
+                com.google.protobuf.Value.newBuilder()
+                    .setStringValue("")
+                    .build()
+            )
+            .getStringValue();
     }
 }

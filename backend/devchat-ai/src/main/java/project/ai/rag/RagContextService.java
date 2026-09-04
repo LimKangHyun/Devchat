@@ -37,11 +37,16 @@ public class RagContextService {
     private static final int MAX_STRUCTURAL_SLOTS = 3;
     private static final int VECTOR_CANDIDATE_SIZE = 30;
 
+    /**
+     * @param baseContent 변경 전(base) 파일 원문. 신규 파일이면 빈 문자열.
+     */
     public String buildContext(Long repoId, String filePath, String diff,
-                               String fileContent, Set<String> changedFilesInPr) {
+        String fileContent, String baseContent,
+        Set<String> changedFilesInPr) {
         try {
             List<ScoredVectorWithUnsignedIndices> results = search(
-                    repoId, filePath, diff, fileContent, changedFilesInPr, TOP_K, MAX_TOTAL_RESULTS);
+                repoId, filePath, diff, fileContent, baseContent,
+                changedFilesInPr, TOP_K, MAX_TOTAL_RESULTS);
 
             if (results.isEmpty()) {
                 log.info("[RAG] repoId={}, filePath={}, 검색결과 없음", repoId, filePath);
@@ -50,8 +55,8 @@ public class RagContextService {
 
             for (ScoredVectorWithUnsignedIndices r : results) {
                 log.info("[RAG] reviewFile={}, candidatePath={}, class={}, method={}",
-                        filePath, getStringField(r, "filePath"),
-                        getStringField(r, "className"), getStringField(r, "methodSignature"));
+                    filePath, getStringField(r, "filePath"),
+                    getStringField(r, "className"), getStringField(r, "methodSignature"));
             }
 
             return formatContext(results);
@@ -66,16 +71,16 @@ public class RagContextService {
     }
 
     public List<ScoredVectorWithUnsignedIndices> searchForEvaluation(
-            Long repoId, String filePath, String diff, String fileContent,
-            int topK, Set<String> changedFilesInPr) {
+        Long repoId, String filePath, String diff, String fileContent,
+        String baseContent, int topK, Set<String> changedFilesInPr) {
 
-        return search(repoId, filePath, diff, fileContent, changedFilesInPr,
-                topK, Math.max(topK, MAX_TOTAL_RESULTS));
+        return search(repoId, filePath, diff, fileContent, baseContent, changedFilesInPr,
+            topK, Math.max(topK, MAX_TOTAL_RESULTS));
     }
 
     private List<ScoredVectorWithUnsignedIndices> search(
-            Long repoId, String filePath, String diff, String fileContent,
-            Set<String> changedFilesInPr, int topK, int maxTotal) {
+        Long repoId, String filePath, String diff, String fileContent,
+        String baseContent, Set<String> changedFilesInPr, int topK, int maxTotal) {
 
         String embeddingInput = "File: " + filePath + "\nDiff:\n" + truncate(diff, 2000);
         float[] vector = embeddingService.embedQuery(embeddingInput);
@@ -86,59 +91,82 @@ public class RagContextService {
         Set<Integer> changedLines = diffLineParser.parseValidLines(diff);
         List<ChangedSymbol> changedSymbols = changedSymbolResolver.resolve(fileContent, changedLines);
 
+        // 변경 전에는 있었는데 변경 후엔 없는 메서드 = 리네이밍된 옛 이름 또는 삭제된 메서드.
+        // changedSymbols는 변경 후 파일 기준이라 새 이름만 담고 있어, 옛 이름으로
+        // 호출하던 코드(컴파일이 깨지는 지점)를 놓친다. 차집합으로 그 이름을 복원한다.
+        Set<String> removedSymbols = resolveRemovedSymbols(baseContent, fileContent);
+
         List<ScoredVectorWithUnsignedIndices> vectorCandidates =
-                pineconeClient.query(vector, VECTOR_CANDIDATE_SIZE, namespace);
+            pineconeClient.query(vector, VECTOR_CANDIDATE_SIZE, namespace);
 
         StructuralSearchService.StructuralSearchResult structural =
-                structuralSearchService.search(vector, namespace, filePath, info, changedSymbols);
+            structuralSearchService.search(vector, namespace, filePath, info,
+                changedSymbols, removedSymbols);
 
         List<ScoredVectorWithUnsignedIndices> allCandidates =
-                mergeCandidates(vectorCandidates, structural.candidates(), changedFilesInPr);
+            mergeCandidates(vectorCandidates, structural.candidates(), changedFilesInPr);
 
         if (allCandidates.isEmpty()) return List.of();
 
         log.info("[RAG] 후보 수: vector={}, metadata={}, 합산(중복제거)={}",
-                vectorCandidates.size(), structural.candidates().size(), allCandidates.size());
+            vectorCandidates.size(), structural.candidates().size(), allCandidates.size());
 
         List<ScoredVectorWithUnsignedIndices> structuralTop =
-                structuralSearchService.selectTopStructural(
-                        structural, changedFilesInPr, Math.min(MAX_STRUCTURAL_SLOTS, topK));
+            structuralSearchService.selectTopStructural(
+                structural, changedFilesInPr, Math.min(MAX_STRUCTURAL_SLOTS, topK));
 
         Set<String> structuralIds = structuralTop.stream()
-                .map(ScoredVectorWithUnsignedIndices::getId)
-                .collect(Collectors.toSet());
+            .map(ScoredVectorWithUnsignedIndices::getId)
+            .collect(Collectors.toSet());
 
         List<ScoredVectorWithUnsignedIndices> vectorOnly = allCandidates.stream()
-                .filter(r -> !structuralIds.contains(r.getId()))
-                .toList();
+            .filter(r -> !structuralIds.contains(r.getId()))
+            .toList();
 
         int rerankTopN = Math.min(vectorOnly.size(), maxTotal - structuralTop.size());
         String rerankQuery = rerankQueryService.buildRerankQuery(filePath, diff, info);
         List<ScoredVectorWithUnsignedIndices> reranked = rerankQueryService.rerank(
-                rerankQuery, vectorOnly, structural.relationshipTags(), rerankTopN);
+            rerankQuery, vectorOnly, structural.relationshipTags(), rerankTopN);
 
         List<ScoredVectorWithUnsignedIndices> combined = new ArrayList<>(structuralTop);
         reranked.stream()
-                .filter(r -> !structuralIds.contains(r.getId()))
-                .forEach(combined::add);
+            .filter(r -> !structuralIds.contains(r.getId()))
+            .forEach(combined::add);
 
         int dynamicLimit = computeDynamicLimit(combined, topK, maxTotal);
         return combined.stream().limit(dynamicLimit).toList();
     }
 
+    /** 변경 전/후 메서드 이름의 차집합. base가 없으면(신규 파일) 빈 집합. */
+    private Set<String> resolveRemovedSymbols(String baseContent, String fileContent) {
+        if (baseContent == null || baseContent.isBlank()) return Set.of();
+
+        Set<String> beforeMethods = changedSymbolResolver.resolveMethodNames(baseContent);
+        if (beforeMethods.isEmpty()) return Set.of();
+
+        Set<String> afterMethods = changedSymbolResolver.resolveMethodNames(fileContent);
+        Set<String> removed = new LinkedHashSet<>(beforeMethods);
+        removed.removeAll(afterMethods);
+
+        if (!removed.isEmpty()) {
+            log.info("[RAG] 사라진 메서드 {}개: {}", removed.size(), removed);
+        }
+        return removed;
+    }
+
     private List<ScoredVectorWithUnsignedIndices> mergeCandidates(
-            List<ScoredVectorWithUnsignedIndices> vectorCandidates,
-            List<ScoredVectorWithUnsignedIndices> metadataCandidates,
-            Set<String> changedFilesInPr) {
+        List<ScoredVectorWithUnsignedIndices> vectorCandidates,
+        List<ScoredVectorWithUnsignedIndices> metadataCandidates,
+        Set<String> changedFilesInPr) {
 
         Set<String> seenIds = new HashSet<>();
         List<ScoredVectorWithUnsignedIndices> merged = new ArrayList<>();
 
         Stream.concat(vectorCandidates.stream(), metadataCandidates.stream())
-                .filter(r -> !changedFilesInPr.contains(getStringField(r, "filePath")))
-                .forEach(r -> {
-                    if (seenIds.add(r.getId())) merged.add(r);
-                });
+            .filter(r -> !changedFilesInPr.contains(getStringField(r, "filePath")))
+            .forEach(r -> {
+                if (seenIds.add(r.getId())) merged.add(r);
+            });
 
         return merged;
     }
@@ -154,11 +182,11 @@ public class RagContextService {
             List<ScoredVectorWithUnsignedIndices> window = ranked.subList(0, limit);
 
             Map<String, Long> countByClass = window.stream()
-                    .collect(Collectors.groupingBy(
-                            r -> getStringField(r, "className"), Collectors.counting()));
+                .collect(Collectors.groupingBy(
+                    r -> getStringField(r, "className"), Collectors.counting()));
 
             long duplicateExtra = countByClass.values().stream()
-                    .filter(c -> c > 1).mapToLong(c -> c - 1).sum();
+                .filter(c -> c > 1).mapToLong(c -> c - 1).sum();
 
             int desired = Math.min(base + (int) duplicateExtra, max);
             if (desired <= limit) break;
@@ -177,9 +205,9 @@ public class RagContextService {
             if (code.isBlank()) continue;
 
             sb.append("// ").append(getStringField(result, "filePath"))
-                    .append(" (class: ").append(getStringField(result, "className"))
-                    .append(", method: ").append(getStringField(result, "methodSignature"))
-                    .append(")\n");
+                .append(" (class: ").append(getStringField(result, "className"))
+                .append(", method: ").append(getStringField(result, "methodSignature"))
+                .append(")\n");
             sb.append(code).append("\n\n");
         }
 
