@@ -1,22 +1,27 @@
 package project.ai.stream.aireview;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
-import project.ai.processor.RagEvaluationProcessor;
+import project.ai.processor.AiReviewProcessor;
 import project.common.message.aireview.AiReviewRequestMessage;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class AiReviewRequestConsumer implements StreamListener<String, ObjectRecord<String, String>> {
 
+    private static final String STREAM_KEY = "stream:ai-review:request";
+    private static final String GROUP_NAME = "ai-review-group";
+
     private final ObjectMapper objectMapper;
-    private final RagEvaluationProcessor aiReviewProcessor;
+    private final AiReviewProcessor aiReviewProcessor;
     private final AiReviewResultProducer aiReviewResultProducer;
+    private final StringRedisTemplate stringRedisTemplate;   // ← 추가
 
     @Override
     public void onMessage(ObjectRecord<String, String> record) {
@@ -33,6 +38,8 @@ public class AiReviewRequestConsumer implements StreamListener<String, ObjectRec
             if (message != null) {
                 aiReviewResultProducer.publishFail(message.aiReviewId(), message.chatRoomId(), message.filePath(), e.getMessage());
             }
+        } finally {
+            stringRedisTemplate.opsForStream().acknowledge(STREAM_KEY, GROUP_NAME, record.getId());
         }
     }
 }

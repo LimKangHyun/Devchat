@@ -266,23 +266,19 @@ public class StructuralSearchService {
         for (ChangedSymbol symbol : changedSymbols) {
             switch (symbol.kind()) {
                 case METHOD_SIGNATURE -> {
-                    // 시그니처 변경 → 호출자 + 구현체 + 자식 전부가 깨질 수 있다.
                     queries.add(eqQuery("calledMethodQualified", className + "." + symbol.name(),
                         "호출자: " + className + "." + symbol.name() + "()를 호출하는 코드"));
-                    // 이 메서드가 인터페이스/부모 메서드면 구현체·자식도 영향.
-                    // 어느 인터페이스의 메서드인지는 구문만으론 확정 못 하므로,
-                    // 이 클래스가 구현/상속한 것 전부를 후보로 넣는다.
                     addImplementorQueries(queries, info);
+                    addUsedCallQueries(queries, info, symbol.name());   // ← 추가
                 }
                 case METHOD_BODY -> {
-                    // 본문 변경 → 동작이 바뀌므로 호출자만.
                     queries.add(eqQuery("calledMethodQualified", className + "." + symbol.name(),
                         "호출자: " + className + "." + symbol.name() + "()를 호출하는 코드"));
                     queries.add(eqQuery("calledMethodNames", symbol.name(),
                         "호출자(이름만): " + symbol.name() + "()를 호출하는 코드"));
+                    addUsedCallQueries(queries, info, symbol.name());   // ← 추가
                 }
                 case FIELD -> {
-                    // 필드 변경 → 이 클래스를 참조/사용하는 코드.
                     queries.add(eqQuery("referencedTypeNames", className,
                         "참조자: " + className + "를 참조하는 코드"));
                 }
@@ -444,5 +440,27 @@ public class StructuralSearchService {
                 .putFields("$eq", Value.newBuilder().setStringValue(value).build())
                 .build())
             .build();
+    }
+
+    /**
+     * 변경된 메서드가 호출하는 대상을 컨텍스트로 가져온다.
+     * 기존 buildFileWideQueries의 "사용호출:" 로직과 동일한 개념을,
+     * 변경 심볼이 확정된 정밀 경로에서도 쓸 수 있도록 뽑아낸 것이다.
+     */
+    private void addUsedCallQueries(List<FilterQuery> queries, StructuralInfo info, String fromMethodName) {
+        info.calledMethodRefs().stream()
+            .filter(ref -> fromMethodName.equals(ref.fromMethodName()))
+            .filter(ref -> MethodNameFilter.isMeaningful(ref.methodName()))
+            .limit(MAX_CALLED_REF_QUERIES)
+            .forEach(ref -> {
+                if (ref.resolved()) {
+                    queries.add(compoundQuery(
+                        "className", ref.targetClassHint(), "methodName", ref.methodName(),
+                        "사용호출: 변경 코드가 " + ref.targetClassHint() + "." + ref.methodName() + "()를 호출"));
+                } else {
+                    queries.add(eqQuery("methodName", ref.methodName(),
+                        "사용호출(추정): 변경 코드가 " + ref.methodName() + "()를 호출"));
+                }
+            });
     }
 }

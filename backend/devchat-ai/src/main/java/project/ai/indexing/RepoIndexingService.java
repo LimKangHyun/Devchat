@@ -3,7 +3,7 @@ package project.ai.indexing;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import project.ai.client.PineconeClient;
@@ -41,7 +41,7 @@ public class RepoIndexingService {
      * 배치 간 병렬 처리 동시성 제한.
      * Gemini TPM/RPM을 고려해 4로 시작 → 실측 후 8/16으로 조정 예정.
      */
-    private static final int BATCH_CONCURRENCY = 1;
+    private static final int BATCH_CONCURRENCY = 2;
 
     private static final Set<String> EXCLUDED_DIRS = Set.of(
         "node_modules", ".git", "build", "out", "target", ".gradle", "test", "dto"
@@ -56,8 +56,7 @@ public class RepoIndexingService {
     private final EmbeddingService embeddingService;
     private final PineconeClient pineconeClient;
 
-    @Qualifier("streamRedisTemplate")
-    private final RedisTemplate<String, String> redisTemplate;
+    private final StringRedisTemplate redisTemplate;
 
     private final InternalAuthClient internalAuthClient;
     private final RepoIndexResultProducer repoIndexResultProducer;
@@ -183,11 +182,11 @@ public class RepoIndexingService {
         Files.createDirectories(targetPath);
 
         String gitPath = System.getProperty("os.name").toLowerCase().contains("win")
-                ? "C:\\Program Files\\Git\\bin\\git.exe"
-                : "git";
+            ? "C:\\Program Files\\Git\\bin\\git.exe"
+            : "git";
 
         ProcessBuilder pb = new ProcessBuilder(
-                gitPath, "clone", "--depth", "1", authenticatedUrl, targetPath.toString()
+            gitPath, "clone", "--depth", "1", authenticatedUrl, targetPath.toString()
         );
         pb.environment().remove("GIT_ASKPASS");
         pb.redirectErrorStream(true);
@@ -243,6 +242,8 @@ public class RepoIndexingService {
      * BATCH_CONCURRENCY 개의 배치를 동시에 처리하며 Gemini Rate Limit을 준수한다.
      */
     private void indexFiles(Long repoId, Path repoPath, List<Path> javaFiles) {
+        long chunkStartTotal = System.currentTimeMillis();   // ← 추가
+
         // 1. 청킹 → 전체 배치 목록 수집
         List<List<ChunkMeta>> batches = new ArrayList<>();
         List<ChunkMeta> buffer = new ArrayList<>();
@@ -257,11 +258,7 @@ public class RepoIndexingService {
                 if (content.isBlank()) continue;
 
                 String relativePath = repoPath.relativize(file).toString();
-                long chunkStart = System.currentTimeMillis();
                 List<ChunkMeta> chunks = chunk(content, relativePath);
-                log.info("[{}] 청킹 완료. file={}, chunkCount={}, 소요={}ms",
-                    Thread.currentThread().getName(), relativePath, chunks.size(),
-                    System.currentTimeMillis() - chunkStart);
 
                 for (int i = 0; i < chunks.size(); i++) {
                     String id = repoId + "-" + relativePath.replace("/", "_") + "-" + i;
@@ -278,9 +275,11 @@ public class RepoIndexingService {
         }
         if (!buffer.isEmpty()) batches.add(buffer);
 
+        long chunkMs = System.currentTimeMillis() - chunkStartTotal;   // ← 추가
         log.info("배치 수집 완료. repoId={}, 총 배치수={}", repoId, batches.size());
 
-        // 2. 배치 병렬 처리
+        long embedStartTotal = System.currentTimeMillis();   // ← 추가
+
         // 2. 배치 병렬 처리
         List<Future<Void>> futures = new ArrayList<>();
         for (List<ChunkMeta> batch : batches) {
@@ -317,7 +316,11 @@ public class RepoIndexingService {
             throw new RuntimeException("배치 병렬 처리 인터럽트. repoId=" + repoId, e);
         }
 
-        log.info("인덱싱 완료. repoId={}, 총 API 호출 횟수={}", repoId, embeddingService.getAndResetCount());
+        long embedMs = System.currentTimeMillis() - embedStartTotal;   // ← 추가
+
+        log.info("[측정] repoId={} 동시성={} 파일={} 배치={} 청킹={}ms 임베딩+업서트={}ms 총={}ms API호출={}",
+            repoId, BATCH_CONCURRENCY, javaFiles.size(), batches.size(),
+            chunkMs, embedMs, chunkMs + embedMs, embeddingService.getAndResetCount());
     }
 
     private void flushBatch(Long repoId, List<ChunkMeta> batch) {
@@ -334,7 +337,7 @@ public class RepoIndexingService {
         List<PineconeClient.UpsertItem> items = new ArrayList<>(batch.size());
         for (int i = 0; i < batch.size(); i++) {
             ChunkMeta meta = batch.get(i);
-            String code = meta.chunk().length() > 1000 ? meta.chunk().substring(0, 1000) : meta.chunk();
+            String code = meta.chunk().length() > 2500 ? meta.chunk().substring(0, 2500) : meta.chunk();
 
             Map<String, Object> metadata = new HashMap<>();
             metadata.put("repoId", String.valueOf(repoId));

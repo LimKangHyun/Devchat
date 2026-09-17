@@ -121,7 +121,7 @@ public class AstChunkExtractor {
 
         // 호출된 메서드 + 대상 클래스 힌트. 리시버가 지역변수나 필드면 선언 타입을 그대로 쓰고(확정),
         // 타입을 알 수 없을 때만 이름 관례(userService -> UserService)로 추정한다.
-        List<CalledMethodRef> calledMethodRefs = extractCalledMethods(method, fieldTypes, localTypes);
+        List<CalledMethodRef> calledMethodRefs = extractCalledMethods(method, fieldTypes, localTypes, methodName);
         List<String> calledMethodNames = calledMethodRefs.stream()
                 .map(CalledMethodRef::methodName)
                 .distinct()
@@ -272,7 +272,7 @@ public class AstChunkExtractor {
      */
     private List<CalledMethodRef> extractCalledMethods(
             MethodDeclaration method, Map<String, List<String>> fieldTypes,
-            Map<String, List<String>> localTypes) {
+            Map<String, List<String>> localTypes, String fromMethodName) {
 
         Set<CalledMethodRef> called = new LinkedHashSet<>();
         method.accept(new VoidVisitorAdapter<Void>() {
@@ -281,7 +281,7 @@ public class AstChunkExtractor {
                 super.visit(call, arg);
                 HintResult hint = resolveTargetClassHint(call, fieldTypes, localTypes);
                 called.add(new CalledMethodRef(
-                        call.getNameAsString(), hint.hint(), hint.resolved()));
+                        call.getNameAsString(), hint.hint(), hint.resolved(), fromMethodName));
             }
         }, null);
         return List.copyOf(called);

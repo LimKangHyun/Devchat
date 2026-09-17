@@ -81,8 +81,8 @@ public class SecurityConfig {
 				.exceptionHandling(exception ->
 						exception.authenticationEntryPoint(restAuthenticationEntryPoint))
 
-				.addFilterBefore(internalJwtAuthenticationFilter, JwtAuthenticationFilter.class)
 				.addFilterBefore(jwtAuthenticationFilter, ExceptionTranslationFilter.class)
+				.addFilterBefore(internalJwtAuthenticationFilter, JwtAuthenticationFilter.class)
 				.build();
 	}
 }

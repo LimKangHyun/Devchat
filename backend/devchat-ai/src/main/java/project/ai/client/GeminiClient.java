@@ -82,7 +82,8 @@ public class GeminiClient {
         String diff, String ragContext, String fileContent, String prTitle, String prBody) {
 
         String truncatedDiff = truncate(diff, 4000);
-        String truncatedContent = truncate(fileContent, 4000);
+        String numberedContent = addLineNumbers(fileContent);
+        String truncatedContent = truncate(numberedContent, 10000);
 
         String prInfo = "[PR 정보]\n제목: " + (prTitle != null ? prTitle : "") + "\n내용: " + (prBody != null ? prBody : "");
 
@@ -97,7 +98,10 @@ public class GeminiClient {
             .append("\n\n[PR DIFF]\n").append(truncatedDiff)
             .append("\n\n[전체 파일 코드 - 앞의 숫자가 lineNumber]\n").append(addLineNumbers(truncatedContent));
 
-        String response = callGemini(promptBuilder.toString());
+        log.info("[Gemini 프롬프트 diff 부분]\n{}", truncatedDiff); // 임시 추가
+
+        String response = callGemini(promptBuilder.toString(), true);
+        log.info("[Gemini 원본 응답] {}", response); // 임시 추가
 
         try {
             List<InlineReview> reviews = objectMapper.readValue(
@@ -133,16 +137,18 @@ public class GeminiClient {
         return sb.toString();
     }
 
-    private String callGemini(String prompt) {
+    private String callGemini(String prompt, boolean jsonMode) {
+        Map<String, Object> generationConfig = jsonMode
+            ? Map.of("responseMimeType", "application/json")
+            : Map.of();
+
         Map<String, Object> requestBody = Map.of(
             "contents", List.of(
                 Map.of("parts", List.of(
                     Map.of("text", prompt)
                 ))
             ),
-            "generationConfig", Map.of(
-                "responseMimeType", "application/json"
-            )
+            "generationConfig", generationConfig
         );
 
         int totalAttempts = apiKeys.size() * 2;
@@ -176,7 +182,8 @@ public class GeminiClient {
     public String summarizeGitEvent(String eventType, String prStatus, String fullContent) {
         String prompt = resolvePrompt(eventType, prStatus);
         try {
-            return callGemini(prompt + "\n\n[이벤트 내용]\n" + fullContent);
+            // 요약은 프롬프트가 지시한 순수 텍스트(이모지+줄바꿈+2~3줄) 그대로 필요 → jsonMode=false
+            return callGemini(prompt + "\n\n[이벤트 내용]\n" + fullContent, false);
         } catch (Exception e) {
             log.error("Gemini 요약 실패, 원본 반환", e);
             return fullContent;

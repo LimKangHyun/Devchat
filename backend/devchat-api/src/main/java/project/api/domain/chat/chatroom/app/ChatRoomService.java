@@ -60,6 +60,7 @@ public class ChatRoomService {
     @Value("${github.bot.username}")
     private String aiReviewerUsername;
 
+    @Transactional
     public ChatRoomSimpleResponse createChatRoom(ChatRoomRequest request, Long ownerId) {
         Member owner = memberService.getMemberById(ownerId);
 
