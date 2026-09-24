@@ -3,6 +3,7 @@ package project.api.global.security.internal;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -14,16 +15,15 @@ public class InternalJwtValidator {
     @Value("${internal.jwt.secret}")
     private String secret;
 
-    public boolean validate(String token) {
+    public DecodedJWT validate(String token) {
         try {
-            JWT.require(Algorithm.HMAC256(secret))
+            return JWT.require(Algorithm.HMAC256(secret))
                     .withClaim("role", "INTERNAL_SERVICE")
                     .build()
                     .verify(token);
-            return true;
         } catch (JWTVerificationException e) {
             log.warn("Internal JWT 검증 실패: {}", e.getMessage());
-            return false;
+            return null;
         }
     }
 }

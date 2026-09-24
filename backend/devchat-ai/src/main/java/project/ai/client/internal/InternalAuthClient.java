@@ -20,8 +20,11 @@ public class InternalAuthClient {
     public String getGithubToken(Long memberId) {
         return webClientBuilder.build()
                 .get()
-                .uri(apiUrl + "/internal/auth/github-token/" + memberId)
-                .header("Authorization", "Bearer " + internalJwtProvider.issue())
+                .uri(apiUrl + "/internal/auth/github-token")
+                .header(
+                    "Authorization",
+                    "Bearer " + internalJwtProvider.issue(memberId)
+                )
                 .retrieve()
                 .bodyToMono(String.class)
                 .block();

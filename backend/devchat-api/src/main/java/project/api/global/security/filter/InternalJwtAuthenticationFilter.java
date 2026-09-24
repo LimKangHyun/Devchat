@@ -1,5 +1,6 @@
 package project.api.global.security.filter;
 
+import com.auth0.jwt.interfaces.DecodedJWT;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,6 +12,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import project.api.global.security.internal.InternalJwtReplayGuard;
 import project.api.global.security.internal.InternalJwtValidator;
 
 import java.io.IOException;
@@ -33,6 +35,7 @@ public class InternalJwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String INTERNAL_ROLE = "ROLE_INTERNAL_SERVICE";
 
     private final InternalJwtValidator internalJwtValidator;
+    private final InternalJwtReplayGuard internalJwtReplayGuard;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -49,19 +52,27 @@ public class InternalJwtAuthenticationFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring("Bearer ".length());
 
-            if (internalJwtValidator.validate(token)) {
-                // 인증 성공 시 권한을 부여한다. 실패해도 여기서 응답을 내리지 않고
-                // 인증 없이 통과시키면, authorizeHttpRequests의 hasRole 검사에서
-                // 403으로 걸러진다 — 인증 실패 응답을 한 곳(EntryPoint)에서 일관되게 처리하기 위함.
+            DecodedJWT decoded = internalJwtValidator.validate(token);
+
+            if (decoded != null) {
+                String jti = decoded.getId();
+                if (!internalJwtReplayGuard.consume(jti)) {
+                    response.sendError(
+                        HttpServletResponse.SC_UNAUTHORIZED,
+                        "Invalid or already used internal token"
+                    );
+                    return;
+                }
+                Long tokenMemberId = decoded.getClaim("memberId").asLong();
+
                 var authentication = new UsernamePasswordAuthenticationToken(
-                        "INTERNAL_SERVICE", null,
-                        List.of(new SimpleGrantedAuthority(INTERNAL_ROLE)));
+                    tokenMemberId,
+                    null,
+                    List.of(new SimpleGrantedAuthority(INTERNAL_ROLE))
+                );
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-            } else {
-                log.warn("내부 JWT 검증 실패 - uri={}", request.getRequestURI());
             }
         }
-
         filterChain.doFilter(request, response);
     }
 }
