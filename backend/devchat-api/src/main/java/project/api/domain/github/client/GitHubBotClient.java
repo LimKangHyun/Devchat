@@ -115,7 +115,15 @@ public class GitHubBotClient {
         log.info("GitHub 인라인 리뷰 등록 완료: PR #{}", prNumber);
     }
 
+    /** PR 변경 파일. previousFilename은 status가 renamed일 때만 값이 있다. */
+    public record PrFile(String filename, String status, String previousFilename) {}
+
     public Map<String, String> getPrFileStatuses(String owner, String repo, int prNumber) {
+        return getPrFiles(owner, repo, prNumber).stream()
+                .collect(Collectors.toMap(PrFile::filename, PrFile::status));
+    }
+
+    public List<PrFile> getPrFiles(String owner, String repo, int prNumber) {
         List<Map<String, Object>> files = webClientBuilder.build()
                 .get()
                 .uri("https://api.github.com/repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/files")
@@ -126,9 +134,10 @@ public class GitHubBotClient {
                 .block();
 
         return files.stream()
-                .collect(Collectors.toMap(
-                        f -> (String) f.get("filename"),
-                        f -> (String) f.get("status")
-                ));
+                .map(f -> new PrFile(
+                        (String) f.get("filename"),
+                        (String) f.get("status"),
+                        (String) f.get("previous_filename")))
+                .toList();
     }
 }

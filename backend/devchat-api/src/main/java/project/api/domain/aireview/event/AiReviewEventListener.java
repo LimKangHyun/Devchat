@@ -45,9 +45,10 @@ public class AiReviewEventListener {
         Map<String, String> fileStatuses = gitHubBotClient.getPrFileStatuses(
                 repo.ownerName(), repo.repoName(), aiReview.getPrNumber());
 
-        // 실제 리뷰 대상 파일만 먼저 걸러냄 (deleted 제외, 리뷰 가능 확장자만)
+        // 실제 리뷰 대상 파일만 먼저 걸러냄 (삭제된 파일 제외, 리뷰 가능 확장자만)
+        // GitHub API는 삭제된 파일의 status를 "removed"로 준다.
         Map<String, String> reviewableFileDiffs = fileDiffs.entrySet().stream()
-                .filter(e -> !"deleted".equals(fileStatuses.getOrDefault(e.getKey(), "modified")))
+                .filter(e -> !"removed".equals(fileStatuses.getOrDefault(e.getKey(), "modified")))
                 .filter(e -> isReviewableFile(e.getKey()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new));
 

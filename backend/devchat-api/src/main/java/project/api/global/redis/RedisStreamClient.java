@@ -69,10 +69,11 @@ public class RedisStreamClient {
     }
 
     public void publishFileReindex(Long roomId, String repoUrl, Long memberId,
-        String filePath, String status, String fileContent, String headSha) {
+        String filePath, String status, String fileContent, String headSha, String previousFilePath) {
         try {
             String json = objectMapper.writeValueAsString(
-                new FileReindexMessage(roomId, repoUrl, memberId, filePath, status, fileContent, headSha));
+                new FileReindexMessage(roomId, repoUrl, memberId, filePath, status, fileContent, headSha,
+                    previousFilePath));
             publish(FILE_REINDEX_STREAM, json);
         } catch (Exception e) {
             throw new RuntimeException("Redis Stream 발행 실패", e);

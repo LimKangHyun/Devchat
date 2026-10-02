@@ -124,7 +124,8 @@ public class RagContextService {
             .toList();
 
         int rerankTopN = Math.min(vectorOnly.size(), maxTotal - structuralTop.size());
-        String rerankQuery = rerankQueryService.buildRerankQuery(filePath, diff, info);
+        String rerankQuery = rerankQueryService.buildRerankQuery(
+            filePath, diff, info, changedSymbols, removedSymbols);
         List<ScoredVectorWithUnsignedIndices> reranked = rerankQueryService.rerank(
             rerankQuery, vectorOnly, structural.relationshipTags(), rerankTopN);
 

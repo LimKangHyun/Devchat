@@ -16,7 +16,9 @@ import project.api.global.exception.ex.ChatRoomException;
 import project.api.global.redis.RedisStreamClient;
 import project.common.dto.github.GitRepoDto;
 
-import java.util.Map;
+import project.api.domain.github.client.GitHubBotClient.PrFile;
+
+import java.util.List;
 
 @Slf4j
 @Component
@@ -44,24 +46,37 @@ public class PrMergedEventListener {
         }
 
         GitRepoDto repo = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
-        Map<String, String> fileStatuses = gitHubBotClient.getPrFileStatuses(
+        List<PrFile> files = gitHubBotClient.getPrFiles(
                 repo.ownerName(), repo.repoName(), event.prNumber());
 
-        for (Map.Entry<String, String> entry : fileStatuses.entrySet()) {
-            String filePath = entry.getKey();
-            String status = entry.getValue();
-            if (!isReindexableFile(filePath)) continue;
+        for (PrFile file : files) {
+            String filePath = file.filename();
+            String status = file.status();
+
+            // 이름이 바뀐 파일은 옛 경로의 청크를 지워야 한다. 옛 경로가 인덱싱 대상일 때만 넘긴다.
+            String previousFilePath = "renamed".equals(status) && isReindexableFile(file.previousFilename())
+                    ? file.previousFilename() : null;
+
+            if (!isReindexableFile(filePath)) {
+                // 확장자가 바뀌어 새 경로는 대상이 아니어도, 옛 경로 청크는 삭제해야 한다.
+                if (previousFilePath != null) {
+                    redisStreamClient.publishFileReindex(
+                            room.getId(), room.getRepositoryUrl(), ownerId,
+                            previousFilePath, "removed", "", event.headSha(), null);
+                }
+                continue;
+            }
 
             String fileContent = "removed".equals(status) ? ""
                     : gitHubBotClient.getFileContent(repo.ownerName(), repo.repoName(), filePath, event.headSha());
 
             redisStreamClient.publishFileReindex(
                     room.getId(), room.getRepositoryUrl(), ownerId,
-                    filePath, status, fileContent, event.headSha());
+                    filePath, status, fileContent, event.headSha(), previousFilePath);
         }
     }
 
     private boolean isReindexableFile(String filePath) {
-        return filePath.toLowerCase().endsWith(".java");
+        return filePath != null && filePath.toLowerCase().endsWith(".java");
     }
 }

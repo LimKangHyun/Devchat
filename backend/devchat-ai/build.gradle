@@ -15,3 +15,8 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
+
+// 외부 API를 호출하는 RAG 평가 테스트는 -Drag.eval=true로 실행할 때만 켠다.
+tasks.named('test') {
+    systemProperty 'rag.eval', System.getProperty('rag.eval', 'false')
+}

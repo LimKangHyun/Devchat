@@ -127,31 +127,46 @@ public class RepoIndexingService {
         String filePath = message.filePath();
 
         try {
-            pineconeClient.deleteFileChunks(namespace, filePath, namespace);
-
             if ("removed".equals(message.status())) {
+                pineconeClient.deleteFileChunks(namespace, filePath, namespace);
                 log.info("파일 삭제 반영 완료. roomId={}, filePath={}", roomId, filePath);
                 return;
             }
 
-            String content = message.fileContent();
-            if (content == null || content.isBlank()) {
-                log.info("파일 내용 없음, 재인덱싱 스킵. roomId={}, filePath={}", roomId, filePath);
-                return;
-            }
+            // 기존 청크를 먼저 지우면, 임베딩이 실패했을 때(키 소진 등) 이 파일의 청크가
+            // 통째로 사라진 채 남는다. 그래서 새 청크를 먼저 저장(같은 ID는 덮어씀)하고,
+            // 저장이 끝난 뒤에 이번에 덮어쓰지 않은 옛 청크만 지운다.
+            // flushBatch는 임베딩이 끝나야 upsert하므로, 임베딩이 실패하면 옛 청크가 그대로 남는다.
+            List<String> existingIds = pineconeClient.listFileChunkIds(namespace, filePath, namespace);
 
-            List<ChunkMeta> chunks = chunk(content, filePath);
+            String content = message.fileContent();
             List<ChunkMeta> metas = new ArrayList<>();
-            for (int i = 0; i < chunks.size(); i++) {
-                String id = roomId + "-" + filePath.replace("/", "_") + "-" + i;
-                metas.add(chunks.get(i).withIndexingInfo(id, filePath, i));
+            if (content != null && !content.isBlank()) {
+                List<ChunkMeta> chunks = chunk(content, filePath);
+                for (int i = 0; i < chunks.size(); i++) {
+                    String id = roomId + "-" + filePath.replace("/", "_") + "-" + i;
+                    metas.add(chunks.get(i).withIndexingInfo(id, filePath, i));
+                }
             }
 
             if (!metas.isEmpty()) {
                 flushBatch(roomId, metas);
             }
 
-            log.info("파일 재인덱싱 완료. roomId={}, filePath={}, chunkCount={}", roomId, filePath, metas.size());
+            Set<String> newIds = new HashSet<>();
+            metas.forEach(m -> newIds.add(m.id()));
+            List<String> staleIds = existingIds.stream()
+                .filter(id -> !newIds.contains(id))
+                .toList();
+            pineconeClient.deleteByIds(staleIds, namespace);
+
+            // 이름이 바뀐 파일은 옛 경로의 청크가 남아 있으므로, 새 경로 저장이 끝난 뒤 지운다.
+            if (message.previousFilePath() != null) {
+                pineconeClient.deleteFileChunks(namespace, message.previousFilePath(), namespace);
+            }
+
+            log.info("파일 재인덱싱 완료. roomId={}, filePath={}, previousFilePath={}, chunkCount={}, 삭제된 옛 청크={}",
+                roomId, filePath, message.previousFilePath(), metas.size(), staleIds.size());
         } catch (IndexingException e) {
             if (e.getErrorCode() == IndexingErrorCode.EMBEDDING_EXHAUSTED) {
                 log.error("임베딩 키 소진 - 파일 재인덱싱 중단. roomId={}, filePath={}", roomId, filePath);

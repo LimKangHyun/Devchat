@@ -139,20 +139,29 @@ public class PineconeClient {
     }
 
     public void deleteFileChunks(String repoId, String filePath, String namespace) {
+        List<String> idsToDelete = listFileChunkIds(repoId, filePath, namespace);
+        deleteByIds(idsToDelete, namespace);
+        if (!idsToDelete.isEmpty()) {
+            log.info("Pinecone 파일 청크 삭제. filePath={}, count={}", filePath, idsToDelete.size());
+        }
+    }
+
+    /** 파일에 속한 청크 ID 목록. 청크 ID는 "{repoId}-{경로의 /를 _로}-{chunkIndex}" 형식이다. */
+    public List<String> listFileChunkIds(String repoId, String filePath, String namespace) {
         String prefix = repoId + "-" + filePath.replace("/", "_") + "-";
         ListResponse listResponse = withLimit(() -> index.list(namespace, prefix));
 
-        List<String> idsToDelete = listResponse.getVectorsList().stream()
+        return listResponse.getVectorsList().stream()
                 .map(v -> v.getId())
                 .toList();
+    }
 
-        if (!idsToDelete.isEmpty()) {
-            withLimit(() -> {
-                index.deleteByIds(idsToDelete, namespace);
-                return null;
-            });
-            log.info("Pinecone 파일 청크 삭제. filePath={}, count={}", filePath, idsToDelete.size());
-        }
+    public void deleteByIds(List<String> ids, String namespace) {
+        if (ids.isEmpty()) return;
+        withLimit(() -> {
+            index.deleteByIds(ids, namespace);
+            return null;
+        });
     }
 
     /**
