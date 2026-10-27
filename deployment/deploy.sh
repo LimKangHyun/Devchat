@@ -74,4 +74,10 @@ else
   echo "=== devchat-ai 변경 없음, 배포 스킵 ==="
 fi
 
+# 프론트는 CI가 이미지를 Docker Hub에 올리기만 하고, 예전에는 여기서 새 이미지를 받지 않아 화면이 그대로였다.
+# 매번 받아 두고, 이미지가 바뀐 경우에만 컨테이너가 다시 만들어진다(바뀌지 않았으면 그대로 둔다).
+echo "=== frontend 최신 이미지 확인 ==="
+docker-compose pull dev-chat-frontend
+docker-compose up -d --no-deps dev-chat-frontend
+
 docker image prune -f
