@@ -93,6 +93,17 @@ public class Notification {
             .build();
     }
 
+    /** 채팅방에서 @멘션됨. referenceId는 채팅방 id */
+    public static Notification ofMention(Member receiver, Member sender, Long roomId) {
+        return Notification.builder()
+            .receiver(receiver)
+            .sender(sender)
+            .type(NotificationType.MENTION)
+            .referenceId(roomId)
+            .createdAt(LocalDateTime.now())
+            .build();
+    }
+
     public static Notification ofStudyResult(Member applicantMember, Member author, Long postId,
         NotificationType type) {
         return Notification.builder()

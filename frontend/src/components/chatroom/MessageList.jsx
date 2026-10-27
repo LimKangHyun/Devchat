@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Highlight from 'react-highlight';
 import { UserPlus, Pencil, Trash2, GitPullRequest, Bot, ExternalLink, Maximize2 } from 'lucide-react';
 import s from './Chat.module.css';
+import { splitMentions } from '../../utils/mention';
 
 /* ── 유틸리티 함수 ── */
 const formatDate = (dateString) => {
@@ -39,14 +40,21 @@ const isSameGroup = (a, b) => {
   return Math.abs(db - da) < GROUP_GAP_MS;
 };
 
+// 링크와 @멘션을 표시한다. split에 캡처 그룹을 쓰면 홀수 번째 조각이 URL이다
 const renderWithLink = (text) => {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urlRegex = /(https?:\/\/[^\s]+)/;
   return text.split(urlRegex).map((part, i) =>
-    urlRegex.test(part) ? (
+    i % 2 === 1 ? (
       <a key={i} href={part} target="_blank" rel="noopener noreferrer" className={s.link}>
         {part}
       </a>
-    ) : part
+    ) : (
+      <React.Fragment key={i}>
+        {splitMentions(part).map((p, j) =>
+          p.mention ? <span key={j} className={s.mention}>{p.text}</span> : p.text
+        )}
+      </React.Fragment>
+    )
   );
 };
 

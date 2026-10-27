@@ -21,6 +21,7 @@ import project.api.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.api.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.api.domain.chat.chatmessage.dto.ChatMessageSearchSlice;
 import project.api.domain.chat.chatmessage.dto.ChatScrollResponse;
+import project.api.domain.chat.chatmessage.event.ChatMentionEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessageBroadcastEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessageSavedEvent;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
@@ -69,6 +70,27 @@ public class ChatMessageService {
             entityManager.persist(messageMapper.toIndexStatus(message));
         }
         publishEvents(message, memberDetails);
+        publishMention(roomId, memberDetails.getId(), request);
+    }
+
+    private static final int MAX_MENTIONS = 20;
+    private static final int MENTION_PREVIEW_LENGTH = 60;
+
+    private void publishMention(Long roomId, Long senderId, ChatMessageRequest request) {
+        List<Long> mentioned = request.getMentionedMemberIds();
+        if (mentioned == null || mentioned.isEmpty()
+            || (request.getType() != MessageType.TEXT && request.getType() != MessageType.CODE)) {
+            return;
+        }
+        List<Long> ids = mentioned.stream().filter(java.util.Objects::nonNull).distinct().limit(MAX_MENTIONS).toList();
+        String preview = request.getType() == MessageType.CODE ? "[코드]" : abbreviate(request.getContent());
+        eventPublisher.publishEvent(new ChatMentionEvent(roomId, senderId, ids, preview));
+    }
+
+    private static String abbreviate(String content) {
+        if (content == null) return "";
+        String oneLine = content.replaceAll("\\s+", " ").trim();
+        return oneLine.length() <= MENTION_PREVIEW_LENGTH ? oneLine : oneLine.substring(0, MENTION_PREVIEW_LENGTH) + "…";
     }
 
     private ChatMessage createMessage(ChatRoom room, Member sender,
