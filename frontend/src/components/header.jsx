@@ -25,6 +25,19 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
     const room = (alarmRoomsRef.current || []).find((r) => Number(r.uniqueId) === Number(roomId))
     return room?.inviteCode ? `/chat/${room.inviteCode}` : null
   }
+  // 캐시에 없는 방(새로 초대된 방 등)이면 방 목록을 다시 받아 찾는다
+  const resolveRoomUrl = async (roomId) => {
+    const cached = roomUrlById(roomId)
+    if (cached) return cached
+    try {
+      const res = await axiosInstance.get('/chat-rooms/all')
+      const room = (res.data || []).find((r) => Number(r.roomId ?? r.id) === Number(roomId))
+      return room?.inviteCode ? `/chat/${room.inviteCode}` : null
+    } catch (err) {
+      console.error("채팅방 주소 조회 실패:", err)
+      return null
+    }
+  }
 
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const profileDropdownRef = useRef(null)
@@ -77,7 +90,11 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       setRealtimeNotificationCount((prev) => prev + 1)
     })
     if (notification.type === "MENTION") {
-      showImmediateNotification({ ...notification, url: roomUrlById(notification.referenceId) })
+      showImmediateNotification({
+        ...notification,
+        url: roomUrlById(notification.referenceId),
+        resolveUrl: () => resolveRoomUrl(notification.referenceId),
+      })
       setHasUnreadNotifications(true)
       return
     }
@@ -162,11 +179,12 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
           : "/images/not-found-profile.webp",
       })
 
-      if (notification.url) {
-        noti.onclick = () => {
+      if (notification.url || notification.resolveUrl) {
+        noti.onclick = async () => {
           try { window.focus() } catch {}
-          window.location.href = notification.url
           noti.close()
+          const url = notification.url || (await notification.resolveUrl())
+          if (url) window.location.href = url
         }
       }
 
@@ -324,8 +342,9 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       case "STUDY_APPROVED":
       case "STUDY_REJECTED": window.location.href = `/community/${entityId}`; break
       case "MENTION": {
-        const url = roomUrlById(entityId)
+        const url = await resolveRoomUrl(entityId)
         if (url) navigate(url)
+        else alert("채팅방을 찾을 수 없습니다. 방에서 나갔거나 삭제된 방일 수 있습니다.")
         break
       }
       default: break
@@ -371,7 +390,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
     const isFriendRequest = notification.type === "FRIEND_REQUESTED"
     const typeInfo = getNotificationTypeInfo(notification.type)
     const showActionButtonsForFriendRequest = isFriendRequest && !notification.isRead
-    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", "CODE_REVIEW", "MESSAGE", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"]
+    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", "CODE_REVIEW", "MESSAGE", "MENTION", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"]
     const canMarkAsRead = !typesWithoutMarkAsReadButton.includes(notification.type) && !notification.isRead
 
     let actionElement = null
@@ -393,7 +412,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
           {markingAsReadId === notification.id ? <div className={styles.buttonSpinner}></div> : <Check size={16} />}
         </button>
       )
-    } else if (["CODE_REVIEW", "MESSAGE", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"].includes(notification.type)) {
+    } else if (["CODE_REVIEW", "MESSAGE", "MENTION", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"].includes(notification.type)) {
       actionElement = (
         <button className={styles.navigationButton} onClick={() => handleNotificationNavigation(notification)} aria-label={`Navigate to ${typeInfo.label}`}>
           <ArrowRight size={16} />
