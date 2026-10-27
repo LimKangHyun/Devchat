@@ -285,6 +285,18 @@ public class ChatRoomService {
         return new ReviewConventionsResponse(room.getReviewConventions());
     }
 
+    /**
+     * 연결된 저장소의 GitHub webhook을 지금 설정(서명 secret, push 포함 이벤트)으로 다시 맞춘다. 방장만 할 수 있다.
+     * secret 없이 등록된 예전 webhook은 이 작업 전까지 서명 검증을 통과하지 못한다(설정에 따라 경고만 남기거나 거절).
+     */
+    public void refreshWebhook(Long roomId, Long memberId) {
+        ChatRoom room = findRoomAsOwner(roomId, memberId);
+        if (room.getRepositoryUrl() == null || room.getRepositoryUrl().isBlank()) {
+            throw new ChatRoomException(ChatRoomErrorCode.REPOSITORY_NOT_CONNECTED);
+        }
+        gitMessageService.refreshWebhook(roomId, memberId);
+    }
+
     // 레포 없이 만든 방에 나중에 레포를 연결한다. 방 생성 때와 같은 순서: 웹훅 → 봇 참여 → 인덱싱
     public ConnectRepositoryResponse connectRepository(Long roomId, Long memberId, String repositoryUrl) {
         ChatRoom room = findRoomAsOwner(roomId, memberId);

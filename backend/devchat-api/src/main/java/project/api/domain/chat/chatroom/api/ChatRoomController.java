@@ -157,6 +157,15 @@ public class ChatRoomController {
         chatRoomService.updateLastReadSequence(roomId, memberDetails.getId());
     }
 
+    @Operation(summary = "GitHub 연동(webhook) 갱신",
+        description = "방장만 할 수 있다. webhook에 서명 secret과 최신 이벤트 목록을 다시 설정하고, 지워져 있으면 새로 등록한다.")
+    @PostMapping("/{roomId}/webhook/refresh")
+    public void refreshWebhook(
+            @PathVariable Long roomId,
+            @AuthenticationPrincipal MemberDetails memberDetails) {
+        chatRoomService.refreshWebhook(roomId, memberDetails.getId());
+    }
+
     @Operation(summary = "저장소 인덱싱 상태 조회", description = "진행 중이면 단계와 진행률을 함께 준다. 참여자 누구나 볼 수 있다.")
     @GetMapping("/{roomId}/indexing")
     public IndexingStatusResponse getIndexingStatus(

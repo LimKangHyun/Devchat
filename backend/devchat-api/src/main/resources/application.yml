@@ -63,3 +63,8 @@ github:
   username: GitHubBot
   bot:
     username: Devchat-Code-Assist
+  # webhook 서명(X-Hub-Signature-256) 검증용 secret. 비어 있으면 검증하지 않는다(로컬 개발)
+  webhook:
+    secret: ${GITHUB_WEBHOOK_SECRET:}
+    # true면 서명 없는 요청을 거절한다. 기존 webhook을 모두 갱신(채팅방 메뉴 "GitHub 연동 갱신")한 뒤 켠다
+    require-signature: ${GITHUB_WEBHOOK_REQUIRE_SIGNATURE:false}

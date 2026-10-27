@@ -265,6 +265,27 @@ public class GitMessageService {
 		findRoom(roomId).updateWebhookId(webhookId);
 	}
 
+	/**
+	 * 연결된 저장소의 webhook을 지금 설정(서명 secret, 이벤트 목록)으로 다시 맞춘다.
+	 * secret 없이 등록된 예전 webhook에 서명을 켜려면 이 작업이 필요하다. webhook이 지워져 있으면 새로 등록한다.
+	 */
+	@Transactional
+	public void refreshWebhook(Long roomId, Long memberId) {
+		ChatRoom room = findRoom(roomId);
+		GitRepoDto gitRepoDto = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
+		String githubAccessToken = authTokenService.getGithubAccessToken(memberId);
+
+		gitHubUserClient.validateAdminPermission(githubAccessToken, gitRepoDto.ownerName(), gitRepoDto.repoName());
+		boolean updated = room.getWebhookId() != null && gitHubUserClient.updateWebhook(
+				githubAccessToken, gitRepoDto.ownerName(), gitRepoDto.repoName(), room.getWebhookId(), makeWebhookUrl(roomId));
+		if (!updated) {
+			Long webhookId = gitHubUserClient.registerWebhook(
+					githubAccessToken, gitRepoDto.ownerName(), gitRepoDto.repoName(), makeWebhookUrl(roomId));
+			room.updateWebhookId(webhookId);
+		}
+		log.info("webhook 갱신 완료 - roomId={}, 새로 등록={}", roomId, !updated);
+	}
+
 	private String makeWebhookUrl(Long roomId) {
 		return webhookUrl + "/github/webhook/" + roomId;
 	}
