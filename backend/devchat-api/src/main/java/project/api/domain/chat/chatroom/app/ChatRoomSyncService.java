@@ -85,9 +85,4 @@ public class ChatRoomSyncService {
                         ChatRoomCheckpoint::getRoomId,
                         ChatRoomCheckpoint::getCumulativeCount));
     }
-
-    @Transactional
-    public void deleteByRoomId(Long roomId) {
-        checkpointRepository.deleteByRoomId(roomId);
-    }
 }

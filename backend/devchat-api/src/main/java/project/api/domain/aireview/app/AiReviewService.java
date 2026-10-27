@@ -330,13 +330,6 @@ public class AiReviewService {
                 });
     }
 
-    public void deleteByRoomId(Long roomId) {
-        aiCommentModRepository.deleteByComment_AiReview_ChatRoom_Id(roomId);
-        aiReviewCommentRepository.deleteByAiReview_ChatRoom_Id(roomId);
-        aiReviewFileRepository.deleteByAiReview_ChatRoom_Id(roomId);
-        aiReviewRepository.deleteByChatRoom_Id(roomId);
-    }
-
     public boolean existsByRoomIdAndPrNumber(Long roomId, int prNumber) {
         return aiReviewRepository.existsByChatRoom_IdAndPrNumber(roomId, prNumber);
     }

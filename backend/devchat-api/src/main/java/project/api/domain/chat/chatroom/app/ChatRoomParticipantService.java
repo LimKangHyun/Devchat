@@ -107,9 +107,4 @@ public class ChatRoomParticipantService {
         return chatParticipantRepository
                 .findByChatRoomIdAndParticipantIdAndIsActiveTrue(roomId, memberId);
     }
-
-    @Transactional
-    public void deleteAllByRoomId(Long roomId) {
-        chatParticipantRepository.deleteByChatRoom_Id(roomId);
-    }
 }

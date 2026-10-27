@@ -30,6 +30,7 @@ import project.api.auth.app.AuthTokenService;
 import project.api.domain.aireview.app.AiReviewService;
 import project.api.domain.chat.chatmessage.app.ChatMessageService;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
+import project.api.domain.chat.chatroom.dao.ChatRoomDataCleaner;
 import project.api.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.api.domain.chat.chatroom.dao.ChatRoomWithSequenceProjection;
 import project.api.domain.chat.chatroom.dto.AllRoomsResponse;
@@ -55,6 +56,7 @@ class ChatRoomServiceTest {
 
     @Mock private PostRepository postRepository;
     @Mock private ChatRoomRepository chatRoomRepository;
+    @Mock private ChatRoomDataCleaner chatRoomDataCleaner;
     @Mock private ChatRoomMapper chatRoomMapper;
     @Mock private MemberService memberService;
     @Mock private ChatMessageService chatMessageService;
@@ -221,11 +223,8 @@ class ChatRoomServiceTest {
 
             then(gitMessageService).should(never()).deleteWebhook(anyString(), anyLong(), anyLong());
             then(eventPublisher).should().publishEvent(any(DeleteChatRoomEvent.class));
-            then(chatRoomParticipantService).should().deleteAllByRoomId(10L);
-            then(chatMessageService).should().deleteByRoomId(10L);
             then(postRepository).should().deleteByChatRoom_Id(10L);
-            then(chatRoomRepository).should().delete(chatRoom);
-            then(chatRoomSyncService).should().deleteByRoomId(10L);
+            then(chatRoomDataCleaner).should().deleteRoomAndData(10L);
         }
 
         @Test
