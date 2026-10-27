@@ -1,6 +1,5 @@
 package project.ai.processor;
 
-import io.pinecone.unsigned_indices_model.ScoredVectorWithUnsignedIndices;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -31,26 +30,12 @@ public class RagEvaluationProcessor {
 
         results.forEach(r -> {
             log.info("[RAG EVAL] score={}, path={}, class={}, method={}",
-                r.getScore(),
-                getMetaField(r, "filePath"),
-                getMetaField(r, "className"),
-                getMetaField(r, "methodSignature"));
+                r.score(),
+                r.getString("filePath"),
+                r.getString("className"),
+                r.getString("methodSignature"));
         });
 
         return List.of();
-    }
-
-    private String getMetaField(
-        ScoredVectorWithUnsignedIndices result,
-        String key) {
-
-        return result.getMetadata()
-            .getFieldsOrDefault(
-                key,
-                com.google.protobuf.Value.newBuilder()
-                    .setStringValue("")
-                    .build()
-            )
-            .getStringValue();
     }
 }

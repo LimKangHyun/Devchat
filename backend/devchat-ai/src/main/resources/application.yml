@@ -18,9 +18,20 @@ gemini:
   review-api-keys: ${GEMINI_REVIEW_API_KEYS}
   embedding-api-keys: ${GEMINI_EMBEDDING_API_KEYS}
 
-pinecone:
-  api-key: ${PINECONE_API_KEY}
-  index-name: devchat
+qdrant:
+  url: ${QDRANT_URL}
+  api-key: ${QDRANT_API_KEY}
+  collection: devchat
 
 cohere:
   api-key: ${COHERE_API_KEY}
+# RAG 대체 처리·검색 시간 지표를 Prometheus로 내보낸다 (RagMetrics).
+# 8081은 외부에 노출하지 않고 Docker 내부 네트워크의 Prometheus만 수집한다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: devchat-ai

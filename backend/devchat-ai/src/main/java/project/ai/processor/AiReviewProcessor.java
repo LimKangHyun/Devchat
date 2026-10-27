@@ -21,6 +21,7 @@ public class AiReviewProcessor {
     private final RagContextService ragContextService;
     private final DiffLineParser diffLineParser;
     private final InlineReviewFilter inlineReviewFilter;
+    private final RelatedChangedCodeBuilder relatedChangedCodeBuilder;
 
     public List<InlineReview> process(AiReviewRequestMessage message) {
         Set<Integer> validDiffLines = diffLineParser.parseValidLines(message.fileDiff());
@@ -30,12 +31,17 @@ public class AiReviewProcessor {
             message.fileContent(), message.baseContent(),
             Set.copyOf(message.changedFilesInPr()));
 
+        // 같은 PR에서 바뀐 다른 파일의 메서드 중 이 파일이 호출하는 것 (인덱스엔 변경 전 코드만 있어 RAG로는 못 가져온다)
+        String relatedChangedCode = relatedChangedCodeBuilder.build(
+            message.filePath(), message.fileContent(), message.relatedChangedFiles());
+
         List<InlineReview> reviews = geminiClient.reviewPrDiffInline(
-                message.fileDiff(), ragContext, message.fileContent(), message.prTitle(), message.prBody());
+                message.fileDiff(), ragContext, relatedChangedCode,
+                message.fileContent(), message.prTitle(), message.prBody(), message.reviewConventions());
 
         List<InlineReview> filtered = inlineReviewFilter.filterValidReviews(reviews, message.fileContent());
 
-        return filtered.stream()
+        List<InlineReview> result = filtered.stream()
                 .map(r -> {
                     OptionalInt nearestLine = diffLineParser.findNearestDiffLine(validDiffLines, r.lineNumber());
                     if (nearestLine.isPresent()) {
@@ -46,5 +52,12 @@ public class AiReviewProcessor {
                     }
                 })
                 .toList();
+
+        // 튜닝용: LLM이 낸 코멘트가 어느 단계에서 얼마나 걸러지는지. 필터에서 많이 빠지면 프롬프트를 손볼 신호다.
+        long teamRuleComments = result.stream()
+                .filter(r -> r.comment() != null && r.comment().startsWith("[팀 규칙]")).count();
+        log.info("[리뷰-결과] aiReviewId={}, file={}, 코멘트 생성={} → 필터 통과={}, 팀규칙 코멘트={}",
+                message.aiReviewId(), message.filePath(), reviews.size(), result.size(), teamRuleComments);
+        return result;
     }
 }

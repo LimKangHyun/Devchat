@@ -8,6 +8,7 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import lombok.extern.slf4j.Slf4j;
+import project.ai.indexing.chunking.TypeNameResolver;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -56,7 +57,7 @@ public class ChangedSymbolResolver {
             for (ClassOrInterfaceDeclaration clazz : cu.findAll(ClassOrInterfaceDeclaration.class)) {
                 if (headerRange(clazz).map(r -> overlaps(r, changedLines)).orElse(false)) {
                     symbols.add(new ChangedSymbol(ChangedSymbol.Kind.CLASS_HEADER,
-                        clazz.getNameAsString()));
+                        clazz.getNameAsString(), TypeNameResolver.declaredName(clazz)));
                 }
             }
 
@@ -70,10 +71,10 @@ public class ChangedSymbolResolver {
 
                 if (overlaps(signatureRange(method), changedLines)) {
                     symbols.add(new ChangedSymbol(ChangedSymbol.Kind.METHOD_SIGNATURE,
-                        method.getNameAsString()));
+                        method.getNameAsString(), TypeNameResolver.enclosingTypeName(method)));
                 } else {
                     symbols.add(new ChangedSymbol(ChangedSymbol.Kind.METHOD_BODY,
-                        method.getNameAsString()));
+                        method.getNameAsString(), TypeNameResolver.enclosingTypeName(method)));
                 }
             }
 
@@ -83,7 +84,8 @@ public class ChangedSymbolResolver {
                 if (range == null || !overlaps(range, changedLines)) continue;
 
                 field.getVariables().forEach(v ->
-                    symbols.add(new ChangedSymbol(ChangedSymbol.Kind.FIELD, v.getNameAsString())));
+                    symbols.add(new ChangedSymbol(ChangedSymbol.Kind.FIELD, v.getNameAsString(),
+                        TypeNameResolver.enclosingTypeName(field))));
             }
 
             log.info("[변경심볼] {}개: {}", symbols.size(), symbols);

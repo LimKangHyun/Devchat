@@ -1,11 +1,11 @@
 package project.ai.service;
 
-import io.pinecone.unsigned_indices_model.ScoredVectorWithUnsignedIndices;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import project.ai.rag.RagContextService;
+import project.ai.rag.SearchHit;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 실제 Pinecone/임베딩/Cohere를 호출하는 수동 평가용 테스트.
+ * 실제 벡터 저장소/임베딩/Cohere를 호출하는 수동 평가용 테스트.
  * 일반 빌드에서 외부 API를 부르지 않도록 -Drag.eval=true일 때만 실행한다.
  *
  * 필요한 파일 (src/test/resources/rag-eval/pr140/):
@@ -44,7 +44,7 @@ class RetrievalEvaluationTest {
         Path basePath = CASE_DIR.resolve("before.java");
         String baseContent = Files.exists(basePath) ? Files.readString(basePath) : "";
 
-        List<ScoredVectorWithUnsignedIndices> results =
+        List<SearchHit> results =
             ragContextService.searchForEvaluation(
                 repoId,
                 filePath,
@@ -61,24 +61,16 @@ class RetrievalEvaluationTest {
 
         for (int i = 0; i < results.size(); i++) {
 
-            ScoredVectorWithUnsignedIndices result = results.get(i);
+            SearchHit result = results.get(i);
 
-            String path = result.getMetadata()
-                .getFieldsOrThrow("filePath")
-                .getStringValue();
-
-            String className = result.getMetadata()
-                .getFieldsOrThrow("className")
-                .getStringValue();
-
-            String method = result.getMetadata()
-                .getFieldsOrThrow("methodSignature")
-                .getStringValue();
+            String path = result.getString("filePath");
+            String className = result.getString("className");
+            String method = result.getString("methodSignature");
 
             System.out.printf(
                 "%d. %.4f%n",
                 i + 1,
-                result.getScore());
+                result.score());
 
             System.out.println("path   : " + path);
             System.out.println("class  : " + className);

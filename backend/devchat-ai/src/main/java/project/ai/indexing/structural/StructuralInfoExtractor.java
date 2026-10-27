@@ -21,28 +21,25 @@ public class StructuralInfoExtractor {
         if (fileContent == null || fileContent.isBlank()) return StructuralInfo.EMPTY;
 
         // 청킹 결과와 import를 한 번의 파싱으로 함께 얻는다.
-        // import는 Pinecone에 저장되지 않는다 — 이 파일 하나를 검색어로 만드는
+        // import는 Qdrant에 저장되지 않는다 — 이 파일 하나를 검색어로 만드는
         // 이 요청 안에서만 쓰이고, ProjectTypeFilter가 참조 타입을 판별하는 데만 사용된다.
         AstChunkExtractor.ExtractionResult extraction = astChunkExtractor.extractWithImports(fileContent, filePath);
         List<ChunkMeta> chunks = extraction.chunks();
         if (chunks.isEmpty()) return StructuralInfo.EMPTY;
 
-        String className = null;
-        String superClassName = null;
-        Set<String> interfaceNames = new LinkedHashSet<>();
+        // 클래스 이름과 상속 정보는 파일의 대표(최상위) 타입 기준이다. 예전에는 마지막 청크의 클래스로
+        // 덮어써서, 파일 끝에 내부 Builder가 있으면 파일 전체가 Builder로 잡혔다.
+        // 메서드별 소속 클래스는 ChangedSymbol.ownerClass가 따로 들고 있다.
+        AstChunkExtractor.PrimaryType primary = extraction.primaryType();
+        String className = primary != null ? primary.name() : null;
+        String superClassName = primary != null ? primary.superClassName() : null;
+        List<String> interfaceNames = primary != null ? primary.interfaceNames() : List.of();
         Set<String> methodNames = new LinkedHashSet<>();
         Set<String> referencedTypes = new LinkedHashSet<>();
         Set<String> calledMethods = new LinkedHashSet<>();
         Set<CalledMethodRef> calledMethodRefs = new LinkedHashSet<>();
 
         for (ChunkMeta chunk : chunks) {
-            if (chunk.className() != null && !chunk.className().isEmpty()) {
-                className = chunk.className();
-            }
-            if (chunk.superClassName() != null && !chunk.superClassName().isEmpty()) {
-                superClassName = chunk.superClassName();
-            }
-            if (chunk.interfaceNames() != null) interfaceNames.addAll(chunk.interfaceNames());
             if (chunk.methodName() != null && !chunk.methodName().isEmpty()) {
                 methodNames.add(chunk.methodName());
             }
@@ -52,8 +49,9 @@ public class StructuralInfoExtractor {
         }
 
         return new StructuralInfo(className, superClassName,
-                List.copyOf(interfaceNames), List.copyOf(methodNames),
+                interfaceNames, List.copyOf(methodNames),
                 List.copyOf(referencedTypes), List.copyOf(calledMethods),
-                List.copyOf(calledMethodRefs), extraction.imports());
+                List.copyOf(calledMethodRefs), extraction.imports(),
+                chunks.get(0).packageName() != null ? chunks.get(0).packageName() : "");
     }
 }

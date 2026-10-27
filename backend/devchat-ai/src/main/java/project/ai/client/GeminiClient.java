@@ -20,6 +20,7 @@ import project.common.exception.ex.IndexingException;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,6 +38,10 @@ public class GeminiClient {
 
     @Value("#{'${gemini.review-api-keys}'.split(',')}")
     private List<String> apiKeys;
+
+    /** 리뷰·요약 생성 응답 제한(시도 1회 기준). 넘기면 다른 키로 재시도한다. */
+    @Value("${gemini.review-timeout:60s}")
+    private Duration reviewTimeout;
 
     private static final String GEMINI_URL =
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
@@ -78,36 +83,62 @@ public class GeminiClient {
         return resource.getContentAsString(StandardCharsets.UTF_8);
     }
 
+    static final String CONVENTIONS_BEGIN = "<<<팀 규칙 시작>>>";
+    static final String CONVENTIONS_END = "<<<팀 규칙 끝>>>";
+
+    /**
+     * 방장이 정한 팀 규칙을 구분선으로 감싼다. 프롬프트의 [팀 규칙 활용 규칙]이 이 구간을 리뷰 기준으로만 쓰게 한다.
+     * 규칙 안에 구분선 문자열을 넣어 구간을 빠져나가지 못하도록 미리 지운다.
+     */
+    static String teamConventionsSection(String conventions) {
+        if (conventions == null || conventions.isBlank()) return "";
+        String body = conventions.replace(CONVENTIONS_BEGIN, "").replace(CONVENTIONS_END, "").strip();
+        if (body.isEmpty()) return "";
+        return "[팀 규칙]\n" + CONVENTIONS_BEGIN + "\n" + body + "\n" + CONVENTIONS_END;
+    }
+
     public List<InlineReview> reviewPrDiffInline(
-        String diff, String ragContext, String fileContent, String prTitle, String prBody) {
+        String diff, String ragContext, String relatedChangedCode,
+        String fileContent, String prTitle, String prBody, String reviewConventions) {
 
         String truncatedDiff = truncate(diff, 4000);
-        String numberedContent = addLineNumbers(fileContent);
-        String truncatedContent = truncate(numberedContent, 10000);
+        String numberedContent = numberedFileContent(fileContent);
 
         String prInfo = "[PR 정보]\n제목: " + (prTitle != null ? prTitle : "") + "\n내용: " + (prBody != null ? prBody : "");
 
-        StringBuilder promptBuilder = new StringBuilder(inlineReviewPrompt)
-            .append("\n\n").append(prInfo);
+        StringBuilder promptBuilder = new StringBuilder(inlineReviewPrompt);
+        // 팀 규칙은 리뷰 기준이라 코드·PR 정보보다 앞에 둔다.
+        String conventionsSection = teamConventionsSection(reviewConventions);
+        if (!conventionsSection.isEmpty()) {
+            promptBuilder.append("\n\n").append(conventionsSection);
+        }
+        promptBuilder.append("\n\n").append(prInfo);
 
         if (ragContext != null && !ragContext.isBlank()) {
             promptBuilder.append("\n\n").append(ragContext);
         }
+        if (relatedChangedCode != null && !relatedChangedCode.isBlank()) {
+            promptBuilder.append("\n\n").append(relatedChangedCode);
+        }
 
         promptBuilder
             .append("\n\n[PR DIFF]\n").append(truncatedDiff)
-            .append("\n\n[전체 파일 코드 - 앞의 숫자가 lineNumber]\n").append(addLineNumbers(truncatedContent));
+            .append("\n\n[전체 파일 코드 - 앞의 숫자가 lineNumber]\n").append(numberedContent);
 
-        log.info("[Gemini 프롬프트 diff 부분]\n{}", truncatedDiff); // 임시 추가
+        // 원문(diff, 응답)은 사용자 코드가 그대로 담겨 있어 DEBUG로만 남긴다.
+        log.debug("[Gemini 프롬프트 diff 부분]\n{}", truncatedDiff);
 
-        String response = callGemini(promptBuilder.toString(), true);
-        log.info("[Gemini 원본 응답] {}", response); // 임시 추가
+        String prompt = promptBuilder.toString();
+        long start = System.currentTimeMillis();
+        String response = callGemini(prompt, true);
+        long elapsedMs = System.currentTimeMillis() - start;
+        log.debug("[Gemini 원본 응답] {}", response);
 
         try {
             List<InlineReview> reviews = objectMapper.readValue(
                 response, new TypeReference<List<InlineReview>>() {});
 
-            return reviews.stream()
+            List<InlineReview> valid = reviews.stream()
                 .filter(review -> {
                     var violations = validator.validate(review);
                     if (!violations.isEmpty()) {
@@ -118,17 +149,35 @@ public class GeminiClient {
                 })
                 .toList();
 
+            // 튜닝용: 프롬프트 크기와 섹션 유무, 코멘트 수. 맥락·팀 규칙이 코멘트 수에 주는 영향을 보려고 남긴다.
+            log.info("[리뷰-요약] 프롬프트={}자 (맥락={}자, 함께변경={}자, 팀규칙={}), 응답={}ms, 코멘트={}개 (검증통과={}개)",
+                prompt.length(), ragContext == null ? 0 : ragContext.length(),
+                relatedChangedCode == null ? 0 : relatedChangedCode.length(),
+                !conventionsSection.isEmpty(), elapsedMs, reviews.size(), valid.size());
+            return valid;
+
         } catch (Exception e) {
-            log.error("AI 인라인 리뷰 파싱 실패: {}", response, e);
+            // 응답 원문 대신 길이와 앞부분만 남긴다. 원문 전체는 DEBUG 로그에 있다.
+            log.error("AI 인라인 리뷰 파싱 실패. 응답={}자, 앞부분={}",
+                response == null ? 0 : response.length(),
+                response == null ? "null" : response.substring(0, Math.min(200, response.length())), e);
             throw new AiReviewException(AiReviewErrorCode.GEMINI_RESPONSE_PARSE_FAILED);
         }
     }
 
-    private String truncate(String text, int limit) {
+    /**
+     * 프롬프트에 넣을 파일 코드. 줄 번호를 한 번만 붙이고 10000자에서 자른다.
+     * 예전에는 번호를 붙인 코드에 한 번 더 붙여 "   1:    1: 코드"처럼 들어갔다.
+     */
+    static String numberedFileContent(String fileContent) {
+        return truncate(addLineNumbers(fileContent), 10000);
+    }
+
+    private static String truncate(String text, int limit) {
         return text.length() > limit ? text.substring(0, limit) + "\n...(truncated)" : text;
     }
 
-    private String addLineNumbers(String content) {
+    private static String addLineNumbers(String content) {
         String[] lines = content.split("\n");
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < lines.length; i++) {
@@ -174,7 +223,7 @@ public class GeminiClient {
             .bodyValue(requestBody)
             .retrieve()
             .bodyToMono(GeminiResponse.class)
-            .block();
+            .block(reviewTimeout);
 
         return Objects.requireNonNull(response).candidates().get(0).content().parts().get(0).text();
     }

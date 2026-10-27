@@ -1,5 +1,6 @@
 package project.ai.indexing;
 
+import java.time.Duration;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,20 +27,15 @@ public class EmbeddingService {
     @Value("#{'${gemini.embedding-api-keys}'.split(',')}")
     private List<String> apiKeys;
 
-    /**
-     * 인덱싱(코퍼스) 임베딩에 쓸 taskType.
-     * "이 텍스트는 나중에 검색당할 문서다"를 모델에 알려준다.
-     */
     @Value("${gemini.embedding.document-task-type:RETRIEVAL_DOCUMENT}")
     private String documentTaskType;
 
-    /**
-     * 검색 쿼리 임베딩에 쓸 taskType.
-     * 코드 검색 전용 타입이 엔드포인트에서 거부될 경우를 대비해 설정값으로 분리했다.
-     * 400(INVALID_ARGUMENT)이 나면 application.yml에서 RETRIEVAL_QUERY로 내리면 된다.
-     */
     @Value("${gemini.embedding.query-task-type:CODE_RETRIEVAL_QUERY}")
     private String queryTaskType;
+
+    /** 임베딩 응답 제한(시도 1회 기준). 넘기면 재시도 규칙을 따른다. */
+    @Value("${gemini.embedding-timeout:15s}")
+    private Duration timeout;
 
     private final AtomicInteger embedCallCount = new AtomicInteger(0);
     private final AtomicInteger keyIndex = new AtomicInteger(0);
@@ -99,7 +95,7 @@ public class EmbeddingService {
 
     /**
      * 인덱싱(코퍼스)용 임베딩.
-     * Pinecone에 저장할 코드 청크를 벡터로 변환할 때 사용한다.
+     * Qdrant에 저장할 코드 청크를 벡터로 변환할 때 사용한다.
      */
     public List<float[]> embedDocuments(List<String> texts) {
         return embedBatch(texts, documentTaskType);
@@ -144,7 +140,7 @@ public class EmbeddingService {
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(CountTokensResponse.class)
-                .block();
+                .block(timeout);
 
         if (response == null) {
             throw new IndexingException(IndexingErrorCode.EMBEDDING_INVALID_REQUEST);
@@ -205,7 +201,7 @@ public class EmbeddingService {
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(BatchEmbeddingResponse.class)
-                    .block();
+                    .block(timeout);
 
             log.info("[{}] Gemini embedding API 응답 수신. keyIndex={}, taskType={}, 소요={}ms",
                     Thread.currentThread().getName(), idx, taskType, System.currentTimeMillis() - apiStart);

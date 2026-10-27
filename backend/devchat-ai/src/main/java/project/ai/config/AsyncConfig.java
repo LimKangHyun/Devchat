@@ -6,7 +6,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import lombok.extern.slf4j.Slf4j;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import org.springframework.lang.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -59,7 +59,7 @@ public class AsyncConfig {
     }
 
     /**
-     * RAG 구조 검색(Pinecone 메타데이터 필터 쿼리) 전용 executor.
+     * RAG 구조 검색(Qdrant 메타데이터 필터 쿼리) 전용 executor.
      *
      * repoIndexingExecutor/batchIndexingExecutor와 워크로드 성격이 다르다:
      *  - 인덱싱은 배치성 작업이라 동시성을 낮게 눌러도(4) 무방하지만,

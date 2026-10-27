@@ -38,6 +38,27 @@ public class DiffLineParser {
         return validLines;
     }
 
+    private static final Pattern BASE_HUNK_HEADER_PATTERN = Pattern.compile("^@@ -([0-9]+)");
+
+    /** diff가 삭제한 라인 번호 (변경 전 파일 기준). */
+    public Set<Integer> parseRemovedLines(String fileDiff) {
+        Set<Integer> removedLines = new LinkedHashSet<>();
+        int baseLineNum = 0;
+
+        for (String line : fileDiff.split("\n")) {
+            if (line.startsWith("@@ ")) {
+                Matcher m = BASE_HUNK_HEADER_PATTERN.matcher(line);
+                if (m.find()) baseLineNum = Integer.parseInt(m.group(1)) - 1;
+            } else if (line.startsWith("-") && !line.startsWith("---")) {
+                baseLineNum++;
+                removedLines.add(baseLineNum);
+            } else if (!line.startsWith("+") && !line.startsWith("diff") && !line.startsWith("index")) {
+                baseLineNum++;
+            }
+        }
+        return removedLines;
+    }
+
     /**
      * 유효한 변경 라인 중 target과 가장 가까운 라인을 찾는다.
      * 20줄 이내에 유효 라인이 없으면 빈 값을 반환한다.

@@ -1,8 +1,8 @@
 package project.ai.rag;
 
-import io.pinecone.unsigned_indices_model.ScoredVectorWithUnsignedIndices;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import project.ai.client.CohereClient;
 import project.ai.indexing.chunking.ChunkMeta.CalledMethodRef;
@@ -16,8 +16,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static project.ai.rag.PineconeResultUtils.getListField;
-import static project.ai.rag.PineconeResultUtils.getStringField;
 
 /** 리랭킹용 쿼리/문서 조립과 Cohere 호출을 담당한다. */
 @Slf4j
@@ -26,14 +24,43 @@ import static project.ai.rag.PineconeResultUtils.getStringField;
 public class RerankQueryService {
 
     private final CohereClient cohereClient;
+    private final RagMetrics ragMetrics;
 
     private static final int MAX_SYMBOLS = 10;
 
-    public List<ScoredVectorWithUnsignedIndices> rerank(
-            String query, List<ScoredVectorWithUnsignedIndices> candidates,
+    /**
+     * 리랭크 문서 맨 앞에 관계 태그 줄을 붙일지. 관계 신호 없이 리랭커만의 판단을
+     * 평가하려고 설정으로 뺐다.
+     */
+    @Value("${rag.rerank.include-relation-tag:true}")
+    private boolean includeRelationTag;
+
+    /**
+     * 리랭커를 쓸지. 끄면 Cohere를 부르지 않고 검색 순서 그대로 상위 topN을 돌려준다.
+     * 리랭커를 넣기 전 단계의 Recall을 평가하려고 설정으로 뺐다.
+     */
+    @Value("${rag.rerank.enabled:true}")
+    private boolean rerankEnabled;
+
+    /** 개선한 리랭크 쿼리(buildRerankQueryV2)를 쓸지. */
+    @Value("${rag.rerank.query-v2:true}")
+    private boolean queryV2Enabled;
+
+    /** @param fallback 리랭킹이 실패해 벡터 순서로 대체됐는지. 평가에서 오염된 결과를 걸러내려고 둔다. */
+    public record RerankOutcome(List<SearchHit> hits, boolean fallback) {}
+
+    public List<SearchHit> rerank(
+            String query, List<SearchHit> candidates,
+            Map<String, String> relationshipTags, int topN) {
+        return rerankWithOutcome(query, candidates, relationshipTags, topN).hits();
+    }
+
+    public RerankOutcome rerankWithOutcome(
+            String query, List<SearchHit> candidates,
             Map<String, String> relationshipTags, int topN) {
 
-        if (candidates.isEmpty() || topN <= 0) return List.of();
+        if (candidates.isEmpty() || topN <= 0) return new RerankOutcome(List.of(), false);
+        if (!rerankEnabled) return new RerankOutcome(candidates.stream().limit(topN).toList(), false);
 
         List<String> documents = candidates.stream()
                 .map(r -> buildRerankDocument(r, relationshipTags))
@@ -48,12 +75,16 @@ public class RerankQueryService {
             // 평가 중 이 경로를 타면 "리랭킹 없는 파이프라인"을 측정한 것이 되므로
             // 반드시 로그로 드러나야 한다.
             log.warn("[RAG] 리랭킹 실패, 벡터 순서 상위 {}개로 폴백. pool={}", topN, candidates.size());
-            return candidates.stream().limit(topN).toList();
+            ragMetrics.fallback(RagMetrics.Stage.RERANK);
+            return new RerankOutcome(candidates.stream().limit(topN).toList(), true);
         }
 
-        return rerankResults.stream()
+        // Cohere는 점수 높은 순으로 준다. 1위·5위 점수를 튜닝용 지표로 남긴다.
+        ragMetrics.rerankScores(rerankResults.stream().map(CohereClient.RerankResult::relevanceScore).toList());
+
+        return new RerankOutcome(rerankResults.stream()
                 .map(r -> candidates.get(r.index()))
-                .toList();
+                .toList(), false);
     }
 
     /**
@@ -68,7 +99,12 @@ public class RerankQueryService {
      * @param removedSymbols 변경 전에는 있었으나 변경 후 사라진 메서드 이름
      */
     public String buildRerankQuery(String filePath, String diff, StructuralInfo info,
-                                   List<ChangedSymbol> changedSymbols, Set<String> removedSymbols) {
+                                   List<ChangedSymbol> changedSymbols, Set<String> removedSymbols,
+                                   List<CalledMethodRef> addedCalls) {
+        if (queryV2Enabled) {
+            return buildRerankQueryV2(filePath, diff, info, changedSymbols, removedSymbols,
+                addedCalls);
+        }
         StringBuilder sb = new StringBuilder();
         sb.append("file: ").append(filePath).append("\n");
 
@@ -115,13 +151,92 @@ public class RerankQueryService {
         sb.append(formatList("calls: ", usedMethodNames(info, changedSymbols)));
 
         List<String> projectTypes = info.referencedTypeNames().stream()
-                .filter(t -> ProjectTypeFilter.isProjectType(t, info.imports()))
+                .filter(t -> ProjectTypeFilter.isProjectType(t, info.imports(), info.packageName()))
                 .limit(10).toList();
         sb.append(formatList("references: ", projectTypes));
 
         sb.append(buildIntent(info.className(), !changedMethods.isEmpty() || !removed.isEmpty()));
         sb.append("Diff:\n").append(truncate(diff, 1000));
         return sb.toString();
+    }
+
+    /**
+     * 개선한 리랭크 쿼리. 기존과 다른 점:
+     *  - calls를 메서드 이름만이 아니라 "클래스.메서드"로 적는다. 문서의 class/method와 바로 맞춰볼 수 있다.
+     *  - 새 코드(추가된 줄)가 부르는 메서드를 new_calls로 따로 적는다.
+     *  - 의도 문장에 "변경 코드가 부르는 메서드의 정의"를 넣는다. 기존 의도는 호출자·구현체·참조자만 말해
+     *    리랭커가 의존 대상(정답의 상당수)을 낮게 봤다.
+     * diff는 그대로 둔다. diff 대신 바뀐 메서드 코드를 넣어 보니 의존 대상은 잘 찾았지만
+     * "무엇이 바뀌었나" 신호가 빠져 호출자·유사 코드를 놓쳐 Recall@5가 떨어졌다(48.5% → 41.5%).
+     * 평가(41개 파일)에서 기존 쿼리보다 Recall@5가 높아(48.5% → 53.3%) 기본으로 켠다.
+     */
+    private String buildRerankQueryV2(String filePath, String diff, StructuralInfo info,
+                                      List<ChangedSymbol> changedSymbols, Set<String> removedSymbols,
+                                      List<CalledMethodRef> addedCalls) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("file: ").append(filePath).append("\n");
+        String className = info.className();
+        if (className != null) {
+            sb.append("changed_class: ").append(className);
+            if (info.superClassName() != null) sb.append(" extends ").append(info.superClassName());
+            if (!info.interfaceNames().isEmpty()) {
+                sb.append(" implements ").append(String.join(", ", info.interfaceNames()));
+            }
+            sb.append("\n");
+        }
+
+        List<String> changedMethods = changedSymbols.stream()
+                .filter(s -> s.kind() == ChangedSymbol.Kind.METHOD_SIGNATURE
+                        || s.kind() == ChangedSymbol.Kind.METHOD_BODY)
+                .map(ChangedSymbol::name).distinct().limit(MAX_SYMBOLS).toList();
+        sb.append(formatList("changed_methods: ", changedMethods));
+        sb.append(formatList("changed_fields: ", changedSymbols.stream()
+                .filter(s -> s.kind() == ChangedSymbol.Kind.FIELD)
+                .map(ChangedSymbol::name).limit(MAX_SYMBOLS).toList()));
+        if (changedSymbols.stream().anyMatch(s -> s.kind() == ChangedSymbol.Kind.CLASS_HEADER)) {
+            sb.append("class_declaration_changed: true\n");
+        }
+        List<String> removed = removedSymbols.stream()
+                .filter(MethodNameFilter::isMeaningful).limit(MAX_SYMBOLS).toList();
+        sb.append(formatList("removed_methods: ", removed));
+
+        sb.append(formatList("new_calls: ", addedCalls.stream()
+                .filter(r -> MethodNameFilter.isMeaningful(r.methodName()))
+                .map(r -> qualified(r, info)).distinct().limit(MAX_SYMBOLS).toList()));
+        sb.append(formatList("calls: ", qualifiedUsedMethods(info, changedMethods)));
+        sb.append(formatList("references: ", info.referencedTypeNames().stream()
+                .filter(t -> ProjectTypeFilter.isProjectType(t, info.imports(), info.packageName()))
+                .limit(10).toList()));
+
+        if (className == null) {
+            sb.append("Find code affected by this change, or code that the changed code depends on.\n");
+        } else {
+            sb.append("Find code that ");
+            if (!changedMethods.isEmpty() || !removed.isEmpty()) {
+                sb.append("calls changed_methods or removed_methods of ").append(className).append(", ");
+            }
+            sb.append("implements, extends or references ").append(className)
+                    .append(", or defines a method listed in new_calls or calls.\n");
+        }
+
+        sb.append("Diff:\n").append(truncate(diff, 1000));
+        return sb.toString();
+    }
+
+    /** 대상 클래스를 아는 프로젝트 타입이면 "클래스.메서드", 아니면 메서드 이름. */
+    private String qualified(CalledMethodRef ref, StructuralInfo info) {
+        String owner = ref.targetClassHint();
+        return owner != null && ProjectTypeFilter.isProjectType(owner, info.imports(), info.packageName())
+                ? owner + "." + ref.methodName() : ref.methodName();
+    }
+
+    private List<String> qualifiedUsedMethods(StructuralInfo info, List<String> changedMethodNames) {
+        Set<String> changed = Set.copyOf(changedMethodNames);
+        return info.calledMethodRefs().stream()
+                .filter(ref -> changed.isEmpty() || changed.contains(ref.fromMethodName()))
+                .filter(ref -> MethodNameFilter.isMeaningful(ref.methodName()))
+                .map(ref -> qualified(ref, info))
+                .distinct().limit(10).toList();
     }
 
     /** 변경된 메서드가 있으면 그 메서드의 호출 대상만, 없으면 파일 전체의 호출 대상. */
@@ -165,21 +280,21 @@ public class RerankQueryService {
         return values.isEmpty() ? "" : label + String.join(", ", values) + "\n";
     }
 
-    private String buildRerankDocument(ScoredVectorWithUnsignedIndices result,
+    private String buildRerankDocument(SearchHit result,
                                        Map<String, String> relationshipTags) {
-        String className = getStringField(result, "className");
-        String superClassName = getStringField(result, "superClassName");
-        String methodSignature = getStringField(result, "methodSignature");
-        String packageName = getStringField(result, "packageName");
-        List<String> interfaceNames = getListField(result, "interfaceNames");
-        List<String> calledMethodNames = getListField(result, "calledMethodNames");
-        List<String> referencedTypeNames = getListField(result, "referencedTypeNames");
-        List<String> annotations = getListField(result, "annotations");
-        String code = getStringField(result, "code");
+        String className = result.getString("className");
+        String superClassName = result.getString("superClassName");
+        String methodSignature = result.getString("methodSignature");
+        String packageName = result.getString("packageName");
+        List<String> interfaceNames = result.getStringList("interfaceNames");
+        List<String> calledMethodNames = result.getStringList("calledMethodNames");
+        List<String> referencedTypeNames = result.getStringList("referencedTypeNames");
+        List<String> annotations = result.getStringList("annotations");
+        String code = result.getString("code");
 
         StringBuilder sb = new StringBuilder();
-        String tag = relationshipTags.get(result.getId());
-        if (tag != null) sb.append("[관계: ").append(tag).append("]\n");
+        String tag = relationshipTags.get(result.id());
+        if (includeRelationTag && tag != null) sb.append("[관계: ").append(tag).append("]\n");
 
         sb.append("package: ").append(packageName).append("\n");
         sb.append("class: ").append(className);

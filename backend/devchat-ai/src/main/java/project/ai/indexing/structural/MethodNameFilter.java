@@ -21,4 +21,12 @@ public final class MethodNameFilter {
         if (SETTER_PATTERN.matcher(name).matches()) return false;
         return !COMMON_OBJECT_METHODS.contains(name);
     }
+
+    /**
+     * toString, build 같은 흔한 메서드인지. 대상 클래스를 알아도 build()처럼 Builder가 여럿이면
+     * 엉뚱한 클래스가 걸리므로, getter 여부와 별개로 판별할 때 쓴다.
+     */
+    public static boolean isCommonObjectMethod(String name) {
+        return name == null || name.isBlank() || COMMON_OBJECT_METHODS.contains(name);
+    }
 }
