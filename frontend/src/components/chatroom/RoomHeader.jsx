@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, BellOff, Search, MoreVertical, Copy, LogOut, Trash2, GitBranch, X, Loader2, ChevronLeft, Bot, FileText, Check, Mail, Link2, ScrollText } from 'lucide-react';
+import { Bell, BellOff, Search, MoreVertical, Copy, LogOut, Trash2, GitBranch, X, Loader2, ChevronLeft, Bot, FileText, Check, Mail, Link2, ScrollText, RefreshCw } from 'lucide-react';
+import axiosInstance from '../api/axiosInstance';
 import useIsMobile from '../../hooks/useIsMobile';
 import s from './Chat.module.css';
 import InviteEmailModal from '../modals/InviteEmailModal';
@@ -105,6 +106,26 @@ const RoomHeader = ({
   };
 
   const handleCopy = () => copyText(inviteCode, '초대 코드가 복사되었습니다.');
+
+  const notify = (text) => {
+    setNotificationText(text);
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 2500);
+  };
+
+  // 예전에 연결한 저장소의 webhook에 서명 secret과 최신 이벤트 목록을 다시 설정한다(방장 전용).
+  const [refreshingWebhook, setRefreshingWebhook] = useState(false);
+  const handleRefreshWebhook = async () => {
+    setRefreshingWebhook(true);
+    try {
+      await axiosInstance.post(`/chat-rooms/${roomId}/webhook/refresh`);
+      notify('GitHub 연동을 갱신했어요.');
+    } catch (err) {
+      notify(err.response?.data?.message || 'GitHub 연동을 갱신하지 못했어요.');
+    } finally {
+      setRefreshingWebhook(false);
+    }
+  };
 
   // 메일로 보내는 것과 같은 입장 링크. 메신저 등으로 직접 공유할 때 쓴다.
   const handleCopyLink = () =>
@@ -279,6 +300,12 @@ const RoomHeader = ({
                     {repositoryUrl && roomId && (
                       <button type="button" className={s.menuItem} onClick={() => { setShowConventions(true); setMenuOpen(false); }}>
                         <ScrollText size={15} />팀 리뷰 규칙
+                      </button>
+                    )}
+                    {repositoryUrl && roomId && isOwner && (
+                      <button type="button" className={s.menuItem} disabled={refreshingWebhook}
+                        onClick={() => { handleRefreshWebhook(); setMenuOpen(false); }}>
+                        <RefreshCw size={15} />{refreshingWebhook ? 'GitHub 연동 갱신 중...' : 'GitHub 연동 갱신'}
                       </button>
                     )}
                     <div className={s.menuDivider} />
