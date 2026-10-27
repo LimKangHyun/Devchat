@@ -192,6 +192,12 @@
   margin-top: 1px;
 }
 
+/* 채팅방 줄은 조금 더 슬림하게 */
+.roomRow {
+  min-height: 36px;
+  padding: 4px 6px 4px 10px;
+}
+
 .roomRow:hover,
 .friendRow:hover {
   background: var(--side-hover);
@@ -501,6 +507,10 @@
   .roomRow + .roomRow,
   .friendRow + .friendRow {
     margin-top: 0;
+  }
+
+  .roomRow {
+    min-height: 52px;
   }
 
   .roomRow:hover,
