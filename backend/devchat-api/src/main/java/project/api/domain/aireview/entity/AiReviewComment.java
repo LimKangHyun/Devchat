@@ -27,4 +27,8 @@ public class AiReviewComment {
     private String comment;
 
     private LocalDateTime createdAt;
+
+    /** 이 코멘트를 만든 프롬프트 버전(프롬프트·모델 해시 앞 8자리). 프롬프트별 채택률 비교용. 예전 코멘트는 null */
+    @Column(length = 20)
+    private String promptVersion;
 }

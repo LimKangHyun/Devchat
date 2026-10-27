@@ -1,5 +1,6 @@
 package project.ai.stream.aireview;
 
+import project.ai.client.GeminiClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,15 +22,18 @@ public class AiReviewResultProducer {
 
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
+    private final GeminiClient geminiClient;
 
     /** @param commitSha 요청의 커밋. API 서버가 그사이 새 커밋으로 리뷰가 다시 시작됐는지 판단하는 데 쓴다. */
     public void publishSuccess(Long aiReviewId, Long chatRoomId, String filePath, String commitSha,
                                List<InlineReview> reviews) {
-        publish(new AiReviewResultMessage(aiReviewId, chatRoomId, filePath, "SUCCESS", reviews, null, commitSha));
+        publish(new AiReviewResultMessage(aiReviewId, chatRoomId, filePath, "SUCCESS", reviews, null, commitSha,
+            geminiClient.reviewPromptVersion()));
     }
 
     public void publishFail(Long aiReviewId, Long chatRoomId, String filePath, String commitSha, String errorMessage) {
-        publish(new AiReviewResultMessage(aiReviewId, chatRoomId, filePath, "FAIL", List.of(), errorMessage, commitSha));
+        publish(new AiReviewResultMessage(aiReviewId, chatRoomId, filePath, "FAIL", List.of(), errorMessage, commitSha,
+            geminiClient.reviewPromptVersion()));
     }
 
     private void publish(AiReviewResultMessage message) {

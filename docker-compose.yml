@@ -163,6 +163,8 @@ services:
       - GF_SERVER_ROOT_URL=https://thedevchat.duckdns.org/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - GRAFANA_MYSQL_USER=${GRAFANA_MYSQL_USER}
+      - GRAFANA_MYSQL_PASSWORD=${GRAFANA_MYSQL_PASSWORD}
     depends_on:
       - prometheus
     networks:

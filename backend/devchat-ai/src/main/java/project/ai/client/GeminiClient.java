@@ -47,6 +47,8 @@ public class GeminiClient {
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
     private String inlineReviewPrompt;
+    /** 리뷰 프롬프트 버전. 품질 비교용(Grafana 리뷰 품질 대시보드). 설명은 reviewPromptVersion() 참고 */
+    private String inlineReviewPromptVersion;
     private String issueSummaryPrompt;
     private String prSummaryPrompt;
     private String prReviewSummaryPrompt;
@@ -64,6 +66,8 @@ public class GeminiClient {
     @PostConstruct
     public void loadPrompts() throws IOException {
         inlineReviewPrompt    = loadPrompt("inline-review");
+        inlineReviewPromptVersion = versionOf(GEMINI_URL, inlineReviewPrompt);
+        log.info("리뷰 프롬프트 버전={}", inlineReviewPromptVersion);
         issueSummaryPrompt    = loadPrompt("issue-summary");
         prSummaryPrompt       = loadPrompt("pr-summary");
         prReviewSummaryPrompt = loadPrompt("pr-review-summary");
@@ -76,6 +80,26 @@ public class GeminiClient {
         apiKeys.forEach(k ->
             log.info("review key prefix={}", k.substring(0, 10))
         );
+    }
+
+    /**
+     * 리뷰를 만든 프롬프트의 버전. 프롬프트 파일 내용과 모델 주소의 SHA-256 앞 8자리라,
+     * 프롬프트나 모델을 바꾸면 따로 번호를 올리지 않아도 버전이 바뀐다. 결과와 함께 API 서버에 저장돼 버전별 채택률을 비교한다.
+     */
+    public String reviewPromptVersion() {
+        return inlineReviewPromptVersion;
+    }
+
+    static String versionOf(String model, String prompt) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest((model + "\n" + prompt).getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 4; i++) sb.append(String.format("%02x", digest[i]));
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private String loadPrompt(String name) throws IOException {
