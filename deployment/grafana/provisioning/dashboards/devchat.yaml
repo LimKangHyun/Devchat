@@ -1,0 +1,12 @@
+# json/ 폴더의 대시보드를 Grafana 시작 시 자동으로 올린다.
+# 대시보드 JSON은 deployment/grafana/build-dashboard.js로 생성한다.
+apiVersion: 1
+
+providers:
+  - name: devchat
+    folder: DevChat
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

@@ -1,0 +1,104 @@
+# RAG 검색 알림 규칙 (지표: devchat-ai RagMetrics).
+# 검색 단계가 실패해도 리뷰는 정상 응답으로 나가서 에러로 드러나지 않기 때문에, 지표로 감지해 Discord로 알린다.
+# 결과 없음(empty)은 인덱싱 전 저장소에서도 정상적으로 생기므로 실패로 세지 않는다.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: devchat-ai-rag
+    folder: DevChat
+    interval: 1m
+    rules:
+      - uid: rag-search-failure-rate
+        title: RAG 검색 실패율 높음
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          service: devchat-ai
+          severity: warning
+        annotations:
+          summary: 최근 15분 동안 리뷰 파일의 RAG 검색이 20% 넘게 실패했습니다.
+          description: 실패한 리뷰는 맥락 없이 LLM에 넘어갑니다. Gemini 임베딩·Qdrant 상태와 devchat-ai 로그를 확인하세요.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus-devchat
+            model:
+              refId: A
+              instant: true
+              # 검색이 3건 미만이면 비율이 크게 튀므로 알리지 않는다.
+              expr: >-
+                (
+                  sum(increase(rag_context_total{job="devchat-ai",result=~"embedding_failed|error"}[15m]))
+                  / clamp_min(sum(increase(rag_context_total{job="devchat-ai"}[15m])), 1)
+                )
+                and on() (sum(increase(rag_context_total{job="devchat-ai"}[15m])) >= 3)
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.2] }
+
+      - uid: rag-fallback-spike
+        title: RAG 검색 단계 대체 처리 반복
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          service: devchat-ai
+          severity: warning
+        annotations:
+          summary: '최근 15분 동안 {{ $$labels.stage }} 단계가 3회 넘게 대체 처리됐습니다.'
+          description: rerank면 Cohere, vector_search·structural_search면 Qdrant, method_query면 Gemini 임베딩 쪽 장애일 가능성이 큽니다.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus-devchat
+            model:
+              refId: A
+              instant: true
+              expr: sum by (stage) (increase(rag_fallback_total{job="devchat-ai"}[15m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [3] }
+
+      - uid: devchat-ai-down
+        title: devchat-ai 지표 수집 중단
+        condition: C
+        for: 5m
+        # 수집 대상 자체가 사라져도 알리도록 데이터 없음도 경고로 본다.
+        noDataState: Alerting
+        execErrState: Error
+        labels:
+          service: devchat-ai
+          severity: critical
+        annotations:
+          summary: Prometheus가 5분 넘게 devchat-ai 지표를 수집하지 못했습니다.
+          description: AI 서버가 내려갔거나 /actuator/prometheus에 접근할 수 없습니다. 이 동안 RAG 알림도 동작하지 않습니다.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus-devchat
+            model:
+              refId: A
+              instant: true
+              expr: max(up{job="devchat-ai"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
