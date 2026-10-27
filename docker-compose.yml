@@ -116,7 +116,8 @@ services:
       - dev-chat-network
     depends_on:
       - redis-stream
-    stop_grace_period: 600s
+    # 진행 중인 리뷰(Gemini 응답 최대 60초)가 끝날 시간. 못 끝낸 작업은 재처리 스케줄러가 이어받는다
+    stop_grace_period: 120s
 
   nginx_proxy:
     image: nginx:latest
