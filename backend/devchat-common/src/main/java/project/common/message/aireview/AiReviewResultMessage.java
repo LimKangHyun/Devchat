@@ -6,6 +6,7 @@ import java.util.List;
 /**
  * @param commitSha 이 결과를 만든 요청의 커밋. 그사이 새 커밋으로 리뷰가 다시 시작됐으면 API 서버가 이 결과를 버린다.
  *                  이 필드가 없던 이전 메시지는 null로 읽히고, 그때는 커밋 검사를 건너뛴다.
+ * @param status SUCCESS, FAIL, SKIPPED(리뷰를 건너뜀, errorMessage에 사유. 예: LLM 사용량 한도 초과)
  * @param promptVersion 리뷰를 만든 프롬프트의 버전(프롬프트 파일 내용 해시 앞 8자리). 프롬프트별 리뷰 품질을 비교하는 데 쓴다.
  */
 public record AiReviewResultMessage(

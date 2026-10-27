@@ -12,6 +12,9 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import project.ai.budget.BudgetLevel;
+import project.ai.budget.LlmBudgetService;
+import project.ai.budget.LlmUsage;
 import project.common.dto.InlineReview;
 import project.common.exception.errorcode.AiReviewErrorCode;
 import project.common.exception.errorcode.IndexingErrorCode;
@@ -34,6 +37,7 @@ public class GeminiClient {
     private final ObjectMapper objectMapper;
     private final ResourceLoader resourceLoader;
     private final Validator validator;
+    private final LlmBudgetService llmBudgetService;
     private final AtomicInteger keyIndex = new AtomicInteger(0);
 
     @Value("#{'${gemini.review-api-keys}'.split(',')}")
@@ -56,8 +60,9 @@ public class GeminiClient {
     private String pushSummaryPrompt;
 
     public GeminiClient(WebClient.Builder webClientBuilder, ObjectMapper objectMapper,
-        ResourceLoader resourceLoader) {
+        ResourceLoader resourceLoader, LlmBudgetService llmBudgetService) {
         this.webClientBuilder = webClientBuilder;
+        this.llmBudgetService = llmBudgetService;
         this.objectMapper = objectMapper;
         this.resourceLoader = resourceLoader;
         this.validator = Validation.buildDefaultValidatorFactory().getValidator();
@@ -121,8 +126,9 @@ public class GeminiClient {
         return "[팀 규칙]\n" + CONVENTIONS_BEGIN + "\n" + body + "\n" + CONVENTIONS_END;
     }
 
+    /** @param roomId 사용량을 기록할 채팅방 (하루 토큰 예산) */
     public List<InlineReview> reviewPrDiffInline(
-        String diff, String ragContext, String relatedChangedCode,
+        Long roomId, String diff, String ragContext, String relatedChangedCode,
         String fileContent, String prTitle, String prBody, String reviewConventions) {
 
         String truncatedDiff = truncate(diff, 4000);
@@ -154,7 +160,7 @@ public class GeminiClient {
 
         String prompt = promptBuilder.toString();
         long start = System.currentTimeMillis();
-        String response = callGemini(prompt, true);
+        String response = callGemini(prompt, true, roomId, LlmBudgetService.PURPOSE_REVIEW);
         long elapsedMs = System.currentTimeMillis() - start;
         log.debug("[Gemini 원본 응답] {}", response);
 
@@ -210,7 +216,7 @@ public class GeminiClient {
         return sb.toString();
     }
 
-    private String callGemini(String prompt, boolean jsonMode) {
+    private String callGemini(String prompt, boolean jsonMode, Long roomId, String purpose) {
         Map<String, Object> generationConfig = jsonMode
             ? Map.of("responseMimeType", "application/json")
             : Map.of();
@@ -229,7 +235,10 @@ public class GeminiClient {
 
         for (int attempt = 1; attempt <= totalAttempts; attempt++) {
             try {
-                return callGeminiApi(requestBody);
+                GeminiResult result = callGeminiApi(requestBody);
+                // 성공한 호출만 센다. 실패한 시도의 토큰은 응답이 없어 알 수 없다
+                llmBudgetService.record(roomId, purpose, result.usage());
+                return result.text();
             } catch (WebClientResponseException e) {
                 delay = handleApiException(e, attempt, totalAttempts, delay);
             } catch (Exception e) {
@@ -239,7 +248,9 @@ public class GeminiClient {
         throw new IndexingException(IndexingErrorCode.EMBEDDING_EXHAUSTED);
     }
 
-    private String callGeminiApi(Map<String, Object> requestBody) {
+    private record GeminiResult(String text, LlmUsage usage) {}
+
+    private GeminiResult callGeminiApi(Map<String, Object> requestBody) {
         GeminiResponse response = webClientBuilder.build()
             .post()
             .uri(GEMINI_URL + "?key=" + nextKey())
@@ -249,14 +260,32 @@ public class GeminiClient {
             .bodyToMono(GeminiResponse.class)
             .block(reviewTimeout);
 
-        return Objects.requireNonNull(response).candidates().get(0).content().parts().get(0).text();
+        Objects.requireNonNull(response);
+        return new GeminiResult(response.candidates().get(0).content().parts().get(0).text(), usageOf(response));
     }
 
-    public String summarizeGitEvent(String eventType, String prStatus, String fullContent) {
+    /** thinking 토큰(thoughtsTokenCount)도 출력으로 과금되므로 출력 토큰에 더한다 */
+    static LlmUsage usageOf(GeminiResponse response) {
+        GeminiResponse.UsageMetadata u = response.usageMetadata();
+        if (u == null) return LlmUsage.NONE;
+        return new LlmUsage(nz(u.promptTokenCount()), nz(u.candidatesTokenCount()) + nz(u.thoughtsTokenCount()));
+    }
+
+    private static long nz(Long v) {
+        return v == null ? 0 : v;
+    }
+
+    public String summarizeGitEvent(Long roomId, String eventType, String prStatus, String fullContent) {
         String prompt = resolvePrompt(eventType, prStatus);
+        BudgetLevel level = llmBudgetService.check(roomId);
+        if (level == BudgetLevel.EXCEEDED) {
+            llmBudgetService.recordAction(LlmBudgetService.PURPOSE_SUMMARY, level);
+            log.info("LLM 사용량 한도 초과로 요약 생략, 원본 반환 - roomId={}", roomId);
+            return fullContent;
+        }
         try {
             // 요약은 프롬프트가 지시한 순수 텍스트(이모지+줄바꿈+2~3줄) 그대로 필요 → jsonMode=false
-            return callGemini(prompt + "\n\n[이벤트 내용]\n" + fullContent, false);
+            return callGemini(prompt + "\n\n[이벤트 내용]\n" + fullContent, false, roomId, LlmBudgetService.PURPOSE_SUMMARY);
         } catch (Exception e) {
             log.error("Gemini 요약 실패, 원본 반환", e);
             return fullContent;
@@ -322,7 +351,8 @@ public class GeminiClient {
         }
     }
 
-    private record GeminiResponse(List<Candidate> candidates) {
+    record GeminiResponse(List<Candidate> candidates, UsageMetadata usageMetadata) {
+        record UsageMetadata(Long promptTokenCount, Long candidatesTokenCount, Long thoughtsTokenCount) {}
         record Candidate(Content content) {}
         record Content(List<Part> parts) {}
         record Part(String text) {}

@@ -40,6 +40,9 @@ public class AiReviewResultConsumer implements StreamListener<String, ObjectReco
         if ("SUCCESS".equals(message.status())) {
             aiReviewService.saveFileReviewResult(
                     message.aiReviewId(), message.chatRoomId(), message.filePath(), message.commitSha(), message.promptVersion(), message.reviews());
+        } else if ("SKIPPED".equals(message.status())) {
+            aiReviewService.saveFileReviewSkipped(
+                    message.aiReviewId(), message.chatRoomId(), message.filePath(), message.commitSha(), message.errorMessage());
         } else {
             aiReviewService.saveFileReviewFail(
                     message.aiReviewId(), message.chatRoomId(), message.filePath(), message.commitSha(), message.errorMessage());

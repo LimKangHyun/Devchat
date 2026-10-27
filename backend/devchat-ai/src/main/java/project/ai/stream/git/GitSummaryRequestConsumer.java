@@ -25,7 +25,7 @@ public class GitSummaryRequestConsumer implements StreamListener<String, ObjectR
             log.info("Git 요약 요청 수신: roomId={}, eventType={}", message.roomId(), message.eventType());
 
             String summarized = geminiClient.summarizeGitEvent(
-                message.eventType(), message.prStatus(), message.fullContent());
+                message.roomId(), message.eventType(), message.prStatus(), message.fullContent());
 
             gitSummaryResultProducer.publish(message.roomId(), message.messageId(), summarized);
         } catch (Exception e) {

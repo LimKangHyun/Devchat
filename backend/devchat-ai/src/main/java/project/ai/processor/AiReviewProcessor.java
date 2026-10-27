@@ -5,6 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import project.common.dto.InlineReview;
 import project.common.message.aireview.AiReviewRequestMessage;
+import project.ai.budget.BudgetLevel;
+import project.ai.budget.LlmBudgetExceededException;
+import project.ai.budget.LlmBudgetService;
 import project.ai.client.GeminiClient;
 import project.ai.rag.RagContextService;
 
@@ -22,21 +25,37 @@ public class AiReviewProcessor {
     private final DiffLineParser diffLineParser;
     private final InlineReviewFilter inlineReviewFilter;
     private final RelatedChangedCodeBuilder relatedChangedCodeBuilder;
+    private final LlmBudgetService llmBudgetService;
 
     public List<InlineReview> process(AiReviewRequestMessage message) {
+        // 방의 오늘 LLM 사용량: 한도를 넘었으면 건너뛰고, 가까우면 맥락을 빼서 프롬프트를 줄인다
+        BudgetLevel budget = llmBudgetService.check(message.chatRoomId());
+        if (budget == BudgetLevel.EXCEEDED) {
+            llmBudgetService.recordAction(LlmBudgetService.PURPOSE_REVIEW, budget);
+            throw new LlmBudgetExceededException(message.chatRoomId());
+        }
+
         Set<Integer> validDiffLines = diffLineParser.parseValidLines(message.fileDiff());
 
-        String ragContext = ragContextService.buildContext(
-            message.repoId(), message.filePath(), message.fileDiff(),
-            message.fileContent(), message.baseContent(),
-            Set.copyOf(message.changedFilesInPr()));
+        String ragContext = "";
+        String relatedChangedCode = "";
+        if (budget == BudgetLevel.LOW) {
+            llmBudgetService.recordAction(LlmBudgetService.PURPOSE_REVIEW, budget);
+            log.info("[리뷰] LLM 사용량 한도에 가까워 맥락 없이 리뷰 - roomId={}, file={}",
+                message.chatRoomId(), message.filePath());
+        } else {
+            ragContext = ragContextService.buildContext(
+                message.repoId(), message.filePath(), message.fileDiff(),
+                message.fileContent(), message.baseContent(),
+                Set.copyOf(message.changedFilesInPr()));
 
-        // 같은 PR에서 바뀐 다른 파일의 메서드 중 이 파일이 호출하는 것 (인덱스엔 변경 전 코드만 있어 RAG로는 못 가져온다)
-        String relatedChangedCode = relatedChangedCodeBuilder.build(
-            message.filePath(), message.fileContent(), message.relatedChangedFiles());
+            // 같은 PR에서 바뀐 다른 파일의 메서드 중 이 파일이 호출하는 것 (인덱스엔 변경 전 코드만 있어 RAG로는 못 가져온다)
+            relatedChangedCode = relatedChangedCodeBuilder.build(
+                message.filePath(), message.fileContent(), message.relatedChangedFiles());
+        }
 
         List<InlineReview> reviews = geminiClient.reviewPrDiffInline(
-                message.fileDiff(), ragContext, relatedChangedCode,
+                message.chatRoomId(), message.fileDiff(), ragContext, relatedChangedCode,
                 message.fileContent(), message.prTitle(), message.prBody(), message.reviewConventions());
 
         List<InlineReview> filtered = inlineReviewFilter.filterValidReviews(reviews, message.fileContent());

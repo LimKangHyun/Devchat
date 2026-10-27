@@ -168,6 +168,25 @@ public class AiReviewService {
     }
 
     /**
+     * AI 서버가 리뷰를 건너뛴 파일 (예: 채팅방의 하루 LLM 사용량 한도 초과).
+     * 실패로 세지 않고 건너뛴 파일 목록에 사유를 남긴다. 파일 상태는 FAILED로 둬서 다음 커밋의 증분 리뷰에서 다시 리뷰된다.
+     */
+    @Transactional
+    public void saveFileReviewSkipped(Long aiReviewId, Long chatRoomId, String filePath, String commitSha,
+                                      String reason) {
+        if (!markFileFinished(aiReviewId, filePath, commitSha, FileReviewStatus.FAILED)) {
+            return;
+        }
+        addSkippedFile(aiReviewId, filePath, reason);
+        AiReview aiReview = findById(aiReviewId);
+        aiReview.incrementCompletedFiles();
+        log.info("파일 리뷰 건너뜀: aiReviewId={}, filePath={}, reason={}", aiReviewId, filePath, reason);
+        aiReviewRepository.save(aiReview);
+
+        completeIfAllFilesDone(chatRoomId, aiReview);
+    }
+
+    /**
      * 파일의 최종 결과를 반영해도 되는지 판단하고, 되면 상태를 바꾼다. 처음 반영하는 경우만 true.
      * - 예전 커밋의 결과: 버린다.
      * - PROCESSING → 최종 상태: 조건부 UPDATE라 두 Worker가 결과를 보내도 한 번만 성공한다(상태 기반 멱등 처리).
