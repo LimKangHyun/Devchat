@@ -89,3 +89,7 @@ stream:
   redis:
     host: ${STREAM_REDIS_HOST:localhost}
     port: ${STREAM_REDIS_PORT:6379}
+# 테스트에서는 @Scheduled 작업을 끈다(통합 테스트가 백그라운드 작업과 DB 락을 두고 경쟁하지 않게). SchedulingConfig 참고
+app:
+  scheduling:
+    enabled: false
