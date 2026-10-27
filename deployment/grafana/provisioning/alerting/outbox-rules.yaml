@@ -1,0 +1,68 @@
+# 리뷰 요청 Outbox 알림 규칙 (지표: devchat-api OutboxRelay).
+# 릴레이가 멈추거나 Redis·GitHub 장애로 요청을 끝내 보내지 못하면 리뷰가 늦어지거나 실패로 끝나므로 Discord로 알린다.
+# outbox_pending 류 게이지는 DB 값을 그대로 보여 주므로 블루/그린 두 서버가 같은 값을 낸다 → max로 본다.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: devchat-api-outbox
+    folder: DevChat
+    interval: 1m
+    rules:
+      - uid: outbox-stuck
+        title: 리뷰 요청 Outbox 지연
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          service: devchat-api
+          severity: warning
+        annotations:
+          summary: 10분 넘게 보내지 못한 리뷰 요청이 있습니다.
+          description: Redis(redis-stream)나 GitHub API 장애로 재시도 중이거나 릴레이가 멈췄을 수 있습니다. devchat-api 로그의 "outbox 처리 실패"를 확인하세요.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus-devchat
+            model:
+              refId: A
+              instant: true
+              expr: max(outbox_oldest_pending_seconds{job="spring-boot"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [600] }
+
+      - uid: outbox-given-up
+        title: 리뷰 요청 전송 포기
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          service: devchat-api
+          severity: critical
+        annotations:
+          summary: '최근 15분 동안 {{ $$labels.type }} 이벤트를 최대 재시도 후 포기했습니다.'
+          description: 해당 리뷰는 실패로 끝났습니다. outbox_event 테이블의 last_error를 확인하고, 원인을 고친 뒤 채팅방에서 리뷰를 다시 실행하세요.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus-devchat
+            model:
+              refId: A
+              instant: true
+              expr: sum by (type) (increase(outbox_events_total{job="spring-boot",result="failed"}[15m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }

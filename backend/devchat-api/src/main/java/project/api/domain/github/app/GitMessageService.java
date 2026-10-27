@@ -26,7 +26,7 @@ import project.api.domain.github.client.GitHubUserClient;
 import project.api.domain.github.GitRepoUrlUtils;
 import project.api.domain.github.dto.GitMessageDto;
 import project.api.domain.aireview.entity.PrStatus;
-import project.api.domain.aireview.event.AiReviewRequestedEvent;
+import project.api.domain.aireview.outbox.AiReviewOutbox;
 import project.api.domain.github.event.GitSummaryRequestEvent;
 import project.api.domain.github.event.PrMergedEvent;
 import project.api.domain.github.event.DefaultBranchPushedEvent;
@@ -55,6 +55,7 @@ public class GitMessageService {
 	private final GitHubBotClient gitHubBotClient;
 	private final GitMessageMapper gitMessageMapper;
 	private final ApplicationEventPublisher eventPublisher;
+	private final AiReviewOutbox aiReviewOutbox;
 
 	@Value("${url.webhook-url}")
 	private String webhookUrl;
@@ -177,7 +178,8 @@ public class GitMessageService {
 
 		Long aiReviewId = aiReviewService.createPendingAndMessage(room, prNumber, headSha,
 				aiReviewBotUsername, prTitle, prBody, prDiff);
-		eventPublisher.publishEvent(new AiReviewRequestedEvent(aiReviewId, headSha, baseSha));
+		// 리뷰 생성과 같은 트랜잭션에 준비 요청을 적는다. 커밋되면 OutboxRelay가 처리한다
+		aiReviewOutbox.enqueuePrepare(aiReviewId, headSha, baseSha, Set.of());
 	}
 
 	// EDITED일 때 AI 리뷰 최초 생성 (레포 연결 후 첫 edited 이벤트) (sendGitMessage 이후 호출)
@@ -199,7 +201,7 @@ public class GitMessageService {
 
 		Long aiReviewId = aiReviewService.createPendingAndMessage(room, prNumber, headSha,
 				aiReviewBotUsername, prTitle, prBody, prDiff);
-		eventPublisher.publishEvent(new AiReviewRequestedEvent(aiReviewId, headSha, baseSha));
+		aiReviewOutbox.enqueuePrepare(aiReviewId, headSha, baseSha, Set.of());
 	}
 
 	private GitMessageDto toGitMessage(String eventType, Map<String, Object> payload) {
@@ -252,8 +254,7 @@ public class GitMessageService {
 		Set<String> changed = findChangedFiles(repo, reviewedSha, headSha);
 
 		AiReviewService.ResetResult reset = aiReviewService.resetForNewCommit(room, prNumber, headSha, prDiff, changed);
-		eventPublisher.publishEvent(
-				new AiReviewRequestedEvent(reset.aiReviewId(), headSha, baseSha, reset.reusedFiles()));
+		aiReviewOutbox.enqueuePrepare(reset.aiReviewId(), headSha, baseSha, reset.reusedFiles());
 	}
 
 	/** GitHub compare가 한 번에 주는 파일 수 상한. 이만큼 오면 목록이 잘렸을 수 있어 전체 리뷰로 간다 */
@@ -338,8 +339,20 @@ public class GitMessageService {
 		aiReviewPublishService.publishToGitHub(findRoom(roomId), aiReviewId, approverUsername);
 	}
 
-	// 수동 재실행
+	/**
+	 * 수동 재실행: PR의 현재 커밋으로 처음부터 다시 리뷰한다 (실패했거나 멈춘 리뷰를 다시 돌릴 때).
+	 * 증분 재사용 없이 전체를 다시 보고, 진행 중이던 이전 요청은 커밋 비교(STALE_COMMIT)로 버려진다.
+	 */
+	@Transactional
 	public void retryAiReview(Long roomId, int prNumber) {
-		// TODO: Stream 발행으로 교체
+		ChatRoom room = findRoom(roomId);
+		GitRepoDto repo = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
+		String headSha = gitHubBotClient.getHeadSha(repo.ownerName(), repo.repoName(), prNumber);
+		String baseSha = gitHubBotClient.getBaseSha(repo.ownerName(), repo.repoName(), prNumber);
+		String prDiff = gitHubBotClient.getPrDiff(repo.ownerName(), repo.repoName(), prNumber);
+
+		AiReviewService.ResetResult reset = aiReviewService.resetForNewCommit(room, prNumber, headSha, prDiff, null);
+		aiReviewOutbox.enqueuePrepare(reset.aiReviewId(), headSha, baseSha, Set.of());
+		log.info("AI 리뷰 수동 재실행 - roomId={}, prNumber={}, headSha={}", roomId, prNumber, headSha);
 	}
 }

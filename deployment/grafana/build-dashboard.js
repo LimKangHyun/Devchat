@@ -262,6 +262,41 @@ panels.push(
     { legend: { displayMode: 'list', placement: 'bottom' }, tooltip: { mode: 'multi' } }),
 );
 
+// ── 리뷰 요청 Outbox: API 서버(job=spring-boot)의 OutboxRelay ──
+// 게이지는 DB 값이라 블루/그린 두 서버가 같은 값을 낸다 → max로 본다
+const eventTypeNames = [rename('AI_REVIEW_PREPARE', '리뷰 준비'), rename('AI_REVIEW_REQUEST', '파일 리뷰 요청')];
+panels.push(
+  row('리뷰 요청 Outbox (DB → Redis 전송)', 82),
+
+  panel('stat', '보내지 못한 요청', '아직 보내지 못하고 기다리는 outbox 이벤트 수 (재시도 대기 포함). 평소에는 0~몇 개.',
+    { h: 4, w: 6, x: 0, y: 83 },
+    [tgt(`max(outbox_pending{${apiJob}})`, '')],
+    { defaults: { unit: 'short', decimals: 0, noValue: '0',
+      thresholds: { mode: 'absolute', steps: [{ color: 'green', value: null }, { color: 'orange', value: 20 }] } } },
+    { colorMode: 'background', reduceOptions: { calcs: ['lastNotNull'] } }),
+
+  panel('stat', '가장 오래 기다린 요청', '보내지 못한 이벤트 중 가장 오래된 것의 대기 시간. 10분을 넘으면 Discord로 알린다.',
+    { h: 4, w: 6, x: 6, y: 83 },
+    [tgt(`max(outbox_oldest_pending_seconds{${apiJob}})`, '')],
+    { defaults: { unit: 's', decimals: 0, noValue: '0',
+      thresholds: { mode: 'absolute', steps: [{ color: 'green', value: null }, { color: 'orange', value: 60 }, { color: 'red', value: 600 }] } } },
+    { colorMode: 'background', reduceOptions: { calcs: ['lastNotNull'] } }),
+
+  panel('stat', '재시도 · 포기', '선택한 기간에 실패 후 다시 시도한 횟수(retry)와 최대 재시도 뒤 포기한 횟수(failed). 포기한 리뷰는 실패로 끝난다.',
+    { h: 4, w: 12, x: 12, y: 83 },
+    [tgt(`sum by (result) (increase(outbox_events_total{${apiJob},result!="sent"}[$__range]))`, '{{result}}', 'A', { instant: true })],
+    { defaults: { unit: 'short', decimals: 0, thresholds: { mode: 'absolute', steps: [{ color: 'green', value: null }, { color: 'orange', value: 1 }] } },
+      overrides: [rename('retry', '재시도'), rename('failed', '포기', 'red')] },
+    { colorMode: 'background', reduceOptions: { calcs: ['lastNotNull'] }, textMode: 'value_and_name', orientation: 'horizontal' }),
+
+  panel('timeseries', '보낸 이벤트 (10분 단위)', '종류별로 보낸 outbox 이벤트 수.',
+    { h: 8, w: 24, x: 0, y: 87 },
+    [tgt(`sum by (type) (increase(outbox_events_total{${apiJob},result="sent"}[10m]))`, '{{type}}')],
+    { defaults: { unit: 'short', decimals: 0, custom: { drawStyle: 'bars', fillOpacity: 60, stacking: { mode: 'normal' } } },
+      overrides: eventTypeNames },
+    { legend: { displayMode: 'list', placement: 'bottom' }, tooltip: { mode: 'multi' } }),
+);
+
 const dashboard = {
   title: 'DevChat AI · RAG 검색',
   uid: 'devchat-ai-rag',

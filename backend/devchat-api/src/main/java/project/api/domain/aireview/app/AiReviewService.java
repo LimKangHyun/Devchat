@@ -313,6 +313,21 @@ public class AiReviewService {
         }
     }
 
+    /**
+     * 아직 PENDING인 리뷰를 실패로 끝낸다 (리뷰 요청을 끝내 만들지 못했을 때).
+     * 이미 다른 상태로 끝났거나 새 커밋으로 다시 시작해 다른 결과가 났으면 건드리지 않는다.
+     */
+    @Transactional
+    public void failPendingReview(Long aiReviewId, String reason) {
+        int updated = aiReviewRepository.markFinalStatusIfPending(aiReviewId, AiReviewStatus.FAIL, LocalDateTime.now());
+        if (updated == 0) return;
+        AiReview aiReview = findByIdWithChatRoom(aiReviewId);
+        aiReview.updateFail(reason);
+        aiReviewRepository.save(aiReview);
+        log.warn("AI 리뷰 실패 처리 - aiReviewId={}, reason={}", aiReviewId, reason);
+        broadcastAiReviewStatus(aiReview.getChatRoom().getId(), aiReview);
+    }
+
     private AiReview findAiReview(Long roomId, int prNumber) {
         return aiReviewRepository.findByChatRoom_IdAndPrNumber(roomId, prNumber)
                 .orElseThrow(() -> new AiReviewException(AiReviewErrorCode.AI_REVIEW_NOT_FOUND));
