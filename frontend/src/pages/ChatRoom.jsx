@@ -397,7 +397,7 @@ const ChatRoom = () => {
     );
   }, []);
 
-  const { stompClientRef } = useWebSocket({
+  const { stompClientRef, connected: socketConnected } = useWebSocket({
     roomId: initState.isRoomValidated ? roomId : null,
     onMessageReceived: (received) => {
       if (received.type === 'INDEXING_PROGRESS') {
@@ -445,6 +445,17 @@ const ChatRoom = () => {
       setTimeout(() => setToast({ open: false, message: '' }), 3000);
     },
   });
+
+  // 끊겼다 다시 연결되면, 끊긴 사이에 온 메시지를 채운다 (첫 연결은 초기 로딩이 맡는다)
+  const socketStateRef = useRef('never'); // never → up → dropped → up ...
+  useEffect(() => {
+    if (socketConnected) {
+      if (socketStateRef.current === 'dropped') fetchMissingMessages();
+      socketStateRef.current = 'up';
+    } else if (socketStateRef.current === 'up') {
+      socketStateRef.current = 'dropped';
+    }
+  }, [socketConnected, fetchMissingMessages]);
 
   useEffect(() => {
     if (!inviteCode) { navigate('/error'); return; }
