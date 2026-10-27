@@ -1,5 +1,6 @@
 package project.api.domain.aireview.event;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -39,6 +40,7 @@ public class AiReviewEventListener {
     private final AiReviewDiffParser diffParser;
     private final GitHubBotClient gitHubBotClient;
     private final RedisStreamClient redisStreamClient;
+    private final MeterRegistry meterRegistry;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async("chatBroadcastExecutor")
@@ -96,9 +98,27 @@ public class AiReviewEventListener {
             targets.add(new ReviewTarget(filePath, fileDiff, fileContent, baseContent));
         }
 
-        // 2) 파일마다 리뷰 요청을 발행한다.
+        // 2) 증분 리뷰면 이전 결과를 재사용하는 파일은 요청하지 않는다.
+        //    재사용 파일도 위에서 코드를 가져왔으므로, 다른 파일을 리뷰할 때 "같이 바뀐 파일" 문맥은 전체 리뷰와 같다.
+        Set<String> reused = event.reusedFiles() == null ? Set.of() : event.reusedFiles();
+        List<ReviewTarget> toReview = targets.stream().filter(t -> !reused.contains(t.filePath())).toList();
+        recordFileCounts(reused.isEmpty() ? "full" : "incremental", toReview.size(), targets.size() - toReview.size());
+        if (!reused.isEmpty()) {
+            log.info("[증분 리뷰] aiReviewId={}, 다시 리뷰 {}개, 재사용 {}개",
+                    aiReview.getId(), toReview.size(), targets.size() - toReview.size());
+        }
+
+        if (toReview.isEmpty()) {
+            aiReviewService.completeWithoutNewFiles(aiReview.getId(), !reused.isEmpty());
+            return;
+        }
+
+        // 결과가 먼저 도착해도 완료 판정이 되도록 총 파일 수를 발행 전에 기록한다
+        aiReviewService.updateTotalFiles(aiReview.getId(), toReview.size());
+
+        // 3) 파일마다 리뷰 요청을 발행한다.
         Map<String, String> fileContentMap = new HashMap<>();
-        for (ReviewTarget target : targets) {
+        for (ReviewTarget target : toReview) {
             fileContentMap.put(target.filePath(), target.fileContent());
 
             redisStreamClient.publishAiReviewRequest(
@@ -118,11 +138,16 @@ public class AiReviewEventListener {
             );
         }
 
-        aiReviewService.updateTotalFiles(aiReview.getId(), targets.size());
+        aiReviewService.saveFileContents(aiReview.getId(), fileContentMap, reused);
+    }
 
-        if (!fileContentMap.isEmpty()) {
-            aiReviewService.saveFileContents(aiReview.getId(), fileContentMap);
-        }
+    /**
+     * 리뷰 요청한 파일과 재사용한 파일 수. 재사용 파일 하나가 LLM 호출 하나를 아낀 것이다.
+     * Grafana: sum(ai_review_files_total{result="reused"}) / sum(ai_review_files_total)
+     */
+    private void recordFileCounts(String mode, int reviewed, int reused) {
+        meterRegistry.counter("ai.review.files", "mode", mode, "result", "reviewed").increment(reviewed);
+        meterRegistry.counter("ai.review.files", "mode", mode, "result", "reused").increment(reused);
     }
 
     private record ReviewTarget(String filePath, String fileDiff, String fileContent, String baseContent) {}
