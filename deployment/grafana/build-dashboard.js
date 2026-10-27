@@ -230,6 +230,38 @@ panels.push(
     { legend: { displayMode: 'list', placement: 'bottom' }, tooltip: { mode: 'multi' } }),
 );
 
+// ── LLM 사용량: AI 서버(job=devchat-ai)의 llm_* (LlmBudgetService) ──
+const purposeNames = [rename('review', '리뷰'), rename('summary', 'Git 요약')];
+panels.push(
+  row('LLM 사용량 (Gemini 토큰, 채팅방별 하루 예산)', 69),
+
+  panel('stat', '사용한 토큰', '선택한 기간에 Gemini 리뷰·요약 호출에 쓴 토큰 (입력+출력, thinking 포함).',
+    { h: 4, w: 6, x: 0, y: 70 },
+    [tgt(`sum(increase(llm_tokens_total{${job}}[$__range]))`, '', 'A', { instant: true })],
+    { defaults: { unit: 'short', decimals: 0, thresholds: { mode: 'absolute', steps: [{ color: 'text', value: null }] } } },
+    { colorMode: 'value', reduceOptions: { calcs: ['lastNotNull'] } }),
+
+  panel('stat', 'LLM 호출 수', '성공한 Gemini 호출 수 (재시도 실패는 제외).',
+    { h: 4, w: 6, x: 6, y: 70 },
+    [tgt(`sum by (purpose) (increase(llm_calls_total{${job}}[$__range]))`, '{{purpose}}', 'A', { instant: true })],
+    { defaults: { unit: 'short', decimals: 0, thresholds: { mode: 'absolute', steps: [{ color: 'text', value: null }] } },
+      overrides: purposeNames },
+    { colorMode: 'value', reduceOptions: { calcs: ['lastNotNull'] }, textMode: 'value_and_name' }),
+
+  panel('stat', '예산 때문에 줄이거나 건너뛴 횟수', 'reduced: 한도 80%를 넘어 RAG 맥락 없이 리뷰. blocked: 한도를 넘어 리뷰·요약을 건너뜀. blocked가 자주 보이면 한도(LLM_BUDGET_DAILY_TOKENS_PER_ROOM)를 확인한다.',
+    { h: 4, w: 12, x: 12, y: 70 },
+    [tgt(`sum by (action) (increase(llm_budget_action_total{${job}}[$__range]))`, '{{action}}', 'A', { instant: true })],
+    { defaults: { unit: 'short', decimals: 0, thresholds: { mode: 'absolute', steps: [{ color: 'green', value: null }, { color: 'orange', value: 1 }] } },
+      overrides: [rename('reduced', '줄임 (맥락 제외)'), rename('blocked', '건너뜀')] },
+    { colorMode: 'background', reduceOptions: { calcs: ['lastNotNull'] }, textMode: 'value_and_name', orientation: 'horizontal' }),
+
+  panel('timeseries', '시간당 토큰', '용도(리뷰, Git 요약)와 종류(입력, 출력)별 시간당 토큰.',
+    { h: 8, w: 24, x: 0, y: 74 },
+    [tgt(`sum by (purpose, type) (increase(llm_tokens_total{${job}}[1h]))`, '{{purpose}} · {{type}}')],
+    { defaults: { unit: 'short', decimals: 0, custom: { drawStyle: 'bars', fillOpacity: 60, stacking: { mode: 'normal' } } } },
+    { legend: { displayMode: 'list', placement: 'bottom' }, tooltip: { mode: 'multi' } }),
+);
+
 const dashboard = {
   title: 'DevChat AI · RAG 검색',
   uid: 'devchat-ai-rag',

@@ -36,6 +36,12 @@ public class AiReviewResultProducer {
             geminiClient.reviewPromptVersion()));
     }
 
+    /** 리뷰하지 않고 건너뜀 (예: LLM 사용량 한도 초과). reason은 사용자에게 보여 줄 사유 */
+    public void publishSkipped(Long aiReviewId, Long chatRoomId, String filePath, String commitSha, String reason) {
+        publish(new AiReviewResultMessage(aiReviewId, chatRoomId, filePath, "SKIPPED", List.of(), reason, commitSha,
+            geminiClient.reviewPromptVersion()));
+    }
+
     private void publish(AiReviewResultMessage message) {
         try {
             String json = objectMapper.writeValueAsString(message);

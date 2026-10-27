@@ -1,6 +1,7 @@
 package project.ai.stream.aireview;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import project.ai.budget.LlmBudgetExceededException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
@@ -94,6 +95,13 @@ public class AiReviewRequestConsumer implements StreamListener<String, ObjectRec
         java.util.List<project.common.dto.InlineReview> reviews;
         try {
             reviews = aiReviewProcessor.process(message);
+        } catch (LlmBudgetExceededException e) {
+            // 실패가 아니라 건너뜀으로 알린다. API 서버가 사유를 화면에 보여 준다
+            log.info("LLM 사용량 한도 초과로 리뷰 건너뜀 - aiReviewId={}, filePath={}", message.aiReviewId(), message.filePath());
+            aiReviewResultProducer.publishSkipped(
+                message.aiReviewId(), message.chatRoomId(), message.filePath(), message.commitSha(),
+                LlmBudgetExceededException.REASON);
+            return;
         } catch (RuntimeException e) {
             log.error("AI Review 처리 실패 - aiReviewId={}, filePath={}", message.aiReviewId(), message.filePath(), e);
             aiReviewResultProducer.publishFail(

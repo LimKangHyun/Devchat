@@ -25,6 +25,13 @@ qdrant:
 
 cohere:
   api-key: ${COHERE_API_KEY}
+
+# 채팅방별 하루 LLM 토큰 예산 (LlmBudgetService). 80%를 넘으면 맥락 없이 리뷰, 100%를 넘으면 리뷰·요약을 건너뛴다.
+llm:
+  budget:
+    enabled: ${LLM_BUDGET_ENABLED:true}
+    daily-tokens-per-room: ${LLM_BUDGET_DAILY_TOKENS_PER_ROOM:500000}
+    low-ratio: 0.8
 # RAG 대체 처리·검색 시간 지표를 Prometheus로 내보낸다 (RagMetrics).
 # 8081은 외부에 노출하지 않고 Docker 내부 네트워크의 Prometheus만 수집한다.
 management:
