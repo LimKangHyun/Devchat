@@ -204,6 +204,32 @@ ORDER BY l.changed_at DESC LIMIT 50`)],
     { showHeader: true, cellHeight: 'md' }),
 );
 
+// ── 증분 리뷰: API 서버(job=spring-boot)의 ai_review_files_total ──
+const apiJob = 'job="spring-boot"';
+const files = (result) => `sum(increase(ai_review_files_total{${apiJob},result="${result}"}[$__range]))`;
+panels.push(
+  row('증분 리뷰 (새 커밋에서 바뀐 파일만 다시 리뷰)', 60),
+
+  panel('stat', '재사용한 파일 비율', '리뷰 대상 파일 중 이전 커밋의 리뷰 결과를 그대로 쓴 비율. 재사용한 파일 하나가 LLM 호출 하나를 아낀 것이다.',
+    { h: 4, w: 6, x: 0, y: 61 },
+    [tgt(`${files('reused')} / clamp_min(${files('reused')} + ${files('reviewed')}, 1)`, '', 'A', { instant: true })],
+    { defaults: { unit: 'percentunit', decimals: 1, min: 0, max: 1, noValue: '0',
+      thresholds: { mode: 'absolute', steps: [{ color: 'text', value: null }] } } },
+    { colorMode: 'value', reduceOptions: { calcs: ['lastNotNull'] } }),
+
+  panel('stat', '아낀 리뷰 호출', '증분 리뷰로 다시 리뷰하지 않은 파일 수 (= 아낀 LLM 리뷰 호출 수).',
+    { h: 4, w: 6, x: 6, y: 61 },
+    [tgt(files('reused'), '', 'A', { instant: true })],
+    { defaults: { unit: 'short', decimals: 0, noValue: '0', thresholds: { mode: 'absolute', steps: [{ color: 'text', value: null }] } } },
+    { colorMode: 'value', reduceOptions: { calcs: ['lastNotNull'] } }),
+
+  panel('timeseries', '리뷰 요청 vs 재사용 (1시간 단위)', '새로 리뷰를 요청한 파일과 이전 결과를 재사용한 파일 수. mode=full은 첫 리뷰나 비교가 불가능해 전체를 다시 본 경우.',
+    { h: 8, w: 12, x: 12, y: 61 },
+    [tgt(`sum by (result, mode) (increase(ai_review_files_total{${apiJob}}[1h]))`, '{{mode}} · {{result}}')],
+    { defaults: { unit: 'short', decimals: 0, custom: { drawStyle: 'bars', fillOpacity: 60, stacking: { mode: 'normal' } } } },
+    { legend: { displayMode: 'list', placement: 'bottom' }, tooltip: { mode: 'multi' } }),
+);
+
 const dashboard = {
   title: 'DevChat AI · RAG 검색',
   uid: 'devchat-ai-rag',

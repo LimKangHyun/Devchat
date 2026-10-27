@@ -30,8 +30,10 @@ import project.common.exception.ex.AiReviewException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -222,14 +224,74 @@ public class AiReviewService {
 
     @Transactional
     public Long resetToPendingAndPublish(ChatRoom room, int prNumber, String headSha, String prDiff) {
+        return resetForNewCommit(room, prNumber, headSha, prDiff, null).aiReviewId();
+    }
+
+    /**
+     * 증분 리뷰에 쓸 "마지막으로 리뷰를 끝낸 커밋". 리뷰가 끝난(SUCCESS/FAIL) 상태일 때만 돌려준다.
+     * 리뷰가 아직 진행 중이거나 건너뛴(SKIPPED) 상태면 재사용할 결과가 없으므로 null.
+     */
+    @Transactional(readOnly = true)
+    public String findReviewedCommitSha(Long roomId, int prNumber) {
+        return aiReviewRepository.findByChatRoom_IdAndPrNumber(roomId, prNumber)
+                .filter(r -> r.getStatus() == AiReviewStatus.SUCCESS || r.getStatus() == AiReviewStatus.FAIL)
+                .map(AiReview::getCommitSha)
+                .orElse(null);
+    }
+
+    /** @param reusedFiles 이전 리뷰 결과를 그대로 쓰는 파일. 비어 있으면 전체 리뷰 */
+    public record ResetResult(Long aiReviewId, Set<String> reusedFiles) {}
+
+    /**
+     * 새 커밋으로 리뷰를 다시 시작한다.
+     *
+     * @param changedSinceReviewed 마지막으로 리뷰한 커밋 이후 바뀐 파일. null이면 전체를 다시 리뷰한다.
+     *                             값이 있으면 이전 리뷰에서 끝낸(COMPLETED) 파일 중 바뀌지 않은 파일의 코멘트를 남기고 재사용한다.
+     */
+    @Transactional
+    public ResetResult resetForNewCommit(ChatRoom room, int prNumber, String headSha, String prDiff,
+                                         Set<String> changedSinceReviewed) {
         AiReview aiReview = findAiReview(room.getId(), prNumber);
-        aiCommentModRepository.deleteByComment_AiReview_Id(aiReview.getId());
-        aiReviewCommentRepository.deleteByAiReview_Id(aiReview.getId());
-        aiReviewFileRepository.deleteByAiReview_Id(aiReview.getId());
+
+        Set<String> reused = new HashSet<>();
+        if (changedSinceReviewed != null) {
+            reused.addAll(aiReviewFileRepository.findFilePathsByStatus(aiReview.getId(), FileReviewStatus.COMPLETED));
+            reused.removeAll(changedSinceReviewed);
+            // 지금 PR diff에 없는 파일(되돌린 파일 등)은 재사용하지 않는다
+            reused.retainAll(diffParser.parseFileDiffs(prDiff).keySet());
+        }
+
+        if (reused.isEmpty()) {
+            aiCommentModRepository.deleteByComment_AiReview_Id(aiReview.getId());
+            aiReviewCommentRepository.deleteByAiReview_Id(aiReview.getId());
+            aiReviewFileRepository.deleteByAiReview_Id(aiReview.getId());
+        } else {
+            aiCommentModRepository.deleteByAiReviewIdExceptFiles(aiReview.getId(), reused);
+            aiReviewCommentRepository.deleteByAiReviewIdExceptFiles(aiReview.getId(), reused);
+            aiReviewFileRepository.deleteByAiReviewIdExceptFiles(aiReview.getId(), reused);
+        }
+
         aiReview.resetToPending(headSha, prDiff);
         aiReviewRepository.save(aiReview);
         broadcastAiReviewStatus(room.getId(), aiReview);
-        return aiReview.getId();
+        return new ResetResult(aiReview.getId(), Set.copyOf(reused));
+    }
+
+    /**
+     * 새로 리뷰할 파일이 없을 때 바로 끝낸다. 이전 결과를 재사용한 파일이 있으면 SUCCESS, 없으면 SKIPPED.
+     * (그대로 두면 totalFiles가 0이라 완료 판정이 영영 일어나지 않는다)
+     */
+    @Transactional
+    public void completeWithoutNewFiles(Long aiReviewId, boolean hasReusedFiles) {
+        AiReview aiReview = findByIdWithChatRoom(aiReviewId);
+        if (!hasReusedFiles) {
+            updateSkipped(aiReview, "리뷰할 파일 없음");
+            return;
+        }
+        int updated = aiReviewRepository.markFinalStatusIfPending(aiReviewId, AiReviewStatus.SUCCESS, LocalDateTime.now());
+        if (updated > 0) {
+            broadcastAiReviewStatus(aiReview.getChatRoom().getId(), findByIdWithChatRoom(aiReviewId));
+        }
     }
 
     private AiReview findAiReview(Long roomId, int prNumber) {
@@ -384,9 +446,24 @@ public class AiReviewService {
 
     @Transactional
     public void saveFileContents(Long aiReviewId, Map<String, String> fileContentMap) {
+        saveFileContents(aiReviewId, fileContentMap, Set.of());
+    }
+
+    /** @param keepExisting 기존 코드를 그대로 둘 파일(증분 리뷰에서 재사용한 파일). 화면에서 코멘트와 함께 코드를 보여 주는 데 쓴다 */
+    @Transactional
+    public void saveFileContents(Long aiReviewId, Map<String, String> fileContentMap, Set<String> keepExisting) {
         AiReview aiReview = findById(aiReviewId);
         try {
-            aiReview.saveFileContents(objectMapper.writeValueAsString(fileContentMap));
+            Map<String, String> merged = new HashMap<>();
+            if (!keepExisting.isEmpty() && aiReview.getFileContents() != null) {
+                Map<String, String> existing = objectMapper.readValue(aiReview.getFileContents(),
+                        new TypeReference<Map<String, String>>() {});
+                existing.forEach((path, code) -> {
+                    if (keepExisting.contains(path)) merged.put(path, code);
+                });
+            }
+            merged.putAll(fileContentMap);
+            aiReview.saveFileContents(objectMapper.writeValueAsString(merged));
             aiReviewRepository.save(aiReview);
         } catch (Exception e) {
             log.error("fileContents 저장 실패. aiReviewId={}", aiReviewId, e);

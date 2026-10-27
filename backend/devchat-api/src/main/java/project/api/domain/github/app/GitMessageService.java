@@ -1,6 +1,9 @@
 package project.api.domain.github.app;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -244,8 +247,38 @@ public class GitMessageService {
 		GitRepoDto repo = GitRepoUrlUtils.validateAndParseUrl(room.getRepositoryUrl());
 		String prDiff = gitHubBotClient.getPrDiff(repo.ownerName(), repo.repoName(), prNumber);
 
-		Long aiReviewId = aiReviewService.resetToPendingAndPublish(room, prNumber, headSha, prDiff);
-		eventPublisher.publishEvent(new AiReviewRequestedEvent(aiReviewId, headSha, baseSha));
+		// 증분 리뷰: 마지막으로 리뷰를 끝낸 커밋 이후 바뀐 파일만 다시 리뷰한다
+		String reviewedSha = aiReviewService.findReviewedCommitSha(room.getId(), prNumber);
+		Set<String> changed = findChangedFiles(repo, reviewedSha, headSha);
+
+		AiReviewService.ResetResult reset = aiReviewService.resetForNewCommit(room, prNumber, headSha, prDiff, changed);
+		eventPublisher.publishEvent(
+				new AiReviewRequestedEvent(reset.aiReviewId(), headSha, baseSha, reset.reusedFiles()));
+	}
+
+	/** GitHub compare가 한 번에 주는 파일 수 상한. 이만큼 오면 목록이 잘렸을 수 있어 전체 리뷰로 간다 */
+	private static final int COMPARE_FILE_LIMIT = 300;
+
+	/**
+	 * 두 커밋 사이에 바뀐 파일(이름이 바뀐 파일은 이전 이름도 포함). 증분 리뷰를 할 수 없으면 null을 돌려 전체 리뷰로 간다.
+	 * force push로 이전 커밋이 사라졌으면 compare가 실패하고, 이전 커밋이 조상이 아니어도 merge-base 기준이라 더 넓게 잡힐 뿐이다.
+	 */
+	private Set<String> findChangedFiles(GitRepoDto repo, String fromSha, String toSha) {
+		if (fromSha == null || fromSha.equals(toSha)) return null;
+		try {
+			List<GitHubBotClient.PrFile> files =
+					gitHubBotClient.getCompareFiles(repo.ownerName(), repo.repoName(), fromSha, toSha);
+			if (files.size() >= COMPARE_FILE_LIMIT) return null;
+			Set<String> changed = new HashSet<>();
+			for (GitHubBotClient.PrFile f : files) {
+				changed.add(f.filename());
+				if (f.previousFilename() != null) changed.add(f.previousFilename());
+			}
+			return changed;
+		} catch (Exception e) {
+			log.warn("커밋 비교 실패, 전체 리뷰로 진행. {}...{}", fromSha, toSha, e);
+			return null;
+		}
 	}
 
 	private ChatRoom findRoom(Long roomId) {

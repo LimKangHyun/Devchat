@@ -1,6 +1,8 @@
 package project.api.domain.aireview.dao;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +15,16 @@ public interface AiReviewFileRepository extends JpaRepository<AiReviewFile, Long
     void deleteByAiReview_Id(Long aiReviewId);
 
     void deleteByAiReview_ChatRoom_Id(Long roomId);
+
+    /** 이 리뷰에서 리뷰를 끝낸(COMPLETED) 파일. 증분 리뷰에서 재사용 후보가 된다 */
+    @Query("SELECT f.filePath FROM AiReviewFile f WHERE f.aiReview.id = :aiReviewId AND f.status = :status")
+    List<String> findFilePathsByStatus(@Param("aiReviewId") Long aiReviewId, @Param("status") FileReviewStatus status);
+
+    /** 증분 리뷰: 재사용할 파일(keepPaths, 비어 있으면 안 됨)을 뺀 나머지 파일 처리 기록을 지운다 */
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM AiReviewFile f WHERE f.aiReview.id = :aiReviewId AND f.filePath NOT IN :keepPaths")
+    int deleteByAiReviewIdExceptFiles(@Param("aiReviewId") Long aiReviewId,
+                                      @Param("keepPaths") Collection<String> keepPaths);
 
     /**
      * (ai_review_id, file_path) 행이 없을 때만 넣는다. 넣었으면 1, 이미 있으면 0.

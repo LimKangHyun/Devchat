@@ -94,7 +94,11 @@ public class AiReview {
         this.errorMessage = null;
         this.githubPublished = false;
         this.publishedBy = null;
+        // 이번 커밋에서 리뷰할 파일만 다시 센다 (이전 커밋의 실패 수·총 파일 수가 남으면 완료 판정이 틀어진다)
+        this.totalFiles = 0;
         this.completedFiles = 0;
+        this.failedFiles = 0;
+        this.skippedFiles = null;
         this.updatedAt = LocalDateTime.now();
     }
 
