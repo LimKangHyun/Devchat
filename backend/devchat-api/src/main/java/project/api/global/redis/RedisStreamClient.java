@@ -2,7 +2,6 @@ package project.api.global.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -10,8 +9,6 @@ import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
-import project.common.message.aireview.AiReviewRequestMessage;
-import project.common.message.aireview.ChangedFileSnapshot;
 import project.common.message.git.GitSummaryRequestMessage;
 import project.common.message.index.DeleteIndexMessage;
 import project.common.message.index.FileReindexMessage;
@@ -42,18 +39,9 @@ public class RedisStreamClient {
         }
     }
 
-    public void publishAiReviewRequest(Long aiReviewId, Long chatRoomId, Long repoId,
-        String filePath, String fileDiff, String fileContent,
-        String baseContent, String prTitle, String prBody, List<String> changedFilesInPr,
-        List<ChangedFileSnapshot> relatedChangedFiles, String reviewConventions, String commitSha) {
-        try {
-            String json = objectMapper.writeValueAsString(
-                new AiReviewRequestMessage(aiReviewId, chatRoomId, repoId, filePath, fileDiff, fileContent, baseContent,
-                    prTitle, prBody, changedFilesInPr, relatedChangedFiles, reviewConventions, commitSha));
-            publish(AI_REVIEW_REQUEST_STREAM, json);
-        } catch (Exception e) {
-            throw new RuntimeException("Redis Stream 발행 실패", e);
-        }
+    /** outbox에 저장해 둔 리뷰 요청(AiReviewRequestMessage JSON)을 그대로 보낸다. 실패하면 예외를 던져 다시 시도하게 한다 */
+    public void publishAiReviewRequestJson(String json) {
+        publish(AI_REVIEW_REQUEST_STREAM, json);
     }
 
     public void publishDeleteIndex(Long roomId) {
