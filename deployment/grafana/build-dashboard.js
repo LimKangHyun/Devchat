@@ -112,10 +112,102 @@ panels.push(
     'rag_score_rerank_fifth', 16),
 );
 
+// ── 리뷰 품질: MySQL에서 직접 집계 ──
+// 사용자가 AI 코멘트를 끄면 ai_comment_mod에 이력이 쌓인다(코멘트 생성 시 "켜짐" 1줄, 끄고 켤 때마다 1줄).
+// 코멘트의 현재 상태는 코멘트별 가장 마지막 이력이다. "채택" = 꺼지지 않은 코멘트(아무도 손대지 않은 코멘트 포함).
+const mysql = { type: 'mysql', uid: 'mysql-devchat' };
+const sqlTgt = (rawSql, format = 'table', refId = 'A') =>
+  ({ datasource: mysql, refId, rawSql, format, rawQuery: true, editorMode: 'code' });
+const sqlPanel = (...args) => ({ ...panel(...args), datasource: mysql });
+
+const LATEST = `WITH latest AS (
+  SELECT m.comment_id, m.active, m.reason, m.other_reason, m.created_at AS changed_at
+  FROM ai_comment_mod m
+  JOIN (SELECT comment_id, MAX(id) AS max_id FROM ai_comment_mod GROUP BY comment_id) x ON x.max_id = m.id
+)`;
+const OFF = 'CASE WHEN l.active = 0 THEN 1 ELSE 0 END';
+const FROM_COMMENTS = 'FROM ai_review_comment c LEFT JOIN latest l ON l.comment_id = c.id';
+const REASON_LABEL = `CASE l.reason WHEN 'DUPLICATE' THEN '중복' WHEN 'UNNECESSARY' THEN '불필요'
+  WHEN 'INCORRECT' THEN '잘못됨' WHEN 'OTHER' THEN '기타' ELSE '(이유 없음)' END`;
+const percent = { unit: 'percentunit', decimals: 1, min: 0, max: 1 };
+const rateThresholds = { mode: 'absolute', steps: [{ color: 'red', value: null }, { color: 'orange', value: 0.6 }, { color: 'green', value: 0.8 }] };
+
+panels.push(
+  row('리뷰 품질 (사용자가 끈 AI 코멘트 기준, MySQL 집계)', 31),
+
+  sqlPanel('stat', '채택률', '선택한 기간에 만든 AI 코멘트 중 사용자가 끄지 않은 비율. 아무도 손대지 않은 코멘트도 채택으로 센다.',
+    { h: 4, w: 6, x: 0, y: 32 },
+    [sqlTgt(`${LATEST}
+SELECT 1 - AVG(${OFF}) AS "채택률" ${FROM_COMMENTS} WHERE $__timeFilter(c.created_at)`)],
+    { defaults: { ...percent, thresholds: rateThresholds } },
+    { colorMode: 'background', reduceOptions: { calcs: ['lastNotNull'] } }),
+
+  sqlPanel('stat', 'AI 코멘트 수', '선택한 기간에 만든 AI 코멘트 수와 그중 사용자가 끈 수.',
+    { h: 4, w: 6, x: 6, y: 32 },
+    [sqlTgt(`${LATEST}
+SELECT COUNT(*) AS "생성", SUM(${OFF}) AS "꺼짐" ${FROM_COMMENTS} WHERE $__timeFilter(c.created_at)`)],
+    { defaults: { unit: 'short', decimals: 0, thresholds: { mode: 'absolute', steps: [{ color: 'text', value: null }] } } },
+    { colorMode: 'value', reduceOptions: { calcs: ['lastNotNull'] }, textMode: 'value_and_name', orientation: 'horizontal' }),
+
+  sqlPanel('barchart', '꺼진 이유', '사용자가 코멘트를 끌 때 고른 이유. "잘못됨"이 많으면 사실 오류, "불필요"가 많으면 지적 기준을 손볼 신호.',
+    { h: 8, w: 12, x: 12, y: 32 },
+    [sqlTgt(`${LATEST}
+SELECT ${REASON_LABEL} AS "이유", COUNT(*) AS "코멘트 수"
+${FROM_COMMENTS} WHERE $__timeFilter(c.created_at) AND l.active = 0
+GROUP BY 1 ORDER BY 2 DESC`)],
+    { defaults: { unit: 'short', decimals: 0, color: { mode: 'fixed', fixedColor: 'orange' } } },
+    { orientation: 'horizontal', showValue: 'always', legend: { showLegend: false }, xField: '이유' }),
+
+  sqlPanel('timeseries', '일별 채택률', '하루 단위 채택률 추이. 프롬프트나 검색 방식을 바꾼 날 전후를 비교한다.',
+    { h: 8, w: 12, x: 0, y: 36 },
+    [sqlTgt(`${LATEST}
+SELECT $__timeGroupAlias(c.created_at, '1d'), 1 - AVG(${OFF}) AS "채택률"
+${FROM_COMMENTS} WHERE $__timeFilter(c.created_at)
+GROUP BY 1 ORDER BY 1`, 'time_series')],
+    { defaults: { ...percent, custom: { drawStyle: 'line', lineWidth: 2, fillOpacity: 10, showPoints: 'always', pointSize: 5 } } },
+    { legend: { displayMode: 'list', placement: 'bottom' }, tooltip: { mode: 'single' } }),
+
+  sqlPanel('table', '프롬프트 버전별 채택률', '프롬프트(또는 모델)를 바꾸면 버전이 바뀐다. 같은 기간의 다른 버전과 채택률을 비교한다.',
+    { h: 8, w: 12, x: 12, y: 40 },
+    [sqlTgt(`${LATEST}
+SELECT COALESCE(c.prompt_version, '(기록 전)') AS "버전",
+       MIN(c.created_at) AS "처음 사용", MAX(c.created_at) AS "마지막 사용",
+       COUNT(*) AS "코멘트", SUM(${OFF}) AS "꺼짐", 1 - AVG(${OFF}) AS "채택률"
+${FROM_COMMENTS} WHERE $__timeFilter(c.created_at)
+GROUP BY 1 ORDER BY 2 DESC`)],
+    { defaults: {}, overrides: [{ matcher: { id: 'byName', options: '채택률' },
+      properties: [{ id: 'unit', value: 'percentunit' }, { id: 'decimals', value: 1 },
+        { id: 'custom.cellOptions', value: { type: 'color-background' } }, { id: 'thresholds', value: rateThresholds }] }] },
+    { showHeader: true }),
+
+  sqlPanel('table', '팀 규칙 코멘트 vs 일반 코멘트', '"[팀 규칙]"으로 시작하는 코멘트(팀 리뷰 규칙 위반 지적)와 일반 코멘트의 채택률 비교.',
+    { h: 6, w: 12, x: 0, y: 44 },
+    [sqlTgt(`${LATEST}
+SELECT CASE WHEN c.comment LIKE '[팀 규칙]%' THEN '팀 규칙' ELSE '일반' END AS "종류",
+       COUNT(*) AS "코멘트", SUM(${OFF}) AS "꺼짐", 1 - AVG(${OFF}) AS "채택률"
+${FROM_COMMENTS} WHERE $__timeFilter(c.created_at)
+GROUP BY 1 ORDER BY 1`)],
+    { defaults: {}, overrides: [{ matcher: { id: 'byName', options: '채택률' },
+      properties: [{ id: 'unit', value: 'percentunit' }, { id: 'decimals', value: 1 },
+        { id: 'custom.cellOptions', value: { type: 'color-background' } }, { id: 'thresholds', value: rateThresholds }] }] },
+    { showHeader: true }),
+
+  sqlPanel('table', '최근 꺼진 코멘트', '사용자가 끈 코멘트 원문과 이유. 프롬프트를 고칠 때 실제 사례로 쓴다.',
+    { h: 10, w: 24, x: 0, y: 50 },
+    [sqlTgt(`${LATEST}
+SELECT l.changed_at AS "꺼진 시각", ${REASON_LABEL} AS "이유", l.other_reason AS "기타 사유",
+       c.file_path AS "파일", LEFT(c.comment, 200) AS "코멘트", COALESCE(c.prompt_version, '-') AS "버전"
+${FROM_COMMENTS} WHERE l.active = 0 AND $__timeFilter(l.changed_at)
+ORDER BY l.changed_at DESC LIMIT 50`)],
+    { defaults: {}, overrides: [{ matcher: { id: 'byName', options: '코멘트' },
+      properties: [{ id: 'custom.cellOptions', value: { type: 'auto', wrapText: true } }, { id: 'custom.width', value: 520 }] }] },
+    { showHeader: true, cellHeight: 'md' }),
+);
+
 const dashboard = {
   title: 'DevChat AI · RAG 검색',
   uid: 'devchat-ai-rag',
-  description: 'AI 코드 리뷰 RAG 검색의 대체 처리, 결과 종류, 검색 시간 (RagMetrics)',
+  description: 'AI 코드 리뷰 RAG 검색의 대체 처리, 결과 종류, 검색 시간 (RagMetrics), 리뷰 품질(MySQL)',
   tags: ['devchat', 'rag'],
   timezone: 'browser',
   editable: true,

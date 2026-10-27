@@ -1,0 +1,21 @@
+# 리뷰 품질 대시보드용 MySQL 데이터 소스.
+# 대시보드가 SQL로 직접 집계하므로 SELECT만 가능한 읽기 전용 계정을 쓴다(만드는 방법은 deployment/grafana/README.md).
+# 계정 정보는 서버 .env의 GRAFANA_MYSQL_USER, GRAFANA_MYSQL_PASSWORD에서 읽는다.
+apiVersion: 1
+
+datasources:
+  - name: MySQL (DevChat, 읽기 전용)
+    uid: mysql-devchat
+    type: mysql
+    access: proxy
+    url: dev-chat-mysql:3306
+    user: ${GRAFANA_MYSQL_USER}
+    database: devchat
+    jsonData:
+      database: devchat
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: ${GRAFANA_MYSQL_PASSWORD}
+    editable: false

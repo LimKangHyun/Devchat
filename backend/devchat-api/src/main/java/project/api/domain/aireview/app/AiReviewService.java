@@ -107,6 +107,15 @@ public class AiReviewService {
     @Transactional
     public void saveFileReviewResult(Long aiReviewId, Long chatRoomId, String filePath, String commitSha,
                                      List<InlineReview> reviews) {
+        saveFileReviewResult(aiReviewId, chatRoomId, filePath, commitSha, null, reviews);
+    }
+
+    /**
+     * @param promptVersion 코멘트를 만든 프롬프트 버전. 프롬프트별 채택률 비교(리뷰 품질 대시보드)에 쓴다. 이전 AI 서버는 null
+     */
+    @Transactional
+    public void saveFileReviewResult(Long aiReviewId, Long chatRoomId, String filePath, String commitSha,
+                                     String promptVersion, List<InlineReview> reviews) {
         // 이 파일의 최종 결과를 처음 반영하는 경우만 통과한다. 중복이면 코멘트 저장과 카운터 증가를 모두 건너뛴다.
         // (상태 변경 쿼리가 영속성 컨텍스트를 비우므로, 리뷰 엔티티는 그 뒤에 읽는다)
         if (!markFileFinished(aiReviewId, filePath, commitSha, FileReviewStatus.COMPLETED)) {
@@ -122,6 +131,7 @@ public class AiReviewService {
                     .diffLine(review.diffLine())
                     .comment(review.comment())
                     .createdAt(LocalDateTime.now())
+                    .promptVersion(promptVersion)
                     .build();
             aiReviewCommentRepository.save(comment);
 

@@ -39,7 +39,7 @@ public class AiReviewResultConsumer implements StreamListener<String, ObjectReco
         // 중복 재처리는 파일 상태 조건부 UPDATE(PROCESSING일 때만 최종 상태로)로 방어된다.
         if ("SUCCESS".equals(message.status())) {
             aiReviewService.saveFileReviewResult(
-                    message.aiReviewId(), message.chatRoomId(), message.filePath(), message.commitSha(), message.reviews());
+                    message.aiReviewId(), message.chatRoomId(), message.filePath(), message.commitSha(), message.promptVersion(), message.reviews());
         } else {
             aiReviewService.saveFileReviewFail(
                     message.aiReviewId(), message.chatRoomId(), message.filePath(), message.commitSha(), message.errorMessage());
