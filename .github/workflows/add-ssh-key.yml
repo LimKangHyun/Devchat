@@ -1,0 +1,50 @@
+# 서버에 새 SSH 공개키를 등록하는 수동 실행 워크플로.
+# 개인키를 잃어버렸을 때, CI 배포용 키(OCI_SSH_KEY)로 접속해 새 공개키를 authorized_keys에 추가한다.
+# 사용 후에는 이 파일을 지워서 실행 경로를 남겨두지 않는다.
+name: Add SSH key (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      public_key:
+        description: "등록할 SSH 공개키 한 줄 (예: ssh-ed25519 AAAA... devchat-oci)"
+        required: true
+        type: string
+
+jobs:
+  add-key:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 공개키 형식 확인
+        env:
+          PUBLIC_KEY: ${{ inputs.public_key }}
+        run: |
+          # 한 줄짜리 ed25519/rsa/ecdsa 공개키만 허용한다. 셸 명령이 섞여 들어가는 것을 막는다.
+          if ! printf '%s' "$PUBLIC_KEY" | grep -Eq '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)) [A-Za-z0-9+/=]+( [A-Za-z0-9._@-]+)?$'; then
+            echo "공개키 형식이 올바르지 않습니다. ~/.ssh/<이름>.pub 파일 내용을 그대로 넣어주세요." >&2
+            exit 1
+          fi
+          echo "형식 확인 완료"
+
+      - name: 서버 authorized_keys에 추가
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          PUBLIC_KEY: ${{ inputs.public_key }}
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ubuntu
+          key: ${{ secrets.OCI_SSH_KEY }}
+          envs: PUBLIC_KEY
+          script: |
+            set -e
+              mkdir -p ~/.ssh
+              chmod 700 ~/.ssh
+              touch ~/.ssh/authorized_keys
+              if grep -qxF "$PUBLIC_KEY" ~/.ssh/authorized_keys; then
+                echo "이미 등록된 키입니다."
+              else
+                printf '%s\n' "$PUBLIC_KEY" >> ~/.ssh/authorized_keys
+                echo "새 키를 등록했습니다."
+              fi
+              chmod 600 ~/.ssh/authorized_keys
+              echo "등록된 키 개수: $(grep -c . ~/.ssh/authorized_keys)"
