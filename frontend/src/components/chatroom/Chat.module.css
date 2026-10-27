@@ -1052,6 +1052,7 @@
 }
 
 .composer {
+  position: relative;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   background: var(--bg);
@@ -1694,4 +1695,52 @@
 .connectRepoBtn:hover {
   background: var(--marker-soft);
   border-style: solid;
+}
+
+/* ── @멘션 ── */
+.mentionMenu {
+  position: absolute;
+  left: 8px;
+  bottom: calc(100% + 6px);
+  z-index: 20;
+  min-width: 220px;
+  max-width: calc(100% - 16px);
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 20px rgba(31, 35, 43, 0.12);
+}
+
+.mentionItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mentionItemActive {
+  background: var(--mention-bg);
+}
+
+.mentionAvatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.mention {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: var(--mention-bg);
+  color: var(--link);
+  font-weight: 600;
 }

@@ -1,7 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ImagePlus, Code2, SendHorizontal, X } from 'lucide-react';
 import s from './Chat.module.css';
 import { handleCodeKeyDown } from './codeEditorKeys';
+import { getMentionQuery } from '../../utils/mention';
+
+const MAX_MENTION_CANDIDATES = 6;
 
 const LANGUAGES = [
   ['javascript', 'JavaScript'],
@@ -23,10 +26,45 @@ const MessageInput = ({
   imagePreviewUrl,
   setImagePreviewUrl,
   roomName,
+  mentionCandidates = [],
 }) => {
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
   const isComposingRef = useRef(false);
   const [isFocused, setIsFocused] = useState(false);
+  // @멘션 자동완성: { start: '@' 위치, query }
+  const [mention, setMention] = useState(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const candidates = useMemo(() => {
+    if (!mention) return [];
+    const q = mention.query.toLowerCase();
+    return mentionCandidates
+      .filter((p) => p.nickname.toLowerCase().includes(q))
+      .slice(0, MAX_MENTION_CANDIDATES);
+  }, [mention, mentionCandidates]);
+  const mentionOpen = inputMode === 'TEXT' && candidates.length > 0;
+
+  const updateMention = (text, caret) => {
+    const next = inputMode === 'TEXT' ? getMentionQuery(text, caret) : null;
+    setMention(next);
+    if (!next || next.query !== mention?.query) setActiveIndex(0);
+  };
+
+  const selectMention = (p) => {
+    const el = textareaRef.current;
+    const caret = el ? el.selectionStart : content.length;
+    const inserted = `@${p.nickname} `;
+    const next = content.slice(0, mention.start) + inserted + content.slice(caret);
+    setContent(next);
+    setMention(null);
+    const pos = mention.start + inserted.length;
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      textareaRef.current.focus();
+      textareaRef.current.setSelectionRange(pos, pos);
+    });
+  };
 
   const handleModeToggle = (mode) => {
     const next = inputMode === mode ? 'TEXT' : mode;
@@ -60,13 +98,41 @@ const MessageInput = ({
         </div>
       )}
 
+      {mentionOpen && (
+        <ul className={s.mentionMenu} role="listbox" aria-label="멘션할 참여자">
+          {candidates.map((p, i) => (
+            <li
+              key={p.memberId}
+              role="option"
+              aria-selected={i === activeIndex}
+              className={`${s.mentionItem} ${i === activeIndex ? s.mentionItemActive : ''}`}
+              // blur보다 먼저 처리해야 선택이 사라지지 않는다
+              onMouseDown={(e) => { e.preventDefault(); selectMention(p); }}
+              onMouseEnter={() => setActiveIndex(i)}
+            >
+              <img
+                className={s.mentionAvatar}
+                src={p.profileImageUrl ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${p.profileImageUrl}` : '/images/not-found-profile.webp'}
+                alt=""
+              />
+              <span>{p.nickname}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <textarea
+        ref={textareaRef}
         rows={1}
         disabled={inputMode === 'IMAGE'}
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={(e) => {
+          setContent(e.target.value);
+          updateMention(e.target.value, e.target.selectionStart);
+        }}
+        onSelect={(e) => updateMention(e.target.value, e.target.selectionStart)}
         onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
+        onBlur={() => { setIsFocused(false); setMention(null); }}
         onCompositionStart={() => (isComposingRef.current = true)}
         onCompositionEnd={() => (isComposingRef.current = false)}
         wrap={isCode ? 'off' : undefined}
@@ -86,6 +152,24 @@ const MessageInput = ({
             }
             handleCodeKeyDown(e, language);
             return;
+          }
+          if (mentionOpen && !isComposingRef.current) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              const step = e.key === 'ArrowDown' ? 1 : -1;
+              setActiveIndex((i) => (i + step + candidates.length) % candidates.length);
+              return;
+            }
+            if (e.key === 'Enter' || e.key === 'Tab') {
+              e.preventDefault();
+              selectMention(candidates[Math.min(activeIndex, candidates.length - 1)]);
+              return;
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              setMention(null);
+              return;
+            }
           }
           if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current) {
             e.preventDefault();
