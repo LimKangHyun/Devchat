@@ -3,6 +3,7 @@ import { ImagePlus, Code2, SendHorizontal, X } from 'lucide-react';
 import s from './Chat.module.css';
 import { handleCodeKeyDown } from './codeEditorKeys';
 import { getMentionQuery } from '../../utils/mention';
+import { compressImage, CHAT_IMAGE_OPTIONS, MAX_UPLOAD_BYTES, formatBytes } from '../../utils/imageCompress';
 
 const MAX_MENTION_CANDIDATES = 6;
 
@@ -243,14 +244,19 @@ const MessageInput = ({
         type="file"
         accept="image/*"
         ref={fileInputRef}
-        onChange={(e) => {
-          if (e.target.files?.[0]) {
-            const file = e.target.files[0];
-            setImageFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => setImagePreviewUrl(reader.result);
-            reader.readAsDataURL(file);
+        onChange={async (e) => {
+          const picked = e.target.files?.[0];
+          e.target.value = '';
+          if (!picked) return;
+          const file = await compressImage(picked, CHAT_IMAGE_OPTIONS);
+          if (file.size > MAX_UPLOAD_BYTES) {
+            alert(`이미지 용량이 너무 큽니다 (${formatBytes(file.size)}). ${formatBytes(MAX_UPLOAD_BYTES)} 이하로 올려주세요.`);
+            return;
           }
+          setImageFile(file);
+          const reader = new FileReader();
+          reader.onloadend = () => setImagePreviewUrl(reader.result);
+          reader.readAsDataURL(file);
         }}
         style={{ display: 'none' }}
       />

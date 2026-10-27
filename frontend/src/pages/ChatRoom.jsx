@@ -18,6 +18,7 @@ import IndexingBar from '../components/chatroom/IndexingBar';
 import s from '../components/chatroom/Chat.module.css';
 import { MessageSquareDashed, Code2, GitPullRequest, UserPlus, Copy } from 'lucide-react';
 import { findMentionedIds } from '../utils/mention';
+import { uploadErrorMessage } from '../utils/imageCompress';
 
 // 레포 연동 방에 자동으로 들어오는 봇 계정 (서버 github.username, github.bot.username)
 const BOT_NICKNAMES = new Set(['GitHubBot', 'Devchat-Code-Assist']);
@@ -580,7 +581,7 @@ const ChatRoom = () => {
         const res = await axiosInstance.post('/send-image', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
         sendMessage({ type: 'IMAGE', content: '', imageFileId: res.data });
         setImageFile(null); setImagePreviewUrl(null);
-      } catch { alert('이미지 전송 실패'); }
+      } catch (err) { alert(uploadErrorMessage(err, '이미지 전송에 실패했습니다.')); }
     } else {
       sendMessage();
     }

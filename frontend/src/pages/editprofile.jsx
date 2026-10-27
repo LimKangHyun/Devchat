@@ -7,6 +7,7 @@ import PasswordChangeModal from "../components/modals/PasswordChangeModal";
 import axiosInstance from "../components/api/axiosInstance";
 import styles from "../edit-profile-page.module.css";
 import { useWebSocketContext } from "../components/common/WebSocketContext";
+import { compressImage, PROFILE_IMAGE_OPTIONS, MAX_UPLOAD_BYTES, formatBytes, uploadErrorMessage } from "../utils/imageCompress";
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
@@ -43,14 +44,18 @@ export default function EditProfilePage() {
     fetchUserDetails();
   }, [navigate]);
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setSelectedImage(imageUrl);
-      setImageFile(file);
-      setIsModified(true);
+  const handleImageChange = async (e) => {
+    const picked = e.target.files[0];
+    e.target.value = "";
+    if (!picked) return;
+    const file = await compressImage(picked, PROFILE_IMAGE_OPTIONS);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      alert(`이미지 용량이 너무 큽니다 (${formatBytes(file.size)}). ${formatBytes(MAX_UPLOAD_BYTES)} 이하로 올려주세요.`);
+      return;
     }
+    setSelectedImage(URL.createObjectURL(file));
+    setImageFile(file);
+    setIsModified(true);
   };
 
   const handleSavePersonalInfo = async () => {
@@ -85,8 +90,7 @@ export default function EditProfilePage() {
       window.dispatchEvent(new Event("profile-updated"));
       console.log("🔥 profile-updated 이벤트 발생");
     } catch (error) {
-      const msg = error?.response?.data?.message || "업데이트 실패";
-      alert(msg);
+      alert(uploadErrorMessage(error, "업데이트 실패"));
     }
   };
 
