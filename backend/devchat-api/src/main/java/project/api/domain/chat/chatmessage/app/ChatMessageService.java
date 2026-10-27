@@ -211,12 +211,6 @@ public class ChatMessageService {
     }
 
     @Transactional
-    public void deleteByRoomId(Long roomId) {
-        chatMessageRepository.deleteByChatRoom_Id(roomId);
-        chatMessageSearchRepository.deleteByRoomId(roomId);
-    }
-
-    @Transactional
     public ChatMessageResponse updateToSummary(Long messageId, String summarizedContent) {
         ChatMessage message = chatMessageRepository.findById(messageId)
                 .orElseThrow(() -> new ChatMessageException(ChatMessageErrorCode.MESSAGE_NOT_FOUND));

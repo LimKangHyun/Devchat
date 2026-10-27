@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import project.api.domain.aireview.dto.AiSummaryToggleResponse;
 import project.api.domain.chat.chatmessage.app.ChatMessageService;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
+import project.api.domain.chat.chatroom.dao.ChatRoomDataCleaner;
 import project.api.domain.chat.chatroom.dao.ChatRoomRepository;
 import project.api.domain.chat.chatroom.dao.ChatRoomWithSequenceProjection;
 import project.api.domain.chat.chatroom.dto.*;
@@ -42,6 +43,7 @@ public class ChatRoomService {
 
     private final PostRepository postRepository;
     private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomDataCleaner chatRoomDataCleaner;
 
     private final ChatRoomMapper chatRoomMapper;
 
@@ -230,12 +232,9 @@ public class ChatRoomService {
                 new DeleteChatRoomEvent(roomId, room.getName(), room.getRepositoryUrl(), room.getWebhookId(), memberId)
         );
 
-        aiReviewService.deleteByRoomId(room.getId());
-        chatRoomParticipantService.deleteAllByRoomId(roomId);
-        chatMessageService.deleteByRoomId(roomId);
+        // 게시글은 지원자(applicant)까지 엔티티 cascade로 지워야 해서 JPA로 지운다. 나머지는 테이블별 일괄 삭제
         postRepository.deleteByChatRoom_Id(roomId);
-        chatRoomSyncService.deleteByRoomId(roomId);
-        chatRoomRepository.delete(room);
+        chatRoomDataCleaner.deleteRoomAndData(roomId);
     }
 
     public boolean toggleAlarm(Long roomId, Long memberId) {
