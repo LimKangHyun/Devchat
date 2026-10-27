@@ -1,330 +1,331 @@
+/* Community 상세 */
 .container {
-  padding: 40px;
-  min-height: 100vh;
-  background-color: #f7fafc;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  width: 100%;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  box-sizing: border-box;
 }
 
 .loading {
-  padding: 60px;
+  padding: 60px 20px;
   text-align: center;
-  color: #a0aec0;
+  color: var(--text-3);
+  font-size: 14px;
 }
 
+/* 페이지 헤더 바 */
+.pageHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 60px;
+  padding: 0 20px 0 12px;
+  border-bottom: 1px solid var(--border-soft);
+  box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+}
+
+.backButton {
+  color: var(--text);
+}
+
+.pageTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.2px;
+}
+
+/* 본문 영역 (평평한 문서) */
 .card {
-  background: white;
-  border-radius: 16px;
-  border: 1px solid #eaedf0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   width: 100%;
-  max-width: 780px;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+  box-sizing: border-box;
 }
 
-/* 카드 헤더 */
 .cardHeader {
-  padding: 32px 40px 24px;
-  border-bottom: 1px solid #f0f4f8;
+  padding: 24px 0 18px;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .metaRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .tags {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
-.tag {
-  background-color: #ebf4ff;
-  color: #2588F1;
+.tag,
+.modeTag,
+.closedTag,
+.deadlineTag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  padding: 3px 12px;
-  border-radius: 20px;
-}
-
-.modeTag {
-  background-color: #f0fff4;
-  color: #38a169;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 12px;
-  border-radius: 20px;
+  background: var(--bg-muted);
+  color: var(--text-2);
+  white-space: nowrap;
 }
 
 .closedTag {
-  background-color: #fed7d7;
-  color: #c53030;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 12px;
-  border-radius: 20px;
-}
-
-.deadlineTag {
-  background-color: #fefcbf;
-  color: #b7791f;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 12px;
-  border-radius: 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-3);
 }
 
 .viewCount {
-  font-size: 13px;
-  color: #a0aec0;
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
 }
 
 .title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
-  margin: 0 0 16px 0;
-  line-height: 1.4;
+  color: var(--text);
+  margin: 0 0 16px;
+  line-height: 1.35;
+  letter-spacing: -0.3px;
+  overflow-wrap: anywhere;
 }
 
 .authorRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .authorInfo {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-muted);
 }
 
 .authorName {
-  font-size: 14px;
-  font-weight: 600;
-  color: #2d3748;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .dot {
-  color: #cbd5e0;
+  color: var(--border-strong);
 }
 
 .createdAt {
   font-size: 13px;
-  color: #a0aec0;
+  color: var(--text-3);
 }
 
-/* 방장 버튼 */
+/* 작성자 버튼 */
 .ownerButtons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
-.editButton {
-  padding: 6px 16px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #4a5568;
+.editButton,
+.deleteButton {
+  height: 30px;
+  padding: 0 12px;
   font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.editButton:hover {
-  background: #f7fafc;
-  border-color: #2588F1;
-  color: #2588F1;
 }
 
 .deleteButton {
-  padding: 6px 16px;
-  border-radius: 6px;
-  border: 1px solid #fed7d7;
-  background: white;
-  color: #e53e3e;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
+  color: var(--danger);
 }
 
 .deleteButton:hover {
-  background: #fff5f5;
+  background: var(--danger-soft);
+  border-color: var(--danger);
 }
 
-/* 모집 정보 그리드 */
+/* 모집 정보 */
 .infoGrid {
   display: flex;
-  gap: 0;
-  border-bottom: 1px solid #f0f4f8;
-  border-top: 1px solid #f0f4f8;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .infoItem {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 20px;
-  gap: 6px;
-  border-right: 1px solid #f0f4f8;
+  gap: 4px;
+  padding: 16px 16px 16px 0;
 }
 
-.infoItem:last-child {
-  border-right: none;
+.infoItem + .infoItem {
+  padding-left: 16px;
+  border-left: 1px solid var(--border-soft);
 }
 
 .infoLabel {
   font-size: 12px;
-  color: #a0aec0;
-  font-weight: 500;
+  color: var(--text-3);
+  font-weight: 600;
 }
 
 .infoValue {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: #2d3748;
+  color: var(--text);
 }
 
 /* 기술 스택 */
 .techSection {
-  padding: 20px 40px;
-  border-bottom: 1px solid #f0f4f8;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .sectionLabel {
   font-size: 13px;
-  font-weight: 600;
-  color: #718096;
-  margin: 0 0 10px 0;
+  font-weight: 700;
+  color: var(--text-2);
+  margin: 0 0 8px;
 }
 
 .techStacks {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .techChip {
-  padding: 4px 14px;
-  border-radius: 20px;
-  background-color: #edf2f7;
-  color: #4a5568;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--text);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* 본문 */
 .content {
-  padding: 32px 40px;
+  padding: 24px 0;
   font-size: 15px;
-  line-height: 1.8;
-  color: #2d3748;
-  border-bottom: 1px solid #f0f4f8;
-  min-height: 200px;
+  line-height: 1.7;
+  color: var(--text);
+  border-bottom: 1px solid var(--border-soft);
+  min-height: 160px;
+  overflow-wrap: anywhere;
 }
 
 .content p {
-  margin: 0 0 4px 0;
+  margin: 0 0 4px;
 }
 
-/* 신청 섹션 */
+.content a {
+  color: var(--link);
+}
+
+.content code {
+  font-size: 13px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 1px 4px;
+  color: var(--danger);
+}
+
+.content pre {
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text);
+}
+
+.content blockquote {
+  margin: 8px 0;
+  padding-left: 12px;
+  border-left: 4px solid var(--border);
+  color: var(--text-2);
+}
+
+.content img {
+  max-width: 100%;
+}
+
+/* 신청 영역 */
 .applySection {
-  padding: 24px 40px;
+  padding: 18px 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
 .applyInfo {
   font-size: 14px;
-  color: #718096;
+  color: var(--text-2);
 }
 
 .applyCount {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .applyButton {
-  padding: 12px 32px;
-  border-radius: 8px;
-  border: none;
-  background: #2588F1;
-  color: white;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
+  height: 38px;
+  padding: 0 20px;
+  font-size: 14px;
 }
 
-.applyButton:hover {
-  background: #1a6fd4;
-}
-
-.applyButtonDisabled {
-  background: #a0aec0;
-  cursor: not-allowed;
-}
-
+.applyButtonDisabled,
 .applyButtonDisabled:hover {
-  background: #a0aec0;
+  background: var(--bg-muted);
+  border-color: var(--border);
+  color: var(--text-3);
+  opacity: 1;
 }
 
-/* 방장 신청자 관리 */
+/* 작성자 신청자 관리 */
 .applicantSection {
-  padding: 24px 40px;
+  padding: 18px 0;
   display: flex;
   justify-content: flex-end;
 }
 
-.applicantButton {
-  padding: 10px 24px;
-  border-radius: 8px;
-  border: 1px solid #2588F1;
-  background: white;
-  color: #2588F1;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.applicantButton:hover {
-  background: #ebf4ff;
-}
-
-/* 뒤로가기 */
-.backButton {
-  margin-top: 20px;
-  background: none;
-  border: none;
-  color: #718096;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 8px 0;
-  align-self: flex-start;
-  transition: color 0.15s;
-}
-
-.backButton:hover {
-  color: #2588F1;
-}
-
+/* 표 (markdown) */
 .tableWrapper {
   overflow-x: auto;
-  margin: 16px 0;
+  margin: 12px 0;
 }
 
 .table {
@@ -334,32 +335,70 @@
 }
 
 .thead {
-  background-color: #f7f8fa;
+  background: var(--bg-soft);
 }
 
 .th {
-  padding: 10px 16px;
+  padding: 8px 12px;
   text-align: left;
-  font-weight: 600;
-  color: #2d3748;
-  border: 1px solid #eaedf0;
+  font-weight: 700;
+  color: var(--text);
+  border: 1px solid var(--border-soft);
 }
 
 .td {
-  padding: 10px 16px;
-  border: 1px solid #eaedf0;
-  color: #4a5568;
+  padding: 8px 12px;
+  border: 1px solid var(--border-soft);
+  color: var(--text);
 }
 
 .tr:hover {
-  background-color: #f7f8fa;
+  background: var(--bg-soft);
 }
 
 .checkbox {
   width: 15px;
   height: 15px;
-  accent-color: #2588F1;
+  accent-color: var(--primary);
   cursor: default;
   margin-right: 6px;
   vertical-align: middle;
+}
+
+@media (max-width: 768px) {
+  .pageHeader {
+    height: 56px;
+    padding: 0 16px 0 8px;
+  }
+  .card {
+    padding: 0 16px 24px;
+  }
+  .cardHeader {
+    padding-top: 18px;
+  }
+  .title {
+    font-size: 20px;
+  }
+  /* 칸 수와 상관없이 한 줄에 같은 폭으로 (줄바꿈되면 테두리가 어긋남) */
+  .infoGrid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+  .infoItem {
+    min-width: 0;
+    padding: 12px 10px 12px 0;
+  }
+  .infoItem + .infoItem {
+    padding-left: 10px;
+  }
+  .applySection {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .applyButton,
+  .applicantButton {
+    width: 100%;
+    height: 42px;
+  }
 }

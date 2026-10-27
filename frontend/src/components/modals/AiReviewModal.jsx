@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaGithub, FaFile, FaChevronDown, FaChevronUp, FaExpand, FaCompress, FaCodeBranch } from 'react-icons/fa';
+import { FaTimes, FaGithub, FaFile, FaChevronDown, FaChevronUp, FaExpand, FaCompress, FaCodeBranch, FaCheck, FaBan } from 'react-icons/fa';
 import ReactMarkdown from 'react-markdown';
 import axiosInstance from '../api/axiosInstance';
-import { UI_FONT, CODE_FONT, getFileHash } from './aiReviewUtils';
+import { getFileHash } from './aiReviewUtils';
 import DiffViewer from './DiffViewer';
+import './ReviewModals.css';
 
 const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser }) => {
   const [reviewData, setReviewData] = useState(null);
@@ -173,116 +174,84 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{
-        position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 9999,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: isFullscreen ? '0' : '20px', fontFamily: UI_FONT,
-      }}
+      className={`rv-backdrop${isFullscreen ? ' is-full' : ''}`}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          backgroundColor: '#fff',
-          borderRadius: isFullscreen ? '0' : '10px',
-          width: isFullscreen ? '100vw' : '100%',
-          maxWidth: isFullscreen ? 'none' : '1400px',
-          height: isFullscreen ? '100vh' : '90vh',
-          display: 'flex', flexDirection: 'column',
-          boxShadow: isFullscreen ? 'none' : '0 24px 64px rgba(0,0,0,0.25)',
-          overflow: 'hidden', fontFamily: UI_FONT,
-        }}
+        className={`rv-modal is-wide${isFullscreen ? ' is-full' : ''}`}
+        role="dialog"
+        aria-modal="true"
       >
         {/* 헤더 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '15px', fontWeight: '600', color: '#1a202c', fontFamily: UI_FONT, letterSpacing: '-0.01em' }}>
-              🤖 AI Code Review
-            </span>
-            <span style={{ backgroundColor: '#4299e1', color: 'white', padding: '2px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '500', fontFamily: UI_FONT }}>
-              PR #{message.prNumber}
-            </span>
+        <div className="rv-header">
+          <div className="rv-title-wrap">
+            <h3 className="rv-title">AI 코드 리뷰</h3>
+            <span className="rv-tag">PR #{message.prNumber}</span>
             {isClosed && (
-              <span style={{
-                backgroundColor: message.prStatus === 'MERGED' ? '#6f42c1' : '#e53e3e',
-                color: 'white', padding: '2px 10px', borderRadius: '12px',
-                fontSize: '12px', fontWeight: '500', fontFamily: UI_FONT,
-              }}>
-                {message.prStatus === 'MERGED' ? '🔀 병합됨' : '🚫 닫힘'}
+              <span className={`rv-tag ${message.prStatus === 'MERGED' ? 'is-merged' : 'is-closed'}`}>
+                {message.prStatus === 'MERGED' ? <FaCodeBranch size={10} /> : <FaBan size={10} />}
+                {message.prStatus === 'MERGED' ? '병합됨' : '닫힘'}
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="rv-actions">
             {published ? (
-              <span style={{ fontSize: '13px', color: '#27ae60', fontWeight: '500', fontFamily: UI_FONT }}>
-                ✅ GitHub에 등록됨{publishedBy ? ` — by ${publishedBy}` : ''}
+              <span className="rv-status is-ok">
+                <FaCheck size={11} />
+                GitHub에 등록됨{publishedBy ? ` · ${publishedBy}` : ''}
               </span>
             ) : isClosed ? (
-              <span style={{ fontSize: '13px', fontWeight: '500', fontFamily: UI_FONT, color: message.prStatus === 'MERGED' ? '#6f42c1' : '#e53e3e' }}>
+              <span className={`rv-status ${message.prStatus === 'MERGED' ? 'is-merged' : 'is-closed'}`}>
                 {message.prStatus === 'MERGED' ? '병합된 PR — GitHub 등록 불가' : '닫힌 PR — GitHub 등록 불가'}
               </span>
             ) : (
               <button
+                type="button"
                 onClick={handlePublish}
                 disabled={publishing || !hasActiveReviews}
                 title={!hasActiveReviews ? '활성화된 리뷰가 없습니다' : ''}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', backgroundColor: publishing || !hasActiveReviews ? '#a0aec0' : '#24292e', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500', fontFamily: UI_FONT, cursor: publishing || !hasActiveReviews ? 'not-allowed' : 'pointer', letterSpacing: '-0.01em' }}
+                className="dc-btn dc-btn-primary rv-btn-sm"
               >
                 <FaGithub size={14} />
                 {publishing ? '등록 중...' : 'GitHub에 등록'}
               </button>
             )}
             <button
+              type="button"
               onClick={() => setIsFullscreen(prev => !prev)}
               title={isFullscreen ? '축소' : '전체화면'}
-              style={{ display: 'flex', alignItems: 'center', padding: '7px', backgroundColor: '#f7fafc', color: '#4a5568', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}
+              aria-label={isFullscreen ? '축소' : '전체화면'}
+              className="dc-icon-btn rv-hide-mobile"
             >
               {isFullscreen ? <FaCompress size={14} /> : <FaExpand size={14} />}
             </button>
-            <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', padding: '7px', backgroundColor: '#fed7d7', color: '#c53030', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
-              <FaTimes size={14} />
+            <button type="button" onClick={onClose} title="닫기" aria-label="닫기" className="dc-icon-btn">
+              <FaTimes size={16} />
             </button>
           </div>
         </div>
 
         {/* PR 제목/본문 */}
         {prTitle && (
-          <div style={{ borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
+          <div className="rv-pr">
             <div
               onClick={() => setPrInfoExpanded(prev => !prev)}
               onMouseEnter={() => setPrInfoHovered(true)}
               onMouseLeave={() => setPrInfoHovered(false)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '9px 20px', cursor: 'pointer', userSelect: 'none',
-                backgroundColor: prInfoHovered ? '#edf2f7' : '#f8fafc',
-                transition: 'background-color 0.15s',
-              }}
+              className={`rv-pr-toggle${prInfoHovered ? ' is-hovered' : ''}`}
             >
-              <FaCodeBranch size={12} color="#718096" style={{ flexShrink: 0 }} />
-              <span style={{
-                flex: 1, fontSize: '13px', fontWeight: '500', color: '#2d3748',
-                fontFamily: UI_FONT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {prTitle}
-              </span>
-              <span style={{ fontSize: '11px', color: '#a0aec0', fontFamily: UI_FONT, flexShrink: 0, marginRight: '4px' }}>
+              <FaCodeBranch size={12} style={{ flexShrink: 0 }} />
+              <span className="rv-pr-title">{prTitle}</span>
+              <span className="rv-pr-hint">
                 {prInfoExpanded ? 'PR 본문 닫기' : 'PR 본문 보기'}
+                {prInfoExpanded ? <FaChevronUp size={10} /> : <FaChevronDown size={10} />}
               </span>
-              {prInfoExpanded
-                ? <FaChevronUp size={11} color="#a0aec0" />
-                : <FaChevronDown size={11} color="#a0aec0" />
-              }
             </div>
             {prInfoExpanded && (
-              <div style={{
-                padding: '12px 20px 16px', borderTop: '1px solid #e2e8f0',
-                backgroundColor: '#fff',
-                fontSize: '13px', color: '#4a5568', fontFamily: UI_FONT,
-                lineHeight: '1.7', maxHeight: '200px', overflowY: 'auto',
-              }}>
+              <div className="rv-pr-body dc-scroll">
                 {prBody
                   ? <ReactMarkdown>{prBody}</ReactMarkdown>
-                  : <span style={{ color: '#a0aec0' }}>PR 본문 없음</span>
+                  : <span className="rv-pr-empty">PR 본문 없음</span>
                 }
               </div>
             )}
@@ -291,22 +260,19 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
 
         {/* 바디 */}
         {loading ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ textAlign: 'center', color: '#a0aec0', fontFamily: UI_FONT }}>
-              <div style={{ width: '28px', height: '28px', border: '2.5px solid #e8e8e8', borderTop: '2.5px solid #4299e1', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-              리뷰 불러오는 중...
-            </div>
+          <div className="rv-state">
+            <div className="rv-spinner" />
+            리뷰 불러오는 중...
           </div>
         ) : !reviewData ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e53e3e', fontFamily: UI_FONT }}>
+          <div className="rv-state is-error">
             리뷰 데이터를 불러올 수 없습니다.
           </div>
         ) : (
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          <div className="rv-split">
             {/* 파일 사이드바 */}
-            <div style={{ width: '240px', flexShrink: 0, borderRight: '1px solid #e2e8f0', backgroundColor: '#f8fafc', overflowY: 'auto', padding: '8px 0', fontFamily: UI_FONT }}>
-              <div style={{ padding: '8px 14px 4px', fontSize: '11px', color: '#a0aec0', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.6px', fontFamily: UI_FONT }}>
+            <div className="rv-files dc-scroll">
+              <div className="rv-files-label">
                 변경된 파일 ({reviewData.files.length})
               </div>
               {reviewData.files.map((file, idx) => {
@@ -317,21 +283,15 @@ const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser })
                     key={idx}
                     onClick={() => setSelectedFileIndex(idx)}
                     title={file.filePath}
-                    style={{ padding: '8px 14px', cursor: 'pointer', backgroundColor: isSelected ? '#ebf4ff' : 'transparent', borderLeft: isSelected ? '3px solid #4299e1' : '3px solid transparent', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    className={`rv-file${isSelected ? ' is-selected' : ''}`}
                   >
-                    <FaFile size={11} color={isSelected ? '#4299e1' : '#a0aec0'} style={{ flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', fontWeight: isSelected ? '600' : '400', color: isSelected ? '#2b6cb0' : '#4a5568', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: CODE_FONT, letterSpacing: '-0.02em' }}>
-                        {file.filePath.split('/').pop()}
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#a0aec0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: CODE_FONT, letterSpacing: '-0.02em' }}>
-                        {file.filePath}
-                      </div>
+                    <FaFile size={11} style={{ flexShrink: 0 }} />
+                    <div className="rv-file-info">
+                      <div className="rv-file-name">{file.filePath.split('/').pop()}</div>
+                      <div className="rv-file-path">{file.filePath}</div>
                     </div>
                     {activeCount > 0 && (
-                      <span style={{ backgroundColor: '#4299e1', color: 'white', borderRadius: '10px', padding: '1px 6px', fontSize: '10px', fontWeight: '600', fontFamily: UI_FONT, flexShrink: 0 }}>
-                        {activeCount}
-                      </span>
+                      <span className="rv-count">{activeCount}</span>
                     )}
                   </div>
                 );

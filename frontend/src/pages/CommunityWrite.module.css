@@ -1,71 +1,76 @@
+/* Community 작성/수정 (CommunityWrite.jsx, CommunityEdit.jsx 공용) */
 .container {
-  padding: 40px;
-  min-height: 100vh;
-  background-color: #f7fafc;
-  display: flex;
-  justify-content: center;
+  width: 100%;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  box-sizing: border-box;
 }
 
 .card {
-  background: white;
-  border-radius: 16px;
-  border: 1px solid #eaedf0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   width: 100%;
-  max-width: 780px;
-  height: fit-content;
 }
 
-/* 카드 헤더 */
+/* 페이지 헤더 바 */
 .cardHeader {
-  padding: 32px 40px 24px;
-  border-bottom: 1px solid #f0f4f8;
-  background: linear-gradient(135deg, #ebf4ff 0%, #f0f7ff 100%);
-  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 60px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border-soft);
+  box-sizing: border-box;
+  background: var(--bg);
 }
 
 .title {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
-  color: #1a202c;
-  margin: 0 0 6px 0;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.2px;
+  line-height: 1.3;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: #718096;
-  margin: 0;
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 2px 0 0;
 }
 
 /* 폼 */
 .form {
-  padding: 32px 40px;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+  box-sizing: border-box;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
+  min-width: 0;
 }
 
 .label {
   font-size: 14px;
-  font-weight: 600;
-  color: #2d3748;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .required {
-  color: #e53e3e;
+  color: var(--danger);
 }
 
-/* 한 줄 배치 */
 .row {
-  display: flex;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
 /* 입력 공통 */
@@ -73,167 +78,203 @@
 .select,
 .textarea {
   width: 100%;
-  padding: 10px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #2d3748;
-  background: #fafafa;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg);
   box-sizing: border-box;
   outline: none;
   font-family: inherit;
 }
 
+.input,
+.select {
+  height: 40px;
+}
+
 .input:focus,
 .select:focus,
 .textarea:focus {
-  border-color: #2588F1;
-  box-shadow: 0 0 0 3px rgba(37, 136, 241, 0.1);
-  background: white;
+  border-color: var(--link);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .textarea {
+  padding: 10px 12px;
   resize: vertical;
-  line-height: 1.6;
+  line-height: 1.55;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-3);
 }
 
 .charCount {
   font-size: 12px;
-  color: #a0aec0;
+  color: var(--text-3);
   text-align: right;
-  margin-top: -4px;
 }
 
 /* 기술 스택 칩 */
 .stackGrid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .stackChip {
-  padding: 6px 14px;
-  border-radius: 20px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #4a5568;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-2);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
 }
 
 .stackChip:hover {
-  border-color: #2588F1;
-  color: #2588F1;
+  background: var(--bg-soft);
+  border-color: var(--border-strong);
+  color: var(--text);
 }
 
-.stackChipActive {
-  background-color: #2588F1;
-  border-color: #2588F1;
-  color: white;
-}
-
+.stackChipActive,
 .stackChipActive:hover {
-  background-color: #1a6fd4;
-  color: white;
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
 }
 
 /* 버튼 영역 */
 .buttonRow {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding-top: 8px;
-  border-top: 1px solid #f0f4f8;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.cancelButton,
+.submitButton {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .cancelButton {
-  padding: 10px 24px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #718096;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .cancelButton:hover {
-  background: #f7fafc;
-  color: #4a5568;
+  background: var(--bg-soft);
 }
 
 .submitButton {
-  padding: 10px 28px;
-  border-radius: 8px;
-  border: none;
-  background: #2588F1;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
 }
 
 .submitButton:hover {
-  background: #1a6fd4;
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .submitButton:disabled {
-  background: #a0aec0;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
+/* 작성 / 미리보기 탭 */
 .previewToggle {
   display: flex;
-  gap: 0;
-  margin-bottom: 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  overflow: hidden;
-  width: fit-content;
+  gap: 2px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 4px;
+}
+
+.toggle,
+.toggleActive {
+  height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .toggle {
-  padding: 7px 18px;
-  border: none;
-  background: white;
-  color: #718096;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: inherit;
+  color: var(--text-2);
 }
 
 .toggle:hover {
-  background: #f7fafc;
-  color: #2d3748;
+  color: var(--text);
 }
 
 .toggleActive {
-  padding: 7px 18px;
-  border: none;
-  background: #2588F1;
-  color: white;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
+  color: var(--text);
+  border-bottom-color: var(--text);
 }
 
 .previewBox {
-  min-height: 200px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 10px 14px;
-  background: #fafafa;
-  font-size: 14px;
-  color: #2d3748;
+  min-height: 240px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: var(--bg-soft);
+  font-size: 15px;
+  color: var(--text);
   line-height: 1.6;
   box-sizing: border-box;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.previewBox a {
+  color: var(--link);
+}
+
+@media (max-width: 768px) {
+  .cardHeader {
+    min-height: 56px;
+    padding: 8px 16px;
+  }
+  .form {
+    padding: 16px 16px 24px;
+    gap: 16px;
+  }
+  .row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .input,
+  .select,
+  .textarea {
+    font-size: 16px; /* iOS 확대 방지 */
+  }
+  .buttonRow .cancelButton,
+  .buttonRow .submitButton {
+    flex: 1;
+    height: 42px;
+  }
+}
+
+@media (max-width: 420px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
 }

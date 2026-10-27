@@ -9,6 +9,7 @@ import CommunityEdit from './pages/CommunityEdit';
 import CommunityApplicants from './pages/CommunityApplicants';
 import Home from './pages/Home';
 import BlankRoom from './pages/BlankRoom';
+import InviteJoin from './pages/InviteJoin';
 import Login from './pages/login-form';
 import Signup from './pages/signup';
 import MyPage from './pages/profile';
@@ -35,6 +36,7 @@ function App() {
             </UserProvider>
           }>
             <Route path="/chat/:inviteCode" element={<ChatRoom />} />
+            <Route path="/invite/:inviteCode" element={<InviteJoin />} />
             <Route path="/blank" element={<BlankRoom />} />
             <Route path="/community" element={<Community />} />
             <Route path="/community/write" element={<CommunityWrite />} />

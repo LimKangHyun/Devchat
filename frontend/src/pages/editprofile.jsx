@@ -94,7 +94,7 @@ export default function EditProfilePage() {
     return (
       <div className={styles.appContainer}>
         <div className={styles.loadingContainer}>
-          <div className={styles.loading}>Loading...</div>
+          <div className={styles.loading}>불러오는 중...</div>
         </div>
       </div>
     );
@@ -105,7 +105,7 @@ export default function EditProfilePage() {
       <div className={styles.mainContent}>
         <main className={styles.profileMain}>
           <div className={styles.profileContainer}>
-            <h1 className={styles.pageTitle}>Profile Setting</h1>
+            <h1 className={styles.pageTitle}>프로필 설정</h1>
 
             <div className={styles.tabs}>
               <div className={styles.tabsList}>
@@ -114,7 +114,7 @@ export default function EditProfilePage() {
                   onClick={() => setActiveTab("personal")}
                 >
                   <User className={styles.tabIcon} />
-                  Personal Info
+                  개인 정보
                 </button>
                 {userDetails.provider === "LOCAL" && (
                   <button
@@ -122,7 +122,7 @@ export default function EditProfilePage() {
                     onClick={() => setActiveTab("security")}
                   >
                     <Shield className={styles.tabIcon} />
-                    Security
+                    보안
                   </button>
                 )}
               </div>
@@ -134,7 +134,7 @@ export default function EditProfilePage() {
                       <div className={styles.avatarContainer}>
                         <img
                           src={selectedImage || `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${userDetails.profileImg}`}
-                          alt="Profile"
+                          alt="프로필"
                           className={styles.avatarImage}
                           onError={(e) => { e.currentTarget.src = "/images/not-found-profile.webp" }}
                         />
@@ -152,7 +152,7 @@ export default function EditProfilePage() {
 
                     <div className={styles.formSection}>
                       <div className={styles.formGroup}>
-                        <label className={styles.label}>Nickname</label>
+                        <label className={styles.label}>닉네임</label>
                         <input
                           type="text"
                           placeholder="닉네임 입력"
@@ -172,10 +172,10 @@ export default function EditProfilePage() {
                       </div>
 
                       <div className={styles.formGroup}>
-                        <label className={styles.label}>Email</label>
+                        <label className={styles.label}>이메일</label>
                         <input
                           type="text"
-                          placeholder="사용할 email을 설정해주세요."
+                          placeholder="사용할 이메일을 입력해주세요."
                           value={email}
                           onChange={(e) => {
                             const value = e.target.value;
@@ -198,7 +198,7 @@ export default function EditProfilePage() {
                         onClick={handleSavePersonalInfo}
                         disabled={!isModified}
                       >
-                        Save
+                        저장
                       </button>
                     </div>
                   </div>
@@ -209,7 +209,7 @@ export default function EditProfilePage() {
                 <div className={styles.tabContent}>
                   <div className={styles.profileCard}>
                     <div className={styles.securitySection}>
-                      <h2 className={styles.securityTitle}>Password Settings</h2>
+                      <h2 className={styles.securityTitle}>비밀번호 설정</h2>
                       <div className={styles.securityContent}>
                         <p className={styles.securityDescription}>
                           Change your password to keep your account secure. We recommend using a strong, unique password.
@@ -218,33 +218,33 @@ export default function EditProfilePage() {
                           onClick={() => setIsPasswordModalOpen(true)}
                           className={styles.changePasswordButton}
                         >
-                          Change Password
+                          비밀번호 변경
                         </button>
                       </div>
 
                       <div className={styles.sessionsSection}>
-                        <h3 className={styles.sessionsTitle}>Two-Step Authentication</h3>
+                        <h3 className={styles.sessionsTitle}>2단계 인증</h3>
                         <p className={styles.sessionsDescription}>
-                          Add an extra layer of security to your account by enabling two-step authentication.
+                          2단계 인증을 켜면 계정을 더 안전하게 지킬 수 있어요.
                         </p>
                         <button
                           onClick={() => alert("개발 예정입니다.")}
                           className={styles.manageSessionsButton}
                         >
-                          Set Two-Step Authentication
+                          2단계 인증 설정
                         </button>
                       </div>
 
                       <div className={styles.sessionsSection}>
-                        <h3 className={styles.sessionsTitle}>Login Sessions</h3>
+                        <h3 className={styles.sessionsTitle}>로그인 세션</h3>
                         <p className={styles.sessionsDescription}>
-                          You're currently logged in on this device. You can review your active sessions and log out from other devices.
+                          현재 이 기기에서 로그인되어 있어요. 로그인된 기기를 확인하고 다른 기기에서 로그아웃할 수 있어요.
                         </p>
                         <button
                           onClick={() => alert("개발 예정입니다.")}
                           className={styles.manageSessionsButton}
                         >
-                          Manage Sessions
+                          세션 관리
                         </button>
                       </div>
                     </div>

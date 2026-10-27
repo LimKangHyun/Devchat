@@ -1,16 +1,20 @@
+/* 떠 있는 DM 창 */
 .modal {
   position: fixed;
+  top: 0;
+  left: 0;
   width: 400px;
   height: 500px;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  background: var(--bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop), 0 12px 32px rgba(0, 0, 0, 0.14);
   z-index: 10001;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   will-change: transform;
+  color: var(--text);
 }
 
 .modal.minimized {
@@ -19,31 +23,54 @@
 
 .modal.dragging {
   user-select: none;
-  box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.35);
-  transform-origin: center;
 }
 
+/* ── 헤더 ── */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: white;
+  gap: 8px;
+  height: 58px;
+  min-height: 58px;
+  box-sizing: border-box;
+  padding: 0 10px 0 14px;
+  background: var(--bg);
+  color: var(--text);
+  border-bottom: 1px solid var(--border-soft);
   user-select: none;
-  transition: background 0.2s ease;
 }
 
-.header:hover {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+.minimized .header {
+  border-bottom: none;
 }
 
 .headerLeft {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex: 1;
   min-width: 0;
+}
+
+/* 모바일 전용 뒤로가기 */
+.backButton {
+  display: none;
+  width: 36px;
+  height: 36px;
+  margin-left: -6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.backButton:hover {
+  background: var(--bg-muted);
 }
 
 .friendAvatar {
@@ -52,21 +79,22 @@
 }
 
 .friendAvatar img {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  display: block;
+  background: var(--bg-muted);
 }
 
 .statusIndicator {
   position: absolute;
-  bottom: -2px;
-  right: -2px;
+  bottom: -3px;
+  right: -3px;
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid white;
+  border: 2px solid var(--bg);
 }
 
 .friendInfo {
@@ -75,75 +103,65 @@
 }
 
 .friendName {
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 2px;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.25;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .friendStatus {
-  font-size: 11px;
-  opacity: 0.9;
+  font-size: 12px;
+  color: var(--text-3);
   text-transform: capitalize;
+  line-height: 1.3;
 }
 
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
-.actionButton {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  border-radius: 6px;
-  padding: 6px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.actionButton:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
-}
-
+.actionButton,
 .closeButton {
-  background: rgba(239, 68, 68, 0.2);
+  width: 30px;
+  height: 30px;
+  background: transparent;
   border: none;
-  border-radius: 6px;
-  padding: 6px;
-  color: white;
+  border-radius: var(--radius-sm);
+  padding: 0;
+  color: var(--text-2);
   cursor: pointer;
-  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.1s, color 0.1s;
 }
 
+.actionButton:hover,
 .closeButton:hover {
-  background: rgba(239, 68, 68, 0.4);
-  transform: scale(1.05);
+  background: var(--bg-muted);
+  color: var(--text);
 }
 
+/* ── 메시지 목록 ── */
 .messagesContainer {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 16px;
-  background: #f8fafc;
+  padding: 12px 0 8px;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
 }
 
 .messagesContainer::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .messagesContainer::-webkit-scrollbar-track {
@@ -151,156 +169,299 @@
 }
 
 .messagesContainer::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 8px;
 }
 
+/* 모든 메시지는 왼쪽 정렬 (내 메시지 포함) */
 .message {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 8px;
-  animation: messageSlideIn 0.3s ease-out;
+  padding: 2px 16px;
 }
 
-.message.ownMessage {
-  flex-direction: row-reverse;
+.message:hover {
+  background: var(--bg-soft);
+}
+
+.message.messageFirst {
+  margin-top: 8px;
+  padding-top: 4px;
+}
+
+.message.messageFirst:first-of-type {
+  margin-top: 0;
+}
+
+.messageGutter {
+  width: 36px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.messageAvatar,
+.messageAvatarFallback {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.messageAvatar {
+  object-fit: cover;
+  background: var(--bg-muted);
+}
+
+.messageAvatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-muted);
+  color: var(--text-2);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.messageHoverTime {
+  visibility: hidden;
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 22px;
+  white-space: nowrap;
+}
+
+.message:hover .messageHoverTime {
+  visibility: visible;
 }
 
 .messageContent {
-  max-width: 70%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 
-.messageText {
-  background: white;
-  padding: 12px 16px;
-  border-radius: 18px;
-  font-size: 14px;
-  line-height: 1.4;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  word-wrap: break-word;
+.messageMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  line-height: 1.3;
 }
 
-.ownMessage .messageText {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: white;
+.messageSender {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .messageTime {
-  font-size: 11px;
-  color: #6b7280;
-  padding: 0 8px;
-  align-self: flex-end;
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
 }
 
-.ownMessage .messageTime {
-  align-self: flex-start;
+.messageText {
+  font-size: 15px;
+  line-height: 1.46;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
+/* 빈 대화 */
+.emptyState {
+  margin-top: auto;
+  padding: 16px 16px 12px;
+}
+
+.emptyTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.emptyText {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+/* ── 입력창 ── */
 .inputContainer {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 16px;
-  background: white;
-  border-top: 1px solid #e5e7eb;
+  gap: 6px;
+  margin: 4px 12px 12px;
+  padding: 4px 4px 4px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  transition: border-color 0.1s, box-shadow 0.1s;
+}
+
+.inputContainer:focus-within {
+  border-color: var(--text-3);
+  box-shadow: 0 0 0 1px var(--text-3);
 }
 
 .messageInput {
   flex: 1;
-  padding: 12px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 24px;
-  font-size: 14px;
+  min-width: 0;
+  height: 34px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
   outline: none;
-  transition: all 0.2s ease;
 }
 
-.messageInput:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+.messageInput::placeholder {
+  color: var(--text-3);
+}
+
+.messageInput:disabled {
+  background: transparent;
+  cursor: not-allowed;
 }
 
 .sendButton {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  color: white;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #fff;
   cursor: pointer;
-  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: background 0.1s;
 }
 
 .sendButton:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  transform: translateY(-1px) scale(1.05);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  background: var(--primary-hover);
 }
 
 .sendButton:disabled {
-  opacity: 0.5;
+  background: var(--bg-muted);
+  color: var(--text-3);
   cursor: not-allowed;
-  transform: none;
 }
 
+/* ── 로딩 ── */
 .loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 16px;
-  color: #6b7280;
+  gap: 12px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.loadingMore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.loadingMore .spinner {
+  width: 14px;
+  height: 14px;
 }
 
 .spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #e5e7eb;
-  border-top: 2px solid #3b82f6;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--text-2);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes messageSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
   to {
     transform: rotate(360deg);
   }
 }
 
-@media (max-width: 640px) {
+/* ── 모바일: 전체 화면 ── */
+@media (max-width: 768px) {
   .modal {
-    width: calc(100vw - 20px);
-    height: calc(100vh - 100px);
-    position: fixed;
-    top: 50px;
-    left: 10px;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
     transform: none !important;
+    transition: none !important;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box;
   }
 
+  .header {
+    cursor: default !important;
+    padding: 0 8px;
+  }
+
+  .backButton {
+    display: inline-flex;
+  }
+
+  /* 뒤로가기 버튼이 있으니 X는 숨김 */
+  .closeButton {
+    display: none;
+  }
+
+  .resizeHandle {
+    display: none;
+  }
+
+  .inputContainer {
+    margin: 4px 10px 10px;
+  }
+
+  .messageInput {
+    font-size: 16px; /* iOS 확대 방지 */
+  }
+
+  /* 최소화: 하단 바 형태 */
   .modal.minimized {
-    height: 60px;
-    width: 300px;
+    top: auto !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: calc(var(--tabbar-h) + 8px + env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    height: 58px !important;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-pop);
+  }
+
+  .modal.minimized .backButton {
+    display: none;
+  }
+
+  .modal.minimized .closeButton {
+    display: flex;
   }
 }

@@ -1,271 +1,604 @@
-/* =====================
-   사이드바 컨테이너
-   ===================== */
+/* =====================================================
+   채팅방 / 친구 목록 (데스크톱: 레일 오른쪽 두 번째 칸, 모바일: 목록 화면)
+   ===================================================== */
 .sidebar {
-  width: 260px;
-  height: 100%;
-  background-color: #2588F1;
-  color: white;
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  background: var(--side-bg);
+  color: var(--side-text);
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
 }
 
-/* =====================
-   헤더
-   ===================== */
+.sidebarHidden {
+  display: none !important;
+}
+
+/* 목록 제목. 데스크톱에선 "새 방" 버튼은 목록 안의 추가 행이 대신한다 */
 .sidebarHeader {
-  padding: 20px 15px 0px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), transparent);
-}
-
-.sidebarTitle {
-  margin: 0 0 15px 0;
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  font-size: 18px;
-  font-weight: 600;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 56px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--side-line);
 }
 
-/* =====================
-   탭 네비게이션
-   ===================== */
-.tabNav {
-  display: flex;
-  margin-bottom: 15px;
-  background-color: rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  padding: 4px;
+.sidebarHeader .sidebarTitle {
+  font-size: 17px;
 }
 
-.tabButton {
-  flex: 1;
-  padding: 8px 12px;
-  background-color: transparent;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  font-weight: normal;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  gap: 6px;
-}
-
-.tabButtonActive {
-  background-color: rgba(255, 255, 255, 0.2);
-  font-weight: bold;
-}
-
-/* =====================
-   채팅방 목록
-   ===================== */
-.roomsContainer {
-  overflow-y: auto;
-  flex: 1;
-  padding: 5px 0;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.roomsContainer::-webkit-scrollbar {
+.sidebarHeader .headerAction {
   display: none;
 }
 
-.roomItem {
-  padding: 5px 10px;
-}
-
-.roomRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  border: 1px solid transparent;
-  position: relative;
-}
-
-.roomRowActive {
-  background-color: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.roomRow:not(.roomRowActive):hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.roomLeft {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  overflow: hidden;
-}
-
-.roomIcon {
-  background-color: rgba(255, 255, 255, 0.7);
-  color: #2588F1;
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 10px;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.roomIconActive {
-  background-color: #fff;
-}
-
-.roomName {
+.sidebarTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--side-text-strong);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.roomNameUnread {
-  font-weight: 600;
-  color: #fff;
-}
-
-.roomNameActive {
-  font-weight: bold;
-}
-
-/* 안읽음 뱃지 */
-.unreadBadge {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 16px;
-  height: 16px;
-  background-color: #ff4757;
-  border-radius: 8px;
-  border: 2px solid #2588F1;
-  font-size: 9px;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 2px;
-  animation: pulse 2s infinite;
-}
-
-/* 방 정보 버튼 */
-.roomInfoButton {
-  cursor: pointer;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.headerAction {
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.1);
-  transition: all 0.2s ease;
-  position: relative;
   border: none;
-  color: white;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   flex-shrink: 0;
 }
 
-.roomInfoButton:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+.headerAction:hover {
+  background: var(--primary-hover);
 }
 
-.roomInfoButtonActive {
-  background-color: rgba(255, 255, 255, 0.3);
+/* ── 검색 ── */
+.searchBox {
+  position: relative;
+  margin: 10px 12px 6px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
-.roomInfoDot {
+.searchIcon {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  left: 10px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  height: 32px;
+  padding: 0 28px 0 31px !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--radius-sm) !important;
+  background: rgba(31, 35, 43, 0.05);
+  font-size: 13.5px !important;
+  color: var(--text);
+  outline: none;
+  box-sizing: border-box;
+  transition: background 0.1s;
+}
+
+.searchInput::placeholder {
+  color: var(--text-3);
+}
+
+.searchInput:hover {
+  background: rgba(31, 35, 43, 0.07);
+}
+
+.searchInput:focus {
+  background: var(--bg);
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.searchClear {
+  position: absolute;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-muted);
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ── 목록 ── */
+.roomsContainer {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px 8px 16px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  margin: 4px 0 2px;
+}
+
+.sectionHeader:hover {
+  color: var(--text-2);
+}
+
+.sectionChevron {
+  transition: transform 0.12s;
+  flex-shrink: 0;
+}
+
+.sectionChevronCollapsed {
+  transform: rotate(-90deg);
+}
+
+.sectionCount {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+/* 방 한 줄 = 이름 + 연결된 레포 */
+.roomRow,
+.friendRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 6px 6px 6px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--side-text);
+  position: relative;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.roomRow + .roomRow,
+.friendRow + .friendRow {
+  margin-top: 1px;
+}
+
+.roomRow:hover,
+.friendRow:hover {
+  background: var(--side-hover);
+}
+
+/* 지금 보고 있는 방: 형광펜 */
+.roomRowActive,
+.roomRowActive:hover {
+  background: var(--marker-soft);
+  color: var(--side-active-text);
+}
+
+.roomRowUnread {
+  color: var(--side-text-strong);
+}
+
+.roomRowUnread .roomName {
+  font-weight: 700;
+}
+
+/* 첫 글자 타일은 모바일에서만 */
+.roomIcon {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  background: var(--bg-muted);
+  color: var(--text-2);
+  font-size: 16px;
+  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.roomBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.roomName {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.roomRowActive .roomName {
+  font-weight: 600;
+}
+
+.roomSub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.roomSub svg {
+  flex-shrink: 0;
+}
+
+.roomSubText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.roomRowActive .roomSub {
+  color: var(--text-2);
+}
+
+.roomSide {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.unreadBadge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: var(--badge);
+  color: var(--badge-text);
+  font-size: 11.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.roomInfoButton {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.roomRow:hover .roomInfoButton,
+.roomInfoButton:focus-visible,
+.roomInfoButtonActive {
+  display: flex;
+}
+
+.roomInfoButton:hover,
+.roomInfoButtonActive {
+  background: rgba(31, 35, 43, 0.08);
+  color: var(--text);
+}
+
+.addRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-2);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.addRow:first-of-type {
+  margin-top: 10px;
+}
+
+.addRow:hover {
+  background: var(--side-hover);
+  color: var(--text);
+}
+
+.addIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.addRow:hover .addIcon {
+  border-style: solid;
+  border-color: var(--text-2);
+}
+
+.loadingState,
+.emptyState {
+  padding: 12px 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+/* ── 친구 ── */
+.friendAvatarWrap {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.friendAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.friendAvatarFallback {
+  background: var(--bg-muted);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.friendStatus {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
   width: 8px;
   height: 8px;
-  background-color: #fff;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px #2588F1;
+  border: 2px solid var(--side-bg);
+  box-sizing: content-box;
 }
 
-/* 로딩/빈 상태 */
-.loadingState {
-  text-align: center;
-  padding: 20px;
-  color: rgba(255, 255, 255, 0.7);
+.friendRow:hover .friendStatus {
+  border-color: #ebece7;
 }
 
-.emptyState {
-  text-align: center;
-  padding: 20px;
-  color: rgba(255, 255, 255, 0.7);
+.friendStatusOffline {
+  background: var(--side-bg) !important;
+  box-shadow: inset 0 0 0 1.5px var(--text-3);
 }
 
-/* =====================
-   하단 버튼
-   ===================== */
-.sidebarFooter {
-  padding: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  background-color: rgba(0, 0, 0, 0.05);
+.friendChatIcon {
+  display: none;
+  color: var(--text-2);
 }
 
-.joinButton {
-  width: 100%;
-  padding: 12px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: white;
-  font-weight: bold;
+.friendRow:hover .friendChatIcon {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 12px;
-  cursor: pointer;
-  gap: 8px;
-  transition: background 0.2s;
 }
 
-.joinButton:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-}
+/* =====================================================
+   모바일: 목록 화면
+   ===================================================== */
+@media (max-width: 768px) {
+  .sidebar {
+    flex: 1;
+    width: 100%;
+    background: var(--side-bg);
+    color: var(--text);
+  }
 
-.createButton {
-  width: 100%;
-  padding: 12px;
-  background-color: #1366d6;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: white;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  gap: 8px;
-  transition: background 0.2s;
-}
+  .sidebarHeader {
+    display: flex;
+    height: 56px;
+    padding: 0 12px 0 16px;
+    padding-top: env(safe-area-inset-top);
+    box-sizing: content-box;
+    background: var(--side-bg);
+    border-bottom: none;
+  }
 
-.createButton:hover {
-  background-color: #0d5bca;
-}
+  .sidebarHeader .sidebarTitle {
+    font-size: 22px;
+  }
 
-/* =====================
-   애니메이션
-   ===================== */
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
-  70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+  .sidebarHeader .headerAction {
+    display: flex;
+  }
+
+  .searchBox {
+    margin: 0;
+    padding: 4px 16px 10px;
+    background: var(--side-bg);
+  }
+
+  .searchIcon {
+    left: 28px;
+  }
+
+  .searchInput {
+    height: 40px;
+    font-size: 16px !important;
+    background: rgba(31, 35, 43, 0.05);
+  }
+
+  .searchClear {
+    right: 26px;
+  }
+
+  .roomsContainer {
+    padding: 0 0 16px;
+  }
+
+  .sectionHeader {
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 0;
+    font-size: 13px;
+    margin: 0;
+  }
+
+  .roomRow,
+  .friendRow {
+    min-height: 64px;
+    padding: 0 16px;
+    gap: 12px;
+    border-radius: 0;
+    color: var(--text);
+  }
+
+  .roomRow + .roomRow,
+  .friendRow + .friendRow {
+    margin-top: 0;
+  }
+
+  .roomRow:hover,
+  .friendRow:hover {
+    background: none;
+  }
+
+  .roomRow:active,
+  .friendRow:active,
+  .roomRowActive,
+  .roomRowActive:hover {
+    background: var(--side-hover);
+  }
+
+  .roomIcon {
+    display: flex;
+  }
+
+  .roomRowUnread .roomIcon {
+    background: var(--marker-soft);
+    color: var(--text);
+  }
+
+  .roomName {
+    font-size: 16px;
+  }
+
+  .roomSub {
+    font-size: 13px;
+  }
+
+  .roomInfoButton {
+    display: flex;
+    width: 34px;
+    height: 34px;
+    color: var(--text-3);
+  }
+
+  .unreadBadge {
+    min-width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    font-size: 12px;
+  }
+
+  .addRow {
+    height: 52px;
+    padding: 0 16px;
+    gap: 12px;
+    border-radius: 0;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .addRow:first-of-type {
+    margin-top: 6px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .addRow:hover {
+    background: var(--bg-soft);
+  }
+
+  .addIcon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius);
+  }
+
+  .loadingState,
+  .emptyState {
+    padding: 16px;
+    font-size: 14px;
+    color: var(--text-2);
+  }
+
+  .friendAvatarWrap,
+  .friendAvatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .friendAvatarFallback {
+    font-size: 16px;
+  }
+
+  .friendStatus,
+  .friendRow:hover .friendStatus {
+    border-color: var(--bg);
+  }
+
+  .friendStatusOffline {
+    background: var(--bg) !important;
+  }
+
+  .friendChatIcon {
+    display: flex;
+    color: var(--text-3);
+  }
 }

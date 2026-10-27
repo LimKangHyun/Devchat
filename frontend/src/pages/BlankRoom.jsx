@@ -4,6 +4,7 @@ import { useState } from 'react';
 import CreateRoomModal from '../components/modals/CreateRoomModal';
 import JoinRoomModal from '../components/modals/JoinRoomModal';
 import axiosInstance from '../components/api/axiosInstance';
+import { LogIn, Plus, ChevronRight } from 'lucide-react';
 
 const BlankRoom = () => {
   const navigate = useNavigate();
@@ -52,80 +53,95 @@ const BlankRoom = () => {
       throw err;
     }
   };
-  // 버튼 스타일 공통화
-  const buttonStyle = {
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    padding: '0 20px',
-    height: '40px',
-    fontSize: '14px',
-    fontWeight: '500',
+
+  const cardStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    width: '100%',
+    padding: '14px 16px',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)',
+    background: 'var(--bg)',
+    textAlign: 'left',
     cursor: 'pointer',
+  };
+  const iconStyle = {
+    width: '40px',
+    height: '40px',
+    borderRadius: 'var(--radius)',
+    background: 'var(--bg-muted)',
+    color: 'var(--text)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   };
 
+  const ActionCard = ({ icon, title, desc, onClick }) => (
+    <button
+      type="button"
+      style={cardStyle}
+      onClick={onClick}
+      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-soft)')}
+      onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg)')}
+    >
+      <span style={iconStyle}>{icon}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: '15px', fontWeight: 700, color: 'var(--text)' }}>{title}</span>
+        <span style={{ display: 'block', fontSize: '13px', color: 'var(--text-2)', marginTop: '2px' }}>{desc}</span>
+      </span>
+      <ChevronRight size={18} color="var(--text-3)" />
+    </button>
+  );
+
   return (
-    <div style={{ backgroundColor: '#e0e0e0', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box'}}>
-      {/* 본문 영역 */}
-      <div style={{ flex:1, display: 'flex', overflow: 'hidden' }}>
-      
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#f9f9f9',
-          borderRadius: '8px',
-          flexDirection: 'column',
-          padding: '20px',
-          boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'
-        }}>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <img src={sleepingCat} alt="졸고 있는 고양이" style={{ width: '350px' }}></img>
-            <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#000000', marginBottom: '20px' }}>
-              Let's start coding with DevChat!
-            </h2>
+    <div style={{
+      minHeight: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '32px 20px',
+      boxSizing: 'border-box',
+    }}>
+      <div style={{ width: '100%', maxWidth: '440px' }}>
+        <img src={sleepingCat} alt="" style={{ width: '120px', display: 'block', marginBottom: '12px' }} />
+        <h2 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.5px', margin: '0 0 6px' }}>
+          아직 참여한 방이 없어요
+        </h2>
+        <p style={{ fontSize: '15px', color: 'var(--text-2)', margin: '0 0 24px', lineHeight: 1.5 }}>
+          GitHub 레포를 연결해 방을 만들면 PR 소식과 AI 코드 리뷰가 대화에 함께 올라와요.
+        </p>
 
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px'}}>
-              <button
-                style={{ ...buttonStyle, backgroundColor: '#2c2f7e' }}
-                onClick={() => setShowJoinModal(true)}
-              >
-                🔗 Join Chat Room
-              </button>
-              <button
-                style={{ ...buttonStyle, backgroundColor: '#6c757d' }}
-                onClick={() => setShowCreateModal(true)}
-              >
-                ➕ New Chat Room
-              </button>
-            </div>
-          </div>
-
-          {/* 분리된 모달 컴포넌트 사용 */}
-          {showCreateModal && (
-            <CreateRoomModal
-              onClose={() => setShowCreateModal(false)}
-              onSubmit={handleCreateRoom}
-            />
-          )}
-
-          {showJoinModal && (
-            <JoinRoomModal
-              onClose={() => setShowJoinModal(false)}
-              onSubmit={handleJoinRoom}
-            />
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <ActionCard
+            icon={<Plus size={18} />}
+            title="새 방 만들기"
+            desc="이름을 정하고 레포지토리를 연결하세요"
+            onClick={() => setShowCreateModal(true)}
+          />
+          <ActionCard
+            icon={<LogIn size={17} />}
+            title="초대 코드로 들어가기"
+            desc="팀원에게 받은 초대 코드를 입력하세요"
+            onClick={() => setShowJoinModal(true)}
+          />
         </div>
       </div>
+
+      {showCreateModal && (
+        <CreateRoomModal
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreateRoom}
+        />
+      )}
+
+      {showJoinModal && (
+        <JoinRoomModal
+          onClose={() => setShowJoinModal(false)}
+          onSubmit={handleJoinRoom}
+        />
+      )}
     </div>
   );
 };

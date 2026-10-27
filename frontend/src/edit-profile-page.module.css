@@ -1,150 +1,150 @@
+/* 프로필 설정 */
 .appContainer {
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  height: 100%;
-  background-color: #ffffff;
+  background: var(--bg);
+  color: var(--text);
 }
 
-
-/* Main Content Styles */
 .mainContent {
   flex: 1;
   display: flex;
-  overflow: hidden;
+  flex-direction: column;
+  min-width: 0;
 }
 
-/* Profile Content Styles */
 .profileMain {
   flex: 1;
-  padding: 2rem;
-  overflow-y: auto;
-  -ms-overflow-style: none; /* IE, Edge */
-  scrollbar-width: none; /* Firefox */
-}
-
-.profileMain::-webkit-scrollbar{
-  display: none;
+  min-width: 0;
 }
 
 .profileContainer {
-  max-width: 90%;
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
+/* 헤더 바 */
 .pageTitle {
-  font-size: 1.875rem;
-  font-weight: bold;
-  color: #111827;
-  margin-bottom: 1.5rem;
-  text-align: center; 
+  margin: 0;
+  height: 60px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border-soft);
+  box-sizing: border-box;
 }
 
-/* Tabs Styles */
+/* 탭 — 밑줄형 */
 .tabs {
   width: 100%;
 }
 
 .tabsList {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 0.5rem;
-  width: 100%;
-  max-width: 24rem;
-  margin: 0 auto 1.5rem;
-  background-color: #f3f4f6;
-  border-radius: 0.375rem;
-  padding: 0.25rem;
-  width: fit-content;      /* 자식 크기만큼 */
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-soft);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.tabsList::-webkit-scrollbar { display: none; }
 
 .tabTrigger {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  gap: 6px;
+  height: 44px;
+  padding: 0 10px;
+  margin-bottom: -1px;
   border: none;
+  border-bottom: 2px solid transparent;
   background: none;
-  border-radius: 0.25rem;
   cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #6b7280;
-  transition: all 0.2s;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-2);
+  white-space: nowrap;
 }
 
 .tabTrigger:hover {
-  color: #374151;
+  color: var(--text);
 }
 
 .tabActive {
-  background-color: white;
-  color: #111827;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  color: var(--text);
+  border-bottom-color: var(--text);
 }
 
 .tabIcon {
-  width: 1rem;
-  height: 1rem;
+  width: 16px;
+  height: 16px;
 }
 
 .tabContent {
-  margin-top: 0.5rem;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  box-sizing: border-box;
 }
 
-/* Profile Card Styles */
+/* 개인 정보 */
 .profileCard {
-  background-color: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
-  padding: 2rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  grid-template-areas:
+    "form avatar"
+    "buttons buttons";
+  column-gap: 32px;
+  row-gap: 24px;
 }
 
 .avatarSection {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 1rem;
+  grid-area: avatar;
 }
 
 .avatarContainer {
   position: relative;
+  width: 180px;
 }
 
 .avatarImage {
-  width: 12vw;
-  height: 12vw;
-  min-width: 80px;
-  min-height: 80px;
-  max-width: 150px;
-  max-height: 150px;
-  border-radius: 50%;
+  width: 180px;
+  height: 180px;
+  display: block;
+  border-radius: var(--radius);
   object-fit: cover;
-  background-color: #ffffff;
-  border: 1px solid #e0e0e0;
+  background: var(--bg-muted);
 }
 
 .editIcon {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 2.2rem;
-  height: 2.2rem;
-  background-color: #3b82f6;
-  border: 2px solid white;
-  border-radius: 50%;
+  right: 8px;
+  bottom: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.2s;
-  color: white;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
 }
 
 .editIcon:hover {
-  background-color: #2563eb;
+  background: var(--bg-soft);
+}
+
+.editIcon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .fileInput {
@@ -156,155 +156,205 @@
   cursor: pointer;
 }
 
-/* Form Styles */
 .formSection {
-  max-width: 24rem;
-  margin: 0 auto;
+  grid-area: form;
   display: flex;
   flex-direction: column;
-  gap: 1rem; /* 👉 각 formGroup 사이 간격 추가 */
+  gap: 20px;
+  min-width: 0;
 }
+
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
 }
 
 .label {
-  font-size: 1rem;
-  font-weight: 500;
-  color: #374151;
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
 }
 
 .input {
-  height: 3rem;
-  padding: 0 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+  box-sizing: border-box;
 }
 
 .input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--link);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .buttonSection {
+  grid-area: buttons;
   display: flex;
-  justify-content: center;
-  margin-top: 3rem;
+  justify-content: flex-end;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-soft);
 }
 
 .saveButton {
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  padding: 0.75rem 2rem;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  font-weight: 500;
+  height: 36px;
+  min-width: 96px;
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  min-width: 7.5rem;
-  transition: background-color 0.2s;
 }
 
-/* ✅ 비활성화 상태 */
+.saveButton:not(:disabled):hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
 .saveButton:disabled {
-  background-color: #d1d5db;  /* 연한 회색 */
-  color: #9ca3af;             /* 텍스트도 흐리게 */
+  background: var(--bg-muted);
+  border-color: var(--border);
+  color: var(--text-3);
   cursor: not-allowed;
 }
 
-/* ✅ 활성화 + hover일 때만 진해짐 */
-.saveButton:not(:disabled):hover {
-  background-color: #2563eb;  /* 더 진한 파란색 */
-}
-
-/* Security Section Styles */
+/* 보안 */
 .securitySection {
-  max-width: 24rem;
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .securityTitle {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .securityContent {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 24px;
 }
 
-.securityDescription {
-  color: #4b5563;
+.securityDescription,
+.sessionsDescription {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-2);
   line-height: 1.5;
-}
-
-.changePasswordButton {
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  padding: 0.75rem 1rem;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
-  align-self: flex-start;
-}
-
-.changePasswordButton:hover {
-  background-color: #2563eb;
 }
 
 .sessionsSection {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 24px 0;
+  border-top: 1px solid var(--border-soft);
 }
 
 .sessionsTitle {
-  font-size: 1.125rem;
-  font-weight: 500;
-  margin-bottom: 1rem;
+  margin: 0 0 -6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
 }
 
-.sessionsDescription {
-  color: #4b5563;
-  margin-bottom: 1rem;
-  line-height: 1.5;
-}
-
+.changePasswordButton,
 .manageSessionsButton {
-  background-color: white;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  padding: 0.75rem 1rem;
-  border-radius: 0.375rem;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  font-size: 0.875rem;
-  transition: background-color 0.2s, border-color 0.2s;
+  white-space: nowrap;
 }
 
+.changePasswordButton:hover,
 .manageSessionsButton:hover {
-  background-color: #f9fafb;
-  border-color: #9ca3af;
+  background: var(--bg-soft);
 }
 
-/* Loading Styles */
+/* 로딩 */
 .loadingContainer {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 48px 24px;
 }
 
 .loading {
-  font-size: 1.25rem;
-  color: #4b5563;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+@media (max-width: 768px) {
+  .pageTitle {
+    height: 52px;
+    padding: 0 16px;
+  }
+  .tabsList {
+    padding: 0 16px;
+  }
+  .tabContent {
+    padding: 20px 16px 32px;
+  }
+  .profileCard {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "avatar"
+      "form"
+      "buttons";
+    row-gap: 20px;
+  }
+  .avatarSection {
+    display: flex;
+    justify-content: center;
+  }
+  .avatarContainer {
+    width: 120px;
+  }
+  .avatarImage {
+    width: 120px;
+    height: 120px;
+  }
+  .editIcon {
+    right: 6px;
+    bottom: 6px;
+  }
+  .input {
+    height: 44px;
+    font-size: 16px; /* iOS 확대 방지 */
+  }
+  .buttonSection {
+    justify-content: stretch;
+  }
+  .saveButton,
+  .changePasswordButton,
+  .manageSessionsButton {
+    width: 100%;
+    height: 42px;
+  }
+  .securityContent,
+  .sessionsSection {
+    align-items: stretch;
+  }
 }

@@ -1,7 +1,9 @@
 "use client"
 import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import "../App.css"
+import styles from "./Auth.module.css"
+import AuthLayout from "../components/AuthLayout"
+import { safeRedirect, rememberRedirect, signupUrlFor } from "../utils/postLoginRedirect"
 
 function App() {
   const navigate = useNavigate()
@@ -34,7 +36,7 @@ function App() {
       console.log("Login successful:", data)
       alert("로그인 성공!")
       const searchParams = new URLSearchParams(location.search)
-      const redirectPath = searchParams.get("redirect") || "/"
+      const redirectPath = safeRedirect(searchParams.get("redirect")) || "/"
       navigate(redirectPath)
     } catch (error) {
       console.error("네트워크 또는 서버 에러:", error)
@@ -43,27 +45,22 @@ function App() {
   }
 
   const handleGithubLogin = () => {
+    // GitHub 로그인은 서버가 홈으로 돌려보내므로, 돌아올 경로(초대 링크 등)를 저장해 둔다.
+    rememberRedirect(new URLSearchParams(location.search).get("redirect"))
     window.location.href = `${process.env.REACT_APP_BASE_API_URL}/oauth2/authorization/github`
   }
 
   return (
-    <div className="app-container">
-      <div className="form-container">
-        <div className="logo-container">
-          <a href="/">
-            <img
-              src="/images/devchat-logo.webp"
-              alt="DevChat Logo"
-              className="logo-image"
-            />
-          </a>
-        </div>
-        <h1 className="heading">Welcome Back!</h1>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="username">ID</label>
+    <AuthLayout>
+      <div className={styles.card}>
+        <h1 className={styles.heading}>DevChat에 로그인</h1>
+        <p className={styles.sub}>ID와 비밀번호로 로그인하거나 GitHub 계정을 사용하세요.</p>
+        <form className={styles.form} onSubmit={handleSubmit}>
+          <div className={styles.field}>
+            <label className="dc-label" htmlFor="username">ID</label>
             <input
               id="username"
+              className={`dc-input ${styles.input}`}
               type="username"
               value={username}
               onChange={e => setUsername(e.target.value)}
@@ -71,10 +68,11 @@ function App() {
               required
             />
           </div>
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
+          <div className={styles.field}>
+            <label className="dc-label" htmlFor="password">비밀번호</label>
             <input
               id="password"
+              className={`dc-input ${styles.input}`}
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -82,21 +80,17 @@ function App() {
               required
             />
           </div>
-          <button type="submit" className="signup-button">
-            Login
+          <button type="submit" className={`dc-btn dc-btn-primary ${styles.submit}`}>
+            로그인
           </button>
-          <div className="signup-link">
-            <span>계정이 아직 없으신가요?</span>
-            <a href="/signup">회원가입</a>
-          </div>
-          <hr className="oauth-separator" />
+          <div className={styles.divider}>또는</div>
           <button
             type="button"
-            className="oauth-button github"
+            className={`dc-btn ${styles.oauth}`}
             onClick={handleGithubLogin}
           >
             <svg
-              className="oauth-icon"
+              className={styles.oauthIcon}
               viewBox="0 0 98 96"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -106,18 +100,15 @@ function App() {
                 fill="currentColor"
               />
             </svg>
-            <span>Github로 로그인</span>
+            <span>GitHub로 로그인</span>
           </button>
         </form>
+        <div className={styles.switch}>
+          <span>계정이 아직 없으신가요?</span>
+          <a href={signupUrlFor(new URLSearchParams(location.search).get("redirect"))}>회원가입</a>
+        </div>
       </div>
-      <div className="background-container">
-        <img
-          src="/images/signup-background.webp"
-          alt="Background"
-          className="background-image"
-        />
-      </div>
-    </div>
+    </AuthLayout>
   )
 }
 

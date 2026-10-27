@@ -1,32 +1,78 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaBell, FaRegBell, FaSpinner } from 'react-icons/fa';
+import { Bell, BellOff, Search, MoreVertical, Copy, LogOut, Trash2, GitBranch, X, Loader2, ChevronLeft, Bot, FileText, Check, Mail, Link2, ScrollText } from 'lucide-react';
+import useIsMobile from '../../hooks/useIsMobile';
+import s from './Chat.module.css';
+import InviteEmailModal from '../modals/InviteEmailModal';
+import ReviewConventionsModal from '../modals/ReviewConventionsModal';
+
+const getRepoLabel = (url) => {
+  if (!url) return null;
+  const match = url.match(/github\.com\/([^/]+\/[^/?#]+)/);
+  return match ? match[1].replace(/\.git$/, '') : url;
+};
+
+const ConfirmDialog = ({ title, desc, confirmLabel, onCancel, onConfirm, loading }) => (
+  <div className="dc-modal-backdrop" onClick={loading ? undefined : onCancel}>
+    <div className="dc-modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+      <div className="dc-modal-header">
+        <h2 className="dc-modal-title">{title}</h2>
+        <button type="button" className="dc-icon-btn" onClick={onCancel} disabled={loading} aria-label="닫기">
+          <X size={20} />
+        </button>
+      </div>
+      <div className="dc-modal-body" style={{ color: 'var(--text-2)' }}>{desc}</div>
+      <div className="dc-modal-footer">
+        <button type="button" className="dc-btn" onClick={onCancel} disabled={loading}>취소</button>
+        <button type="button" className="dc-btn dc-btn-danger" onClick={onConfirm} disabled={loading}>
+          {loading && <Loader2 size={14} style={{ animation: 'dc-spin 1s linear infinite' }} />}
+          {loading ? '처리 중...' : confirmLabel}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const Toggle = ({ on }) => (
+  <span className={`${s.miniToggle} ${on ? s.miniToggleOn : ''}`}><span /></span>
+);
 
 const RoomHeader = ({
-  roomName, inviteCode, onSearch, onLeaveRoom, onDeleteRoom,
+  roomId, roomName, inviteCode, onSearch, onLeaveRoom, onDeleteRoom,
   isOwner, toggleAlarm, alarmEnabled,
   aiReviewEnabled, onToggleAiReview,
   aiSummaryEnabled, onToggleAiSummary,
-  repositoryUrl
+  repositoryUrl, onConnectRepo
 }) => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [showNotification, setShowNotification] = useState(false);
+  const [notificationText, setNotificationText] = useState('');
+  const [showInviteEmail, setShowInviteEmail] = useState(false);
+  const [showConventions, setShowConventions] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showLeaveSuccess, setShowLeaveSuccess] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
   const menuRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  const repoLabel = getRepoLabel(repositoryUrl);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
     };
     if (menuOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
   const handleLeave = async () => {
     const result = await onLeaveRoom();
@@ -42,248 +88,252 @@ const RoomHeader = ({
   const handleDelete = async () => {
     setDeleteLoading(true);
     const result = await onDeleteRoom();
-    if (result.success) {
-      setShowDeleteConfirm(false);
-    } else {
-      alert(result.error);
-      setShowDeleteConfirm(false);
-    }
+    if (!result.success) alert(result.error);
+    setShowDeleteConfirm(false);
     setDeleteLoading(false);
   };
 
-  const handleCopy = async () => {
+  const copyText = async (text, done) => {
     try {
-      await navigator.clipboard.writeText(inviteCode);
+      await navigator.clipboard.writeText(text);
+      setNotificationText(done);
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 2000);
     } catch {
-      alert('초대 코드 복사 중 오류가 발생했습니다.');
+      alert('복사 중 오류가 발생했습니다.');
     }
   };
 
-  const plainBtn = {
-    display: 'flex', alignItems: 'center', gap: '6px',
-    padding: '6px 12px', borderRadius: '8px', border: 'none',
-    fontSize: '13px', cursor: 'pointer', fontWeight: '500',
-    background: 'transparent', color: '#3b82f6', transition: 'background 0.15s, color 0.15s',
-  };
+  const handleCopy = () => copyText(inviteCode, '초대 코드가 복사되었습니다.');
 
-  const iconBtn = (active = true) => ({
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    width: '32px', height: '32px', borderRadius: '8px', border: 'none',
-    background: 'transparent', color: active ? '#3b82f6' : '#94a3b8',
-    cursor: 'pointer', transition: 'background 0.15s, color 0.15s',
-  });
+  // 메일로 보내는 것과 같은 입장 링크. 메신저 등으로 직접 공유할 때 쓴다.
+  const handleCopyLink = () =>
+    copyText(`${window.location.origin}/invite/${encodeURIComponent(inviteCode)}`, '입장 링크가 복사되었습니다.');
 
-  const Toggle = ({ label, enabled, onToggle }) => (
-    <div
+  const closeSearch = () => { setSearchOpen(false); setSearchValue(''); };
+
+  const AiToggle = ({ icon, label, enabled, onToggle }) => (
+    <button
+      type="button"
+      className={`${s.aiToggle} ${enabled ? s.aiToggleOn : ''}`}
       onClick={isOwner ? onToggle : undefined}
-      style={{
-        display: 'flex', alignItems: 'center', gap: '7px',
-        padding: '5px 10px', borderRadius: '8px',
-        cursor: isOwner ? 'pointer' : 'default', transition: 'background 0.15s',
-      }}
-      onMouseEnter={e => { if (isOwner) e.currentTarget.style.background = '#f0f6ff'; }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+      title={isOwner ? `${label} ${enabled ? '끄기' : '켜기'}` : '방장만 변경할 수 있어요'}
+      style={{ cursor: isOwner ? 'pointer' : 'default' }}
     >
-      <span style={{ fontSize: '13px', color: '#3b82f6', fontWeight: '500', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
-      <div style={{
-        width: '30px', height: '17px', borderRadius: '9px',
-        background: enabled ? '#3b82f6' : '#cbd5e1',
-        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-        opacity: isOwner ? 1 : 0.6,
-      }}>
-        <div style={{
-          position: 'absolute', top: '2px',
-          left: enabled ? '15px' : '2px',
-          width: '13px', height: '13px',
-          borderRadius: '50%', background: 'white',
-          transition: 'left 0.2s',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-        }} />
-      </div>
-    </div>
+      {icon}
+      <span>{label}</span>
+      <Toggle on={enabled} />
+    </button>
+  );
+
+  const menuItemAi = (label, enabled, onToggle) => (
+    <button
+      type="button"
+      className={s.menuItem}
+      onClick={isOwner ? onToggle : undefined}
+      disabled={!isOwner}
+      title={isOwner ? undefined : '방장만 변경할 수 있어요'}
+    >
+      <Bot size={15} />
+      <span style={{ flex: 1 }}>{label}</span>
+      <Toggle on={enabled} />
+    </button>
   );
 
   return (
-    <div style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '10px 20px', backgroundColor: '#fff',
-      borderBottom: '0.5px solid #eaedf0', gap: '12px',
-    }}>
-      {/* 왼쪽 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
-        <span style={{ fontSize: '15px', fontWeight: '500', color: '#1e293b', marginRight: '4px' }}>
-          {roomName}
-        </span>
-
-        <button
-          onClick={handleCopy}
-          style={plainBtn}
-          onMouseEnter={e => e.currentTarget.style.background = '#f0f6ff'}
-          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
-          초대 코드 복사
-        </button>
-
-        {repositoryUrl && (
-          <>
-            <Toggle label="AI 리뷰" enabled={aiReviewEnabled} onToggle={onToggleAiReview} />
-            <Toggle label="AI 요약" enabled={aiSummaryEnabled} onToggle={onToggleAiSummary} />
-          </>
-        )}
-
-        <button
-          onClick={toggleAlarm}
-          title={alarmEnabled ? '알림 끄기' : '알림 켜기'}
-          style={iconBtn(alarmEnabled)}
-          onMouseEnter={e => e.currentTarget.style.background = alarmEnabled ? '#f0f6ff' : '#f1f5f9'}
-          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-        >
-          {alarmEnabled ? <FaBell size={15} /> : <FaRegBell size={15} />}
-        </button>
-
-        <div ref={menuRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setMenuOpen(prev => !prev)}
-            style={iconBtn(false)}
-            onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
-            </svg>
-          </button>
-
-          {menuOpen && (
-            <div style={{
-              position: 'absolute', top: '38px', left: '0',
-              background: 'white', border: '0.5px solid #e2e8f0',
-              borderRadius: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-              zIndex: 1000, minWidth: '140px', overflow: 'hidden',
-            }}>
-              <button
-                onClick={() => { setShowLeaveConfirm(true); setMenuOpen(false); }}
-                style={{ padding: '10px 16px', background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#e53e3e' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}
-              >
-                채팅방 나가기
+    <div className={s.roomHeader}>
+      {searchOpen && isMobile ? (
+        <div className={s.mobileSearchBar}>
+          <Search size={16} className={s.searchFieldIcon} />
+          <input
+            ref={searchInputRef}
+            type="search"
+            value={searchValue}
+            placeholder={`#${roomName}에서 검색`}
+            onChange={(e) => setSearchValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && onSearch && searchValue.trim()) onSearch(searchValue.trim());
+              if (e.key === 'Escape') closeSearch();
+            }}
+            className={s.searchField}
+          />
+          <button type="button" className="dc-btn dc-btn-ghost" onClick={closeSearch}>취소</button>
+        </div>
+      ) : (
+        <>
+          <div className={s.roomHeaderLeft}>
+            {isMobile && (
+              <button type="button" className={`dc-icon-btn ${s.backBtn}`} onClick={() => navigate('/')} aria-label="채팅방 목록으로">
+                <ChevronLeft size={24} />
               </button>
-              {isOwner && (
-                <button
-                  onClick={() => { setShowDeleteConfirm(true); setMenuOpen(false); }}
-                  style={{ padding: '10px 16px', background: 'none', borderTop: '0.5px solid #f1f5f9', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#dc2626', fontWeight: '500' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                >
-                  채팅방 삭제
-                </button>
+            )}
+            <div className={s.roomTitleWrap}>
+              <button type="button" className={s.roomTitle} onClick={handleCopy} title="초대 코드 복사">
+                <span className={s.roomTitleText}>{roomName}</span>
+              </button>
+              {repoLabel && (
+                <a href={repositoryUrl} target="_blank" rel="noopener noreferrer" className={s.repoLink} title={repositoryUrl}>
+                  <GitBranch size={12} />
+                  <span>{repoLabel}</span>
+                </a>
               )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* 검색 */}
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          style={{ position: 'absolute', left: '10px', pointerEvents: 'none' }}>
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input
-          type="text"
-          placeholder="메시지 검색"
-          onKeyDown={(e) => { if (e.key === 'Enter' && onSearch) onSearch(e.target.value); }}
-          style={{
-            paddingLeft: '32px', paddingRight: '12px', paddingTop: '7px', paddingBottom: '7px',
-            borderRadius: '8px', border: '1px solid #e2e8f0',
-            background: '#f8fafc', fontSize: '13px', color: '#1e293b',
-            width: '200px', outline: 'none', transition: 'border-color 0.15s, background 0.15s',
-          }}
-          onFocus={e => { e.target.style.borderColor = '#93c5fd'; e.target.style.background = 'white'; }}
-          onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.background = '#f8fafc'; }}
-        />
-      </div>
+          <div className={s.roomHeaderRight}>
+            {repositoryUrl && !isMobile && (
+              <div className={s.aiToggles}>
+                <AiToggle icon={<Bot size={14} />} label="AI 리뷰" enabled={aiReviewEnabled} onToggle={onToggleAiReview} />
+                <AiToggle icon={<FileText size={14} />} label="AI 요약" enabled={aiSummaryEnabled} onToggle={onToggleAiSummary} />
+              </div>
+            )}
 
-      {/* 복사 완료 토스트 */}
+            {!repositoryUrl && isOwner && !isMobile && onConnectRepo && (
+              <button type="button" className={s.connectRepoBtn} onClick={onConnectRepo} title="GitHub 레포지토리 연결">
+                <GitBranch size={14} />
+                <span>레포 연결</span>
+              </button>
+            )}
+
+            {searchOpen ? (
+              <div className={s.searchFieldWrap}>
+                <Search size={14} className={s.searchFieldIcon} />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchValue}
+                  placeholder={`#${roomName}에서 검색`}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && onSearch && searchValue.trim()) onSearch(searchValue.trim());
+                    if (e.key === 'Escape') closeSearch();
+                  }}
+                  className={s.searchField}
+                />
+                <button type="button" onClick={closeSearch} className={s.searchFieldClear} aria-label="검색 닫기">
+                  <X size={13} />
+                </button>
+              </div>
+            ) : (
+              <button type="button" title="메시지 검색" className="dc-icon-btn" onClick={() => setSearchOpen(true)} aria-label="메시지 검색">
+                <Search size={18} />
+              </button>
+            )}
+
+            {!isMobile && (
+              <button
+                type="button"
+                onClick={toggleAlarm}
+                title={alarmEnabled ? '알림 끄기' : '알림 켜기'}
+                aria-label={alarmEnabled ? '알림 끄기' : '알림 켜기'}
+                className="dc-icon-btn"
+              >
+                {alarmEnabled ? <Bell size={18} /> : <BellOff size={18} />}
+              </button>
+            )}
+
+            <div ref={menuRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setMenuOpen(prev => !prev)}
+                className={`dc-icon-btn ${menuOpen ? 'is-active' : ''}`}
+                aria-label="채널 메뉴"
+              >
+                <MoreVertical size={18} />
+              </button>
+
+              {menuOpen && (
+                <>
+                  {isMobile && <div className={s.sheetBackdrop} onClick={() => setMenuOpen(false)} />}
+                  <div className={s.menu}>
+                    {isMobile && <div className={s.menuTitle}>{roomName}</div>}
+                    {roomId && (
+                      <button type="button" className={s.menuItem} onClick={() => { setShowInviteEmail(true); setMenuOpen(false); }}>
+                        <Mail size={15} />이메일로 초대
+                      </button>
+                    )}
+                    <button type="button" className={s.menuItem} onClick={() => { handleCopyLink(); setMenuOpen(false); }}>
+                      <Link2 size={15} />입장 링크 복사
+                    </button>
+                    <button type="button" className={s.menuItem} onClick={() => { handleCopy(); setMenuOpen(false); }}>
+                      <Copy size={15} />초대 코드 복사
+                    </button>
+                    {isMobile && (
+                      <button type="button" className={s.menuItem} onClick={toggleAlarm}>
+                        {alarmEnabled ? <Bell size={15} /> : <BellOff size={15} />}
+                        <span style={{ flex: 1 }}>알림</span>
+                        <Toggle on={alarmEnabled} />
+                      </button>
+                    )}
+                    {isMobile && !repositoryUrl && isOwner && onConnectRepo && (
+                      <button type="button" className={s.menuItem} onClick={() => { onConnectRepo(); setMenuOpen(false); }}>
+                        <GitBranch size={15} />레포지토리 연결
+                      </button>
+                    )}
+                    {isMobile && repositoryUrl && (
+                      <>
+                        {menuItemAi('AI 리뷰', aiReviewEnabled, onToggleAiReview)}
+                        {menuItemAi('AI 요약', aiSummaryEnabled, onToggleAiSummary)}
+                      </>
+                    )}
+                    {repositoryUrl && roomId && (
+                      <button type="button" className={s.menuItem} onClick={() => { setShowConventions(true); setMenuOpen(false); }}>
+                        <ScrollText size={15} />팀 리뷰 규칙
+                      </button>
+                    )}
+                    <div className={s.menuDivider} />
+                    <button type="button" className={`${s.menuItem} ${s.menuItemDanger}`} onClick={() => { setShowLeaveConfirm(true); setMenuOpen(false); }}>
+                      <LogOut size={15} />채팅방 나가기
+                    </button>
+                    {isOwner && (
+                      <button type="button" className={`${s.menuItem} ${s.menuItemDanger}`} onClick={() => { setShowDeleteConfirm(true); setMenuOpen(false); }}>
+                        <Trash2 size={15} />채팅방 삭제
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       {showNotification && (
-        <div style={{
-          position: 'fixed', top: '15px', right: '15px',
-          backgroundColor: '#1e293b', color: '#fff',
-          padding: '10px 16px', borderRadius: '8px',
-          fontSize: '13px', zIndex: 1000,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        }}>
-          초대 코드가 복사되었습니다.
-        </div>
+        <div className={s.snackbar}><Check size={14} /> {notificationText}</div>
       )}
 
-      {/* 나가기 확인 모달 */}
+      {showInviteEmail && (
+        <InviteEmailModal roomId={roomId} roomName={roomName} onClose={() => setShowInviteEmail(false)} />
+      )}
+
+      {showConventions && (
+        <ReviewConventionsModal roomId={roomId} isOwner={isOwner} onClose={() => setShowConventions(false)} />
+      )}
+
       {showLeaveConfirm && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-          <div style={{ backgroundColor: 'white', padding: '28px 24px', borderRadius: '12px', minWidth: '300px', textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-            <p style={{ fontSize: '15px', color: '#1e293b', marginBottom: '6px', fontWeight: '500' }}>채팅방을 나가시겠습니까?</p>
-            <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '24px' }}>나가면 다시 초대 코드로 입장할 수 있습니다.</p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
-              <button onClick={() => setShowLeaveConfirm(false)} style={{ padding: '8px 20px', backgroundColor: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: '#64748b' }}>취소</button>
-              <button onClick={handleLeave} style={{ padding: '8px 20px', backgroundColor: '#e53e3e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>나가기</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="채팅방을 나갈까요?"
+          desc="나가더라도 초대 코드로 다시 입장할 수 있어요."
+          confirmLabel="나가기"
+          onCancel={() => setShowLeaveConfirm(false)}
+          onConfirm={handleLeave}
+        />
       )}
 
-      {/* 삭제 확인 모달 */}
       {showDeleteConfirm && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-          <div style={{ backgroundColor: 'white', padding: '28px 24px', borderRadius: '12px', minWidth: '320px', textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-            <p style={{ fontSize: '15px', color: '#1e293b', marginBottom: '6px', fontWeight: '500' }}>채팅방을 삭제하시겠습니까?</p>
-            <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '24px' }}>삭제된 채팅방과 모든 메시지는 복구할 수 없습니다.</p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deleteLoading}
-                style={{ padding: '8px 20px', backgroundColor: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: deleteLoading ? 'not-allowed' : 'pointer', fontSize: '13px', color: '#64748b' }}
-              >
-                취소
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleteLoading}
-                style={{
-                  padding: '8px 20px', backgroundColor: '#dc2626', color: 'white',
-                  border: 'none', borderRadius: '8px',
-                  cursor: deleteLoading ? 'not-allowed' : 'pointer',
-                  fontSize: '13px', fontWeight: '500',
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  opacity: deleteLoading ? 0.8 : 1,
-                }}
-              >
-                {deleteLoading ? (
-                  <>
-                    <FaSpinner size={12} style={{ animation: 'spin 1s linear infinite' }} />
-                    삭제 중...
-                  </>
-                ) : '삭제'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="채팅방을 삭제할까요?"
+          desc="삭제된 채팅방과 모든 메시지는 복구할 수 없어요."
+          confirmLabel="삭제"
+          loading={deleteLoading}
+          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={handleDelete}
+        />
       )}
 
-      {/* 나가기 완료 */}
       {showLeaveSuccess && (
-        <div style={{ position: 'fixed', top: '20px', right: '20px', backgroundColor: '#1e293b', color: 'white', padding: '10px 16px', borderRadius: '8px', fontSize: '13px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 2000 }}>
-          채팅방에서 나갔습니다.
-        </div>
+        <div className={s.snackbar}>채팅방에서 나갔습니다.</div>
       )}
-
-      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };

@@ -2,19 +2,21 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { flushSync } from "react-dom"
-import { Bell, Check, X, ArrowRight, User, Code, MessageSquare, Clock } from "lucide-react"
+import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound } from "lucide-react"
 import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
-import { Link } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useUser } from '../context/UserContext'
 import { useAlarm } from '../context/AlarmContext'
 import useWebSocketNotifications from "./common/useWebSocket"
 
 window.__devchatActiveNoti ??= null;
 
-export function HeaderWithNotifications() {
+export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, hidden = false }) {
   const { currentUser, isLoading } = useUser()
-  const { currentRoomId } = useAlarm()
+  const { currentRoomId, alarmRooms } = useAlarm()
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const profileDropdownRef = useRef(null)
@@ -165,15 +167,16 @@ export function HeaderWithNotifications() {
   }
 
   const getNotificationTypeInfo = (type) => {
+    const neutral = { color: "var(--text-2)", bgColor: "var(--bg-muted)" }
     switch (type) {
-      case "FRIEND_REQUESTED": return { label: "Friend Request", icon: <User size={14} />, color: "#10b981", bgColor: "#ecfdf5" }
-      case "CODE_REVIEW": return { label: "Code Review", icon: <Code size={14} />, color: "#3b82f6", bgColor: "#eff6ff" }
-      case "MESSAGE": return { label: "Message", icon: <MessageSquare size={14} />, color: "#8b5cf6", bgColor: "#f3e8ff" }
-      case "WE_ARE_FRIEND_NOW": return { label: "New Friend", icon: <User size={14} />, color: "#10b981", bgColor: "#ecfdf5" }
-      case "STUDY_APPLY": return { label: "Study Apply", icon: <User size={14} />, color: "#2588F1", bgColor: "#ebf4ff" }
-      case "STUDY_APPROVED": return { label: "Study Approved", icon: <Check size={14} />, color: "#10b981", bgColor: "#ecfdf5" }
-      case "STUDY_REJECTED": return { label: "Study Rejected", icon: <X size={14} />, color: "#ef4444", bgColor: "#fef2f2" }
-      default: return { label: "Notification", icon: <Bell size={14} />, color: "#6b7280", bgColor: "#f9fafb" }
+      case "FRIEND_REQUESTED": return { label: "친구 요청", icon: <User size={12} />, ...neutral }
+      case "CODE_REVIEW": return { label: "코드 리뷰", icon: <Code size={12} />, ...neutral }
+      case "MESSAGE": return { label: "메시지", icon: <MessageSquare size={12} />, ...neutral }
+      case "WE_ARE_FRIEND_NOW": return { label: "새 친구", icon: <User size={12} />, ...neutral }
+      case "STUDY_APPLY": return { label: "스터디 신청", icon: <User size={12} />, ...neutral }
+      case "STUDY_APPROVED": return { label: "스터디 승인", icon: <Check size={12} />, ...neutral }
+      case "STUDY_REJECTED": return { label: "스터디 거절", icon: <X size={12} />, ...neutral }
+      default: return { label: "알림", icon: <Bell size={12} />, ...neutral }
     }
   }
 
@@ -391,34 +394,27 @@ export function HeaderWithNotifications() {
     }
 
     return (
-      <div key={notification.id} className={styles.notificationItem}>
-        <div className={styles.notificationContent}>
-          <div className={styles.notificationAvatar}>
-            <img
-              src={notification.senderImg ? `${process.env.REACT_APP_PROFILE_IMAGE_URL || "/placeholder.svg"}/${notification.senderImg}` : "/images/not-found-profile.webp"}
-              alt={notification.sender}
-              className={styles.avatarImage}
-              onError={(e) => { e.currentTarget.src = "/images/not-found-profile.webp" }}
-            />
-            {notificationFilter === "unread" && !notification.isRead && <div className={styles.newIndicator}></div>}
-          </div>
-          <div className={styles.notificationBody}>
-            <div className={styles.notificationHeader}>
-              <div className={styles.badgeContainer}>
-                <span className={styles.notificationBadge} style={{ color: typeInfo.color, backgroundColor: typeInfo.bgColor }}>
-                  {typeInfo.icon}
-                  <span className={styles.badgeText}>{typeInfo.label}</span>
-                </span>
-              </div>
-              <div className={styles.timestampContainer}>
-                <Clock size={12} className={styles.clockIcon} />
-                <span className={styles.notificationTime}>{formatRelativeTime(notification.timestamp)}</span>
-              </div>
-            </div>
-            <div className={styles.notificationMessage}>{notification.content}</div>
-          </div>
-          {actionElement}
+      <div key={notification.id} className={`${styles.notificationItem} ${!notification.isRead ? styles.notificationUnread : ""}`}>
+        <div className={styles.notificationAvatar}>
+          <img
+            src={notification.senderImg ? `${process.env.REACT_APP_PROFILE_IMAGE_URL || "/placeholder.svg"}/${notification.senderImg}` : "/images/not-found-profile.webp"}
+            alt={notification.sender}
+            className={styles.avatarImage}
+            onError={(e) => { e.currentTarget.src = "/images/not-found-profile.webp" }}
+          />
         </div>
+        <div className={styles.notificationBody}>
+          <div className={styles.notificationHeader}>
+            <span className={styles.notificationBadge} style={{ color: typeInfo.color, backgroundColor: typeInfo.bgColor }}>
+              {typeInfo.icon}
+              <span>{typeInfo.label}</span>
+            </span>
+            <span className={styles.notificationTime}>{formatRelativeTime(notification.timestamp)}</span>
+            {!notification.isRead && <span className={styles.newIndicator} aria-label="읽지 않음" />}
+          </div>
+          <div className={styles.notificationMessage}>{notification.content}</div>
+        </div>
+        {actionElement}
       </div>
     )
   }
@@ -494,138 +490,194 @@ export function HeaderWithNotifications() {
     }
   }, [isNotificationOpen, handleScroll])
 
-  return (
-    <>
-      <header className={styles.header}>
-        <div className={styles.container}>
-          <div className={styles.leftSection}>
-            <Link to="/" className={styles.logoLink}>
-              <img src="/images/devchat-logo.webp" alt="DevChat Logo" className={styles.headerLogoImage} />
-            </Link>
-            <div className={styles.divider} />
-            <Link
-              to="/community"
-              className={`${styles.communityTab} ${window.location.pathname.startsWith('/community') ? styles.communityTabActive : ''}`}
-            >
-              Community
-            </Link>
-          </div>
+  useEffect(() => {
+    const handleClickOutsideProfile = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setIsProfileOpen(false)
+      }
+    }
+    if (isProfileOpen) document.addEventListener("mousedown", handleClickOutsideProfile)
+    return () => document.removeEventListener("mousedown", handleClickOutsideProfile)
+  }, [isProfileOpen])
 
-          <div className={styles.rightSection}>
-            <div className={styles.notificationContainer} ref={notificationRef}>
-              <button
-                className={`${styles.notificationBell} ${isShaking || hasUnreadItems() ? styles.shake : ""}`}
-                onClick={toggleNotifications}
-                aria-label="알림"
-              >
-                <Bell size={20} />
-                {displayCount > 0 && (
-                  <span key={`count-${displayCount}`} className={styles.notificationCount}>
+  const isCommunity = location.pathname.startsWith("/community")
+  const isProfilePage = location.pathname.startsWith("/myprofile")
+  const chatUnread = (alarmRooms || []).reduce((sum, room) => {
+    if (currentRoomId && Number(room.uniqueId) === Number(currentRoomId)) return sum
+    return sum + (room.unreadCount ?? 0)
+  }, 0)
+
+  const goPanel = (panel) => {
+    onPanelChange?.(panel)
+    if (isCommunity || isProfilePage) navigate("/")
+  }
+
+  const railItemClass = (active) => `${styles.railItem} ${active ? styles.railItemActive : ""}`
+
+  const renderBadge = (count) =>
+    count > 0 ? <span className={styles.railBadge}>{count > 99 ? "99+" : count}</span> : null
+
+  const profileSrc = `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${currentUser?.profileImg}`
+  const onProfileError = (e) => { e.currentTarget.src = "/images/not-found-profile.webp" }
+  const isChatTab = activePanel === "chat" && !isCommunity && !isProfilePage
+  const isFriendsTab = activePanel === "friends" && !isCommunity && !isProfilePage
+
+  return (
+    <nav className={`${styles.rail} ${hidden ? styles.railHidden : ""}`}>
+      <div className={styles.railTop}>
+        <Link to="/" className={styles.railLogo} aria-label="DevChat 홈" title="DevChat" onClick={() => onPanelChange?.("chat")}>
+          {/* 로고의 말풍선 + </> 마크를 흰색으로 */}
+          <svg className={styles.railLogoSvg} viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M8 4h24a5 5 0 0 1 5 5v17a5 5 0 0 1-5 5H15l-7 6v-6a5 5 0 0 1-5-5V9a5 5 0 0 1 5-5z" fill="#fff" />
+            <path d="M15 12.5l-5 5 5 5M25 12.5l5 5-5 5M22 11l-4 13" fill="none" stroke="#2588f1" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </Link>
+
+        <div className={styles.railUtil}>
+          <div className={styles.notificationContainer} ref={notificationRef}>
+            <button
+              type="button"
+              className={`${railItemClass(isNotificationOpen)} ${styles.railUtilItem}`}
+              onClick={toggleNotifications}
+              aria-label="알림"
+              title="알림"
+            >
+              <span className={`${styles.railIcon} ${isShaking ? styles.shake : ""}`}>
+                <Bell size={18} />
+                {displayCount > 0 ? (
+                  <span key={`count-${displayCount}`} className={styles.railBadge}>
                     {displayCount > 99 ? "99+" : displayCount}
                   </span>
-                )}
-              </button>
+                ) : hasUnreadItems() ? (
+                  <span className={styles.railDot} />
+                ) : null}
+              </span>
+              <span className={`${styles.railLabel} ${styles.railLabelMobileOnly}`}>알림</span>
+            </button>
 
-              {isNotificationOpen && (
-                <div className={styles.notificationDropdown}>
-                  <div className={styles.notificationDropdownHeader}>
-                    <div className={styles.headerLeft}>
-                      <h3>Notifications</h3>
-                      {apiNotifications.length > 0 && <span className={styles.totalCount}>{apiNotifications.length}</span>}
-                    </div>
-                    <div className={styles.toggleContainer}>
-                      <span className={styles.toggleLabel}>Unread only</span>
-                      <button
-                        className={`${styles.toggleSwitch} ${notificationFilter === "unread" ? styles.toggleSwitchActive : ""}`}
-                        onClick={handleFilterChange}
-                      >
-                        <span className={styles.toggleSlider}></span>
-                      </button>
-                    </div>
+            {isNotificationOpen && (
+              <div className={styles.notificationDropdown}>
+                <div className={styles.notificationDropdownHeader}>
+                  <div className={styles.headerLeft}>
+                    <h3>알림</h3>
+                    {apiNotifications.length > 0 && <span className={styles.totalCount}>{apiNotifications.length}</span>}
                   </div>
-                  <div className={styles.notificationList} ref={notificationContentRef}>
-                    {isLoadingNotifications ? (
-                      <div className={styles.loadingState}>
-                        <div className={styles.loadingSpinner}></div>
-                        <span>Loading notifications...</span>
-                      </div>
-                    ) : apiNotifications.length === 0 ? (
-                      <div className={styles.emptyState}>
-                        <Bell size={48} className={styles.emptyIcon} />
-                        <h4>{notificationFilter === "unread" ? "No unread notifications!" : "All caught up!"}</h4>
-                        <p>{notificationFilter === "unread" ? "You have no unread notifications" : "You have no new notifications"}</p>
-                      </div>
-                    ) : (
-                      <div className={styles.notificationsList}>
-                        {apiNotifications.map(renderNotificationItem)}
-                        {isLoadingMore && (
-                          <div className={styles.loadingMore}>
-                            <div className={styles.loadingSpinner}></div>
-                            <span>Loading more...</span>
-                          </div>
-                        )}
-                        {!hasMoreNotifications && apiNotifications.length > 0 && (
-                          <div className={styles.endMessage}><span>You're all caught up!</span></div>
-                        )}
-                      </div>
-                    )}
+                  <div className={styles.headerRight}>
+                    <span className={styles.toggleLabel}>안 읽은 것만</span>
+                    <button
+                      type="button"
+                      className={`${styles.toggleSwitch} ${notificationFilter === "unread" ? styles.toggleSwitchActive : ""}`}
+                      onClick={handleFilterChange}
+                      aria-pressed={notificationFilter === "unread"}
+                      aria-label="안 읽은 알림만 보기"
+                    >
+                      <span className={styles.toggleSlider}></span>
+                    </button>
+                    <button type="button" className={styles.dropdownClose} onClick={() => setIsNotificationOpen(false)} aria-label="닫기">
+                      <X size={18} />
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
+                <div className={`${styles.notificationList} dc-scroll`} ref={notificationContentRef}>
+                  {isLoadingNotifications ? (
+                    <div className={styles.loadingState}>
+                      <div className={styles.loadingSpinner}></div>
+                      <span>불러오는 중...</span>
+                    </div>
+                  ) : apiNotifications.length === 0 ? (
+                    <div className={styles.emptyState}>
+                      <Bell size={28} className={styles.emptyIcon} />
+                      <h4>{notificationFilter === "unread" ? "안 읽은 알림이 없어요" : "받은 알림이 없어요"}</h4>
+                      <p>친구 요청, 코드 리뷰, 스터디 소식이 오면 여기에 쌓여요.</p>
+                    </div>
+                  ) : (
+                    <div className={styles.notificationsList}>
+                      {apiNotifications.map(renderNotificationItem)}
+                      {isLoadingMore && (
+                        <div className={styles.loadingMore}>
+                          <div className={styles.loadingSpinner}></div>
+                          <span>더 불러오는 중...</span>
+                        </div>
+                      )}
+                      {!hasMoreNotifications && apiNotifications.length > 0 && (
+                        <div className={styles.endMessage}>여기까지가 전부예요</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
-            <div className={styles.profileDropdownWrapper} ref={profileDropdownRef}>
-              <button className={styles.profileTrigger} onClick={() => setIsProfileOpen(prev => !prev)}>
+          <div className={styles.profileDropdownWrapper} ref={profileDropdownRef}>
+            <button
+              type="button"
+              className={`${styles.railItem} ${styles.railProfile} ${styles.railUtilItem} ${isProfileOpen || isProfilePage ? styles.railItemActive : ""}`}
+              onClick={() => setIsProfileOpen(prev => !prev)}
+              aria-label="내 계정"
+              title="내 계정"
+            >
+              <span className={styles.railIcon}>
                 {isLoading ? (
                   <div className={styles.profileImageLoading} />
                 ) : (
-                  <img
-                    src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${currentUser?.profileImg}`}
-                    alt="User profile"
-                    className={styles.profileImage}
-                    onError={(e) => { e.currentTarget.src = "/images/not-found-profile.webp" }}
-                  />
+                  <img src={profileSrc} alt="" className={styles.railAvatar} onError={onProfileError} />
                 )}
-                <span className={`${styles.profileChevron} ${isProfileOpen ? styles.profileChevronOpen : ''}`}>▾</span>
-              </button>
+              </span>
+              <span className={`${styles.railLabel} ${styles.railLabelMobileOnly}`}>나</span>
+            </button>
 
-              {isProfileOpen && (
+            {isProfileOpen && (
+              <>
+                <div className={styles.sheetBackdrop} onClick={() => setIsProfileOpen(false)} />
                 <div className={styles.profileDropdown}>
                   <div className={styles.profileDropdownUser}>
-                    <img
-                      src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${currentUser?.profileImg}`}
-                      alt="profile"
-                      className={styles.profileDropdownAvatar}
-                      onError={(e) => { e.currentTarget.src = "/images/not-found-profile.webp" }}
-                    />
-                    <div>
-                      <p className={styles.profileDropdownName}>{currentUser?.username}</p>
-                      <p className={styles.profileDropdownSub}>개발자</p>
+                    <img src={profileSrc} alt="" className={styles.profileDropdownAvatar} onError={onProfileError} />
+                    <div style={{ minWidth: 0 }}>
+                      <p className={styles.profileDropdownName}>{currentUser?.nickname || currentUser?.username}</p>
+                      <p className={styles.profileDropdownSub}>@{currentUser?.username}</p>
                     </div>
                   </div>
                   <div className={styles.profileDropdownDivider} />
                   <Link to="/myprofile" className={styles.profileDropdownItem} onClick={() => setIsProfileOpen(false)}>
-                    <span className={styles.profileDropdownIcon}>👤</span>
+                    <UserRound size={16} />
                     내 프로필
                   </Link>
-                  <div className={styles.profileDropdownDivider} />
-                  <button
-                    className={`${styles.profileDropdownItem} ${styles.profileDropdownLogout}`}
-                    onClick={handleLogout}
-                  >
-                    <span className={styles.profileDropdownIcon}>🚪</span>
+                  <button type="button" className={`${styles.profileDropdownItem} ${styles.profileDropdownItemDanger}`} onClick={handleLogout}>
+                    <LogOut size={16} />
                     로그아웃
                   </button>
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </div>
-        <audio ref={audioRef} preload="auto">
-          <source src="/sounds/notification.mp3" type="audio/mpeg" />
-        </audio>
-      </header>
-    </>
+      </div>
+
+      <div className={styles.railGroup}>
+        <button type="button" aria-current={isChatTab ? "page" : undefined} className={railItemClass(isChatTab)} onClick={() => goPanel("chat")}>
+          <span className={styles.railIcon}>
+            <MessageSquare size={18} />
+            {renderBadge(chatUnread)}
+          </span>
+          <span className={styles.railLabel}>채팅방</span>
+        </button>
+
+        <button type="button" aria-current={isFriendsTab ? "page" : undefined} className={railItemClass(isFriendsTab)} onClick={() => goPanel("friends")}>
+          <span className={styles.railIcon}><Users size={18} /></span>
+          <span className={styles.railLabel}>친구</span>
+        </button>
+
+        <Link to="/community" aria-current={isCommunity ? "page" : undefined} className={railItemClass(isCommunity)}>
+          <span className={styles.railIcon}><Newspaper size={18} /></span>
+          <span className={styles.railLabel}>커뮤니티</span>
+        </Link>
+      </div>
+
+      <audio ref={audioRef} preload="auto">
+        <source src="/sounds/notification.mp3" type="audio/mpeg" />
+      </audio>
+    </nav>
   )
 }
 

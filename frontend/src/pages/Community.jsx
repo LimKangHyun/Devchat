@@ -62,145 +62,143 @@ const Community = () => {
 
   return (
     <div className={styles.container}>
-      {/* 상단 헤더 영역 */}
+      {/* 상단 헤더 바 */}
       <div className={styles.pageHeader}>
         <div className={styles.pageHeaderLeft}>
-          <h1 className={styles.pageTitle}>Community</h1>
-          <p className={styles.pageSubtitle}>스터디원을 모집하고 함께 성장해요</p>
+          <h1 className={styles.pageTitle}>커뮤니티</h1>
+          <p className={styles.pageSubtitle}>스터디와 사이드 프로젝트 팀원을 찾는 곳이에요</p>
         </div>
         <button
-          className={styles.writeButton}
+          className={`dc-btn dc-btn-primary ${styles.writeButton}`}
           onClick={() => navigate('/community/write')}
         >
-          + 글 작성
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+          <span>글 작성</span>
         </button>
       </div>
 
-      {/* 필터 영역 */}
-      <div className={styles.filterRow}>
-        {/* 정렬 탭: 내 신청 보기 중엔 흐리게 */}
-        <div className={styles.filterTabs}>
-          <button
-            className={`${styles.filterTab} ${!myApplied && filter === 'hot' ? styles.filterTabActive : ''} ${myApplied ? styles.filterTabDisabled : ''}`}
-            onClick={() => { if (!myApplied) setFilter('hot'); }}
-          >
-            🔥 인기순
-          </button>
-          <button
-            className={`${styles.filterTab} ${!myApplied && filter === 'latest' ? styles.filterTabActive : ''} ${myApplied ? styles.filterTabDisabled : ''}`}
-            onClick={() => { if (!myApplied) setFilter('latest'); }}
-          >
-            🆕 최신순
-          </button>
-        </div>
-
-        {/* 우측 토글 */}
-        <div className={styles.toggleGroup}>
-          <button
-            className={`${styles.activeOnlyToggle} ${activeOnly ? styles.activeOnlyToggleOn : ''}`}
-            onClick={handleActiveOnlyToggle}
-          >
-            <span className={styles.activeOnlyDot} />
-            모집중만 보기
-          </button>
-          <button
-            className={`${styles.activeOnlyToggle} ${myApplied ? styles.myAppliedToggleOn : ''}`}
-            onClick={handleMyAppliedToggle}
-          >
-            <span className={`${styles.activeOnlyDot} ${myApplied ? styles.myAppliedDot : ''}`} />
-            내 신청 보기
-          </button>
-        </div>
-      </div>
-
-      {/* 게시글 목록 */}
-      {isLoading ? (
-        <div className={styles.loadingState}>로딩 중...</div>
-      ) : posts.length === 0 ? (
-        <div className={styles.emptyState}>
-          <p>{emptyMessage}</p>
-          {!myApplied && (
+      <div className={styles.inner}>
+        {/* 필터 영역 */}
+        <div className={styles.filterRow}>
+          {/* 정렬 탭: 내 신청 보기 중엔 흐리게 */}
+          <div className={styles.filterTabs}>
             <button
-              className={styles.writeButton}
-              onClick={() => navigate('/community/write')}
+              className={`${styles.filterTab} ${!myApplied && filter === 'hot' ? styles.filterTabActive : ''} ${myApplied ? styles.filterTabDisabled : ''}`}
+              onClick={() => { if (!myApplied) setFilter('hot'); }}
             >
-              첫 글 작성하기
+              인기순
             </button>
-          )}
+            <button
+              className={`${styles.filterTab} ${!myApplied && filter === 'latest' ? styles.filterTabActive : ''} ${myApplied ? styles.filterTabDisabled : ''}`}
+              onClick={() => { if (!myApplied) setFilter('latest'); }}
+            >
+              최신순
+            </button>
+          </div>
+
+          {/* 우측 토글 */}
+          <div className={styles.toggleGroup}>
+            <button
+              className={`${styles.activeOnlyToggle} ${activeOnly ? styles.activeOnlyToggleOn : ''}`}
+              onClick={handleActiveOnlyToggle}
+            >
+              <span className={styles.activeOnlyDot} />
+              모집중만 보기
+            </button>
+            <button
+              className={`${styles.activeOnlyToggle} ${myApplied ? styles.myAppliedToggleOn : ''}`}
+              onClick={handleMyAppliedToggle}
+            >
+              <span className={`${styles.activeOnlyDot} ${myApplied ? styles.myAppliedDot : ''}`} />
+              내 신청 보기
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className={styles.postList}>
-          {posts.map((post) => {
-            const daysLeft = getDaysLeft(post.deadline);
-            const isFull = post.maxCount != null && post.currentCount >= post.maxCount;
-            const isExpired = daysLeft !== null && daysLeft < 0;
-            const isClosed = post.isClosed || isFull || isExpired;
-            const isUrgent = !isClosed && daysLeft !== null && daysLeft <= 3 && daysLeft >= 0;
 
-            const closedType = isExpired ? 'expired' : isFull ? 'full' : post.isClosed ? 'manual' : null;
-
-            return (
-              <div
-                key={post.id}
-                className={`
-                  ${styles.postCard}
-                  ${closedType === 'expired' ? styles.postCardExpired : ''}
-                  ${(closedType === 'full' || closedType === 'manual') ? styles.postCardClosed : ''}
-                  ${isUrgent ? styles.postCardUrgent : ''}
-                `}
-                onClick={() => navigate(`/community/${post.id}`)}
+        {/* 게시글 목록 */}
+        {isLoading ? (
+          <div className={styles.loadingState}>로딩 중...</div>
+        ) : posts.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p>{emptyMessage}</p>
+            {!myApplied && (
+              <button
+                className="dc-btn"
+                onClick={() => navigate('/community/write')}
               >
-                {closedType === 'expired' && <div className={styles.expiredOverlay} />}
-                {(closedType === 'full' || closedType === 'manual') && <div className={styles.closedOverlay} />}
+                첫 글 작성하기
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className={styles.postList}>
+            {posts.map((post) => {
+              const daysLeft = getDaysLeft(post.deadline);
+              const isFull = post.maxCount != null && post.currentCount >= post.maxCount;
+              const isExpired = daysLeft !== null && daysLeft < 0;
+              const isClosed = post.isClosed || isFull || isExpired;
+              const isUrgent = !isClosed && daysLeft !== null && daysLeft <= 3 && daysLeft >= 0;
 
-                <div className={styles.postCardHeader}>
-                  <div className={styles.postMeta}>
-                    <span className={styles.postTag}>{post.tag || '스터디'}</span>
-                    {closedType === 'expired' && <span className={styles.expiredTag}>기간마감</span>}
-                    {closedType === 'full' && <span className={styles.closedTag}>정원마감</span>}
-                    {closedType === 'manual' && <span className={styles.closedTag}>마감</span>}
-                    {isUrgent && (
-                      <span className={styles.urgentTag}>🔥 D-{daysLeft}</span>
-                    )}
-                    {post.deadline && !isClosed && !isUrgent && (
-                      <span className={styles.deadlineTag}>{post.deadline} 마감</span>
-                    )}
-                    {/* 내 신청 보기 중일 때 대기중 뱃지 */}
-                    {myApplied && (
-                      <span className={styles.pendingTag}>⏳ 승인 대기중</span>
-                    )}
+              const closedType = isExpired ? 'expired' : isFull ? 'full' : post.isClosed ? 'manual' : null;
+
+              return (
+                <div
+                  key={post.id}
+                  className={`${styles.postCard} ${closedType ? styles.postCardClosed : ''}`}
+                  onClick={() => navigate(`/community/${post.id}`)}
+                >
+                  <img
+                    src={
+                      post.authorProfileImg
+                        ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${post.authorProfileImg}`
+                        : '/images/not-found-profile.webp'
+                    }
+                    alt={post.authorNickname}
+                    className={styles.authorAvatar}
+                    onError={(e) => { e.target.src = '/images/not-found-profile.webp'; }}
+                  />
+
+                  <div className={styles.postBody}>
+                    <div className={styles.postCardHeader}>
+                      <span className={styles.authorName}>{post.authorNickname}</span>
+                      <span className={styles.postDate}>{post.createdAt?.slice(0, 10)}</span>
+                    </div>
+
+                    <h2 className={styles.postTitle}>{post.title}</h2>
+                    <p className={styles.postPreview}>{post.content}</p>
+
+                    <div className={styles.postCardFooter}>
+                      <div className={styles.postMeta}>
+                        <span className={styles.postTag}>{post.tag || '스터디'}</span>
+                        {closedType === 'expired' && <span className={styles.closedTag}>기간마감</span>}
+                        {closedType === 'full' && <span className={styles.closedTag}>정원마감</span>}
+                        {closedType === 'manual' && <span className={styles.closedTag}>마감</span>}
+                        {isUrgent && (
+                          <span className={styles.urgentTag}>D-{daysLeft}</span>
+                        )}
+                        {post.deadline && !isClosed && !isUrgent && (
+                          <span className={styles.deadlineTag}>{post.deadline} 마감</span>
+                        )}
+                        {/* 내 신청 보기 중일 때 대기중 뱃지 */}
+                        {myApplied && (
+                          <span className={styles.pendingTag}>승인 대기중</span>
+                        )}
+                      </div>
+                      <div className={styles.postStats}>
+                        <span>{post.currentCount ?? 0} / {post.maxCount ?? '?'}명</span>
+                        <span className={styles.dot}>·</span>
+                        <span>조회 {post.viewCount ?? 0}</span>
+                      </div>
+                    </div>
                   </div>
-                  <span className={styles.viewCount}>👁 {post.viewCount ?? 0}</span>
                 </div>
-
-                <h2 className={styles.postTitle}>{post.title}</h2>
-                <p className={styles.postPreview}>{post.content}</p>
-
-                <div className={styles.postCardFooter}>
-                  <div className={styles.authorInfo}>
-                    <img
-                      src={
-                        post.authorProfileImg
-                          ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${post.authorProfileImg}`
-                          : '/images/not-found-profile.webp'
-                      }
-                      alt={post.authorNickname}
-                      className={styles.authorAvatar}
-                      onError={(e) => { e.target.src = '/images/not-found-profile.webp'; }}
-                    />
-                    <span className={styles.authorName}>{post.authorNickname}</span>
-                  </div>
-                  <div className={styles.postStats}>
-                    <span>👥 {post.currentCount ?? 0} / {post.maxCount ?? '?'}명</span>
-                    <span className={styles.dot}>·</span>
-                    <span>{post.createdAt?.slice(0, 10)}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

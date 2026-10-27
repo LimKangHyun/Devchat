@@ -1,0 +1,311 @@
+/* DevChat 공통 테마 — 하늘색(#2588F1) 레일 + 밝은 목록 + 흰 본문
+   하늘색 강조(--marker)는 "지금 봐야 할 곳"에만 쓴다: 현재 탭·방, 안 읽음, 멘션. */
+:root {
+  /* 왼쪽 레일 (디스코드/슬랙처럼 맨 왼쪽 세로 메뉴) — DevChat 하늘색 */
+  --rail-w: 76px;
+  --rail-bg: #2588f1;
+  --rail-text: rgba(255, 255, 255, 0.8);
+  --rail-hover: rgba(255, 255, 255, 0.14);
+  --rail-active-bg: #ffffff;
+  --rail-active-text: #1a6fd1;
+
+  /* 목록 영역 */
+  --side-bg: #f4f7fb;
+  --side-text: #4a5566;
+  --side-text-strong: #1c2430;
+  --side-hover: rgba(37, 136, 241, 0.07);
+  --side-active-bg: #dcecfd;
+  --side-active-text: #0f4f9e;
+  --side-line: #e2e8f0;
+
+  /* 본문 */
+  --bg: #ffffff;
+  --bg-soft: #f7f9fc;
+  --bg-muted: #eef2f7;
+  --text: #1c2430;
+  --text-2: #566273;
+  --text-3: #8a95a5;
+  --border: #e2e8f0;
+  --border-soft: #edf1f6;
+  --border-strong: #cbd4e0;
+
+  /* 포인트: DevChat 하늘색 */
+  --primary: #2588f1;
+  --primary-hover: #1366d6;
+  --marker: #2588f1;
+  --marker-soft: #dcecfd;
+  --marker-hl: #c6e1fd;
+  --sky: #2588f1;
+  --sky-soft: #eaf4fe;
+  --link: #1a6fd1;
+  --link-soft: #eaf4fe;
+  --focus-ring: rgba(37, 136, 241, 0.25);
+  --danger: #e5484d;
+  --danger-hover: #c93a3f;
+  --danger-soft: #fdeeee;
+  --warning: #d68a0c;
+  --badge: #ff4757;
+  --badge-text: #ffffff;
+  --online: #22a55b;
+  --mention-bg: #e3f0fe;
+
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+  --shadow-pop: 0 10px 28px rgba(28, 36, 48, 0.14), 0 0 0 1px rgba(28, 36, 48, 0.07);
+  --shadow-modal: 0 24px 60px rgba(28, 36, 48, 0.26);
+  --backdrop: rgba(28, 36, 48, 0.42);
+
+  --tabbar-h: 58px;
+  --side-w: 272px;
+
+  --font: 'IBM Plex Sans KR', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  --mono: 'IBM Plex Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  /* 예전 토큰 호환용 (아직 안 바뀐 곳도 톤이 맞도록) */
+  --brand-25: #f7f9fc;
+  --brand-50: #f4f7fb;
+  --brand-100: #eaf4fe;
+  --brand-200: #dcecfd;
+  --brand-300: #cbd4e0;
+  --brand-500: #2588f1;
+  --brand-600: #1366d6;
+  --brand-700: #1c2430;
+  --brand-800: #1c2430;
+  --accent: #2588f1;
+  --ink: #1c2430;
+  --ink-2: #566273;
+  --ink-3: #8a95a5;
+  --line: #edf1f6;
+  --surface: #ffffff;
+  --radius-md: 8px;
+  --shadow-card: none;
+}
+
+* {
+  font-family: var(--font);
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  font-feature-settings: 'tnum' 0;
+}
+
+::selection {
+  background: var(--marker-soft);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+code, pre, kbd, .hljs, pre * {
+  font-family: var(--mono);
+}
+
+/* ── 앱 셸 ──
+   데스크톱: [하늘색 레일] [목록] [본문] 세 칸 */
+.dc-shell {
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: var(--rail-w) var(--side-w) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  background: var(--side-bg);
+  box-sizing: border-box;
+}
+
+.dc-workspace {
+  display: contents;
+}
+
+.dc-main {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+  background: var(--bg);
+  position: relative;
+  border-left: 1px solid var(--side-line);
+}
+
+@media (max-width: 768px) {
+  .dc-shell {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+  .dc-workspace {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .dc-main {
+    flex: 1;
+    border-left: none;
+  }
+  .dc-shell.has-tabbar .dc-workspace {
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  }
+}
+
+/* ── 얇은 스크롤바 ── */
+.dc-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(31, 35, 43, 0.18) transparent;
+}
+.dc-scroll::-webkit-scrollbar { width: 8px; }
+.dc-scroll::-webkit-scrollbar-thumb { background: rgba(31, 35, 43, 0.18); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+.dc-scroll::-webkit-scrollbar-track { background: transparent; }
+
+.dc-scroll-dark {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(31, 35, 43, 0.14) transparent;
+}
+.dc-scroll-dark::-webkit-scrollbar { width: 8px; }
+.dc-scroll-dark::-webkit-scrollbar-thumb { background: rgba(31, 35, 43, 0.14); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+
+/* ── 공통 버튼 ── */
+.dc-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, border-color 0.1s;
+}
+.dc-btn:hover { background: var(--bg-soft); border-color: var(--text-3); }
+.dc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dc-btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.dc-btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.dc-btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.dc-btn-danger:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
+.dc-btn-ghost { border-color: transparent; background: transparent; }
+.dc-btn-ghost:hover { background: var(--bg-muted); border-color: transparent; }
+
+.dc-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.dc-icon-btn:hover { background: var(--bg-muted); color: var(--text); }
+.dc-icon-btn.is-active { background: var(--bg-muted); color: var(--text); }
+
+/* ── 공통 입력 ── */
+.dc-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+  box-sizing: border-box;
+}
+.dc-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
+.dc-label { display: block; font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.dc-help { font-size: 13px; color: var(--text-2); margin-top: 6px; line-height: 1.5; }
+
+/* ── 공통 모달 ── */
+.dc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--backdrop);
+  z-index: 1990;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.dc-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+  z-index: 2000;
+}
+.dc-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px 12px;
+}
+.dc-modal-title { margin: 0; font-size: 19px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+.dc-modal-body { padding: 8px 24px 20px; overflow-y: auto; font-size: 15px; color: var(--text); line-height: 1.55; }
+.dc-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 24px 18px;
+  background: var(--bg-soft);
+  border-top: 1px solid var(--border-soft);
+}
+
+@media (max-width: 768px) {
+  .dc-modal-backdrop { align-items: flex-end; padding: 0; }
+  .dc-modal {
+    max-width: none;
+    max-height: 92vh;
+    border-radius: 14px 14px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .dc-modal-title { font-size: 18px; }
+  .dc-modal-header { padding: 18px 18px 10px; }
+  .dc-modal-body { padding: 6px 18px 16px; }
+  .dc-modal-footer { padding: 12px 18px 16px; }
+  .dc-modal-footer .dc-btn { flex: 1; height: 42px; }
+}
+
+@keyframes dc-spin { to { transform: rotate(360deg); } }
+@keyframes dc-fade-up {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

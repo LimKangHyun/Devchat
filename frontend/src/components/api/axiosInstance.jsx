@@ -1,6 +1,7 @@
 // axiosInstance.js
 import axios from 'axios';
 import { safeRefreshToken } from './refreshManager'; // 👈 중복 호출 방지용 유틸
+import { loginUrlFor } from '../../utils/postLoginRedirect';
 
 const instance = axios.create({
   baseURL: process.env.REACT_APP_BASE_API_URL,
@@ -39,7 +40,8 @@ instance.interceptors.response.use(
             onRefreshed(); // 대기 중인 요청들 처리
           })
           .catch((err) => {
-            window.location.replace('/login');
+            // 로그인 후 보던 화면(초대 링크 등)으로 돌아오도록 현재 경로를 넘긴다.
+            window.location.replace(loginUrlFor(window.location.pathname + window.location.search));
             reject(err);
           });
       });
