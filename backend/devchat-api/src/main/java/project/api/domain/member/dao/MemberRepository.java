@@ -25,7 +25,6 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 			SELECT new project.api.domain.member.dto.MemberSearchResponse(
 				m.username,
 				m.nickname,
-				'online',
 				CASE WHEN fr.status = 'ACCEPTED' THEN true ELSE false END,
 				CASE WHEN fr.status = 'PENDING' THEN true ELSE false END,
 				m.profileImage
