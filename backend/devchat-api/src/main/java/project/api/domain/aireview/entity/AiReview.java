@@ -7,6 +7,7 @@ import project.api.domain.chat.chatroom.entity.ChatRoom;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(uniqueConstraints = @UniqueConstraint(name = "uk_ai_review_room_pr", columnNames = {"room_id", "pr_number"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor

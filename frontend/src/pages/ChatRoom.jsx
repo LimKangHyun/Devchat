@@ -13,6 +13,10 @@ import { useAlarm } from '../context/AlarmContext';
 import { useUser } from '../context/UserContext';
 import Toast from '../components/common/Toast';
 import AiReviewModal from '../components/modals/AiReviewModal';
+import ConnectRepoModal from '../components/modals/ConnectRepoModal';
+import IndexingBar from '../components/chatroom/IndexingBar';
+import s from '../components/chatroom/Chat.module.css';
+import { MessageSquareDashed, Code2, GitPullRequest, UserPlus, Copy } from 'lucide-react';
 
 const PAGE_SIZE = 30;
 const INDEX_OFFSET = 100000;
@@ -26,7 +30,7 @@ const formatDate = (dateString) => {
   yesterday.setDate(today.getDate() - 1);
   if (date.toDateString() === today.toDateString()) return '오늘';
   if (date.toDateString() === yesterday.toDateString()) return '어제';
-  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 };
 
 const preloadImages = (urls) => {
@@ -63,7 +67,7 @@ const groupGitMessages = (messages) => {
 };
 
 const VirtuosoMessageItem = React.memo(({
-  msg, prevMsg,
+  msg, prevMsg, nextMsg,
   currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent,
   handleDeleteMessage, editMessageId, editContent,
@@ -78,6 +82,8 @@ const VirtuosoMessageItem = React.memo(({
       {msgDate !== prevDate && <DateDivider label={msgDate} />}
       <MessageItem
         msg={msg}
+        prevMsg={prevMsg}
+        nextMsg={nextMsg}
         currentUser={currentUser}
         contextMenuId={contextMenuId}
         setContextMenuId={setContextMenuId}
@@ -118,6 +124,7 @@ const ChatRoom = () => {
   const [toast, setToast] = useState({ open: false, message: '' });
   const [aiReviewEnabled, setAiReviewEnabled] = useState(true);
   const [aiSummaryEnabled, setAiSummaryEnabled] = useState(true);
+  const [showConnectRepo, setShowConnectRepo] = useState(false);
 
   const virtuosoRef = useRef(null);
   const inputAreaRef = useRef(null);
@@ -147,6 +154,7 @@ const ChatRoom = () => {
   const [searchTotalCount, setSearchTotalCount] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [indexingStatus, setIndexingStatus] = useState(null);
+  const [indexingCancelling, setIndexingCancelling] = useState(false);
 
   const [initState, setInitState] = useState({
     isRoomValidated: false,
@@ -212,6 +220,47 @@ const ChatRoom = () => {
     }
   };
 
+  // 방에 들어올 때 인덱싱 상태를 맞춘다. 진행 중이면 현재 단계·진행률을 받아 오고, 이후로는 WebSocket 알림으로 갱신한다.
+  const loadIndexingStatus = useCallback(async (room) => {
+    if (!room?.repositoryUrl) {
+      setIndexingStatus(null);
+      return;
+    }
+    if (room.indexingStatus === 'RUNNING') {
+      try {
+        const res = await axiosInstance.get(`/chat-rooms/${room.roomId}/indexing`);
+        setIndexingStatus(res.data);
+      } catch {
+        setIndexingStatus({ status: 'RUNNING' });
+      }
+      return;
+    }
+    // 완료된 방은 표시줄을 띄우지 않는다. NONE·FAILED는 방장에게 다시 시작 버튼을 보여준다.
+    setIndexingStatus(room.indexingStatus === 'COMPLETED' ? null : { status: room.indexingStatus });
+  }, []);
+
+  const handleCancelIndexing = async () => {
+    setIndexingCancelling(true);
+    try {
+      await axiosInstance.delete(`/chat-rooms/${roomId}/indexing`);
+      // 결과는 AI 서버가 멈추고 청크를 지운 뒤 WebSocket(CANCELLED)으로 온다.
+    } catch (err) {
+      setIndexingCancelling(false);
+      setToast({ open: true, message: err.response?.data?.message || '인덱싱을 취소하지 못했어요.' });
+      setTimeout(() => setToast({ open: false, message: '' }), 3000);
+    }
+  };
+
+  const handleRestartIndexing = async () => {
+    try {
+      const res = await axiosInstance.post(`/chat-rooms/${roomId}/indexing`);
+      setIndexingStatus(res.data);
+    } catch (err) {
+      setToast({ open: true, message: err.response?.data?.message || '인덱싱을 시작하지 못했어요.' });
+      setTimeout(() => setToast({ open: false, message: '' }), 3000);
+    }
+  };
+
   const fetchRoomInfo = useCallback(async () => {
     try {
       const res = await axiosInstance.get(`/chat-rooms/${inviteCode}`);
@@ -223,12 +272,13 @@ const ChatRoom = () => {
       setAiSummaryEnabled(data.aiSummaryEnabled ?? true);
       updateAlarm(data.roomId, data.alarmEnabled);
       setInitState((prev) => ({ ...prev, isRoomValidated: true }));
+      loadIndexingStatus(data);
       return data.roomId;
     } catch {
       setInitState((prev) => ({ ...prev, hasError: true, errorMessage: '방 정보를 불러올 수 없습니다.' }));
       return null;
     }
-  }, [inviteCode, updateAlarm]);
+  }, [inviteCode, updateAlarm, loadIndexingStatus]);
 
   const fetchMessages = useCallback(async (cursorValue = null, isLoadMore = false) => {
     if (!roomId) return;
@@ -312,6 +362,18 @@ const ChatRoom = () => {
     }
   };
 
+  // 실패하면 에러를 던져서 모달이 메시지를 보여주게 한다
+  const handleConnectRepo = async (repositoryUrl) => {
+    const res = await axiosInstance.patch(`/chat-rooms/${roomId}/repository`, { repositoryUrl });
+    setRoomData(prev => ({ ...prev, repositoryUrl: res.data.repositoryUrl }));
+    setAiReviewEnabled(true);
+    setAiSummaryEnabled(true);
+    setIndexingStatus({ status: 'RUNNING', phase: 'CLONING', done: 0, total: 0 });
+    setShowConnectRepo(false);
+    setToast({ open: true, message: '레포지토리를 연결했어요. 코드 인덱싱을 시작합니다.' });
+    setTimeout(() => setToast({ open: false, message: '' }), 3000);
+  };
+
   const toggleAlarm = async () => {
     try {
       const res = await axiosInstance.post(`/chat-rooms/alarm/toggle/${roomId}`);
@@ -335,6 +397,11 @@ const ChatRoom = () => {
     onMessageReceived: (received) => {
       if (received.type === 'INDEXING_PROGRESS') {
         setIndexingStatus(received);
+        if (received.status !== 'RUNNING') setIndexingCancelling(false);
+        // 완료 안내는 잠깐 보여 주고 닫는다.
+        if (received.status === 'COMPLETED') {
+          setTimeout(() => setIndexingStatus((cur) => (cur?.status === 'COMPLETED' ? null : cur)), 4000);
+        }
         return;
       }
       if (received?.profileImageUrl) preloadImages([received.profileImageUrl]);
@@ -426,10 +493,8 @@ const ChatRoom = () => {
     setTimeout(() => {
       const el = document.getElementById(`message-${messageId}`);
       if (!el) return;
-      el.style.backgroundColor = '#fff8e1';
-      el.style.borderRadius = '6px';
-      el.style.transition = 'background-color 0.3s ease';
-      setTimeout(() => { el.style.backgroundColor = ''; el.style.borderRadius = ''; }, 2000);
+      el.style.backgroundColor = 'var(--mention-bg)';
+      setTimeout(() => { el.style.backgroundColor = ''; }, 2000);
     }, 300);
   }, [displayMessages]);
 
@@ -537,68 +602,103 @@ const ChatRoom = () => {
 
   if (initState.hasError) {
     return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f8f8' }}>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: '#e01e5a', marginBottom: '16px', fontSize: '15px' }}>{initState.errorMessage}</p>
-          <button onClick={() => navigate('/')} style={{ padding: '8px 20px', backgroundColor: '#1264a3', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}>홈으로</button>
-        </div>
+      <div className={s.centerState}>
+        <p className={s.centerError}>{initState.errorMessage}</p>
+        <button type="button" className="dc-btn dc-btn-primary" onClick={() => navigate('/')}>홈으로</button>
       </div>
     );
   }
 
   return (
     <>
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-      `}</style>
-
-      <div style={{ height: '100%', display: 'flex', backgroundColor: '#ffffff', fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif' }}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, borderRight: showSearchSidebar ? '1px solid #f0f0f0' : 'none', position: 'relative' }}>
+      <div className={s.roomLayout}>
+        <div className={`${s.roomColumn} ${showSearchSidebar ? s.roomColumnWithPanel : ''}`}>
 
           {getAlarmStatus(roomId) !== undefined && (
-            <div style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: '#ffffff', flexShrink: 0 }}>
-              <RoomHeader
-                aiReviewEnabled={aiReviewEnabled}
-                onToggleAiReview={handleToggleAiReview}
-                aiSummaryEnabled={aiSummaryEnabled}
-                onToggleAiSummary={handleToggleAiSummary}
-                repositoryUrl={roomData?.repositoryUrl}
-                roomName={roomName} inviteCode={inviteCode}
-                onSearch={handleSearch} onLeaveRoom={handleLeaveRoom}
-                onDeleteRoom={handleDeleteRoom} isOwner={isOwner}
-                toggleAlarm={toggleAlarm} alarmEnabled={getAlarmStatus(roomId)}
-              />
-            </div>
+            <RoomHeader
+              aiReviewEnabled={aiReviewEnabled}
+              onToggleAiReview={handleToggleAiReview}
+              aiSummaryEnabled={aiSummaryEnabled}
+              onToggleAiSummary={handleToggleAiSummary}
+              repositoryUrl={roomData?.repositoryUrl}
+              onConnectRepo={() => setShowConnectRepo(true)}
+              roomId={roomId} roomName={roomName} inviteCode={inviteCode}
+              onSearch={handleSearch} onLeaveRoom={handleLeaveRoom}
+              onDeleteRoom={handleDeleteRoom} isOwner={isOwner}
+              toggleAlarm={toggleAlarm} alarmEnabled={getAlarmStatus(roomId)}
+            />
           )}
 
-          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <IndexingBar
+            indexing={indexingStatus}
+            isOwner={isOwner}
+            cancelling={indexingCancelling}
+            onCancel={handleCancelIndexing}
+            onRestart={handleRestartIndexing}
+          />
+
+          <div className={s.messagesArea}>
             {!isFullyLoaded && (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', zIndex: 10 }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ width: '28px', height: '28px', border: '2.5px solid #e8e8e8', borderTop: '2.5px solid #1264a3', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
-                  <div style={{ fontSize: '13px', color: '#aaa' }}>불러오는 중...</div>
-                </div>
+              <div className={s.loadingOverlay}>
+                <div className={s.spinner} />
+                <div>불러오는 중...</div>
               </div>
             )}
 
-            {indexingStatus && indexingStatus.status !== 'COMPLETED' && (
-              <div style={{
-                padding: '8px 16px',
-                backgroundColor: '#e8f4fd',
-                borderBottom: '1px solid #bee3f8',
-                flexShrink: 0,
-              }}>
-                <div style={{ fontSize: '13px', color: '#2c5282', fontWeight: '600', marginBottom: '4px' }}>
-                  📦 레포지토리 인덱싱 중... {indexingStatus.indexedFiles}/{indexingStatus.totalFiles} ({Math.round(indexingStatus.indexedFiles / indexingStatus.totalFiles * 100)}%)
-                </div>
-                <div style={{ backgroundColor: '#bee3f8', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${Math.round(indexingStatus.indexedFiles / indexingStatus.totalFiles * 100)}%`,
-                    height: '100%',
-                    backgroundColor: '#3182ce',
-                    transition: 'width 0.3s ease',
-                  }} />
+            {isFullyLoaded && displayMessages.length === 0 && (
+              <div className={`${s.emptyRoom} dc-scroll`}>
+                <div className={s.emptyRoomInner}>
+                  <div className={s.emptyRoomIcon}><MessageSquareDashed size={26} /></div>
+                  <div className={s.channelIntroTitle}><span>{roomName}</span></div>
+                  <p className={s.emptyRoomDesc}>아직 대화가 없어요. 아래 입력창에 첫 메시지를 남겨 보세요.</p>
+
+                  <ul className={s.emptyRoomTips}>
+                    <li>
+                      <span className={s.emptyRoomTipIcon}><Code2 size={16} /></span>
+                      <span>
+                        <b>코드 블록</b>
+                        <em>입력창 아래 <Code2 size={12} /> 버튼으로 코드를 하이라이트해서 공유할 수 있어요.</em>
+                      </span>
+                    </li>
+                    <li>
+                      <span className={s.emptyRoomTipIcon}><GitPullRequest size={16} /></span>
+                      <span>
+                        <b>PR 소식 · AI 리뷰</b>
+                        <em>
+                          {roomData?.repositoryUrl
+                            ? '연결된 레포에 PR이 올라오면 여기에 알림과 AI 코드 리뷰가 함께 올라와요.'
+                            : '레포를 연결하면 PR 알림과 AI 코드 리뷰가 이 방에 올라와요.'}
+                        </em>
+                      </span>
+                      {!roomData?.repositoryUrl && isOwner && (
+                        <button type="button" className={s.emptyRoomCopy} onClick={() => setShowConnectRepo(true)}>
+                          <GitPullRequest size={13} /> 레포 연결
+                        </button>
+                      )}
+                    </li>
+                    <li>
+                      <span className={s.emptyRoomTipIcon}><UserPlus size={16} /></span>
+                      <span>
+                        <b>팀원 초대</b>
+                        <em>초대 코드를 공유하면 팀원이 바로 들어올 수 있어요.</em>
+                      </span>
+                      <button
+                        type="button"
+                        className={s.emptyRoomCopy}
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(inviteCode);
+                            setToast({ open: true, message: '초대 코드를 복사했어요' });
+                          } catch {
+                            setToast({ open: true, message: `초대 코드: ${inviteCode}` });
+                          }
+                          setTimeout(() => setToast({ open: false, message: '' }), 2500);
+                        }}
+                      >
+                        <Copy size={13} /> 코드 복사
+                      </button>
+                    </li>
+                  </ul>
                 </div>
               </div>
             )}
@@ -607,6 +707,7 @@ const ChatRoom = () => {
               <Virtuoso
                 key={roomId}
                 ref={virtuosoRef}
+                className="dc-scroll"
                 style={{ height: '100%' }}
                 firstItemIndex={firstItemIndex}
                 initialTopMostItemIndex={999999}
@@ -626,22 +727,26 @@ const ChatRoom = () => {
                 components={{
                   Header: () =>
                     isLoadingMessages && hasMoreMessages ? (
-                      <div style={{ textAlign: 'center', padding: '6px 14px', color: '#888', fontSize: '12px', backgroundColor: '#f8f8f8', borderRadius: '12px', margin: '8px auto', width: 'fit-content', border: '1px solid #efefef' }}>
-                        메시지 불러오는 중...
-                      </div>
+                      <div className={s.listHeaderLoading}>메시지 불러오는 중...</div>
                     ) : !hasMoreMessages && displayMessages.length > 0 ? (
-                      <div style={{ textAlign: 'center', padding: '6px 14px', color: '#bbb', fontSize: '11px', margin: '8px auto 16px', width: 'fit-content' }}>
-                        채널의 시작입니다
+                      <div className={s.channelIntro}>
+                        <div className={s.channelIntroTitle}><span>{roomName}</span></div>
+                        <div className={s.channelIntroDesc}>
+                          이 방의 첫 메시지예요.
+                          {roomData?.repositoryUrl ? ' 연결된 레포의 PR 소식과 AI 리뷰도 여기에 올라와요.' : ''}
+                        </div>
                       </div>
                     ) : null,
+                  Footer: () => <div style={{ height: 12 }} />,
                 }}
                 itemContent={(index, msg) => {
                   const arrayIndex = index - firstItemIndex;
                   const prevMsg = arrayIndex > 0 ? displayMessages[arrayIndex - 1] : null;
+                  const nextMsg = displayMessages[arrayIndex + 1] || null;
                   const subMessages = subMessagesMap.get(msg.messageId) || [];
                   return (
                     <VirtuosoMessageItem
-                      msg={msg} prevMsg={prevMsg} currentUser={currentUser}
+                      msg={msg} prevMsg={prevMsg} nextMsg={nextMsg} currentUser={currentUser}
                       contextMenuId={contextMenuId} setContextMenuId={setContextMenuId}
                       setEditMessageId={setEditMessageId} setEditContent={setEditContent}
                       handleDeleteMessage={handleDeleteMessage} editMessageId={editMessageId}
@@ -657,40 +762,19 @@ const ChatRoom = () => {
           </div>
 
           {showScrollButton && (
-            <div
+            <button
+              type="button"
               onClick={scrollToBottom}
-              style={{
-                position: 'absolute',
-                bottom: `${inputHeight + 16}px`,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                backgroundColor: '#1264a3',
-                color: 'white',
-                padding: '8px 18px',
-                borderRadius: '20px',
-                fontSize: '13px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                zIndex: 10,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                animation: 'fadeIn 0.2s ease',
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-              }}
+              className={s.jumpButton}
+              style={{ bottom: `${inputHeight + 12}px` }}
             >
-              {newMessageCount > 0 && (
-                <span style={{ backgroundColor: '#e01e5a', borderRadius: '10px', padding: '1px 7px', fontSize: '11px', fontWeight: '700' }}>
-                  {newMessageCount > 99 ? '99+' : newMessageCount}
-                </span>
-              )}
-              맨 아래로 가기 ↓
-            </div>
+              {newMessageCount > 0
+                ? <>새 메시지 {newMessageCount > 99 ? '99+' : newMessageCount}개 ↓</>
+                : <>최근 메시지로 ↓</>}
+            </button>
           )}
 
-          <div ref={inputAreaRef} style={{ padding: '0 20px 16px', backgroundColor: '#ffffff', flexShrink: 0, pointerEvents: isFullyLoaded ? 'auto' : 'none' }}>
+          <div ref={inputAreaRef} className={s.composerArea} style={{ pointerEvents: isFullyLoaded ? 'auto' : 'none' }}>
             <MessageInput
               inputMode={inputMode} setInputMode={setInputMode}
               content={content} setContent={setContent}
@@ -698,6 +782,7 @@ const ChatRoom = () => {
               handleUnifiedSend={handleUnifiedSend}
               setImageFile={setImageFile}
               imagePreviewUrl={imagePreviewUrl} setImagePreviewUrl={setImagePreviewUrl}
+              roomName={roomName}
             />
           </div>
         </div>
@@ -708,7 +793,19 @@ const ChatRoom = () => {
             searchKeyword={searchKeyword} searchResults={searchResults}
             isSearching={isSearching} errorMessage={errorMessage}
             hasNext={searchHasNext} onClose={() => setShowSearchSidebar(false)}
-            onMessageClick={scrollToMessage}
+            onMessageClick={(id) => {
+              // 모바일에선 검색 패널이 전체 화면이라 닫고 이동한다
+              if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) setShowSearchSidebar(false);
+              scrollToMessage(id);
+            }}
+          />
+        )}
+
+        {showConnectRepo && (
+          <ConnectRepoModal
+            roomName={roomName}
+            onClose={() => setShowConnectRepo(false)}
+            onSubmit={handleConnectRepo}
           />
         )}
 

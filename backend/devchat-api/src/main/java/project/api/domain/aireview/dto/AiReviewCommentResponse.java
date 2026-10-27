@@ -4,7 +4,7 @@ public record AiReviewCommentResponse(
         Long commentId,
         String filePath,
         int lineNumber,
-        int diffLine,
+        Integer diffLine,
         String comment,
         boolean active
 ) {}

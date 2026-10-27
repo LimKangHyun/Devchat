@@ -1,0 +1,32 @@
+package project.ai.indexing.structural;
+
+import java.util.Set;
+import java.util.regex.Pattern;
+
+/** getter/setter, 흔한 Object 메서드 등 "리뷰 컨텍스트로서 의미 없는" 메서드명 판별. */
+public final class MethodNameFilter {
+
+    private static final Pattern GETTER_PATTERN = Pattern.compile("^(get|is)[A-Z0-9].*");
+    private static final Pattern SETTER_PATTERN = Pattern.compile("^set[A-Z0-9].*");
+    private static final Set<String> COMMON_OBJECT_METHODS = Set.of(
+            "toString", "hashCode", "equals", "clone", "notify", "notifyAll", "wait", "getClass",
+            "build", "builder", "of", "from"
+    );
+
+    private MethodNameFilter() {}
+
+    public static boolean isMeaningful(String name) {
+        if (name == null || name.isBlank()) return false;
+        if (GETTER_PATTERN.matcher(name).matches()) return false;
+        if (SETTER_PATTERN.matcher(name).matches()) return false;
+        return !COMMON_OBJECT_METHODS.contains(name);
+    }
+
+    /**
+     * toString, build 같은 흔한 메서드인지. 대상 클래스를 알아도 build()처럼 Builder가 여럿이면
+     * 엉뚱한 클래스가 걸리므로, getter 여부와 별개로 판별할 때 쓴다.
+     */
+    public static boolean isCommonObjectMethod(String name) {
+        return name == null || name.isBlank() || COMMON_OBJECT_METHODS.contains(name);
+    }
+}

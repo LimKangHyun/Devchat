@@ -5,11 +5,22 @@ plugins {
 dependencies {
     implementation project(':devchat-common')
 
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
-    implementation 'io.pinecone:pinecone-client:2.0.0'
-    implementation 'io.grpc:grpc-okhttp:1.62.2'
+    implementation 'com.github.javaparser:javaparser-core:3.28.0'
     implementation 'com.auth0:java-jwt:4.5.0'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.micrometer:micrometer-registry-prometheus'
+}
+
+// 외부 API를 호출하는 RAG 평가 테스트는 -Drag.eval=true로 실행할 때만 켠다.
+tasks.named('test') {
+    systemProperty 'rag.eval', System.getProperty('rag.eval', 'false')
+    // 평가 옵션(rag.eval.repo, rag.eval.index 등)도 테스트 JVM으로 넘긴다.
+    System.properties.findAll { it.key.toString().startsWith('rag.eval.') }
+        .each { systemProperty it.key, it.value }
 }

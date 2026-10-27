@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaTimes, FaCopy, FaExpand, FaCompress, FaPlus, FaCheck, FaTrash } from 'react-icons/fa';
 import axiosInstance from '../api/axiosInstance';
 import Highlight from 'react-highlight';
+import './ReviewModals.css';
 
 const CodeReviewModal = ({ message, onClose }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -19,21 +20,9 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   const isAiReview = message.type === 'AI_REVIEW';
 
+  // .hljs 스타일은 ReviewModals.css 의 .rv-code-text .hljs 에서 지정
   const HighlightedCode = ({ content, language }) => (
-    <>
-      <Highlight className={language}>{content}</Highlight>
-      <style>{`
-        .hljs {
-          margin: 0 !important;
-          padding: 0 !important;
-          background: transparent !important;
-          line-height: 22px !important;
-          font-size: 16px !important;
-          font-family: inherit !important;
-          display: inline !important;
-        }
-      `}</style>
-    </>
+    <Highlight className={language}>{content}</Highlight>
   );
 
   const fetchCurrentUser = async () => {
@@ -268,316 +257,214 @@ const CodeReviewModal = ({ message, onClose }) => {
 
   return (
     <div
-      style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: 9999,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: isFullscreen ? '0' : '20px'
-      }}
+      className={`rv-backdrop${isFullscreen ? ' is-full' : ''}`}
       onClick={handleBackgroundClick}
     >
       <div
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: isFullscreen ? '0' : '12px',
-          width: isFullscreen ? '100vw' : '90%',
-          height: isFullscreen ? '100vh' : '85vh',
-          maxWidth: isFullscreen ? 'none' : '1200px',
-          display: 'flex', flexDirection: 'column',
-          boxShadow: isFullscreen ? 'none' : '0 20px 60px rgba(0, 0, 0, 0.3)',
-          overflow: 'hidden'
-        }}
+        className={`rv-modal${isFullscreen ? ' is-full' : ''}`}
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '16px 20px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#2d3748' }}>
-              {isAiReview ? '🤖 AI Code Review' : 'Code Review'}
-            </h3>
-            {isAiReview ? (
-              <span style={{
-                backgroundColor: '#4299e1', color: 'white',
-                padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: '500'
-              }}>
-                PR #{message.prNumber}
-              </span>
-            ) : (
-              <span style={{
-                backgroundColor: '#4299e1', color: 'white',
-                padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: '500'
-              }}>
-                {message.language || 'java'}
-              </span>
-            )}
+        <div className="rv-header">
+          <div className="rv-title-wrap">
+            <h3 className="rv-title">{isAiReview ? 'AI 코드 리뷰' : '코드 리뷰'}</h3>
+            <span className="rv-tag">
+              {isAiReview ? `PR #${message.prNumber}` : (message.language || 'java')}
+            </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={handleCopyCode} style={{
-              display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px',
-              backgroundColor: copySuccess ? '#48bb78' : '#f7fafc',
-              color: copySuccess ? 'white' : '#4a5568',
-              border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '14px',
-              cursor: 'pointer', transition: 'all 0.2s ease'
-            }}>
-              <FaCopy size={12} />
-              {copySuccess ? '복사됨!' : '복사'}
+          <div className="rv-actions">
+            <button
+              type="button"
+              onClick={handleCopyCode}
+              className={`dc-btn rv-btn-sm${copySuccess ? ' is-done' : ''}`}
+            >
+              {copySuccess ? <FaCheck size={11} /> : <FaCopy size={11} />}
+              {copySuccess ? '복사됨' : '복사'}
             </button>
-            <button onClick={() => setIsFullscreen(!isFullscreen)} style={{
-              display: 'flex', alignItems: 'center', padding: '8px',
-              backgroundColor: '#f7fafc', color: '#4a5568',
-              border: '1px solid #e2e8f0', borderRadius: '6px',
-              cursor: 'pointer', transition: 'all 0.2s ease'
-            }}>
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="dc-icon-btn rv-hide-mobile"
+              title={isFullscreen ? '축소' : '전체화면'}
+              aria-label={isFullscreen ? '축소' : '전체화면'}
+            >
               {isFullscreen ? <FaCompress size={14} /> : <FaExpand size={14} />}
             </button>
-            <button onClick={onClose} style={{
-              display: 'flex', alignItems: 'center', padding: '8px',
-              backgroundColor: '#fed7d7', color: '#c53030',
-              border: '1px solid #feb2b2', borderRadius: '6px',
-              cursor: 'pointer', transition: 'all 0.2s ease'
-            }}>
-              <FaTimes size={14} />
+            <button
+              type="button"
+              onClick={onClose}
+              className="dc-icon-btn"
+              title="닫기"
+              aria-label="닫기"
+            >
+              <FaTimes size={16} />
             </button>
           </div>
         </div>
 
         {/* 메시지 정보 */}
-        <div style={{
-          padding: '12px 20px', backgroundColor: '#f8fafc',
-          borderBottom: '1px solid #e2e8f0', fontSize: '14px', color: '#4a5568'
-        }}>
+        <div className="rv-meta">
           {isAiReview ? (
-            <span style={{ fontSize: '12px', color: '#666' }}>{message.filePath}</span>
+            <span className="rv-meta-path">{message.filePath}</span>
           ) : (
             <>
-              <span style={{ fontWeight: '500' }}>{message.senderName}</span>
-              <span style={{ margin: '0 8px', color: '#a0aec0' }}>•</span>
+              <strong>{message.senderName}</strong>
+              <span className="rv-meta-dot">·</span>
               <span>{new Date(message.createdAt).toLocaleString('ko-KR')}</span>
             </>
           )}
         </div>
 
         {/* 코드 영역 */}
-        <div style={{ flex: 1, overflow: 'auto', backgroundColor: '#fafafa' }}>
-          <div style={{ padding: '20px', height: '100%' }}>
-            <div style={{
-              backgroundColor: '#ffffff', borderRadius: '8px',
-              border: '1px solid #e2e8f0', overflow: 'hidden', height: '100%'
-            }}>
-              <div style={{
-                height: '100%', overflow: 'auto', fontSize: '14px',
-                lineHeight: '1.6', fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace'
-              }}>
-                <div style={{ position: 'relative' }}>
-                  {codeLines.map((line, index) => {
-                    const lineNumber = index + 1;
-                    const hasReviews = reviews[lineNumber] && reviews[lineNumber].length > 0;
+        <div className="rv-code-scroll dc-scroll">
+          <div className="rv-code">
+            {codeLines.map((line, index) => {
+              const lineNumber = index + 1;
+              const hasReviews = reviews[lineNumber] && reviews[lineNumber].length > 0;
 
-                    return (
-                      <div key={lineNumber}>
-                        <div
-                          style={{
-                            display: 'flex', alignItems: 'flex-start', minHeight: '20px',
-                            backgroundColor: hoveredLine === lineNumber ? '#f7fafc' : 'transparent',
-                            borderLeft: hasReviews ? '3px solid #4299e1' : '3px solid transparent',
-                            transition: 'all 0.1s ease'
-                          }}
-                          onMouseEnter={() => setHoveredLine(lineNumber)}
-                          onMouseLeave={() => setHoveredLine(null)}
+              return (
+                <div key={lineNumber}>
+                  <div
+                    className={`rv-line${hoveredLine === lineNumber ? ' is-hovered' : ''}${hasReviews ? ' has-reviews' : ''}`}
+                    onMouseEnter={() => setHoveredLine(lineNumber)}
+                    onMouseLeave={() => setHoveredLine(null)}
+                  >
+                    <div className="rv-ln">{lineNumber}</div>
+
+                    <div className="rv-add-slot">
+                      {(hoveredLine === lineNumber || hasReviews) && (
+                        <button
+                          type="button"
+                          onClick={() => handleAddReview(lineNumber)}
+                          className={`rv-add-btn${hasReviews ? ' has-reviews' : ''}`}
+                          title="이 줄에 댓글 달기"
+                          aria-label={`${lineNumber}번 줄에 댓글 달기`}
                         >
-                          <div style={{
-                            width: '50px', padding: '0 8px', color: '#a0aec0',
-                            fontSize: '12px', textAlign: 'right', userSelect: 'none',
-                            flexShrink: 0, lineHeight: '20px'
-                          }}>
-                            {lineNumber}
-                          </div>
+                          <FaPlus size={8} />
+                        </button>
+                      )}
+                    </div>
 
-                          <div style={{
-                            width: '30px', display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', flexShrink: 0
-                          }}>
-                            {(hoveredLine === lineNumber || hasReviews) && (
-                              <button
-                                onClick={() => handleAddReview(lineNumber)}
-                                style={{
-                                  width: '20px', height: '20px', borderRadius: '50%',
-                                  border: 'none',
-                                  backgroundColor: hasReviews ? '#4299e1' : '#e2e8f0',
-                                  color: hasReviews ? 'white' : '#4a5568',
-                                  cursor: 'pointer', display: 'flex', alignItems: 'center',
-                                  justifyContent: 'center', fontSize: '12px', transition: 'all 0.2s ease'
-                                }}
-                              >
-                                <FaPlus size={8} />
-                              </button>
-                            )}
-                          </div>
+                    <div className="rv-code-text">
+                      <HighlightedCode content={line} language={message.language || 'java'} />
+                    </div>
+                  </div>
 
-                          <div style={{
-                            flex: 1, padding: '0 12px 0 0', whiteSpace: 'pre', lineHeight: '20px'
-                          }}>
-                            <HighlightedCode content={line} language={message.language || 'java'} />
-                          </div>
-                        </div>
+                  {/* 댓글 입력창 */}
+                  {activeReviewLine === lineNumber && (
+                    <div className="rv-composer rv-indent">
+                      <textarea
+                        className="rv-textarea"
+                        value={reviewText}
+                        onChange={(e) => setReviewText(e.target.value)}
+                        placeholder="리뷰를 남겨주세요..."
+                        autoFocus
+                      />
+                      <div className="rv-composer-bar">
+                        <button type="button" onClick={handleCancelReview} className="dc-btn dc-btn-ghost rv-btn-sm">
+                          취소
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveReview}
+                          disabled={!reviewText.trim()}
+                          className="dc-btn dc-btn-primary rv-btn-sm"
+                        >
+                          <FaCheck size={11} />
+                          리뷰 저장
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-                        {/* 댓글 입력창 */}
-                        {activeReviewLine === lineNumber && (
-                          <div style={{
-                            marginLeft: '80px', marginRight: '12px', marginBottom: '12px',
-                            padding: '12px', backgroundColor: '#f8fafc',
-                            border: '1px solid #e2e8f0', borderRadius: '6px'
-                          }}>
-                            <textarea
-                              value={reviewText}
-                              onChange={(e) => setReviewText(e.target.value)}
-                              placeholder='Leave a review...'
-                              style={{
-                                width: '100%', minHeight: '80px', border: '1px solid #e2e8f0',
-                                borderRadius: '4px', padding: '8px', fontSize: '14px',
-                                resize: 'vertical', fontFamily: 'inherit'
-                              }}
-                              autoFocus
-                            />
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
-                              <button onClick={handleCancelReview} style={{
-                                padding: '6px 12px', backgroundColor: '#e2e8f0', color: '#4a5568',
-                                border: 'none', borderRadius: '4px', fontSize: '14px', cursor: 'pointer'
-                              }}>취소</button>
-                              <button onClick={handleSaveReview} disabled={!reviewText.trim()} style={{
-                                display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px',
-                                backgroundColor: reviewText.trim() ? '#4299e1' : '#e2e8f0',
-                                color: reviewText.trim() ? 'white' : '#a0aec0',
-                                border: 'none', borderRadius: '4px', fontSize: '14px',
-                                cursor: reviewText.trim() ? 'pointer' : 'not-allowed'
-                              }}>
-                                <FaCheck size={12} />
-                                리뷰 저장
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 댓글들 */}
-                        {reviews[lineNumber] && reviews[lineNumber].map((review) => (
+                  {/* 댓글들 (스레드) */}
+                  {hasReviews && (
+                    <div className="rv-thread rv-indent">
+                      {reviews[lineNumber].map((review) => {
+                        const isBot = review.authorId === null;
+                        const editable = canEdit(review) && editingReviewId !== review.id;
+                        return (
                           <div
                             key={review.id}
-                            style={{
-                              marginLeft: '80px', marginRight: '12px', marginBottom: '8px',
-                              padding: '10px', backgroundColor: '#ffffff',
-                              border: `1px solid ${review.authorId === null ? '#bee3f8' : '#e2e8f0'}`,
-                              borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                              cursor: canEdit(review) && editingReviewId !== review.id ? 'pointer' : 'default',
-                              transition: 'all 0.2s ease'
-                            }}
+                            className={`rv-msg${editable ? ' is-editable' : ''}`}
+                            title={editable ? '클릭해서 수정' : undefined}
                             onClick={() => {
                               if (canEdit(review) && editingReviewId !== review.id) handleEditReview(review);
                             }}
-                            onMouseEnter={(e) => {
-                              if (canEdit(review) && editingReviewId !== review.id) {
-                                e.currentTarget.style.backgroundColor = '#f8fafc';
-                                e.currentTarget.style.borderColor = '#4299e1';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (canEdit(review) && editingReviewId !== review.id) {
-                                e.currentTarget.style.backgroundColor = '#ffffff';
-                                e.currentTarget.style.borderColor = review.authorId === null ? '#bee3f8' : '#e2e8f0';
-                              }
-                            }}
                           >
-                            <div style={{
-                              display: 'flex', justifyContent: 'space-between',
-                              alignItems: 'center', marginBottom: '6px'
-                            }}>
-                              <span style={{
-                                fontSize: '12px', color: review.authorId === null ? '#2b6cb0' : '#4a5568',
-                                fontWeight: '500'
-                              }}>
-                                {review.author}
-                              </span>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '11px', color: '#a0aec0' }}>
+                            <div className={`rv-avatar${isBot ? ' is-bot' : ''}`} aria-hidden="true">
+                              {isBot ? 'AI' : String(review.author || '?').charAt(0)}
+                            </div>
+                            <div className="rv-msg-body">
+                              <div className="rv-msg-head">
+                                <span className="rv-msg-name">{review.author}</span>
+                                <span className="rv-msg-time">
                                   {new Date(review.timestamp).toLocaleString('ko-KR')}
                                 </span>
                                 {canEdit(review) && (
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteReview(lineNumber, review.id); }}
-                                    style={{
-                                      padding: '2px', backgroundColor: 'transparent',
-                                      border: 'none', color: '#e53e3e', cursor: 'pointer'
-                                    }}
-                                  >
-                                    <FaTrash size={10} />
-                                  </button>
+                                  <span className="rv-msg-tools">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteReview(lineNumber, review.id); }}
+                                      className="rv-msg-del"
+                                      title="삭제"
+                                      aria-label="댓글 삭제"
+                                    >
+                                      <FaTrash size={11} />
+                                    </button>
+                                  </span>
                                 )}
                               </div>
-                            </div>
 
-                            {editingReviewId === review.id ? (
-                              <div>
-                                <textarea
-                                  value={editReviewText}
-                                  onChange={(e) => setEditReviewText(e.target.value)}
-                                  style={{
-                                    width: '100%', minHeight: '60px', border: '1px solid #4299e1',
-                                    borderRadius: '4px', padding: '8px', fontSize: '14px',
-                                    resize: 'vertical', fontFamily: 'inherit', marginBottom: '8px'
-                                  }}
-                                  autoFocus
-                                />
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                  <button onClick={handleCancelEdit} style={{
-                                    padding: '4px 8px', backgroundColor: '#e2e8f0', color: '#4a5568',
-                                    border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
-                                  }}>취소</button>
-                                  <button
-                                    onClick={() => handleSaveEdit(lineNumber, review.id)}
-                                    disabled={!editReviewText.trim() || loading}
-                                    style={{
-                                      display: 'flex', alignItems: 'center', gap: '4px',
-                                      padding: '4px 8px',
-                                      backgroundColor: editReviewText.trim() ? '#4299e1' : '#e2e8f0',
-                                      color: editReviewText.trim() ? 'white' : '#a0aec0',
-                                      border: 'none', borderRadius: '4px', fontSize: '12px',
-                                      cursor: editReviewText.trim() ? 'pointer' : 'not-allowed'
-                                    }}
-                                  >
-                                    <FaCheck size={10} />
-                                    저장
-                                  </button>
+                              {editingReviewId === review.id ? (
+                                <div className="rv-composer is-inline">
+                                  <textarea
+                                    className="rv-textarea"
+                                    value={editReviewText}
+                                    onChange={(e) => setEditReviewText(e.target.value)}
+                                    autoFocus
+                                  />
+                                  <div className="rv-composer-bar">
+                                    <button type="button" onClick={handleCancelEdit} className="dc-btn dc-btn-ghost rv-btn-sm">
+                                      취소
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveEdit(lineNumber, review.id)}
+                                      disabled={!editReviewText.trim() || loading}
+                                      className="dc-btn dc-btn-primary rv-btn-sm"
+                                    >
+                                      <FaCheck size={11} />
+                                      저장
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <div style={{ fontSize: '14px', color: '#2d3748', lineHeight: '1.4', whiteSpace: 'pre-wrap' }}>
-                                {review.content}
-                              </div>
-                            )}
+                              ) : (
+                                <div className="rv-msg-text">{review.content}</div>
+                              )}
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
 
         {/* 푸터 */}
-        <div style={{
-          padding: '16px 20px', backgroundColor: '#f8fafc',
-          borderTop: '1px solid #e2e8f0',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-        }}>
-          <div style={{ fontSize: '13px', color: '#718096' }}>
-            {isAiReview ? '🤖 AI가 생성한 인라인 리뷰입니다. 추가 댓글을 달 수 있어요.' : '💬 라인별로 댓글을 달아 코드 리뷰를 진행하세요'}
+        <div className="rv-footer">
+          <div>
+            {isAiReview
+              ? 'AI가 생성한 인라인 리뷰입니다. 추가 댓글을 달 수 있어요.'
+              : '라인 번호 옆 + 버튼을 눌러 줄마다 댓글을 달 수 있어요.'}
           </div>
-          <div style={{ fontSize: '12px', color: '#a0aec0' }}>
+          <div className="rv-footer-count">
             총 {Object.values(reviews).flat().length}개의 댓글
           </div>
         </div>

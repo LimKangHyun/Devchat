@@ -7,7 +7,7 @@ import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
 import project.common.message.index.RepoIndexRequestMessage;
-import project.ai.service.RepoIndexingService;
+import project.ai.indexing.RepoIndexingService;
 
 @Slf4j
 @Component

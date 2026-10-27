@@ -56,16 +56,27 @@ const CommunityApplicants = () => {
       <div className={styles.card}>
 
         <div className={styles.cardHeader}>
-          <h1 className={styles.title}>신청자 관리</h1>
-          <p className={styles.subtitle}>
-            총 <strong>{applicants.length}명</strong>이 참여를 신청했습니다
-          </p>
+          <button
+            className={`dc-icon-btn ${styles.backButton}`}
+            onClick={() => navigate(`/community/${postId}`)}
+            aria-label="게시글로"
+            title="게시글로"
+          >
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M12.5 4.5L7 10l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <div className={styles.headerText}>
+            <h1 className={styles.title}>신청자 관리</h1>
+            <p className={styles.subtitle}>
+              총 <strong>{applicants.length}명</strong>이 참여를 신청했습니다
+            </p>
+          </div>
         </div>
 
         <div className={styles.body}>
           {applicants.length === 0 ? (
             <div className={styles.empty}>
-              <span className={styles.emptyIcon}>📭</span>
               <p>아직 신청자가 없습니다.</p>
             </div>
           ) : (
@@ -120,13 +131,6 @@ const CommunityApplicants = () => {
         </div>
 
       </div>
-
-      <button
-        className={styles.backButton}
-        onClick={() => navigate(`/community/${postId}`)}
-      >
-        ← 게시글로
-      </button>
     </div>
   );
 };

@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 @Component
 public class AiReviewDiffParser {
 
+    private static final int MAX_LINE_DISTANCE = 20;
     private static final Pattern HUNK_HEADER_PATTERN =
             Pattern.compile("^@@ -\\d+(?:,\\d+)? \\+(\\d+)(?:,\\d+)? @@");
 
@@ -132,9 +133,20 @@ public class AiReviewDiffParser {
         return result;
     }
 
-    public int findNearestDiffLine(Set<Integer> validLines, int target) {
-        return validLines.stream()
-                .min(Comparator.comparingInt(l -> Math.abs(l - target)))
-                .orElse(target);
+    public OptionalInt findNearestDiffLine(Set<Integer> validLines, int target) {
+        if (validLines.contains(target)) return OptionalInt.of(target);
+
+        int closest = -1;
+        int minDist = Integer.MAX_VALUE;
+
+        for (int line : validLines) {
+            int dist = Math.abs(line - target);
+            if (dist < minDist) {
+                minDist = dist;
+                closest = line;
+            }
+        }
+
+        return minDist <= MAX_LINE_DISTANCE ? OptionalInt.of(closest) : OptionalInt.empty();
     }
 }

@@ -57,9 +57,6 @@ gemini:
   review-api-keys: test-key
   embedding-api-keys: test-key1,test-key2,test-key3,test-key4,test-key5
   
-pinecone:
-  api-key: test-key
-  index-name: devchat
 
 github:
   username: GitHubBot

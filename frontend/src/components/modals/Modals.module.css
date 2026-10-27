@@ -1,0 +1,368 @@
+/* 채팅방 관련 모달 공용 스타일 — 기본 틀은 theme.css 의 .dc-modal-* 사용 */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.field + .field {
+  margin-top: 18px;
+}
+
+.required {
+  color: var(--danger);
+}
+
+.optional {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.lead {
+  margin: 0 0 14px;
+  color: var(--text-2);
+}
+
+.subtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* 아이콘 붙은 입력창 */
+.inputGroup {
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.inputGroup:focus-within {
+  border-color: var(--link);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.inputGroupError,
+.inputGroupError:focus-within {
+  border-color: var(--danger);
+}
+.inputAddon {
+  display: flex;
+  align-items: center;
+  padding: 0 10px 0 12px;
+  color: var(--text-3);
+}
+.inputGroup input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  padding: 0 12px 0 0;
+  font-size: 15px;
+  color: var(--text);
+  background: transparent;
+}
+
+.helpRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.helpRow svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--danger);
+}
+.error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* 확인 단계 요약 */
+.summary {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.summaryRow {
+  padding: 10px 14px;
+}
+.summaryRow + .summaryRow {
+  border-top: 1px solid var(--border-soft);
+}
+.summaryRow dt {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  margin-bottom: 2px;
+}
+.summaryRow dd {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
+  word-break: break-all;
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 13px !important;
+}
+
+/* 방 정보 */
+.section + .section {
+  margin-top: 20px;
+}
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.repoCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.repoLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  text-decoration: none;
+  color: var(--text);
+}
+.repoLink:hover {
+  background: var(--bg-soft);
+}
+.repoIcon {
+  flex-shrink: 0;
+  color: var(--text);
+}
+.repoText {
+  flex: 1;
+  min-width: 0;
+}
+.repoName {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repoOwner {
+  color: var(--text-2);
+}
+.repoHost {
+  margin-top: 1px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.repoExt {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+.repoToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.repoToggle:hover {
+  background: var(--bg-soft);
+}
+.repoFull {
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--bg-soft);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-2);
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pulse {
+  animation: dcPulse 1.5s ease-in-out infinite;
+}
+@keyframes dcPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.pill,
+.pillMuted {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pillMuted {
+  background: transparent;
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.memberList {
+  list-style: none;
+  margin: 0 -8px;
+  padding: 0;
+}
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+.memberRow:hover {
+  background: var(--bg-soft);
+}
+.memberName {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-muted);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.loading,
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 16px;
+  font-size: 14px;
+  color: var(--text-3);
+  text-align: center;
+}
+.empty {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 이메일 초대: 주소를 칩으로 쌓는 입력창 */
+.chipInput {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 10px 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  box-sizing: border-box;
+}
+.chipInput:focus-within {
+  border-color: var(--link);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.chipInputIcon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.chipInput input {
+  flex: 1;
+  min-width: 140px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  padding: 4px 0;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 4px 2px 10px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  font-size: 13px;
+  color: var(--text);
+  word-break: break-all;
+}
+.chip button {
+  display: inline-flex;
+  border: none;
+  background: transparent;
+  padding: 2px;
+  border-radius: 50%;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.chip button:hover {
+  color: var(--text);
+  background: var(--border);
+}

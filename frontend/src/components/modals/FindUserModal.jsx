@@ -7,26 +7,13 @@ import "./FindUserModal.css"
 
 // Memoized Header Component - never re-renders
 const ModalHeader = memo(({ onClose }) => (
-    <div
-        style={{
-            padding: "24px 28px 20px",
-            borderBottom: "1px solid #F3F4F6",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)",
-        }}
-    >
+    <div className="dc-modal-header fum-header">
         <div>
-            <h2 style={{ margin: 0, fontSize: "24px", fontWeight: "700", color: "#111827", letterSpacing: "-0.025em" }}>
-                Find Friends
-            </h2>
-            <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#6B7280", fontWeight: "400" }}>
-                Wanna be lonely? Don't search here.
-            </p>
+            <h2 className="dc-modal-title">친구 찾기</h2>
+            <p className="fum-subtitle">아이디로 검색해서 친구 요청을 보내세요.</p>
         </div>
-        <button onClick={onClose} className="close-btn">
-            <FaTimes size={18} />
+        <button onClick={onClose} className="dc-icon-btn" aria-label="닫기" title="닫기">
+            <FaTimes size={16} />
         </button>
     </div>
 ))
@@ -64,46 +51,27 @@ const SearchSection = memo(({ onSearchChange, onSearch, loading, hasValidQuery }
     )
 
     return (
-        <div style={{ padding: "28px 28px 24px" }}>
-            <div style={{ display: "flex", gap: "16px", alignItems: "stretch" }}>
-                <div style={{ position: "relative", flex: 1 }}>
-                    <input
-                        ref={searchInputRef}
-                        type="text"
-                        placeholder="Enter ID to search..."
-                        value={inputValue}
-                        onChange={handleInputChange}
-                        onKeyPress={handleKeyPress}
-                        className="search-input"
-                    />
-                    <FaSearch
-                        style={{
-                            position: "absolute",
-                            left: "18px",
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            color: "#9CA3AF",
-                            fontSize: "16px",
-                        }}
-                    />
-                </div>
-                <button onClick={onSearch} disabled={!hasValidQuery || loading} className="search-btn">
-                    <div style={{ position: "relative", width: "16px", height: "16px" }}>
-                        <FaSearch
-                            size={16}
-                            style={{ position: "absolute", top: 0, left: 0, visibility: loading ? "hidden" : "visible" }}
-                        />
-                        <FaSpinner
-                            className="spinner-animation"
-                            size={16}
-                            style={{ position: "absolute", top: 0, left: 0, visibility: loading ? "visible" : "hidden" }}
-                        />
-                    </div>
-                    <span style={{ minWidth: "72px", textAlign: "center" }}>
-                        {loading ? "Searching" : "Search"}
-                    </span>
-                </button>
+        <div className="fum-search">
+            <div className="fum-search-field">
+                <FaSearch className="fum-search-icon" size={14} />
+                <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="아이디를 입력하세요"
+                    value={inputValue}
+                    onChange={handleInputChange}
+                    onKeyPress={handleKeyPress}
+                    className="dc-input fum-search-input"
+                />
+                {loading && <FaSpinner className="spinner-animation fum-search-spinner" size={14} />}
             </div>
+            <button
+                onClick={onSearch}
+                disabled={!hasValidQuery || loading}
+                className="dc-btn dc-btn-primary fum-search-btn"
+            >
+                {loading ? "검색 중" : "검색"}
+            </button>
         </div>
     )
 })
@@ -129,31 +97,31 @@ const UserItem = memo(({ user, sendingRequest, onSendFriendRequest }) => {
 
     return (
         <div className="user-item">
-            <div style={{ display: "flex", alignItems: "center", flex: 1 }}>
-                <div className="user-avatar">
-                    <FaUser size={18} />
-                    <div className={`status-indicator status-${statusClass}`} />
-                </div>
-                <div className="user-info">
-                    <div className="user-name">{user.nickname || user.username}</div>
-                    <div className="user-username">@{user.username}</div>
-                </div>
-                <div className={`status-badge ${statusClass}`}>{user.status}</div>
+            <div className="user-avatar">
+                <FaUser size={16} />
+                <div className={`status-indicator status-${statusClass}`} />
             </div>
-            <div>
+            <div className="user-info">
+                <div className="user-name-line">
+                    <span className="user-name">{user.nickname || user.username}</span>
+                    {user.status && <span className={`status-badge ${statusClass}`}>{user.status}</span>}
+                </div>
+                <div className="user-username">@{user.username}</div>
+            </div>
+            <div className="user-action">
                 {user.friend || user.requestSent ? (
-                    <span className="friend-status">{user.requestSent ? "Request Sent" : "Friends"}</span>
+                    <span className="friend-status">{user.requestSent ? "요청 보냄" : "친구"}</span>
                 ) : (
-                    <button onClick={handleAddFriend} disabled={sendingRequest} className="add-friend-btn">
+                    <button onClick={handleAddFriend} disabled={sendingRequest} className="dc-btn add-friend-btn">
                         {sendingRequest ? (
                             <>
                                 <FaSpinner className="spinner-animation" size={12} />
-                                Sending...
+                                보내는 중...
                             </>
                         ) : (
                             <>
                                 <FaUserPlus size={12} />
-                                Add Friend
+                                친구 추가
                             </>
                         )}
                     </button>
@@ -166,7 +134,7 @@ const UserItem = memo(({ user, sendingRequest, onSendFriendRequest }) => {
 // Optimized Results List - virtualization-ready
 const ResultsList = memo(({ results, sendingRequests, onSendFriendRequest }) => {
     return (
-        <div>
+        <div className="user-list">
             {results.map((user) => (
                 <UserItem
                     key={user.username}
@@ -184,9 +152,8 @@ const LoadingState = memo(({ type, searchQuery }) => {
     if (type === "initial") {
         return (
             <div className="empty-state">
-                <FaSpinner className="spinner-animation" size={32} style={{ marginBottom: "16px", color: "#3B82F6" }} />
-                <p style={{ margin: 0, fontSize: "18px", fontWeight: "500" }}>Searching users...</p>
-                <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#9CA3AF" }}>Please wait a moment</p>
+                <FaSpinner className="spinner-animation empty-state-spinner" size={20} />
+                <p>검색 중...</p>
             </div>
         )
     }
@@ -194,8 +161,8 @@ const LoadingState = memo(({ type, searchQuery }) => {
     if (type === "scroll") {
         return (
             <div className="loading-overlay">
-                <FaSpinner className="spinner-animation" size={24} style={{ marginRight: "12px", color: "#3B82F6" }} />
-                <span style={{ fontSize: "16px", fontWeight: "500" }}>Loading users...</span>
+                <FaSpinner className="spinner-animation" size={14} />
+                <span>불러오는 중...</span>
             </div>
         )
     }
@@ -203,13 +170,10 @@ const LoadingState = memo(({ type, searchQuery }) => {
     if (type === "no-results") {
         return (
             <div className="empty-state">
-                <div className="empty-state-icon no-results">
-                    <FaUser size={32} style={{ color: "#F87171" }} />
-                </div>
-                <h3>No users found</h3>
+                <h3>검색 결과가 없어요</h3>
                 <p>
-                    No users match "<SearchQueryDisplay searchQuery={searchQuery} />
-                    ". Try a different username.
+                    "<SearchQueryDisplay searchQuery={searchQuery} />
+                    "와 일치하는 사용자가 없어요. 다른 아이디로 검색해보세요.
                 </p>
             </div>
         )
@@ -217,11 +181,11 @@ const LoadingState = memo(({ type, searchQuery }) => {
 
     return (
         <div className="empty-state">
-            <div className="empty-state-icon search">
-                <FaSearch size={32} style={{ color: "#9CA3AF" }} />
+            <div className="empty-state-icon">
+                <FaSearch size={18} />
             </div>
-            <h3>Ready to search</h3>
-            <p>Enter an ID above to find and connect with other users</p>
+            <h3>친구를 찾아보세요</h3>
+            <p>위에 아이디를 입력하면 검색 결과가 여기에 나와요</p>
         </div>
     )
 })
@@ -265,10 +229,8 @@ const SearchResults = memo(
                     />
                     {isFetchingMore && (
                         <div className="scroll-loading">
-                            <div className="scroll-loading-content">
-                                <FaSpinner className="spinner-animation" size={18} style={{ marginRight: "10px", color: "#3B82F6" }} />
-                                <span style={{ fontSize: "14px", fontWeight: "500" }}>Loading more users...</span>
-                            </div>
+                            <FaSpinner className="spinner-animation" size={14} />
+                            <span>더 불러오는 중...</span>
                         </div>
                     )}
                 </>
@@ -284,7 +246,7 @@ const SearchResults = memo(
         ])
 
         return (
-            <div className="results-container" onScroll={onScroll}>
+            <div className="results-container dc-scroll" onScroll={onScroll}>
                 {content}
             </div>
         )
@@ -461,8 +423,8 @@ const FindUserModal = ({ onClose, onSendFriendRequest }) => {
     }, [handleSearch, currentInputValue])
 
     return (
-        <div className="modal-overlay">
-            <div ref={modalRef} className="modal-container modal-slide-in">
+        <div className="dc-modal-backdrop modal-overlay">
+            <div ref={modalRef} className="dc-modal modal-container">
                 <ModalHeader onClose={onClose} />
                 <SearchSection
                     onSearchChange={handleSearchChange}

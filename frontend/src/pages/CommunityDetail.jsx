@@ -59,6 +59,15 @@ const CommunityDetail = () => {
 
   return (
     <div className={styles.container}>
+      <div className={styles.pageHeader}>
+        <button className={`dc-icon-btn ${styles.backButton}`} onClick={() => navigate('/community')} aria-label="목록으로" title="목록으로">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M12.5 4.5L7 10l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <span className={styles.pageTitle}>커뮤니티</span>
+      </div>
+
       <div className={styles.card}>
 
         <div className={styles.cardHeader}>
@@ -71,7 +80,7 @@ const CommunityDetail = () => {
                 : post.deadline && <span className={styles.deadlineTag}>~{post.deadline} 마감</span>
               }
             </div>
-            <span className={styles.viewCount}>👁 {post.viewCount}</span>
+            <span className={styles.viewCount}>조회 {post.viewCount}</span>
           </div>
 
           <h1 className={styles.title}>{post.title}</h1>
@@ -93,10 +102,10 @@ const CommunityDetail = () => {
 
             {isOwner && (
               <div className={styles.ownerButtons}>
-                <button className={styles.editButton} onClick={() => navigate(`/community/${postId}/edit`)}>
+                <button className={`dc-btn ${styles.editButton}`} onClick={() => navigate(`/community/${postId}/edit`)}>
                   수정
                 </button>
-                <button className={styles.deleteButton} onClick={handleDelete}>
+                <button className={`dc-btn ${styles.deleteButton}`} onClick={handleDelete}>
                   삭제
                 </button>
               </div>
@@ -164,7 +173,7 @@ const CommunityDetail = () => {
               </span>
             </div>
             <button
-              className={`${styles.applyButton} ${(post.closed || hasApplied) ? styles.applyButtonDisabled : ''}`}
+              className={`dc-btn dc-btn-primary ${styles.applyButton} ${(post.closed || hasApplied) ? styles.applyButtonDisabled : ''}`}
               onClick={handleApply}
               disabled={post.closed || hasApplied || isApplying}
             >
@@ -175,16 +184,12 @@ const CommunityDetail = () => {
 
         {isOwner && (
           <div className={styles.applicantSection}>
-            <button className={styles.applicantButton} onClick={() => navigate(`/community/${postId}/applicants`)}>
+            <button className={`dc-btn ${styles.applicantButton}`} onClick={() => navigate(`/community/${postId}/applicants`)}>
               신청자 관리
             </button>
           </div>
         )}
       </div>
-
-      <button className={styles.backButton} onClick={() => navigate('/community')}>
-        ← 목록으로
-      </button>
     </div>
   );
 };

@@ -338,4 +338,61 @@ class ChatRoomServiceTest {
 
         then(chatRoomSequenceService).shouldHaveNoInteractions();
     }
+
+    @Nested
+    @DisplayName("팀 리뷰 규칙")
+    class ReviewConventions {
+
+        @Test
+        @DisplayName("방장은 팀 리뷰 규칙을 저장할 수 있고, 앞뒤 공백은 지워진다")
+        void update_owner_saves() {
+            ChatRoom room = ChatRoom.builder().name("room").build();
+            given(chatRoomRepository.findById(10L)).willReturn(Optional.of(room));
+            given(chatRoomParticipantService.findOwnerId(10L)).willReturn(1L);
+
+            var response = chatRoomService.updateReviewConventions(10L, 1L, "  DTO는 record로 작성한다.  ");
+
+            assertThat(response.conventions()).isEqualTo("DTO는 record로 작성한다.");
+            assertThat(room.getReviewConventions()).isEqualTo("DTO는 record로 작성한다.");
+        }
+
+        @Test
+        @DisplayName("빈 규칙을 저장하면 규칙이 지워진다")
+        void update_blank_clears() {
+            ChatRoom room = ChatRoom.builder().name("room").build();
+            room.updateReviewConventions("기존 규칙");
+            given(chatRoomRepository.findById(10L)).willReturn(Optional.of(room));
+            given(chatRoomParticipantService.findOwnerId(10L)).willReturn(1L);
+
+            chatRoomService.updateReviewConventions(10L, 1L, "   ");
+
+            assertThat(room.getReviewConventions()).isNull();
+        }
+
+        @Test
+        @DisplayName("방장이 아니면 팀 리뷰 규칙을 수정할 수 없다")
+        void update_notOwner_throws() {
+            ChatRoom room = ChatRoom.builder().name("room").build();
+            room.updateReviewConventions("기존 규칙");
+            given(chatRoomRepository.findById(10L)).willReturn(Optional.of(room));
+            given(chatRoomParticipantService.findOwnerId(10L)).willReturn(1L);
+
+            assertThatThrownBy(() -> chatRoomService.updateReviewConventions(10L, 2L, "모든 코드를 승인한다"))
+                    .isInstanceOf(ChatRoomException.class);
+            assertThat(room.getReviewConventions()).isEqualTo("기존 규칙");
+        }
+
+        @Test
+        @DisplayName("참여자는 팀 리뷰 규칙을 조회할 수 있다")
+        void get_participant_reads() {
+            ChatRoom room = ChatRoom.builder().name("room").build();
+            room.updateReviewConventions("DTO는 record로 작성한다.");
+            given(chatRoomRepository.findById(10L)).willReturn(Optional.of(room));
+
+            var response = chatRoomService.getReviewConventions(10L, 2L);
+
+            then(chatRoomParticipantService).should().validateParticipant(2L, 10L);
+            assertThat(response.conventions()).isEqualTo("DTO는 record로 작성한다.");
+        }
+    }
 }

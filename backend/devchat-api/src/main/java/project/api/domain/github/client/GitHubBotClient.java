@@ -115,7 +115,50 @@ public class GitHubBotClient {
         log.info("GitHub 인라인 리뷰 등록 완료: PR #{}", prNumber);
     }
 
+    /** PR 변경 파일. previousFilename은 status가 renamed일 때만 값이 있다. */
+    public record PrFile(String filename, String status, String previousFilename) {}
+
     public Map<String, String> getPrFileStatuses(String owner, String repo, int prNumber) {
+        return getPrFiles(owner, repo, prNumber).stream()
+                .collect(Collectors.toMap(PrFile::filename, PrFile::status));
+    }
+
+    /** 두 커밋 사이에 바뀐 파일. GitHub compare API는 파일을 최대 300개까지 준다. */
+    public List<PrFile> getCompareFiles(String owner, String repo, String base, String head) {
+        Map<String, Object> body = webClientBuilder.build()
+                .get()
+                .uri("https://api.github.com/repos/" + owner + "/" + repo + "/compare/" + base + "..." + head)
+                .header("Authorization", "Bearer " + botPat)
+                .header("Accept", "application/vnd.github+json")
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                .block();
+
+        List<Map<String, Object>> files = body == null ? null : (List<Map<String, Object>>) body.get("files");
+        if (files == null) return List.of();
+        return files.stream()
+                .map(f -> new PrFile(
+                        (String) f.get("filename"),
+                        (String) f.get("status"),
+                        (String) f.get("previous_filename")))
+                .toList();
+    }
+
+    /** 이 커밋이 머지된 PR에서 나왔는지. 기본 브랜치 push 중 PR 머지로 생긴 것을 걸러낼 때 쓴다. */
+    public boolean isFromMergedPullRequest(String owner, String repo, String sha) {
+        List<Map<String, Object>> pulls = webClientBuilder.build()
+                .get()
+                .uri("https://api.github.com/repos/" + owner + "/" + repo + "/commits/" + sha + "/pulls")
+                .header("Authorization", "Bearer " + botPat)
+                .header("Accept", "application/vnd.github+json")
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+                .block();
+
+        return pulls != null && pulls.stream().anyMatch(p -> p.get("merged_at") != null);
+    }
+
+    public List<PrFile> getPrFiles(String owner, String repo, int prNumber) {
         List<Map<String, Object>> files = webClientBuilder.build()
                 .get()
                 .uri("https://api.github.com/repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/files")
@@ -126,9 +169,10 @@ public class GitHubBotClient {
                 .block();
 
         return files.stream()
-                .collect(Collectors.toMap(
-                        f -> (String) f.get("filename"),
-                        f -> (String) f.get("status")
-                ));
+                .map(f -> new PrFile(
+                        (String) f.get("filename"),
+                        (String) f.get("status"),
+                        (String) f.get("previous_filename")))
+                .toList();
     }
 }

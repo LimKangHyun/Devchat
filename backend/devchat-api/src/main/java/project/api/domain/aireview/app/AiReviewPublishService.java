@@ -49,8 +49,11 @@ public class AiReviewPublishService {
             String fullDiff = gitHubBotClient.getPrDiff(repo.ownerName(), repo.repoName(), aiReview.getPrNumber());
             Map<String, Set<Integer>> diffLineMap = diffParser.parseDiffLines(fullDiff);
 
-            List<PublishComment> comments = buildPublishComments(allComments, inactiveCommentIds, diffLineMap);
-            postReviews(repo, aiReview.getPrNumber(), comments, approverUsername);
+            List<PublishComment> inlineComments = new ArrayList<>();
+            List<AiReviewComment> generalComments = new ArrayList<>();
+            classifyComments(allComments, inactiveCommentIds, diffLineMap, inlineComments, generalComments);
+
+            postReviews(repo, aiReview.getPrNumber(), inlineComments, generalComments, approverUsername);
 
             aiReview.markAsPublished(approverUsername);
             aiReviewRepository.save(aiReview);
@@ -61,12 +64,14 @@ public class AiReviewPublishService {
             throw new GitHubException(GitHubErrorCode.GITHUB_API_FAILED);
         }
 
-        log.info("GitHub PR 인라인 리뷰 등록 완료: roomId={}, PR #{}", room.getId(), aiReview.getPrNumber());
+        log.info("GitHub PR 리뷰 등록 완료: roomId={}, PR #{}, inline={}, general={}",
+            room.getId(), aiReview.getPrNumber(),
+            0, 0); // 로그는 postReviews 안에서 찍힘
     }
 
     private AiReview findAiReview(Long aiReviewId) {
         return aiReviewRepository.findById(aiReviewId)
-                .orElseThrow(() -> new AiReviewException(AiReviewErrorCode.AI_REVIEW_NOT_FOUND));
+            .orElseThrow(() -> new AiReviewException(AiReviewErrorCode.AI_REVIEW_NOT_FOUND));
     }
 
     private void validatePublishable(AiReview aiReview) {
@@ -82,48 +87,75 @@ public class AiReviewPublishService {
 
     private void validateActiveComments(List<AiReviewComment> allComments, Set<Long> inactiveCommentIds) {
         long activeCount = allComments.stream()
-                .filter(c -> !inactiveCommentIds.contains(c.getId()))
-                .count();
+            .filter(c -> !inactiveCommentIds.contains(c.getId()))
+            .count();
         if (activeCount == 0) throw new AiReviewException(AiReviewErrorCode.NO_ACTIVE_REVIEWS);
     }
 
     private Set<Long> resolveInactiveCommentIds(Long aiReviewId) {
         return aiCommentModRepository.findLatestStatusesByAiReviewId(aiReviewId).stream()
-                .filter(s -> !s.isActive())
-                .map(s -> s.getComment().getId())
-                .collect(Collectors.toSet());
+            .filter(s -> !s.isActive())
+            .map(s -> s.getComment().getId())
+            .collect(Collectors.toSet());
     }
 
-    private void postReviews(GitRepoDto repo, int prNumber, List<PublishComment> comments, String approverUsername) {
-        if (!comments.isEmpty()) {
-            gitHubBotClient.postInlineReviews(repo.ownerName(), repo.repoName(), prNumber,
-                    comments.stream()
-                            .map(c -> Map.of("path", (Object) c.path(), "line", c.line(), "body", c.body()))
-                            .collect(Collectors.toList()));
-        }
-        gitHubBotClient.postReviewComment(repo.ownerName(), repo.repoName(), prNumber,
-                "✅ AI 리뷰가 @" + approverUsername + " 에 의해 등록되었습니다.");
-    }
-
-    private List<PublishComment> buildPublishComments(List<AiReviewComment> allComments,
-                                                      Set<Long> inactiveCommentIds,
-                                                      Map<String, Set<Integer>> diffLineMap) {
-        List<PublishComment> comments = new ArrayList<>();
+    /**
+     * 활성 코멘트를 인라인/전체로 분류한다.
+     * diff 변경 라인 20줄 이내에 매핑 가능하면 인라인, 아니면 전체 코멘트로 전환한다.
+     */
+    private void classifyComments(List<AiReviewComment> allComments,
+        Set<Long> inactiveCommentIds,
+        Map<String, Set<Integer>> diffLineMap,
+        List<PublishComment> inlineComments,
+        List<AiReviewComment> generalComments) {
 
         for (AiReviewComment comment : allComments) {
             if (inactiveCommentIds.contains(comment.getId())) continue;
+
             Set<Integer> validLines = diffLineMap.getOrDefault(comment.getFilePath(), Set.of());
-            comments.add(toPublishComment(comment, validLines));
+            OptionalInt nearestLine = diffParser.findNearestDiffLine(validLines, comment.getLineNumber());
+
+            if (nearestLine.isPresent()) {
+                int mappedLine = nearestLine.getAsInt();
+                String body = (mappedLine != comment.getLineNumber())
+                    ? "(Line " + comment.getLineNumber() + ") " + comment.getComment()
+                    : comment.getComment();
+                inlineComments.add(new PublishComment(comment.getFilePath(), mappedLine, body));
+            } else {
+                generalComments.add(comment);
+            }
         }
-        return comments;
     }
 
-    private PublishComment toPublishComment(AiReviewComment comment, Set<Integer> validLines) {
-        int lineNumber = comment.getLineNumber();
-        if (validLines.contains(lineNumber)) {
-            return new PublishComment(comment.getFilePath(), lineNumber, comment.getComment());
+    private void postReviews(GitRepoDto repo, int prNumber,
+        List<PublishComment> inlineComments,
+        List<AiReviewComment> generalComments,
+        String approverUsername) {
+
+        // 1. 인라인 코멘트 등록
+        if (!inlineComments.isEmpty()) {
+            gitHubBotClient.postInlineReviews(repo.ownerName(), repo.repoName(), prNumber,
+                inlineComments.stream()
+                    .map(c -> Map.of("path", (Object) c.path(), "line", c.line(), "body", c.body()))
+                    .collect(Collectors.toList()));
+            log.info("인라인 리뷰 {}개 등록. PR #{}", inlineComments.size(), prNumber);
         }
-        int nearestLine = diffParser.findNearestDiffLine(validLines, lineNumber);
-        return new PublishComment(comment.getFilePath(), nearestLine, "(Line " + lineNumber + ") " + comment.getComment());
+
+        // 2. 전체 코멘트 조립 (매핑 실패한 리뷰 + 승인 메시지)
+        StringBuilder body = new StringBuilder();
+        body.append("✅ AI 리뷰가 @").append(approverUsername).append(" 에 의해 등록되었습니다.");
+
+        if (!generalComments.isEmpty()) {
+            body.append("\n\n---\n\n");
+            body.append("📝 **인라인 매핑 불가 리뷰** (변경 라인에서 20줄 이상 떨어진 코멘트)\n\n");
+            for (AiReviewComment comment : generalComments) {
+                body.append("- **").append(comment.getFilePath())
+                    .append(":").append(comment.getLineNumber()).append("** — ")
+                    .append(comment.getComment()).append("\n");
+            }
+            log.info("전체 코멘트로 전환된 리뷰 {}개. PR #{}", generalComments.size(), prNumber);
+        }
+
+        gitHubBotClient.postReviewComment(repo.ownerName(), repo.repoName(), prNumber, body.toString());
     }
 }

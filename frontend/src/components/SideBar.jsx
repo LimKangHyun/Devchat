@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { FaRegCommentDots, FaInfoCircle, FaComments, FaPlus, FaUsers } from "react-icons/fa"
+import { Search, Info, Plus, LogIn, X, ChevronDown, GitBranch } from "lucide-react"
 
 import CreateRoomModal from "./modals/CreateRoomModal"
 import JoinRoomModal from "./modals/JoinRoomModal"
@@ -14,12 +14,18 @@ import styles from './Sidebar.module.css'
 
 const CACHE_KEY = 'sidebar_rooms_cache'
 
-const Sidebar = ({ onStartChat }) => {
+const getRepoLabel = (url) => {
+  if (!url) return null
+  const match = url.match(/github\.com\/([^/]+\/[^/?#]+)/)
+  return match ? match[1].replace(/\.git$/, "") : url
+}
+
+const Sidebar = ({ onStartChat, activeTab = "chat", hidden = false }) => {
   const navigate = useNavigate()
   const { inviteCode } = useParams()
   const sidebarRef = useRef(null)
 
-  const [activeTab, setActiveTab] = useState("chat")
+  const [roomQuery, setRoomQuery] = useState("")
   const [loading, setLoading] = useState(() => !localStorage.getItem(CACHE_KEY))
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
@@ -191,100 +197,133 @@ const Sidebar = ({ onStartChat }) => {
     }
   }
 
-  const renderTabContent = () => {
-    if (activeTab === "friends") {
-      return <FriendsSidebar onStartChat={onStartChat} />
-    }
 
-    return (
-      <>
-        <div className={styles.roomsContainer}>
-          {loading ? (
+  const [roomsCollapsed, setRoomsCollapsed] = useState(false)
+
+  const filteredRooms = roomQuery.trim()
+    ? alarmRooms.filter((room) =>
+        (room.name || room.roomName || "").toLowerCase().includes(roomQuery.trim().toLowerCase()))
+    : alarmRooms
+
+  const renderRooms = () => (
+    <>
+      <div className={styles.searchBox}>
+        <Search size={14} className={styles.searchIcon} />
+        <input
+          type="text"
+          value={roomQuery}
+          onChange={(e) => setRoomQuery(e.target.value)}
+          placeholder="채팅방 검색"
+          className={styles.searchInput}
+        />
+        {roomQuery && (
+          <button className={styles.searchClear} onClick={() => setRoomQuery("")} aria-label="검색어 지우기">
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
+      <div className={`${styles.roomsContainer} dc-scroll-dark`}>
+        <button
+          type="button"
+          className={styles.sectionHeader}
+          onClick={() => setRoomsCollapsed((v) => !v)}
+          aria-expanded={!roomsCollapsed}
+        >
+          <ChevronDown size={14} className={`${styles.sectionChevron} ${roomsCollapsed ? styles.sectionChevronCollapsed : ""}`} />
+          <span>참여 중인 방</span>
+          {alarmRooms.length > 0 && <span className={styles.sectionCount}>{alarmRooms.length}</span>}
+        </button>
+
+        {!roomsCollapsed && (
+          loading ? (
             <div className={styles.loadingState}>채팅방 불러오는 중...</div>
           ) : alarmRooms.length === 0 ? (
-            <div className={styles.emptyState}>참여중인 채팅방이 없습니다</div>
+            <div className={styles.emptyState}>
+              아직 참여한 방이 없어요.
+              <br />방을 새로 만들거나 초대 코드로 들어가세요.
+            </div>
+          ) : filteredRooms.length === 0 ? (
+            <div className={styles.emptyState}>“{roomQuery.trim()}” 검색 결과가 없어요</div>
           ) : (
-            alarmRooms.map((room) => {
+            filteredRooms.map((room) => {
               const roomUniqueId = room.uniqueId
               const isCurrentRoom = roomId && Number(roomId) === Number(roomUniqueId)
               const isSelectedForModal = selectedRoom && Number(selectedRoom.uniqueId) === Number(roomUniqueId) && showMembersModal
-              const roomInviteCode = room.inviteCode
               const unreadCount = room.unreadCount ?? 0
               const hasUnread = unreadCount > 0 && !isCurrentRoom
+              const displayName = room.name || room.roomName || `Room ${roomUniqueId}`
+              const repoLabel = getRepoLabel(room.repositoryUrl)
 
               return (
-                <div key={`room-${roomUniqueId}`} className={styles.roomItem}>
-                  <div className={`${styles.roomRow} ${isCurrentRoom ? styles.roomRowActive : ''}`}>
-                    <div
-                      onClick={() => navigateToRoom(roomUniqueId, roomInviteCode)}
-                      className={styles.roomLeft}
-                    >
-                      <div className={`${styles.roomIcon} ${isCurrentRoom ? styles.roomIconActive : ''}`}>
-                        <FaRegCommentDots size={14} />
-                        {hasUnread && (
-                          <div className={styles.unreadBadge}>
-                            {unreadCount > 99 ? "99+" : unreadCount}
-                          </div>
-                        )}
-                      </div>
-                      <span className={`${styles.roomName} ${isCurrentRoom ? styles.roomNameActive : ''} ${hasUnread ? styles.roomNameUnread : ''}`}>
-                        {room.name || room.roomName || `Room ${roomUniqueId}`}
-                      </span>
-                    </div>
+                <div
+                  key={`room-${roomUniqueId}`}
+                  className={`${styles.roomRow} ${isCurrentRoom ? styles.roomRowActive : ""} ${hasUnread ? styles.roomRowUnread : ""}`}
+                  onClick={() => navigateToRoom(roomUniqueId, room.inviteCode)}
+                  title={repoLabel ? `${displayName} · ${repoLabel}` : displayName}
+                >
+                  <span className={styles.roomIcon}>
+                    {displayName.trim().slice(0, 1).toUpperCase()}
+                  </span>
+
+                  <div className={styles.roomBody}>
+                    <span className={styles.roomName}>{displayName}</span>
+                    <span className={styles.roomSub}>
+                      {repoLabel ? (<><GitBranch size={11} /><span className={styles.roomSubText}>{repoLabel}</span></>) : "레포 연결 안 됨"}
+                    </span>
+                  </div>
+
+                  <div className={styles.roomSide}>
                     <button
-                      onClick={() => showMembersInfo(room)}
-                      className={`${styles.roomInfoButton} ${isSelectedForModal ? styles.roomInfoButtonActive : ''}`}
+                      onClick={(e) => { e.stopPropagation(); showMembersInfo(room) }}
+                      className={`${styles.roomInfoButton} ${isSelectedForModal ? styles.roomInfoButtonActive : ""}`}
+                      aria-label="채팅방 정보"
                     >
-                      <FaInfoCircle size={14} />
-                      {isSelectedForModal && <div className={styles.roomInfoDot} />}
+                      <Info size={14} />
                     </button>
+                    {hasUnread && (
+                      <span className={styles.unreadBadge}>{unreadCount > 99 ? "99+" : unreadCount}</span>
+                    )}
                   </div>
                 </div>
               )
             })
-          )}
-        </div>
+          )
+        )}
 
-        <div className={styles.sidebarFooter}>
-          <button onClick={() => setShowJoinModal(true)} className={styles.joinButton}>
-            <FaComments />
-            Join Chat Room
-          </button>
-          <button onClick={() => setShowCreateModal(true)} className={styles.createButton}>
-            <FaPlus />
-            New Chat Room
-          </button>
-        </div>
-      </>
-    )
-  }
+        <button type="button" className={styles.addRow} onClick={() => setShowCreateModal(true)}>
+          <span className={styles.addIcon}><Plus size={14} /></span>
+          새 방 만들기
+        </button>
+        <button type="button" className={styles.addRow} onClick={() => setShowJoinModal(true)}>
+          <span className={styles.addIcon}><LogIn size={13} /></span>
+          초대 코드로 들어가기
+        </button>
+      </div>
+    </>
+  )
 
   return (
     <>
-      <div ref={sidebarRef} className={styles.sidebar}>
+      <aside ref={sidebarRef} className={`${styles.sidebar} ${hidden ? styles.sidebarHidden : ""}`}>
         <div className={styles.sidebarHeader}>
           <h3 className={styles.sidebarTitle}>
             {activeTab === "chat" ? "채팅방" : "친구"}
           </h3>
-          <div className={styles.tabNav}>
+          {activeTab === "chat" && (
             <button
-              onClick={() => setActiveTab("chat")}
-              className={`${styles.tabButton} ${activeTab === "chat" ? styles.tabButtonActive : ''}`}
+              type="button"
+              className={styles.headerAction}
+              onClick={() => setShowCreateModal(true)}
+              aria-label="새 채팅방 만들기"
+              title="새 채팅방 만들기"
             >
-              <FaComments size={12} />
-              Chat
+              <Plus size={18} />
             </button>
-            <button
-              onClick={() => setActiveTab("friends")}
-              className={`${styles.tabButton} ${activeTab === "friends" ? styles.tabButtonActive : ''}`}
-            >
-              <FaUsers size={12} />
-              Friends
-            </button>
-          </div>
+          )}
         </div>
-        {renderTabContent()}
-      </div>
+        {activeTab === "friends" ? <FriendsSidebar onStartChat={onStartChat} /> : renderRooms()}
+      </aside>
 
       {showMembersModal && selectedRoom && (
         <RoomInfoModal
@@ -297,7 +336,7 @@ const Sidebar = ({ onStartChat }) => {
       )}
       {showCreateModal && <CreateRoomModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreateRoom} />}
       {showJoinModal && <JoinRoomModal onClose={() => setShowJoinModal(false)} onSubmit={handleJoinRoom} />}
-      {showToast && <Toast message={toastMessage} />}
+      {showToast && <Toast open={showToast} message={toastMessage} />}
     </>
   )
 }

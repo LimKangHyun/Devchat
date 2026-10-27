@@ -17,21 +17,21 @@ export default function PasswordChangeModal({ isOpen, onClose, axiosInstance }) 
     const newErrors = {}
 
     if (!formData.currentPassword) {
-      newErrors.currentPassword = "Current password is required"
+      newErrors.currentPassword = "현재 비밀번호를 입력해주세요."
     }
 
     if (!formData.newPassword) {
-      newErrors.newPassword = "New password is required"
+      newErrors.newPassword = "새 비밀번호를 입력해주세요."
     } else if (formData.newPassword.length < 4) {
-      newErrors.newPassword = "Password must be at least 4 characters"
+      newErrors.newPassword = "비밀번호는 4자 이상이어야 합니다."
     } else if (formData.newPassword === formData.currentPassword) {
-      newErrors.newPassword = "The new password must be different from the current password."
+      newErrors.newPassword = "새 비밀번호는 현재 비밀번호와 달라야 합니다."
     }
 
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = "Please confirm your password"
+      newErrors.confirmPassword = "새 비밀번호를 한 번 더 입력해주세요."
     } else if (formData.newPassword !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match"
+      newErrors.confirmPassword = "비밀번호가 일치하지 않습니다."
     }
 
     setErrors(newErrors)
@@ -85,69 +85,75 @@ export default function PasswordChangeModal({ isOpen, onClose, axiosInstance }) 
   if (!isOpen) return null
 
   return (
-    <div className={styles.overlay}>
-      <div className={styles.modal}>
-        <div className={styles.header}>
-          <h2 className={styles.title}>Change Password</h2>
-          <p className={styles.description}>
-            Enter your current password and a new password to update your credentials.
-          </p>
-          <button className={styles.closeButton} onClick={onClose}>
+    <div className="dc-modal-backdrop">
+      <div className="dc-modal" style={{ maxWidth: 440 }}>
+        <div className="dc-modal-header">
+          <h2 className="dc-modal-title">비밀번호 변경</h2>
+          <button type="button" className="dc-icon-btn" onClick={onClose} aria-label="닫기">
             <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Current Password</label>
-            <input
-              type="password"
-              placeholder="현재 비밀번호"
-              value={formData.currentPassword}
-              onChange={(e) => handleInputChange("currentPassword", e.target.value)}
-              className={`${styles.input} ${errors.currentPassword ? styles.inputError : ""}`}
-            />
-            {errors.currentPassword && <p className={styles.errorText}>{errors.currentPassword}</p>}
+          <div className="dc-modal-body">
+            <p className={styles.description}>
+              현재 비밀번호와 새로 사용할 비밀번호를 입력하세요.
+            </p>
+
+            <div className={styles.formGroup}>
+              <label className="dc-label" htmlFor="pw-current">현재 비밀번호</label>
+              <input
+                id="pw-current"
+                type="password"
+                placeholder="현재 비밀번호"
+                value={formData.currentPassword}
+                onChange={(e) => handleInputChange("currentPassword", e.target.value)}
+                className={`dc-input ${errors.currentPassword ? styles.inputError : ""}`}
+              />
+              {errors.currentPassword && <p className={styles.errorText}>{errors.currentPassword}</p>}
+            </div>
+
+            <div className={styles.formGroup}>
+              <label className="dc-label" htmlFor="pw-new">새 비밀번호</label>
+              <input
+                id="pw-new"
+                type="password"
+                placeholder="새 비밀번호"
+                value={formData.newPassword}
+                onChange={(e) => handleInputChange("newPassword", e.target.value)}
+                className={`dc-input ${errors.newPassword ? styles.inputError : ""}`}
+                minLength="4"
+              />
+              {errors.newPassword && <p className={styles.errorText}>{errors.newPassword}</p>}
+            </div>
+
+            <div className={styles.formGroup}>
+              <label className="dc-label" htmlFor="pw-confirm">새 비밀번호 확인</label>
+              <input
+                id="pw-confirm"
+                type="password"
+                placeholder="비밀번호 확인"
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                className={`dc-input ${errors.confirmPassword ? styles.inputError : ""}`}
+                minLength="4"
+              />
+              {errors.confirmPassword && <p className={styles.errorText}>{errors.confirmPassword}</p>}
+            </div>
           </div>
 
-          <div className={styles.formGroup}>
-            <label className={styles.label}>New Password</label>
-            <input
-              type="password"
-              placeholder="새 비밀번호"
-              value={formData.newPassword}
-              onChange={(e) => handleInputChange("newPassword", e.target.value)}
-              className={`${styles.input} ${errors.newPassword ? styles.inputError : ""}`}
-              minLength="4"
-            />
-            {errors.newPassword && <p className={styles.errorText}>{errors.newPassword}</p>}
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Confirm New Password</label>
-            <input
-              type="password"
-              placeholder="비밀번호 확인"
-              value={formData.confirmPassword}
-              onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-              className={`${styles.input} ${errors.confirmPassword ? styles.inputError : ""}`}
-              minLength="4"
-            />
-            {errors.confirmPassword && <p className={styles.errorText}>{errors.confirmPassword}</p>}
-          </div>
-
-          <div className={styles.footer}>
-            <button type="button" className={styles.cancelButton} onClick={onClose} disabled={isSubmitting}>
-              Cancel
+          <div className="dc-modal-footer">
+            <button type="button" className="dc-btn" onClick={onClose} disabled={isSubmitting}>
+              취소
             </button>
-            <button type="submit" className={styles.submitButton} disabled={isSubmitting}>
+            <button type="submit" className="dc-btn dc-btn-primary" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
-                  <Loader2 className={styles.spinner} />
-                  Updating...
+                  <Loader2 size={15} className={styles.spinner} />
+                  변경 중...
                 </>
               ) : (
-                "Update Password"
+                "비밀번호 변경"
               )}
             </button>
           </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { X, Send, Minimize2, Maximize2 } from "lucide-react"
+import { X, Send, Minimize2, Maximize2, ChevronLeft } from "lucide-react"
 import styles from "./chat-modal.module.css"
 import axiosInstance from "../api/axiosInstance"
 import useWebSocket from "../common/useWebSocket"
@@ -454,13 +454,13 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
   const getStatusColor = (status) => {
     switch (status) {
       case "online":
-        return "#10b981"
+        return "#1fae6b"
       case "away":
-        return "#f59e0b"
+        return "#e3902b"
       case "offline":
-        return "#6b7280"
+        return "#8593a6"
       default:
-        return "#6b7280"
+        return "#8593a6"
     }
   }
 
@@ -486,6 +486,18 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
         style={{ cursor: isDragging ? "grabbing" : "grab" }}
       >
         <div className={styles.headerLeft}>
+          <button
+            type="button"
+            className={styles.backButton}
+            onClick={(e) => {
+              e.stopPropagation()
+              onClose()
+            }}
+            title="뒤로"
+            aria-label="뒤로"
+          >
+            <ChevronLeft size={22} />
+          </button>
           <div className={styles.friendAvatar}>
             <img
               src={
@@ -502,7 +514,7 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
           </div>
           <div className={styles.friendInfo}>
             <div className={styles.friendName}>{friend.nickname}</div>
-            <div className={styles.friendStatus} style={{ color: getStatusColor(friend.status) }}>
+            <div className={styles.friendStatus}>
               {friend.status}
             </div>
           </div>
@@ -515,7 +527,7 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
               e.stopPropagation()
               setIsMinimized(!isMinimized)
             }}
-            title="Minimize"
+            title="최소화"
           >
             {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
           </button>
@@ -525,7 +537,7 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
               e.stopPropagation()
               onClose()
             }}
-            title="Close"
+            title="닫기"
           >
             <X size={16} />
           </button>
@@ -538,24 +550,65 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
             {loading ? (
               <div className={styles.loading}>
                 <div className={styles.spinner}></div>
-                <span>Loading messages...</span>
+                <span>메시지 불러오는 중...</span>
               </div>
             ) : (
               <>
                 {isFetching && (
                   <div className={styles.loadingMore}>
                     <div className={styles.spinner}></div>
-                    <span>Loading more messages...</span>
+                    <span>이전 메시지 불러오는 중...</span>
                   </div>
                 )}
-                {messages.map((message) => (
-                  <div key={message.id} className={`${styles.message} ${message.isOwn ? styles.ownMessage : ""}`}>
-                    <div className={styles.messageContent}>
-                      <div className={styles.messageText}>{message.content}</div>
-                      <div className={styles.messageTime}>{formatTime(message.timestamp)}</div>
-                    </div>
+                {!isFetching && messages.length === 0 && (
+                  <div className={styles.emptyState}>
+                    <div className={styles.emptyTitle}>{friend.nickname}</div>
+                    <div className={styles.emptyText}>{friend.nickname}님과 나눈 대화가 여기에 표시됩니다.</div>
                   </div>
-                ))}
+                )}
+                {messages.map((message, index) => {
+                  const prev = messages[index - 1]
+                  const showHeader =
+                    !prev ||
+                    prev.sender !== message.sender ||
+                    new Date(message.timestamp) - new Date(prev.timestamp) > 5 * 60 * 1000
+                  const senderName = message.sender || (message.isOwn ? currentUser?.nickname : friend.nickname) || ""
+                  return (
+                    <div
+                      key={message.id}
+                      className={`${styles.message} ${showHeader ? styles.messageFirst : styles.messageCont} ${
+                        message.isOwn ? styles.ownMessage : ""
+                      }`}
+                    >
+                      <div className={styles.messageGutter}>
+                        {showHeader ? (
+                          !message.isOwn && friend.avatar ? (
+                            <img
+                              className={styles.messageAvatar}
+                              src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${friend.avatar}`}
+                              alt={senderName}
+                            />
+                          ) : (
+                            <div className={styles.messageAvatarFallback}>
+                              {senderName.charAt(0).toUpperCase() || "?"}
+                            </div>
+                          )
+                        ) : (
+                          <span className={styles.messageHoverTime}>{formatTime(message.timestamp)}</span>
+                        )}
+                      </div>
+                      <div className={styles.messageContent}>
+                        {showHeader && (
+                          <div className={styles.messageMeta}>
+                            <span className={styles.messageSender}>{senderName}</span>
+                            <span className={styles.messageTime}>{formatTime(message.timestamp)}</span>
+                          </div>
+                        )}
+                        <div className={styles.messageText}>{message.content}</div>
+                      </div>
+                    </div>
+                  )
+                })}
                 <div ref={messagesEndRef} />
               </>
             )}
@@ -567,7 +620,7 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={`Message ${friend.nickname}...`}
+              placeholder={`${friend.nickname}님에게 메시지 보내기`}
               className={styles.messageInput}
               disabled={!readyToSend}
             />
@@ -580,6 +633,7 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
       {/* Resize handle */}
       {!isMinimized && (
         <div
+          className={styles.resizeHandle}
           style={{
             position: "absolute",
             width: "16px",

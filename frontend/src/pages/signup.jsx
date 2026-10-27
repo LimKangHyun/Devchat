@@ -1,11 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { useNavigate } from "react-router-dom";
-import "../App.css"
+import { useNavigate, useLocation } from "react-router-dom";
+import styles from "./Auth.module.css"
+import AuthLayout from "../components/AuthLayout"
+import { loginUrlFor } from "../utils/postLoginRedirect"
 
 function App() {
   const navigate = useNavigate();
+  // 초대 링크 등에서 넘어온 돌아갈 경로. 가입 후 로그인 화면으로 그대로 넘긴다.
+  const loginUrl = loginUrlFor(new URLSearchParams(useLocation().search).get("redirect"));
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -48,7 +52,7 @@ function App() {
     const data = await response.json();
     console.log("✅ Signup successful:", data);
     alert("회원가입 성공!");
-    navigate("/login");
+    navigate(loginUrl);
 
   } catch (error) {
     console.error("네트워크 또는 서버 에러:", error);
@@ -57,25 +61,19 @@ function App() {
 }
 
   return (
-    <div className="app-container">
-      <div className="form-container">
-        <div className="logo-container">
-          <a href="/">
-            <img src="/images/devchat-logo.webp" alt="DevChat Logo" className="logo-image" />
-          </a>
-        </div>
+    <AuthLayout>
+      <div className={styles.card}>
+        <h1 className={styles.heading}>계정 만들기</h1>
+        <p className={styles.sub}>몇 가지 정보만 입력하면 바로 시작할 수 있어요.</p>
 
-        <h1 className="heading">Let's Start!</h1>
-
-      
-        <form onSubmit={handleSubmit}>
-
-          <div className="form-group">
-            <label htmlFor="username">
-              ID<span style={{ color: 'red' }}> *</span>
+        <form className={styles.form} onSubmit={handleSubmit}>
+          <div className={styles.field}>
+            <label className="dc-label" htmlFor="username">
+              ID<span className={styles.req}>*</span>
             </label>
             <input
               id="username"
+              className={`dc-input ${styles.input}`}
               type="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -84,14 +82,16 @@ function App() {
               minLength="5"
               maxLength="12"
             />
+            <p className="dc-help">5~12자</p>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password">
-              Password<span style={{ color: 'red' }}> *</span>
+          <div className={styles.field}>
+            <label className="dc-label" htmlFor="password">
+              비밀번호<span className={styles.req}>*</span>
             </label>
             <input
               id="password"
+              className={`dc-input ${styles.input}`}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -101,12 +101,13 @@ function App() {
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="nickname">
-              Nickname<span style={{ color: 'red' }}> *</span>
+          <div className={styles.field}>
+            <label className="dc-label" htmlFor="nickname">
+              닉네임<span className={styles.req}>*</span>
             </label>
             <input
               id="nickname"
+              className={`dc-input ${styles.input}`}
               type="text"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
@@ -116,32 +117,30 @@ function App() {
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
+          <div className={styles.field}>
+            <label className="dc-label" htmlFor="email">이메일</label>
             <input
               id="email"
+              className={`dc-input ${styles.input}`}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="이메일을 입력해주세요"
             />
+            <p className="dc-help">선택 사항 · 비밀번호 찾기와 알림 메일에 사용돼요.</p>
           </div>
 
-          <button type="submit" className="signup-button">
-            Sign Up
+          <button type="submit" className={`dc-btn dc-btn-primary ${styles.submit}`}>
+            회원가입
           </button>
         </form>
 
-        <div className="signup-link">
+        <div className={styles.switch}>
           <span>이미 계정이 있나요?</span>
-          <a href="/login">로그인</a>
+          <a href={loginUrl}>로그인</a>
         </div>
       </div>
-
-      <div className="background-container">
-        <img src="/images/signup-background.webp" alt="Background" className="background-image" />
-      </div>
-    </div>
+    </AuthLayout>
   )
 }
 

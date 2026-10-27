@@ -8,3 +8,9 @@ scrape_configs:
       - targets:
           - 'dev-chat-backend-blue:8080'
           - 'dev-chat-backend-green:8080'
+
+  - job_name: 'devchat-ai'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+          - 'dev-chat-ai:8081'

@@ -232,7 +232,7 @@ const CommunityWrite = () => {
 - 매주 알고리즘 문제 풀이
 - 백준 실버 이상 권장
 
-🔗 링크 추가: [링크이름](https://주소)`}
+링크 추가: [링크이름](https://주소)`}
                 className={styles.textarea}
                 rows={12}
               />

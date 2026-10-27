@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
-import project.ai.service.RepoIndexingService;
+import project.ai.indexing.RepoIndexingService;
 import project.common.message.index.FileReindexMessage;
 
 @Slf4j

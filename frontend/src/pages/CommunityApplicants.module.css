@@ -1,57 +1,71 @@
+/* Community 신청자 관리 */
 .container {
-  padding: 40px;
-  min-height: 100vh;
-  background-color: #f7fafc;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  width: 100%;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  box-sizing: border-box;
 }
 
 .card {
-  background: white;
-  border-radius: 16px;
-  border: 1px solid #eaedf0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   width: 100%;
-  max-width: 680px;
-  height: fit-content;
 }
 
+/* 페이지 헤더 바 */
 .cardHeader {
-  padding: 32px 40px 24px;
-  border-bottom: 1px solid #f0f4f8;
-  background: linear-gradient(135deg, #ebf4ff 0%, #f0f7ff 100%);
-  border-radius: 16px 16px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 60px;
+  padding: 8px 20px 8px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  box-sizing: border-box;
+  background: var(--bg);
+}
+
+.backButton {
+  color: var(--text);
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .title {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
-  color: #1a202c;
-  margin: 0 0 6px 0;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.2px;
+  line-height: 1.3;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: #718096;
-  margin: 0;
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 2px 0 0;
+}
+
+.subtitle strong {
+  color: var(--text);
+  font-weight: 700;
 }
 
 .body {
-  padding: 24px 40px;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 20px 32px;
+  box-sizing: border-box;
 }
 
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 60px 0;
-  color: #a0aec0;
-  gap: 12px;
-}
-
-.emptyIcon {
-  font-size: 40px;
+  padding: 72px 0;
+  color: var(--text-2);
 }
 
 .empty p {
@@ -59,129 +73,136 @@
   margin: 0;
 }
 
+/* 평평한 행 목록 */
 .list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
 .item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fafafa;
-  transition: box-shadow 0.15s;
+  gap: 12px;
+  padding: 12px;
+  margin: 0 -12px;
+  border-bottom: 1px solid var(--border-soft);
+  transition: background 0.1s;
 }
 
 .item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: var(--bg-soft);
 }
 
 .userInfo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
-  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  background: var(--bg-muted);
 }
 
 .userMeta {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .nickname {
   font-size: 15px;
-  font-weight: 600;
-  color: #2d3748;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .appliedAt {
   font-size: 12px;
-  color: #a0aec0;
+  color: var(--text-3);
 }
 
 .actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.approveButton,
+.rejectButton {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
 }
 
 .approveButton {
-  padding: 7px 18px;
-  border-radius: 8px;
-  border: none;
-  background: #2588F1;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
 }
 
 .approveButton:hover {
-  background: #1a6fd4;
-}
-
-.approveButton:disabled {
-  background: #a0aec0;
-  cursor: not-allowed;
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .rejectButton {
-  padding: 7px 18px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #718096;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .rejectButton:hover {
-  border-color: #fc8181;
-  color: #e53e3e;
-  background: #fff5f5;
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
+.approveButton:disabled,
 .rejectButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.backButton {
-  margin-top: 20px;
-  background: none;
-  border: none;
-  color: #718096;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 8px 0;
-}
-
-.backButton:hover {
-  color: #2d3748;
-}
-
 .loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  color: #718096;
-  font-size: 15px;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .cardHeader {
+    min-height: 56px;
+    padding: 8px 16px 8px 8px;
+  }
+  .body {
+    padding: 0 16px 24px;
+  }
+  .item {
+    padding: 12px 16px;
+    margin: 0 -16px;
+  }
+  .approveButton,
+  .rejectButton {
+    height: 34px;
+    padding: 0 12px;
+  }
 }

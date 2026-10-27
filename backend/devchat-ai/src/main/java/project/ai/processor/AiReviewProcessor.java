@@ -6,10 +6,10 @@ import org.springframework.stereotype.Component;
 import project.common.dto.InlineReview;
 import project.common.message.aireview.AiReviewRequestMessage;
 import project.ai.client.GeminiClient;
-import project.ai.domain.aireview.app.AiReviewDiffParser;
-import project.ai.service.RagContextService;
+import project.ai.rag.RagContextService;
 
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 
 @Slf4j
@@ -19,41 +19,45 @@ public class AiReviewProcessor {
 
     private final GeminiClient geminiClient;
     private final RagContextService ragContextService;
-    private final AiReviewDiffParser diffParser;
+    private final DiffLineParser diffLineParser;
+    private final InlineReviewFilter inlineReviewFilter;
+    private final RelatedChangedCodeBuilder relatedChangedCodeBuilder;
 
-    /**
-     * 파일 하나에 대한 AI 코드 리뷰를 수행한다.
-     * 1. 파일 diff에서 GitHub에 코멘트 가능한 변경 라인 번호 추출
-     * 2. Pinecone RAG로 관련 컨텍스트 조회 (없으면 diff만 전달)
-     * 3. Gemini에 리뷰 요청
-     * 4. 유효하지 않은 리뷰(범위 초과, 빈 코멘트) 필터링
-     * 5. GitHub PR API 제약상 변경 라인에만 코멘트 가능하므로 diffLine 매핑
-     *
-     * 예외는 여기서 삼키지 않고 그대로 상위(AiReviewRequestConsumer)로 전파한다.
-     * 상위에서 catch하여 result stream에 FAIL로 발행해야 completedFiles/failedFiles
-     * 카운팅과 AiReview 상태 판정이 정상 동작한다.
-     */
     public List<InlineReview> process(AiReviewRequestMessage message) {
-        Set<Integer> validDiffLines = diffParser.parseValidLines(message.fileDiff());
+        Set<Integer> validDiffLines = diffLineParser.parseValidLines(message.fileDiff());
 
         String ragContext = ragContextService.buildContext(
-                message.repoId(), message.filePath(), message.fileDiff());
+            message.repoId(), message.filePath(), message.fileDiff(),
+            message.fileContent(), message.baseContent(),
+            Set.copyOf(message.changedFilesInPr()));
 
-        String diffWithContext = ragContext.isBlank()
-                ? message.fileDiff()
-                : ragContext + "\n\n위 컨텍스트를 참고해서 아래 PR을 리뷰해줘:\n\n" + message.fileDiff();
+        // 같은 PR에서 바뀐 다른 파일의 메서드 중 이 파일이 호출하는 것 (인덱스엔 변경 전 코드만 있어 RAG로는 못 가져온다)
+        String relatedChangedCode = relatedChangedCodeBuilder.build(
+            message.filePath(), message.fileContent(), message.relatedChangedFiles());
 
         List<InlineReview> reviews = geminiClient.reviewPrDiffInline(
-                diffWithContext, message.fileContent(), message.prTitle(), message.prBody());
+                message.fileDiff(), ragContext, relatedChangedCode,
+                message.fileContent(), message.prTitle(), message.prBody(), message.reviewConventions());
 
-        List<InlineReview> filtered = diffParser.filterValidReviews(reviews, message.fileContent());
-        return filtered.stream()
+        List<InlineReview> filtered = inlineReviewFilter.filterValidReviews(reviews, message.fileContent());
+
+        List<InlineReview> result = filtered.stream()
                 .map(r -> {
-                    int diffLine = validDiffLines.contains(r.lineNumber())
-                            ? r.lineNumber()
-                            : diffParser.findNearestDiffLine(validDiffLines, r.lineNumber());
-                    return new InlineReview(r.lineNumber(), diffLine, r.comment());
+                    OptionalInt nearestLine = diffLineParser.findNearestDiffLine(validDiffLines, r.lineNumber());
+                    if (nearestLine.isPresent()) {
+                        return new InlineReview(r.lineNumber(), nearestLine.getAsInt(), r.comment());
+                    } else {
+                        log.info("[리뷰] 유효 라인 매핑 실패, 전체 코멘트로 전환. lineNumber={}", r.lineNumber());
+                        return r.asGeneralComment();
+                    }
                 })
                 .toList();
+
+        // 튜닝용: LLM이 낸 코멘트가 어느 단계에서 얼마나 걸러지는지. 필터에서 많이 빠지면 프롬프트를 손볼 신호다.
+        long teamRuleComments = result.stream()
+                .filter(r -> r.comment() != null && r.comment().startsWith("[팀 규칙]")).count();
+        log.info("[리뷰-결과] aiReviewId={}, file={}, 코멘트 생성={} → 필터 통과={}, 팀규칙 코멘트={}",
+                message.aiReviewId(), message.filePath(), reviews.size(), result.size(), teamRuleComments);
+        return result;
     }
 }

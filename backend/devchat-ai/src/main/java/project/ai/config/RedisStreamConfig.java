@@ -9,7 +9,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
-import project.ai.stream.consumer.*;
+import project.ai.stream.aireview.AiReviewRequestConsumer;
 import project.ai.stream.git.GitSummaryRequestConsumer;
 import project.ai.stream.index.DeleteIndexConsumer;
 import project.ai.stream.index.FileReindexConsumer;
