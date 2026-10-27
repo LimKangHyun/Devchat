@@ -34,6 +34,12 @@ public record NotificationDto(
         );
     }
 
+    /** 실시간 전송용으로 본문만 바꾼다 (예: 멘션 알림에 방 이름과 메시지 미리보기를 붙임). 저장된 알림 목록은 기본 문구를 쓴다 */
+    public NotificationDto withContent(String newContent) {
+        return new NotificationDto(notificationId, isRead, type, receiverUsername, senderUsername,
+            senderNickname, senderImg, newContent, referenceId, createdAt);
+    }
+
     public static NotificationDto ofDmMessage(DmMessage dmMessage, String receiverUsername) {
         return new NotificationDto(
             null,
@@ -60,6 +66,7 @@ public record NotificationDto(
             case STUDY_APPLY -> senderNickname + "님이 스터디 참여를 신청했습니다.";
             case STUDY_APPROVED -> senderNickname + "님의 스터디 신청이 승인됐습니다! 🎉";
             case STUDY_REJECTED -> senderNickname + "님의 스터디 신청이 거절됐습니다.";
+            case MENTION -> senderNickname + "님이 채팅에서 회원님을 언급했습니다.";
             default -> "딩동";
         };
     }

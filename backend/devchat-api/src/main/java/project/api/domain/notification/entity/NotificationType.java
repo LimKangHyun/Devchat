@@ -9,5 +9,6 @@ public enum NotificationType {
     CODE_REVIEW,
     STUDY_APPLY,
     STUDY_APPROVED,
-    STUDY_REJECTED
+    STUDY_REJECTED,
+    MENTION
 }

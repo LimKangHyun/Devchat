@@ -18,6 +18,14 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
   const location = useLocation()
   const navigate = useNavigate()
 
+  // 멘션 알림의 referenceId(방 id) → 방 주소. 콜백이 오래된 목록을 잡지 않게 ref로 읽는다
+  const alarmRoomsRef = useRef(alarmRooms)
+  useEffect(() => { alarmRoomsRef.current = alarmRooms }, [alarmRooms])
+  const roomUrlById = (roomId) => {
+    const room = (alarmRoomsRef.current || []).find((r) => Number(r.uniqueId) === Number(roomId))
+    return room?.inviteCode ? `/chat/${room.inviteCode}` : null
+  }
+
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const profileDropdownRef = useRef(null)
 
@@ -68,6 +76,11 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
     flushSync(() => {
       setRealtimeNotificationCount((prev) => prev + 1)
     })
+    if (notification.type === "MENTION") {
+      showImmediateNotification({ ...notification, url: roomUrlById(notification.referenceId) })
+      setHasUnreadNotifications(true)
+      return
+    }
     showImmediateNotification(notification)
     setHasUnreadNotifications(true)
   }, [])
@@ -127,6 +140,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
         case "NEW_DM": return `💬 ${notification.senderNickname}`
         case "CODE_REVIEW": return "🧪 코드 리뷰 알림이 있습니다."
         case "CHAT_MESSAGE": return `💬 ${notification.senderNickname} (${notification.roomName})`
+        case "MENTION": return `📣 ${notification.senderNickname}님이 회원님을 언급했습니다`
         case "STUDY_APPLY": return "📬 새로운 스터디 신청이 도착했습니다!"
         case "STUDY_APPROVED": return "🎉 스터디 신청이 승인되었습니다!"
         case "STUDY_REJECTED": return "😢 스터디 신청이 거절되었습니다."
@@ -172,6 +186,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       case "FRIEND_REQUESTED": return { label: "친구 요청", icon: <User size={12} />, ...neutral }
       case "CODE_REVIEW": return { label: "코드 리뷰", icon: <Code size={12} />, ...neutral }
       case "MESSAGE": return { label: "메시지", icon: <MessageSquare size={12} />, ...neutral }
+      case "MENTION": return { label: "멘션", icon: <MessageSquare size={12} />, ...neutral }
       case "WE_ARE_FRIEND_NOW": return { label: "새 친구", icon: <User size={12} />, ...neutral }
       case "STUDY_APPLY": return { label: "스터디 신청", icon: <User size={12} />, ...neutral }
       case "STUDY_APPROVED": return { label: "스터디 승인", icon: <Check size={12} />, ...neutral }
@@ -308,6 +323,11 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       case "STUDY_APPLY": window.location.href = `/community/${entityId}/applicants`; break
       case "STUDY_APPROVED":
       case "STUDY_REJECTED": window.location.href = `/community/${entityId}`; break
+      case "MENTION": {
+        const url = roomUrlById(entityId)
+        if (url) navigate(url)
+        break
+      }
       default: break
     }
     setIsNotificationOpen(false)

@@ -17,6 +17,10 @@ import ConnectRepoModal from '../components/modals/ConnectRepoModal';
 import IndexingBar from '../components/chatroom/IndexingBar';
 import s from '../components/chatroom/Chat.module.css';
 import { MessageSquareDashed, Code2, GitPullRequest, UserPlus, Copy } from 'lucide-react';
+import { findMentionedIds } from '../utils/mention';
+
+// 레포 연동 방에 자동으로 들어오는 봇 계정 (서버 github.username, github.bot.username)
+const BOT_NICKNAMES = new Set(['GitHubBot', 'Devchat-Code-Assist']);
 
 const PAGE_SIZE = 30;
 const INDEX_OFFSET = 100000;
@@ -481,6 +485,21 @@ const ChatRoom = () => {
     if (currentUser && roomData?.ownerId) setIsOwner(currentUser.id === roomData.ownerId);
   }, [currentUser, roomData]);
 
+  // @멘션 후보: 방 참여자 중 나와 봇을 뺀 사람 (서버도 다시 걸러낸다)
+  const [participants, setParticipants] = useState([]);
+  useEffect(() => {
+    if (!roomId || !initState.isRoomValidated) return;
+    let cancelled = false;
+    axiosInstance.get(`/chat-rooms/${roomId}/participants`)
+      .then((res) => { if (!cancelled) setParticipants(res.data || []); })
+      .catch(() => { if (!cancelled) setParticipants([]); });
+    return () => { cancelled = true; };
+  }, [roomId, initState.isRoomValidated]);
+  const mentionCandidates = useMemo(
+    () => participants.filter((p) => p.memberId !== currentUser?.id && !BOT_NICKNAMES.has(p.nickname)),
+    [participants, currentUser?.id]
+  );
+
   const handleStartReached = useCallback(() => {
     if (!isLoadingRef.current && hasMoreMessages && cursor) fetchMessages(cursor, true);
   }, [fetchMessages, hasMoreMessages, cursor]);
@@ -580,6 +599,10 @@ const ChatRoom = () => {
       profileImageUrl: currentUser.profileImageUrl,
       ...(inputMode === 'CODE' && { language }),
     };
+    if (inputMode === 'TEXT') {
+      const mentionedMemberIds = findMentionedIds(content, mentionCandidates);
+      if (mentionedMemberIds.length) base.mentionedMemberIds = mentionedMemberIds;
+    }
     const msg = override ? { ...base, ...override } : base;
     if (msg.type !== 'IMAGE' && !String(msg.content).trim()) return;
     client.publish({ destination: `/chat/send-message/${roomId}`, body: JSON.stringify(msg) });
@@ -783,6 +806,7 @@ const ChatRoom = () => {
               setImageFile={setImageFile}
               imagePreviewUrl={imagePreviewUrl} setImagePreviewUrl={setImagePreviewUrl}
               roomName={roomName}
+              mentionCandidates={mentionCandidates}
             />
           </div>
         </div>
