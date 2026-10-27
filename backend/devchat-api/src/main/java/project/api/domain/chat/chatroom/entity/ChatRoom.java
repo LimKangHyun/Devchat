@@ -52,6 +52,10 @@ public class ChatRoom {
     @Column(nullable = false)
     private boolean aiSummaryEnabled = true;
 
+    /** 팀 리뷰 규칙. AI 리뷰 프롬프트에 함께 들어가며, 방장만 수정한다. 없으면 null. */
+    @Column(columnDefinition = "TEXT")
+    private String reviewConventions;
+
     @Builder
     public ChatRoom(String name, LocalDateTime createdAt, String repositoryUrl, String inviteCode,
         Long webhookId, List<ChatMessage> messages, List<ChatParticipant> participants) {
@@ -78,12 +82,21 @@ public class ChatRoom {
             .count();
     }
 
+    public void connectRepository(String repositoryUrl) {
+        this.repositoryUrl = repositoryUrl;
+    }
+
     public void updateWebhookId(Long webhookId) {
         this.webhookId = webhookId;
     }
 
     public void toggleAiReview() {
         this.aiReviewEnabled = !this.aiReviewEnabled;
+    }
+
+    /** 앞뒤 공백을 지우고, 비어 있으면 규칙이 없는 것으로 본다. */
+    public void updateReviewConventions(String conventions) {
+        this.reviewConventions = conventions == null || conventions.isBlank() ? null : conventions.strip();
     }
 
     public void updateIndexingStatus(IndexingStatus status) {

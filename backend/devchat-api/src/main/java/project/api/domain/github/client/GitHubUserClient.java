@@ -79,7 +79,8 @@ public class GitHubUserClient {
         Map<String, Object> requestBody = Map.of(
             "name", "web",
             "active", true,
-            "events", List.of("issues", "pull_request", "pull_request_review", "workflow_run"),
+            // push는 기본 브랜치 직접 push를 재인덱싱하려고 받는다. 채팅 메시지로는 만들지 않는다.
+            "events", List.of("issues", "pull_request", "pull_request_review", "workflow_run", "push"),
             "config", Map.of(
                 "url", webhookUrl,
                 "content_type", "json",

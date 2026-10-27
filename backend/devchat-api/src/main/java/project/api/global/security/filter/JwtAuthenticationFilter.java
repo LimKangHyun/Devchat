@@ -40,8 +40,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 									FilterChain filterChain) throws ServletException, IOException {
 
 		String requestURI = request.getRequestURI();
-		log.info("[JWT Filter] 요청 URI: {}", requestURI);
-
 		if (isWhitelisted(requestURI)) {
 			filterChain.doFilter(request, response);
 			return;
@@ -58,7 +56,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		TokenStatus tokenStatus = jwtProvider.validateAccessToken(accessToken);
 
 		if (tokenStatus == TokenStatus.VALID) {
-			log.info("[JWT] 유효한 토큰");
 			Authentication authentication = jwtProvider.getAuthentication(accessToken);
 			SecurityContextHolder.getContext().setAuthentication(authentication);
 		} else {

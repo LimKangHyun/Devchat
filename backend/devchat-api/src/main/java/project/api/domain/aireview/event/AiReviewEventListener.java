@@ -1,6 +1,8 @@
 package project.api.domain.aireview.event;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -14,6 +16,7 @@ import project.api.domain.github.GitRepoUrlUtils;
 import project.api.domain.github.client.GitHubBotClient;
 import project.api.global.redis.RedisStreamClient;
 import project.common.dto.github.GitRepoDto;
+import project.common.message.aireview.ChangedFileSnapshot;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -29,6 +32,8 @@ public class AiReviewEventListener {
     private static final int MAX_CHANGED_FILES = 20;
     private static final int MAX_TOTAL_DIFF_LINES = 2500;
     private static final int MAX_FILE_DIFF_LINES = 250;
+    /** 리뷰 요청 하나에 같이 보내는 다른 변경 파일 수 상한. 메시지 크기를 제한한다. */
+    private static final int MAX_RELATED_CHANGED_FILES = 5;
 
     private final AiReviewService aiReviewService;
     private final AiReviewDiffParser diffParser;
@@ -67,9 +72,9 @@ public class AiReviewEventListener {
             return;
         }
 
-        int totalFiles = 0;
-        Map<String, String> fileContentMap = new HashMap<>();
-
+        // 1) 리뷰할 파일의 변경 전/후 코드를 먼저 모두 가져온다.
+        //    파일 A를 리뷰할 때 같은 PR에서 바뀐 파일 B의 새 코드가 필요하므로, 발행 전에 전부 모아야 한다.
+        List<ReviewTarget> targets = new ArrayList<>();
         for (Map.Entry<String, String> entry : reviewableFileDiffs.entrySet()) {
             String filePath = entry.getKey();
             String fileDiff = entry.getValue();
@@ -88,28 +93,60 @@ public class AiReviewEventListener {
                     : gitHubBotClient.getFileContent(
                     repo.ownerName(), repo.repoName(), filePath, event.baseSha());
 
-            fileContentMap.put(filePath, fileContent);
-            totalFiles++;
+            targets.add(new ReviewTarget(filePath, fileDiff, fileContent, baseContent));
+        }
+
+        // 2) 파일마다 리뷰 요청을 발행한다.
+        Map<String, String> fileContentMap = new HashMap<>();
+        for (ReviewTarget target : targets) {
+            fileContentMap.put(target.filePath(), target.fileContent());
 
             redisStreamClient.publishAiReviewRequest(
                     aiReview.getId(),
                     aiReview.getChatRoom().getId(),
                     aiReview.getChatRoom().getId(),
-                    filePath,
-                    fileDiff,
-                    fileContent,
-                    baseContent,
+                    target.filePath(),
+                    target.fileDiff(),
+                    target.fileContent(),
+                    target.baseContent(),
                     aiReview.getPrTitle(),
                     aiReview.getPrBody(),
-                    changedFilesInPr
+                    changedFilesInPr,
+                    findRelatedChangedFiles(target, targets),
+                    aiReview.getChatRoom().getReviewConventions(),
+                    aiReview.getCommitSha()
             );
         }
 
-        aiReviewService.updateTotalFiles(aiReview.getId(), totalFiles);
+        aiReviewService.updateTotalFiles(aiReview.getId(), targets.size());
 
         if (!fileContentMap.isEmpty()) {
             aiReviewService.saveFileContents(aiReview.getId(), fileContentMap);
         }
+    }
+
+    private record ReviewTarget(String filePath, String fileDiff, String fileContent, String baseContent) {}
+
+    /**
+     * 같은 PR에서 함께 바뀐 파일 중, 이 파일 코드에 클래스 이름이 등장하는 Java 파일만 고른다.
+     * 어떤 메서드를 실제로 호출하는지는 AI 서버가 AST로 다시 걸러내고, 여기서는 메시지가 불필요하게
+     * 커지지 않도록 이름이 한 번도 나오지 않는 파일만 뺀다.
+     */
+    private List<ChangedFileSnapshot> findRelatedChangedFiles(ReviewTarget target, List<ReviewTarget> all) {
+        if (!target.filePath().endsWith(".java") || target.fileContent() == null) return List.of();
+
+        List<ChangedFileSnapshot> related = new ArrayList<>();
+        for (ReviewTarget other : all) {
+            if (other == target || !other.filePath().endsWith(".java") || other.fileContent() == null) continue;
+            if (related.size() >= MAX_RELATED_CHANGED_FILES) break;
+
+            String fileName = other.filePath().substring(other.filePath().lastIndexOf('/') + 1);
+            String className = fileName.substring(0, fileName.length() - ".java".length());
+            if (Pattern.compile("\\b" + Pattern.quote(className) + "\\b").matcher(target.fileContent()).find()) {
+                related.add(new ChangedFileSnapshot(other.filePath(), other.fileDiff(), other.fileContent()));
+            }
+        }
+        return related;
     }
 
     private static final Set<String> REVIEWABLE_EXTENSIONS = Set.of(

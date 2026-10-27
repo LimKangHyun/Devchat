@@ -36,13 +36,13 @@ public class AiReviewResultConsumer implements StreamListener<String, ObjectReco
 
         // 처리 실패는 일시적일 수 있으므로(DB 커넥션 고갈, 데드락 등)
         // 예외를 그대로 던져 ACK를 막고 메시지가 pending으로 남아 재처리되게 한다.
-        // 중복 재처리는 AiReviewFile의 UNIQUE 제약으로 방어된다.
+        // 중복 재처리는 파일 상태 조건부 UPDATE(PROCESSING일 때만 최종 상태로)로 방어된다.
         if ("SUCCESS".equals(message.status())) {
             aiReviewService.saveFileReviewResult(
-                    message.aiReviewId(), message.chatRoomId(), message.filePath(), message.reviews());
+                    message.aiReviewId(), message.chatRoomId(), message.filePath(), message.commitSha(), message.reviews());
         } else {
             aiReviewService.saveFileReviewFail(
-                    message.aiReviewId(), message.chatRoomId(), message.filePath(), message.errorMessage());
+                    message.aiReviewId(), message.chatRoomId(), message.filePath(), message.commitSha(), message.errorMessage());
         }
     }
 }

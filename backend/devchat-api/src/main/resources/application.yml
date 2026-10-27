@@ -2,6 +2,20 @@ spring:
   session:
     store-type: none
 
+  # 채팅방 이메일 초대 발송 (Gmail SMTP). 계정이 비어 있으면 메일 대신 로그로 링크를 남긴다.
+  # MAIL_PASSWORD는 Gmail "앱 비밀번호"(2단계 인증 필요)다. 계정 비밀번호가 아니다.
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
 

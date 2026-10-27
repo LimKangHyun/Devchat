@@ -32,7 +32,7 @@ class ChatRoomExternalCleanupListener {
         try {
             redisStreamClient.publishDeleteIndex(event.roomId());
         } catch (Exception e) {
-            log.warn("Pinecone 삭제 Stream 발행 실패. roomId={}", event.roomId(), e);
+            log.warn("벡터 인덱스 삭제 Stream 발행 실패. roomId={}", event.roomId(), e);
         }
     }
 }

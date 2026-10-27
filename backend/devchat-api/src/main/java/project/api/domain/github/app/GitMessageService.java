@@ -26,6 +26,7 @@ import project.api.domain.aireview.entity.PrStatus;
 import project.api.domain.aireview.event.AiReviewRequestedEvent;
 import project.api.domain.github.event.GitSummaryRequestEvent;
 import project.api.domain.github.event.PrMergedEvent;
+import project.api.domain.github.event.DefaultBranchPushedEvent;
 import project.api.domain.github.mapper.GitMessageMapper;
 import project.api.domain.member.app.MemberService;
 import project.api.domain.member.entity.Member;
@@ -67,6 +68,12 @@ public class GitMessageService {
 
 		ChatRoom room = findRoom(roomId);
 
+		// push는 기본 브랜치 재인덱싱에만 쓰고 채팅 메시지로는 만들지 않는다.
+		if ("push".equals(eventType)) {
+			handleDefaultBranchPush(room, payload);
+			return;
+		}
+
 		if ("pull_request".equals(eventType)) {
 			handlePrStatusUpdate(room, payload);
 		}
@@ -81,6 +88,30 @@ public class GitMessageService {
 			handlePrEditedMessage(room, payload, gitMessage);
 			handlePrSynchronizeMessage(room, payload, gitMessage);
 		}
+	}
+
+	/**
+	 * 기본 브랜치에 들어온 push면 재인덱싱 이벤트를 발행한다.
+	 * 브랜치 생성·삭제 push는 비교할 이전 커밋이 없거나 남길 코드가 없어서 건너뛴다.
+	 * PR 머지로 생긴 push인지는 리스너에서 GitHub API로 확인해 거른다.
+	 */
+	private void handleDefaultBranchPush(ChatRoom room, Map<String, Object> payload) {
+		String ref = (String) payload.get("ref");
+		if (ref == null || !ref.startsWith("refs/heads/")) return;
+		if (!isDefaultBranch(payload, ref.substring("refs/heads/".length()))) return;
+		if (Boolean.TRUE.equals(payload.get("deleted")) || Boolean.TRUE.equals(payload.get("created"))) return;
+
+		String before = (String) payload.get("before");
+		String after = (String) payload.get("after");
+		if (before == null || after == null || before.matches("0+")) return;
+
+		eventPublisher.publishEvent(new DefaultBranchPushedEvent(room.getId(), before, after));
+	}
+
+	private boolean isDefaultBranch(Map<String, Object> payload, String branch) {
+		Map<String, Object> repository = (Map<String, Object>) payload.get("repository");
+		String defaultBranch = repository == null ? null : (String) repository.get("default_branch");
+		return branch != null && branch.equals(defaultBranch);
 	}
 
 	private boolean isBotReviewEvent(String eventType, Map<String, Object> payload) {
@@ -112,8 +143,12 @@ public class GitMessageService {
 			case OPEN, CLOSED, REOPENED -> aiReviewService.updatePrStatus(room.getId(), prNumber, prStatus);
 			case MERGED -> {
 				aiReviewService.updatePrStatus(room.getId(), prNumber, prStatus);
-				String headSha = (String) ((Map<String, Object>) pr.get("head")).get("sha");
-				eventPublisher.publishEvent(new PrMergedEvent(room.getId(), prNumber, headSha));
+				// 인덱스는 기본 브랜치 기준이라, 다른 브랜치로 머지된 PR은 재인덱싱하지 않는다.
+				String baseRef = (String) ((Map<String, Object>) pr.get("base")).get("ref");
+				if (isDefaultBranch(payload, baseRef)) {
+					String mergeCommitSha = (String) pr.get("merge_commit_sha");
+					eventPublisher.publishEvent(new PrMergedEvent(room.getId(), prNumber, mergeCommitSha));
+				}
 			}
 			case EDITED -> {
 				String prTitle = (String) pr.get("title");

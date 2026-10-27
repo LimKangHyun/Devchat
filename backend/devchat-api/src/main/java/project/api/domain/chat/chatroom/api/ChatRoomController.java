@@ -16,13 +16,22 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import project.api.auth.dto.MemberDetails;
 import project.api.domain.aireview.dto.AiSummaryToggleResponse;
+import project.api.domain.chat.chatroom.app.ChatRoomInviteService;
 import project.api.domain.chat.chatroom.app.ChatRoomParticipantService;
 import project.api.domain.chat.chatroom.app.ChatRoomService;
+import project.api.domain.chat.chatroom.app.RepoIndexingControlService;
 import project.api.domain.chat.chatroom.dto.AllRoomsResponse;
 import project.api.domain.chat.chatroom.dto.ChatParticipantResponse;
 import project.api.domain.chat.chatroom.dto.ChatRoomRequest;
 import project.api.domain.chat.chatroom.dto.ChatRoomSimpleResponse;
+import project.api.domain.chat.chatroom.dto.ConnectRepositoryRequest;
+import project.api.domain.chat.chatroom.dto.ConnectRepositoryResponse;
+import project.api.domain.chat.chatroom.dto.EmailInviteRequest;
+import project.api.domain.chat.chatroom.dto.EmailInviteResponse;
 import project.api.domain.chat.chatroom.dto.EntryRoomResponse;
+import project.api.domain.chat.chatroom.dto.IndexingStatusResponse;
+import project.api.domain.chat.chatroom.dto.ReviewConventionsRequest;
+import project.api.domain.chat.chatroom.dto.ReviewConventionsResponse;
 import project.api.domain.chat.chatroom.dto.InviteJoinRequest;
 import project.api.domain.chat.chatroom.dto.InviteJoinResponse;
 import project.api.domain.chat.chatroom.dto.MyChatRoomResponse;
@@ -39,6 +48,8 @@ public class ChatRoomController {
 
     private final ChatRoomService chatRoomService;
     private final ChatRoomParticipantService chatRoomParticipantService;
+    private final ChatRoomInviteService chatRoomInviteService;
+    private final RepoIndexingControlService repoIndexingControlService;
 
     @Operation(summary = "채팅방 생성")
     @PostMapping
@@ -56,6 +67,15 @@ public class ChatRoomController {
         @AuthenticationPrincipal MemberDetails memberDetails
     ) {
         return chatRoomService.joinChatRoom(request.getInviteCode(), memberDetails.getId());
+    }
+
+    @Operation(summary = "이메일로 채팅방 초대", description = "입장 링크가 담긴 초대 메일을 보낸다. 발송은 비동기로 진행된다.")
+    @PostMapping("/{roomId}/invites/email")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public EmailInviteResponse inviteByEmail(@PathVariable Long roomId,
+        @Valid @RequestBody EmailInviteRequest request,
+        @AuthenticationPrincipal MemberDetails memberDetails) {
+        return chatRoomInviteService.inviteByEmail(roomId, memberDetails.getId(), request.getEmails());
     }
 
     @Operation(summary = "최근 입장 채팅방 조회")
@@ -137,6 +157,49 @@ public class ChatRoomController {
         chatRoomService.updateLastReadSequence(roomId, memberDetails.getId());
     }
 
+    @Operation(summary = "저장소 인덱싱 상태 조회", description = "진행 중이면 단계와 진행률을 함께 준다. 참여자 누구나 볼 수 있다.")
+    @GetMapping("/{roomId}/indexing")
+    public IndexingStatusResponse getIndexingStatus(
+            @PathVariable Long roomId,
+            @AuthenticationPrincipal MemberDetails memberDetails) {
+        return repoIndexingControlService.getStatus(roomId, memberDetails.getId());
+    }
+
+    @Operation(summary = "저장소 인덱싱 취소", description = "방장만 할 수 있다. 저장한 코드 조각은 모두 지워지고, 결과는 WebSocket으로 알린다.")
+    @DeleteMapping("/{roomId}/indexing")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void cancelIndexing(
+            @PathVariable Long roomId,
+            @AuthenticationPrincipal MemberDetails memberDetails) {
+        repoIndexingControlService.cancel(roomId, memberDetails.getId());
+    }
+
+    @Operation(summary = "저장소 인덱싱 다시 시작", description = "방장만 할 수 있다. 취소·실패한 인덱싱을 처음부터 다시 한다.")
+    @PostMapping("/{roomId}/indexing")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public IndexingStatusResponse restartIndexing(
+            @PathVariable Long roomId,
+            @AuthenticationPrincipal MemberDetails memberDetails) {
+        return repoIndexingControlService.restart(roomId, memberDetails.getId());
+    }
+
+    @Operation(summary = "팀 리뷰 규칙 조회", description = "채팅방 참여자 누구나 볼 수 있다.")
+    @GetMapping("/{roomId}/review-conventions")
+    public ReviewConventionsResponse getReviewConventions(
+            @PathVariable Long roomId,
+            @AuthenticationPrincipal MemberDetails memberDetails) {
+        return chatRoomService.getReviewConventions(roomId, memberDetails.getId());
+    }
+
+    @Operation(summary = "팀 리뷰 규칙 수정", description = "방장만 수정할 수 있다. 비워서 보내면 규칙을 지운다. AI 리뷰 프롬프트에 함께 들어간다.")
+    @PutMapping("/{roomId}/review-conventions")
+    public ReviewConventionsResponse updateReviewConventions(
+            @PathVariable Long roomId,
+            @Valid @RequestBody ReviewConventionsRequest request,
+            @AuthenticationPrincipal MemberDetails memberDetails) {
+        return chatRoomService.updateReviewConventions(roomId, memberDetails.getId(), request.conventions());
+    }
+
     @Operation(summary = "AI 리뷰 ON/OFF 토글")
     @PatchMapping("/{roomId}/ai-review/toggle")
     public ResponseEntity<AiReviewToggleResponse> toggleAiReview(
@@ -154,5 +217,14 @@ public class ChatRoomController {
             @PathVariable Long roomId,
             @AuthenticationPrincipal MemberDetails memberDetails) {
         return ResponseEntity.ok(chatRoomService.toggleAiSummary(roomId, memberDetails.getId()));
+    }
+
+    @Operation(summary = "레포지토리 없는 채팅방에 레포지토리 연결 (방장 전용)")
+    @PatchMapping("/{roomId}/repository")
+    public ConnectRepositoryResponse connectRepository(
+            @PathVariable Long roomId,
+            @Valid @RequestBody ConnectRepositoryRequest request,
+            @AuthenticationPrincipal MemberDetails memberDetails) {
+        return chatRoomService.connectRepository(roomId, memberDetails.getId(), request.repositoryUrl());
     }
 }

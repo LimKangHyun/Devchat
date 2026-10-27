@@ -21,6 +21,7 @@ import project.api.domain.chat.chatroom.dao.ChatRoomWithSequenceProjection;
 import project.api.domain.chat.chatroom.dto.*;
 import project.api.domain.chat.chatroom.entity.*;
 import project.api.domain.chat.chatroom.event.ChatRoomCreatedEvent;
+import project.common.enums.IndexingStatus;
 import project.api.domain.chat.chatroom.event.DeleteChatRoomEvent;
 import project.api.domain.chat.chatroom.event.JoinChatRoomEvent;
 import project.api.domain.chat.chatroom.mapper.ChatRoomMapper;
@@ -35,6 +36,7 @@ import project.api.global.exception.ex.ChatRoomException;
 
 @Slf4j
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class ChatRoomService {
 
@@ -81,6 +83,7 @@ public class ChatRoomService {
                     savedRoom.getId(), owner.getId()); // 트랜잭션내에서 수행
             joinGitHubBot(savedRoom); // 트랜잭션 내에서 수행
             joinReviewBot(savedRoom); // 트랜잭션 내에서 수행
+            savedRoom.updateIndexingStatus(IndexingStatus.RUNNING);
             eventPublisher.publishEvent(
                     new ChatRoomCreatedEvent(savedRoom.getId(), request.getRepositoryUrl(), ownerId));
         }
@@ -178,7 +181,8 @@ public class ChatRoomService {
         return chatRoomReadService.findAllRoomsWithUnread(roomProjections, alarmEnabledMap);
     }
 
-    @Transactional(readOnly = true)
+    // 입장 시 최근 방·읽음 위치를 저장하므로 쓰기 트랜잭션이어야 한다
+    @Transactional
     public EntryRoomResponse getEntryInfo(String inviteCode, Long memberId) {
         ChatRoom room = getByInviteCode(inviteCode);
 
@@ -206,6 +210,11 @@ public class ChatRoomService {
         return ChatRoomMapper.toListResponse(room);
     }
 
+    /**
+     * DeleteChatRoomEvent의 리스너(웹훅·벡터 인덱스 정리, 삭제 알림)는 AFTER_COMMIT에 실행된다.
+     * 트랜잭션 없이 이벤트를 발행하면 커밋 시점이 없어 리스너가 호출되지 않으므로 반드시 트랜잭션 안에서 실행한다.
+     */
+    @Transactional
     public void deleteChatRoom(Long roomId, Long memberId) {
         ChatRoom room = getRoomById(roomId);
 
@@ -258,6 +267,55 @@ public class ChatRoomService {
         ChatRoom room = findRoomAsOwner(roomId, memberId);
         room.toggleAiSummary();
         return new AiSummaryToggleResponse(room.isAiSummaryEnabled());
+    }
+
+    /** 팀 리뷰 규칙은 참여자 누구나 볼 수 있다. 리뷰가 어떤 기준으로 달리는지 팀원도 알아야 하기 때문이다. */
+    @Transactional(readOnly = true)
+    public ReviewConventionsResponse getReviewConventions(Long roomId, Long memberId) {
+        chatRoomParticipantService.validateParticipant(memberId, roomId);
+        return new ReviewConventionsResponse(getRoomById(roomId).getReviewConventions());
+    }
+
+    /**
+     * 팀 리뷰 규칙은 방장만 수정한다.
+     * 규칙은 AI 리뷰 프롬프트에 그대로 들어가서, 누구나 고칠 수 있으면 리뷰 기준을 마음대로 바꿀 수 있다.
+     */
+    public ReviewConventionsResponse updateReviewConventions(Long roomId, Long memberId, String conventions) {
+        ChatRoom room = findRoomAsOwner(roomId, memberId);
+        room.updateReviewConventions(conventions);
+        return new ReviewConventionsResponse(room.getReviewConventions());
+    }
+
+    // 레포 없이 만든 방에 나중에 레포를 연결한다. 방 생성 때와 같은 순서: 웹훅 → 봇 참여 → 인덱싱
+    public ConnectRepositoryResponse connectRepository(Long roomId, Long memberId, String repositoryUrl) {
+        ChatRoom room = findRoomAsOwner(roomId, memberId);
+        String url = repositoryUrl.trim();
+
+        if (room.getRepositoryUrl() != null && !room.getRepositoryUrl().isBlank()) {
+            throw new ChatRoomException(ChatRoomErrorCode.ROOM_REPOSITORY_ALREADY_SET);
+        }
+        if (chatRoomRepository.existsByRepositoryUrl(url)) {
+            throw new ChatRoomException(ChatRoomErrorCode.REPOSITORY_ALREADY_CONNECTED);
+        }
+
+        // URL 검증 + 관리자 권한 확인도 여기서 한다 (실패하면 아무것도 바뀌지 않음)
+        gitMessageService.registerWebhook(url, room.getId(), memberId);
+        room.connectRepository(url);
+
+        joinBotIfAbsent(room, githubUsername);
+        joinBotIfAbsent(room, aiReviewerUsername);
+
+        room.updateIndexingStatus(IndexingStatus.RUNNING);
+        eventPublisher.publishEvent(new ChatRoomCreatedEvent(room.getId(), url, memberId));
+        return new ConnectRepositoryResponse(url);
+    }
+
+    private void joinBotIfAbsent(ChatRoom room, String botUsername) {
+        Member bot = memberService.getMemberByUsername(botUsername);
+        if (chatRoomParticipantService.findActiveParticipant(room.getId(), bot.getId()).isPresent()) {
+            return;
+        }
+        room.addParticipant(ChatParticipant.of(bot, room));
     }
 
     private ChatRoom findRoomAsOwner(Long roomId, Long memberId) {

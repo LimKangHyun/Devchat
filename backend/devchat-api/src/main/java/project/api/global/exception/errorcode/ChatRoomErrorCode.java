@@ -24,7 +24,12 @@ public enum ChatRoomErrorCode implements ErrorCode {
     CHATROOM_FULL("CRE-014", "채팅방 인원이 가득 찼습니다.", 409),
     CHATROOM_LIMIT_EXCEEDED("CRE-015", "참여 가능한 채팅방 수를 초과했습니다.", 409),
     TRY_AGAIN("CRE-016", "잠시 후 다시 시도해주세요.", 409),
-    REPOSITORY_ALREADY_CONNECTED("CRE=017", "이미 연결된 레포지토리입니다.", 409);
+    REPOSITORY_ALREADY_CONNECTED("CRE-017", "이미 연결된 레포지토리입니다.", 409),
+    ROOM_REPOSITORY_ALREADY_SET("CRE-018", "이미 레포지토리가 연결된 채팅방입니다.", 409),
+    INVITE_LIMIT_EXCEEDED("CRE-019", "오늘 보낼 수 있는 초대 메일 수를 넘었습니다. 내일 다시 시도해주세요.", 429),
+    REPOSITORY_NOT_CONNECTED("CRE-020", "레포지토리가 연결되지 않은 채팅방입니다.", 400),
+    INDEXING_NOT_RUNNING("CRE-021", "진행 중인 인덱싱이 없습니다.", 409),
+    INDEXING_ALREADY_RUNNING("CRE-022", "이미 인덱싱이 진행 중입니다.", 409);
 
     private final String code;
     private final String message;
