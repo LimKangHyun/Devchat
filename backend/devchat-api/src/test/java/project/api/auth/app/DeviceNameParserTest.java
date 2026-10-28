@@ -2,6 +2,7 @@ package project.api.auth.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -30,16 +31,15 @@ class DeviceNameParserTest {
         assertThat(DeviceNameParser.parse(userAgent)).isEqualTo("알 수 없는 기기");
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"curl/8.0"})
-    void parse_unknown(String userAgent) {
-        assertThat(DeviceNameParser.parse(userAgent)).isEqualTo("브라우저 · 기타");
+    @Test
+    void parse_unknown() {
+        assertThat(DeviceNameParser.parse("curl/8.0")).isEqualTo("브라우저 · 기타");
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {300})
-    void parse_truncatesTo100(int len) {
-        String ua = "Mozilla/5.0 (Windows NT 10.0) Chrome/120 " + "x".repeat(len);
-        assertThat(DeviceNameParser.parse(ua)).hasSizeLessThanOrEqualTo(100);
+    @Test
+    void parse_oversizedUserAgent() {
+        String ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 "
+                + "x".repeat(300);
+        assertThat(DeviceNameParser.parse(ua)).isEqualTo("Chrome · Windows");
     }
 }

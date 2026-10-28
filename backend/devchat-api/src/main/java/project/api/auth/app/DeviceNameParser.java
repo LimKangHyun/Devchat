@@ -14,6 +14,7 @@ public final class DeviceNameParser {
             return UNKNOWN;
         }
         String name = browser(userAgent) + " · " + os(userAgent);
+        // device_name 컬럼(varchar 100)을 넘지 않게 하는 안전장치
         return name.length() > MAX_LENGTH ? name.substring(0, MAX_LENGTH) : name;
     }
 
