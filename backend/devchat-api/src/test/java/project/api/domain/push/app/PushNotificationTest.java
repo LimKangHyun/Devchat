@@ -34,7 +34,7 @@ class PushNotificationTest {
     private final PushSender sender = mock(PushSender.class);
     private final MemberRepository memberRepository = mock(MemberRepository.class);
     private final PushNotificationService service =
-        new PushNotificationService(repo, sender, memberRepository, new ObjectMapper());
+        new PushNotificationService(repo, sender, memberRepository, new ObjectMapper(), mock(project.api.domain.notification.app.SeenRoomTracker.class));
 
     private static NotificationDto notification(NotificationType type, Long referenceId) {
         return new NotificationDto(1L, false, type, "bob", "alice", "앨리스", null, "내용", referenceId, LocalDateTime.now());

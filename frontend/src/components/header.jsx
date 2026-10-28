@@ -11,7 +11,7 @@ import { useAlarm, clearRoomsCache } from '../context/AlarmContext'
 import AppMenuItems from "./pwa/AppMenuItems"
 import IOSInstallGuide from "./pwa/IOSInstallGuide"
 import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
-import { showAppNotification } from "../utils/showNotification"
+import { showAppNotification, closeSeenNotifications } from "../utils/showNotification"
 import useWebSocketNotifications from "./common/useWebSocket"
 import { useWebSocketContext } from "./common/WebSocketContext"
 
@@ -93,13 +93,31 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
     const sub = client.subscribe("/user/queue/notification-sync", (frame) => {
       try {
         const data = JSON.parse(frame.body)
-        if (data.type === "READ_ROOM") syncAfterRoomRead(data.roomId)
+        if (data.type !== "READ_ROOM") return
+        // 내 다른 창·기기에서 이 방을 봤다: 이 기기 알림 센터의 그 방 알림을 지운다
+        closeSeenNotifications([{ roomId: data.roomId, at: Date.now() }])
+        if (data.count > 0) syncAfterRoomRead(data.roomId)
       } catch (e) {
         console.error("알림 동기화 처리 실패", e)
       }
     })
     return () => { try { if (client.connected) sub.unsubscribe() } catch (e) {} }
   }, [connected, stompClientRef, syncAfterRoomRead])
+
+  // 앱을 열거나 다시 보일 때: 다른 기기에서 이미 본 방의 알림을 알림 센터에서 지운다
+  useEffect(() => {
+    if (!currentUser?.username) return undefined
+    const cleanUp = async () => {
+      if (document.visibilityState !== "visible") return
+      try {
+        const { data } = await axiosInstance.get("/notification/seen-rooms")
+        await closeSeenNotifications(data)
+      } catch { /* 다음에 다시 정리한다 */ }
+    }
+    cleanUp()
+    document.addEventListener("visibilitychange", cleanUp)
+    return () => document.removeEventListener("visibilitychange", cleanUp)
+  }, [currentUser?.username])
 
   const handleNotificationReceived = useCallback((notification) => {
     console.log("🔔 Processing new real-time notification:", notification)

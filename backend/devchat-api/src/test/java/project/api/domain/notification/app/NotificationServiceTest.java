@@ -29,7 +29,8 @@ class NotificationServiceTest {
     private final NotificationRepository repo = mock(NotificationRepository.class);
     private final MemberService memberService = mock(MemberService.class);
     private final SimpMessagingTemplate messaging = mock(SimpMessagingTemplate.class);
-    private final NotificationService service = new NotificationService(repo, memberService, messaging);
+    private final project.api.domain.notification.app.SeenRoomTracker tracker = mock(project.api.domain.notification.app.SeenRoomTracker.class);
+    private final NotificationService service = new NotificationService(repo, memberService, messaging, tracker);
     private final Authentication auth = mock(Authentication.class);
 
     private void loggedInAs(Long id, String username) {
@@ -50,13 +51,14 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("읽을 멘션이 없으면 다른 창에 알리지 않는다")
-    void nothingToRead() {
+    @DisplayName("멘션이 없어도 '이 방을 봤다'를 기록하고 다른 창에 알린다 (그 방 메시지 알림을 지우게)")
+    void seenEvenWithoutMentions() {
         loggedInAs(1L, "alice");
         given(repo.markReadByRoom(1L, 20L, NotificationType.MENTION)).willReturn(0);
 
         assertThat(service.readMentionsInRoom(auth, 20L)).isZero();
-        then(messaging).should(never()).convertAndSendToUser(anyString(), anyString(), any(Object.class));
+        then(tracker).should().markSeen(1L, 20L);
+        then(messaging).should().convertAndSendToUser(eq("alice"), eq(NotificationService.SYNC_DESTINATION), any(Object.class));
     }
 
     @Test

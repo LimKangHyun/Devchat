@@ -52,4 +52,11 @@ public class NotificationsController {
 	public java.util.Map<String, Integer> readRoomMentions(@PathVariable Long roomId, Authentication auth) {
 		return java.util.Map.of("readCount", notificationService.readMentionsInRoom(auth, roomId));
 	}
+
+	@Operation(summary = "최근에 본 방", description = "어느 기기에서든 최근 하루 안에 본 방과 그 시각. 알림 센터에서 이미 본 방의 알림을 지우는 데 쓴다.")
+	@GetMapping("/seen-rooms")
+	@ResponseStatus(HttpStatus.OK)
+	public java.util.List<project.api.domain.notification.app.SeenRoomTracker.SeenRoom> seenRooms(Authentication auth) {
+		return notificationService.recentlySeenRooms(auth);
+	}
 }
