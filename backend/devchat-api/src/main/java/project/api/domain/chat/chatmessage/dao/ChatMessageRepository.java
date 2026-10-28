@@ -24,6 +24,10 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @EntityGraph(attributePaths = {"aiReview"})
     List<ChatMessage> findByChatRoom_IdOrderByIdDesc(Long roomId, Pageable pageable);
 
+    // 다시 연결됐을 때 놓친 메시지: afterId 이후를 오래된 순서로 ((room_id, message_id) 인덱스 범위 조회)
+    @EntityGraph(attributePaths = {"aiReview"})
+    List<ChatMessage> findByChatRoom_IdAndIdGreaterThanOrderByIdAsc(Long roomId, Long afterId, Pageable pageable);
+
     // 커서기반 무한스크롤 메서드
     @EntityGraph(attributePaths = {"aiReview"})
     List<ChatMessage> findByChatRoom_IdAndIdLessThanOrderByIdDesc(Long roomId, Long cursor,

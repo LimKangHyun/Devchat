@@ -463,6 +463,51 @@ class ChatMessageServiceTest {
     }
 
     @Nested
+    @DisplayName("getMessagesAfter() - 놓친 메시지 조회")
+    class GetMessagesAfter {
+
+        @Test
+        @DisplayName("요청 개수보다 하나 더 받아 남은 게 있는지 알려주고, 요청 개수만 돌려준다")
+        void returnsPageAndHasMore() {
+            List<ChatMessage> found = List.of(mock(ChatMessage.class), mock(ChatMessage.class), mock(ChatMessage.class));
+            given(chatMessageRepository.findByChatRoom_IdAndIdGreaterThanOrderByIdAsc(eq(10L), eq(50L), any()))
+                .willReturn(found);
+            given(messageMapper.toResponse(any(ChatMessage.class))).willReturn(mock(ChatMessageResponse.class));
+
+            var result = chatMessageService.getMessagesAfter(1L, 10L, 50L, 2);
+
+            assertThat(result.messages()).hasSize(2);
+            assertThat(result.hasMore()).isTrue();
+            then(chatMessageRepository).should().findByChatRoom_IdAndIdGreaterThanOrderByIdAsc(10L, 50L, PageRequest.of(0, 3));
+        }
+
+        @Test
+        @DisplayName("한 번에 최대 100개까지만 조회한다")
+        void clampsSize() {
+            given(chatMessageRepository.findByChatRoom_IdAndIdGreaterThanOrderByIdAsc(eq(10L), eq(50L), any()))
+                .willReturn(new ArrayList<>());
+
+            var result = chatMessageService.getMessagesAfter(1L, 10L, 50L, 5000);
+
+            assertThat(result.hasMore()).isFalse();
+            then(chatMessageRepository).should().findByChatRoom_IdAndIdGreaterThanOrderByIdAsc(
+                10L, 50L, PageRequest.of(0, ChatMessageService.CATCH_UP_MAX_SIZE + 1));
+        }
+
+        @Test
+        @DisplayName("방 참여자가 아니면 조회할 수 없다")
+        void notParticipant() {
+            org.mockito.BDDMockito.willThrow(new project.api.global.exception.ex.ChatRoomException(
+                    project.api.global.exception.errorcode.ChatRoomErrorCode.NOT_PARTICIPANT))
+                .given(chatRoomParticipantService).validateParticipant(1L, 10L);
+
+            assertThatThrownBy(() -> chatMessageService.getMessagesAfter(1L, 10L, 50L, 100))
+                .isInstanceOf(project.api.global.exception.ex.ChatRoomException.class);
+            then(chatMessageRepository).should(never()).findByChatRoom_IdAndIdGreaterThanOrderByIdAsc(anyLong(), anyLong(), any());
+        }
+    }
+
+    @Nested
     @DisplayName("getMessagesByRoomId() - 스크롤 페이징 조회")
     class GetMessagesByRoomId {
 

@@ -23,6 +23,7 @@ import { isTooLong, TOO_LONG_MESSAGE } from '../utils/messageLimits';
 import { useWebSocketContext } from '../components/common/WebSocketContext';
 import useOutbox from '../components/chatroom/useOutbox';
 import PendingMessages from '../components/chatroom/PendingMessages';
+import { CATCH_UP_PAGE, fetchMissedMessages, maxMessageId, mergeMessages } from '../components/chatroom/catchUp';
 
 // 레포 연동 방에 자동으로 들어오는 봇 계정 (서버 github.username, github.bot.username)
 const BOT_NICKNAMES = new Set(['GitHubBot', 'Devchat-Code-Assist']);
@@ -144,7 +145,6 @@ const ChatRoom = () => {
   const isLoadingRef = useRef(false);
   const isAtBottomRef = useRef(true);
   const currentUserRef = useRef(null);
-  const lastSequenceRef = useRef(null);
 
   // 서버가 받았다고 확인하지 않은 내 메시지. 확인되면 지우고, 안 되면 "전송 실패"로 보여준다
   const { stompClientRef: sharedClientRef } = useWebSocketContext();
@@ -317,6 +317,7 @@ const ChatRoom = () => {
       const res = await axiosInstance.get(`/${roomId}/messages`, { params });
       const data = res.data;
       const messageList = data.messages || [];
+      messageList.forEach((m) => m.clientMessageId && outboxRef.current.resolve(m.clientMessageId));
       const sorted = messageList
         .map((msg) => ({ ...msg, createdAt: msg.createdAt && !isNaN(new Date(msg.createdAt).getTime()) ? msg.createdAt : new Date().toISOString() }))
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
@@ -333,10 +334,6 @@ const ChatRoom = () => {
       } else {
         setFirstItemIndex(INDEX_OFFSET);
         setMessages(sorted);
-        if (sorted.length > 0) {
-          const lastMsg = sorted[sorted.length - 1];
-          if (lastMsg.sequence != null) lastSequenceRef.current = lastMsg.sequence;
-        }
         setInitState((prev) => ({ ...prev, isMessagesLoaded: true }));
       }
       setCursor(data.nextCursor);
@@ -349,28 +346,35 @@ const ChatRoom = () => {
     }
   }, [roomId]);
 
+  // 다시 연결됐을 때 끊긴 사이 메시지를 채운다 (catchUp.js 참고)
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
   const fetchMissingMessages = useCallback(async () => {
     if (!roomId) return;
+    const resolveSent = (list) => list.forEach((m) => m.clientMessageId && outboxRef.current.resolve(m.clientMessageId));
+    const lastId = maxMessageId(messagesRef.current);
     try {
-      const res = await axiosInstance.get(`/${roomId}/messages`);
-      const data = res.data;
-      const messageList = data.messages || [];
-      // 끊긴 사이 저장된 내 메시지는 "전송 중"에서 지운다
-      messageList.forEach((m) => m.clientMessageId && outboxRef.current.resolve(m.clientMessageId));
-      const sorted = messageList
-        .map((msg) => ({ ...msg, createdAt: msg.createdAt && !isNaN(new Date(msg.createdAt).getTime()) ? msg.createdAt : new Date().toISOString() }))
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      if (lastId == null) { await fetchMessages(null, false); return; }
 
-      setMessages((prev) => {
-        const ids = new Set(prev.map((m) => m.messageId));
-        const missing = sorted.filter((m) => !ids.has(m.messageId));
-        if (missing.length === 0) return prev;
-        return [...prev, ...missing].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      });
+      const { messages: missed, complete } = await fetchMissedMessages(
+        (after) => axiosInstance.get(`/${roomId}/messages/after`, { params: { after, size: CATCH_UP_PAGE } }).then((r) => r.data),
+        lastId
+      );
+      if (!complete) {
+        // 너무 많이 놓쳤다: 다 받지 않고 방에 다시 들어온 것처럼 최신 메시지로 새로 그린다
+        resolveSent(missed);
+        await fetchMessages(null, false);
+        return;
+      }
+      const latest = (await axiosInstance.get(`/${roomId}/messages`)).data.messages || [];
+      resolveSent(missed);
+      resolveSent(latest);
+      setMessages((prev) => mergeMessages(prev, missed, latest));
     } catch (e) {
       console.error('누락 메시지 조회 실패', e);
     }
-  }, [roomId]);
+  }, [roomId, fetchMessages]);
 
   const handleToggleAiReview = async () => {
     try {
@@ -434,10 +438,6 @@ const ChatRoom = () => {
       }
       if (received.clientMessageId) outboxRef.current.resolve(received.clientMessageId);
       if (received?.profileImageUrl) preloadImages([received.profileImageUrl]);
-      if (received.sequence != null && lastSequenceRef.current != null) {
-        if (received.sequence - lastSequenceRef.current > 1) fetchMissingMessages();
-      }
-      if (received.sequence != null) lastSequenceRef.current = received.sequence;
 
       setMessages((prev) => {
         const updated = prev.some((m) => m.messageId === received.messageId)
@@ -531,7 +531,6 @@ const ChatRoom = () => {
       setNewMessageCount(0);
       isAtBottomRef.current = true;
       isLoadingRef.current = false;
-      lastSequenceRef.current = null;
       const id = await fetchRoomInfo();
       if (!id) { navigate('/error'); return; }
       prevRoomIdRef.current = id;

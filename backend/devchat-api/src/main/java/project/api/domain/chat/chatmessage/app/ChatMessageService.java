@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import project.api.auth.dto.MemberDetails;
 import project.api.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.api.domain.chat.chatsearch.dao.ChatMessageSearchRepository;
+import project.api.domain.chat.chatmessage.dto.ChatCatchUpResponse;
 import project.api.domain.chat.chatmessage.dto.ChatMessageEditRequest;
 import project.api.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.api.domain.chat.chatmessage.dto.ChatMessageResponse;
@@ -265,6 +266,26 @@ public class ChatMessageService {
         Long nextCursor = scroll.isLastScroll() ? null : scroll.getNextCursor().getId();
 
         return new ChatScrollResponse(responses, nextCursor);
+    }
+
+    /** 놓친 메시지를 한 번에 받는 최대 개수 */
+    public static final int CATCH_UP_MAX_SIZE = 100;
+
+    /** 다시 연결됐을 때: afterId 이후 메시지를 오래된 순서로 (최대 CATCH_UP_MAX_SIZE개) */
+    @Transactional(readOnly = true)
+    public ChatCatchUpResponse getMessagesAfter(Long memberId, Long roomId, Long afterId, int size) {
+        chatRoomParticipantService.validateParticipant(memberId, roomId);
+        int limit = Math.max(1, Math.min(size, CATCH_UP_MAX_SIZE));
+
+        List<ChatMessage> found = chatMessageRepository.findByChatRoom_IdAndIdGreaterThanOrderByIdAsc(
+                roomId, afterId, PageRequest.of(0, limit + 1));
+        boolean hasMore = found.size() > limit;
+
+        List<ChatMessageResponse> messages = found.stream()
+                .limit(limit)
+                .map(messageMapper::toResponse)
+                .toList();
+        return new ChatCatchUpResponse(messages, hasMore);
     }
 
     public ChatMessage saveJoinEvent(ChatRoom room, Member member) {
