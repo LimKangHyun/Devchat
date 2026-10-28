@@ -68,3 +68,9 @@ github:
     secret: ${GITHUB_WEBHOOK_SECRET:}
     # true면 서명 없는 요청을 거절한다. 기존 webhook을 모두 갱신(채팅방 메뉴 "GitHub 연동 갱신")한 뒤 켠다
     require-signature: ${GITHUB_WEBHOOK_REQUIRE_SIGNATURE:false}
+# 피드백 보내기 → GitHub 이슈. 서버 .env의 FEEDBACK_GITHUB_TOKEN에 이 레포의 Issues 쓰기 권한만 준
+# fine-grained 토큰을 넣는다. 비어 있으면 피드백만 꺼지고 나머지 기능은 그대로 동작한다.
+feedback:
+  github:
+    token: ${FEEDBACK_GITHUB_TOKEN:}
+    repository: ${FEEDBACK_GITHUB_REPOSITORY:LimKangHyun/Devchat}
