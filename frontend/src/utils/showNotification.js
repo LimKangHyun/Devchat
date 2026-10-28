@@ -3,6 +3,16 @@
 // 알림을 누르면 서비스 워커(sw.js)가 data.url 화면을 연다.
 import { isPushOnHere } from "./pushNotifications"
 
+/** 이 기기 알림 센터에 떠 있는 알림 중 tag가 맞는 것을 닫는다 (방을 열어 이미 본 알림 정리) */
+export async function closeNotifications(tags) {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration?.()
+    if (!reg?.getNotifications) return
+    const shown = await reg.getNotifications()
+    shown.filter((n) => tags.includes(n.tag)).forEach((n) => n.close())
+  } catch { /* 지원하지 않는 브라우저는 그대로 둔다 */ }
+}
+
 export async function showAppNotification({ title, body, icon, tag, url }) {
   if (typeof window === "undefined" || !("Notification" in window)) return false
   if (Notification.permission !== "granted") return false

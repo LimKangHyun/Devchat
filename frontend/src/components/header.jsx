@@ -13,12 +13,13 @@ import IOSInstallGuide from "./pwa/IOSInstallGuide"
 import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
 import { showAppNotification } from "../utils/showNotification"
 import useWebSocketNotifications from "./common/useWebSocket"
+import { useWebSocketContext } from "./common/WebSocketContext"
 
 
 
 export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, hidden = false }) {
   const { currentUser, isLoading } = useUser()
-  const { currentRoomId, alarmRooms } = useAlarm()
+  const { currentRoomId, currentRoomIdRef, alarmRooms } = useAlarm()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -70,8 +71,46 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
   const notificationRef = useRef(null)
   const notificationContentRef = useRef(null)
 
+  // 방의 멘션 알림이 읽음 처리됐을 때 (이 창에서 방을 열었거나, 내 다른 창·기기에서 열었을 때)
+  const syncAfterRoomRead = useCallback((roomId) => {
+    setApiNotifications((prev) => prev.map((n) =>
+      n.type === "MENTION" && Number(n.referenceId) === Number(roomId) ? { ...n, isRead: true, isNew: false } : n))
+    setRealtimeNotificationCount(0)
+    fetchUnreadCount()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const onRoomRead = (e) => syncAfterRoomRead(e.detail?.roomId)
+    window.addEventListener("notifications:room-read", onRoomRead)
+    return () => window.removeEventListener("notifications:room-read", onRoomRead)
+  }, [syncAfterRoomRead])
+
+  const { stompClientRef, connected } = useWebSocketContext() || {}
+  useEffect(() => {
+    const client = stompClientRef?.current
+    if (!connected || !client?.connected) return
+    const sub = client.subscribe("/user/queue/notification-sync", (frame) => {
+      try {
+        const data = JSON.parse(frame.body)
+        if (data.type === "READ_ROOM") syncAfterRoomRead(data.roomId)
+      } catch (e) {
+        console.error("알림 동기화 처리 실패", e)
+      }
+    })
+    return () => { try { if (client.connected) sub.unsubscribe() } catch (e) {} }
+  }, [connected, stompClientRef, syncAfterRoomRead])
+
   const handleNotificationReceived = useCallback((notification) => {
     console.log("🔔 Processing new real-time notification:", notification)
+
+    // 지금 보고 있는 방에서 나를 멘션했으면 이미 본 것이므로 바로 읽음 처리하고 알리지 않는다
+    if (notification.type === "MENTION"
+      && Number(currentRoomIdRef.current) === Number(notification.referenceId)
+      && document.visibilityState === "visible") {
+      axiosInstance.post(`/notification/read-room/${notification.referenceId}`).catch(() => {})
+      return
+    }
 
     if (notification.type === "NEW_DM") {
       const senderUsername = notification.senderUsername

@@ -45,4 +45,11 @@ public class NotificationsController {
 	public void readNotification(@PathVariable Long notificationId, Authentication auth) {
 		notificationService.readNotification(notificationId, auth);
 	}
+
+	@Operation(summary = "방의 멘션 알림 읽음 처리", description = "채팅방을 열어 메시지를 봤을 때 그 방에서 온 멘션 알림을 읽음 처리한다.")
+	@PostMapping("/read-room/{roomId}")
+	@ResponseStatus(HttpStatus.OK)
+	public java.util.Map<String, Integer> readRoomMentions(@PathVariable Long roomId, Authentication auth) {
+		return java.util.Map.of("readCount", notificationService.readMentionsInRoom(auth, roomId));
+	}
 }

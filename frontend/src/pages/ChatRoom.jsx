@@ -19,6 +19,7 @@ import s from '../components/chatroom/Chat.module.css';
 import { MessageSquareDashed, Code2, GitPullRequest, UserPlus, Copy } from 'lucide-react';
 import { findMentionedIds } from '../utils/mention';
 import { uploadErrorMessage } from '../utils/imageCompress';
+import { closeNotifications } from '../utils/showNotification';
 import { isTooLong, TOO_LONG_MESSAGE } from '../utils/messageLimits';
 import { useWebSocketContext } from '../components/common/WebSocketContext';
 import useOutbox from '../components/chatroom/useOutbox';
@@ -232,6 +233,26 @@ const ChatRoom = () => {
       clearUnread(roomId)
     }
   }, [roomId, enterRoom, clearUnread])
+
+  // 방을 보면(들어오거나, 앱으로 돌아와 다시 보이면) 슬랙처럼 정리한다:
+  // 이 방에서 온 멘션 알림은 읽음 처리하고, 알림 센터에 떠 있는 이 방 알림은 닫는다
+  const markRoomSeen = useCallback(async (id) => {
+    if (!id) return;
+    closeNotifications([`room-${id}`, `MENTION-${id}`]);
+    try {
+      const { data } = await axiosInstance.post(`/notification/read-room/${id}`);
+      if (data?.readCount > 0) {
+        window.dispatchEvent(new CustomEvent('notifications:room-read', { detail: { roomId: id } }));
+      }
+    } catch { /* 다음에 방을 열 때 다시 시도된다 */ }
+  }, []);
+  useEffect(() => {
+    if (!roomId || !initState.isRoomValidated) return undefined;
+    markRoomSeen(roomId);
+    const onVisible = () => { if (document.visibilityState === 'visible') markRoomSeen(roomIdRef.current); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [roomId, initState.isRoomValidated, markRoomSeen]);
 
   const handleCodeClick = (message) => {
     setSelectedCodeMessage(message);
