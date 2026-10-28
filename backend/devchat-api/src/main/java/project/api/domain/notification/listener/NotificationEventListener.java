@@ -2,7 +2,7 @@ package project.api.domain.notification.listener;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import project.api.domain.notification.UserNotificationSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -15,7 +15,7 @@ import project.api.domain.notification.entity.NotificationType;
 @RequiredArgsConstructor
 public class NotificationEventListener {
 
-    private final SimpMessagingTemplate simpMessagingTemplate;
+    private final UserNotificationSender notificationSender;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -40,8 +40,7 @@ public class NotificationEventListener {
             }
         }
 
-        simpMessagingTemplate.convertAndSend("/topic/notifications/" + event.receiverUsername(),
-            event);
+        notificationSender.send(event.receiverUsername(), event);
     }
 
 }

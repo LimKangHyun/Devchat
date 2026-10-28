@@ -65,7 +65,7 @@ public class MentionNotificationService {
             }
             Notification saved = notificationRepository.save(Notification.ofMention(receiver, sender, event.roomId()));
             String content = sender.getNickname() + "님이 " + roomName + "에서 언급했습니다: " + event.preview();
-            // NotificationEventListener가 커밋 뒤 /topic/notifications/{username}으로 보낸다
+            // NotificationEventListener가 커밋 뒤 받는 사람 세션(/user/queue/notifications)으로 보낸다
             eventPublisher.publishEvent(NotificationDto.ofNotification(saved).withContent(content));
             sent++;
         }

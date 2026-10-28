@@ -59,6 +59,8 @@ public class ChatMessageService {
     @Transactional(timeout = 3)
     public void save(Long roomId, ChatMessageRequest request,
                                     MemberDetails memberDetails) {
+        // 구독만 막으면 방 번호를 아는 누구나 SEND로 메시지를 올릴 수 있다
+        chatRoomParticipantService.validateParticipant(memberDetails.getId(), roomId);
 
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);

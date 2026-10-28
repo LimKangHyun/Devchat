@@ -113,6 +113,20 @@ class ChatMessageServiceTest {
         }
 
         @Test
+        @DisplayName("방 참여자가 아니면 메시지를 저장하지 않는다")
+        void save_notParticipant_rejected() {
+            given(memberDetails.getId()).willReturn(1L);
+            org.mockito.BDDMockito.willThrow(new project.api.global.exception.ex.ChatRoomException(
+                    project.api.global.exception.errorcode.ChatRoomErrorCode.NOT_PARTICIPANT))
+                .given(chatRoomParticipantService).validateParticipant(1L, 10L);
+
+            assertThatThrownBy(() -> chatMessageService.save(10L, mock(ChatMessageRequest.class), memberDetails))
+                .isInstanceOf(project.api.global.exception.ex.ChatRoomException.class);
+            then(chatMessageRepository).should(never()).save(any());
+            then(eventPublisher).should(never()).publishEvent(any());
+        }
+
+        @Test
         @DisplayName("IMAGE 메시지를 저장하면 색인 상태가 저장되지 않는다")
         void save_imageMessage_noIndexStatus() {
             given(memberDetails.getId()).willReturn(1L);

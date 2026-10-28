@@ -16,7 +16,10 @@ import project.api.domain.dm.dmMessage.dto.DmMessageResponse;
 import project.api.domain.dm.dmMessage.entity.DmMessage;
 import project.api.domain.dm.dmRoom.entity.DmRoom;
 import project.api.domain.member.entity.Member;
+import project.api.domain.notification.UserNotificationSender;
 import project.api.domain.notification.dto.NotificationDto;
+import project.api.global.exception.errorcode.DmErrorCode;
+import project.api.global.exception.ex.DmException;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +29,7 @@ public class DmMessageService {
     private final DmMessageRepository dmMessageRepository;
     private final MemberService memberService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final UserNotificationSender notificationSender;
 
     @Transactional
     public DmMessageResponse save(Long roomId, DmMessageRequest request, Authentication auth) {
@@ -34,18 +38,24 @@ public class DmMessageService {
 
         DmRoom room = dmRoomService.getDmRoomById(roomId);
 
+        // 대화 당사자만 보낼 수 있고, 알림은 요청 값이 아니라 방의 상대방에게 보낸다
+        Member receiver = otherMemberOf(room, sender.getId());
+
         DmMessage dmMessage = new DmMessage(room, sender, request.content(), request.type());
 
-        NotificationDto notificationDto = NotificationDto.ofDmMessage(dmMessage,
-            request.receiverUsername());
+        NotificationDto notificationDto = NotificationDto.ofDmMessage(dmMessage, receiver.getUsername());
 
         DmMessageResponse response = DmMessageResponse.from(dmMessageRepository.save(dmMessage));
         messagingTemplate.convertAndSend("/topic/dm/" + roomId, response);
 
-        messagingTemplate.convertAndSend(
-            "/topic/notifications/" + notificationDto.receiverUsername(),
-            notificationDto);
+        notificationSender.send(notificationDto.receiverUsername(), notificationDto);
         return response;
+    }
+
+    private Member otherMemberOf(DmRoom room, Long senderId) {
+        if (room.getMember1().getId().equals(senderId)) return room.getMember2();
+        if (room.getMember2().getId().equals(senderId)) return room.getMember1();
+        throw new DmException(DmErrorCode.NOT_DM_MEMBER);
     }
 
     @Transactional

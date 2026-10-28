@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import project.api.auth.dto.MemberDetails;
 import project.api.domain.chat.chatroom.dao.ChatParticipantRepository;
+import project.api.domain.dm.dmRoom.dao.DmRoomRepository;
 
 import java.util.Map;
 
@@ -35,8 +36,12 @@ public class StompHandler implements ChannelInterceptor {
     static final String MEMBER_ID = "memberId";
 
     private static final String CHAT_TOPIC_PREFIX = "/topic/chat/";
+    private static final String DM_TOPIC_PREFIX = "/topic/dm/";
+    // 알림은 /user/queue/notifications(본인 세션에만 전달)로 옮겼다. 예전 주소는 누구나 남의 알림을 구독할 수 있었다
+    private static final String LEGACY_NOTIFICATION_PREFIX = "/topic/notifications";
 
     private final ChatParticipantRepository chatParticipantRepository;
+    private final DmRoomRepository dmRoomRepository;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -52,7 +57,17 @@ public class StompHandler implements ChannelInterceptor {
         }
 
         String destination = accessor.getDestination();
-        if (destination == null || !destination.startsWith(CHAT_TOPIC_PREFIX)) {
+        if (destination == null) {
+            return message;
+        }
+        if (destination.startsWith(LEGACY_NOTIFICATION_PREFIX)) {
+            log.warn("[STOMP] 예전 알림 주소 구독 무시: {}", destination);
+            return null;
+        }
+        if (destination.startsWith(DM_TOPIC_PREFIX)) {
+            return allowDmSubscription(accessor, destination) ? message : null;
+        }
+        if (!destination.startsWith(CHAT_TOPIC_PREFIX)) {
             return message;
         }
 
@@ -62,9 +77,8 @@ public class StompHandler implements ChannelInterceptor {
             return null;
         }
 
-        if (!(accessor.getUser() instanceof Authentication authentication)
-                || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof MemberDetails user)) {
+        MemberDetails user = authenticatedMember(accessor);
+        if (user == null) {
             log.warn("[STOMP] 인증 정보 없는 채팅방 구독 무시: room={}", roomId);
             return null;
         }
@@ -84,6 +98,26 @@ public class StompHandler implements ChannelInterceptor {
             }
         }
         return message;
+    }
+
+    // DM은 대화 당사자 둘만 구독할 수 있다
+    private boolean allowDmSubscription(StompHeaderAccessor accessor, String destination) {
+        Long dmRoomId = extractRoomId(destination);
+        MemberDetails user = authenticatedMember(accessor);
+        if (dmRoomId == null || user == null || !dmRoomRepository.isMember(dmRoomId, user.getId())) {
+            log.info("[STOMP] 권한 없는 DM 구독 무시: {}", destination);
+            return false;
+        }
+        return true;
+    }
+
+    private MemberDetails authenticatedMember(StompHeaderAccessor accessor) {
+        if (accessor.getUser() instanceof Authentication authentication
+                && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof MemberDetails user) {
+            return user;
+        }
+        return null;
     }
 
     // 보고 있던 방의 구독을 해제하면(방에서 나감) 현재 방 기록을 지운다

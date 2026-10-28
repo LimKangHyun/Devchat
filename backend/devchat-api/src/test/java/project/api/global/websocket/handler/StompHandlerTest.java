@@ -11,6 +11,7 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import project.api.auth.dto.MemberDetails;
 import project.api.domain.chat.chatroom.dao.ChatParticipantRepository;
+import project.api.domain.dm.dmRoom.dao.DmRoomRepository;
 
 import java.security.Principal;
 import java.util.HashMap;
@@ -31,12 +32,30 @@ import static org.mockito.Mockito.mock;
 class StompHandlerTest {
 
     private final ChatParticipantRepository participantRepository = mock(ChatParticipantRepository.class);
+    private final DmRoomRepository dmRoomRepository = mock(DmRoomRepository.class);
     private final MessageChannel channel = mock(MessageChannel.class);
     private StompHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new StompHandler(participantRepository);
+        handler = new StompHandler(participantRepository, dmRoomRepository);
+    }
+
+    @Test
+    @DisplayName("DM은 대화 당사자만 구독할 수 있다")
+    void dmSubscribeOnlyForMembers() {
+        given(dmRoomRepository.isMember(5L, 1L)).willReturn(true);
+        given(dmRoomRepository.isMember(5L, 2L)).willReturn(false);
+
+        assertThat(handler.preSend(subscribe("/topic/dm/5", user(1L), new HashMap<>()), channel)).isNotNull();
+        assertThatCode(() -> assertThat(handler.preSend(subscribe("/topic/dm/5", user(2L), new HashMap<>()), channel)).isNull())
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("예전 알림 주소(/topic/notifications/{username})는 누구도 구독할 수 없다")
+    void legacyNotificationTopicIsBlocked() {
+        assertThat(handler.preSend(subscribe("/topic/notifications/alice", user(1L), new HashMap<>()), channel)).isNull();
     }
 
     @Test
@@ -99,9 +118,10 @@ class StompHandlerTest {
     }
 
     @Test
-    @DisplayName("채팅방이 아닌 구독은 검사하지 않는다")
+    @DisplayName("공개 주소와 내 전용 주소(/user/...)는 검사하지 않는다")
     void otherDestinationsPass() {
-        assertThat(handler.preSend(subscribe("/topic/notifications/alice", user(1L), new HashMap<>()), channel)).isNotNull();
+        assertThat(handler.preSend(subscribe("/topic/profile-update", user(1L), new HashMap<>()), channel)).isNotNull();
+        assertThat(handler.preSend(subscribe("/user/queue/notifications", user(1L), new HashMap<>()), channel)).isNotNull();
     }
 
     private static Principal user(Long id) {

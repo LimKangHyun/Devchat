@@ -2,7 +2,7 @@ package project.api.domain.community.listener;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import project.api.domain.notification.UserNotificationSender;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import project.api.domain.community.dto.event.ApplicantResultEvent;
@@ -17,7 +17,7 @@ import project.api.domain.notification.entity.NotificationType;
 @RequiredArgsConstructor
 public class ApplicantEventListener {
 
-    private final SimpMessagingTemplate messagingTemplate;
+    private final UserNotificationSender notificationSender;
     private final NotificationService notificationService;
 
     @EventListener
@@ -30,10 +30,7 @@ public class ApplicantEventListener {
             Notification.ofStudyApply(receiver, sender, event.postId())
         );
 
-        messagingTemplate.convertAndSend(
-            "/topic/notifications/" + event.authorUsername(),  // 방장 username
-            NotificationDto.ofNotification(saved)
-        );
+        notificationSender.send(event.authorUsername(), NotificationDto.ofNotification(saved)); // 방장
     }
 
     @EventListener
@@ -50,9 +47,6 @@ public class ApplicantEventListener {
             Notification.ofStudyResult(receiver, sender, event.postId(), type)
         );
 
-        messagingTemplate.convertAndSend(
-            "/topic/notifications/" + event.applicantUsername(),  // 신청자 username
-            NotificationDto.ofNotification(saved)
-        );
+        notificationSender.send(event.applicantUsername(), NotificationDto.ofNotification(saved)); // 신청자
     }
 }

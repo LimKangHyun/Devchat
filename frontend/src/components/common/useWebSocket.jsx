@@ -80,12 +80,13 @@ const useWebSocket = ({
     return () => safeUnsubscribe([sub])
   }, [connected, onProfileUpdate, safeUnsubscribe])
 
-  // 알림 구독
+  // 알림 구독. 서버가 로그인한 본인 세션에만 보내는 주소라 username을 주소에 넣지 않는다
+  // (username은 로그인 정보가 준비됐는지 확인하는 용도)
   useEffect(() => {
     const client = stompClientRef.current
     if (!connected || !client?.connected || !username) return
 
-    const sub = client.subscribe(`/topic/notifications/${username}`, (message) => {
+    const sub = client.subscribe("/user/queue/notifications", (message) => {
       try {
         const notification = JSON.parse(message.body)
         notification.timestamp = new Date().toISOString()
