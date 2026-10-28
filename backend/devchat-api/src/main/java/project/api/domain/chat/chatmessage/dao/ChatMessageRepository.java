@@ -17,6 +17,9 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     List<ChatMessage> findByIdIn(List<Long> ids);
 
+    /** 같은 사람이 같은 임시 id로 이미 보낸 메시지 (다시 보내기 중복 확인) */
+    Optional<ChatMessage> findBySender_IdAndClientMessageId(Long senderId, String clientMessageId);
+
     // 채팅방 입장 시, cursor가 null값이므로, 초반 메시지를 가져올 메서드
     @EntityGraph(attributePaths = {"aiReview"})
     List<ChatMessage> findByChatRoom_IdOrderByIdDesc(Long roomId, Pageable pageable);

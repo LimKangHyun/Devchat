@@ -113,6 +113,46 @@ class ChatMessageServiceTest {
         }
 
         @Test
+        @DisplayName("같은 임시 id로 다시 보내면 새로 저장하지 않고 보낸 사람에게만 알린다")
+        void save_duplicateClientMessageId_acksWithoutSaving() {
+            given(memberDetails.getId()).willReturn(1L);
+            given(memberDetails.getUsername()).willReturn("alice");
+            ChatMessageRequest request = mock(ChatMessageRequest.class);
+            given(request.getClientMessageId()).willReturn("c-123");
+            given(chatMessageRepository.findBySender_IdAndClientMessageId(1L, "c-123")).willReturn(Optional.of(textMessage));
+            ChatMessageResponse saved = mock(ChatMessageResponse.class);
+            given(messageMapper.toResponse(textMessage)).willReturn(saved);
+
+            chatMessageService.save(10L, request, memberDetails);
+
+            then(chatMessageRepository).should(never()).save(any());
+            then(eventPublisher).should().publishEvent(
+                new project.api.domain.chat.chatmessage.event.ChatMessageAckEvent("alice", saved));
+            then(eventPublisher).should(never()).publishEvent(any(ChatMessageSavedEvent.class));
+        }
+
+        @Test
+        @DisplayName("처음 보내는 메시지는 임시 id와 함께 저장한다")
+        void save_newClientMessageId_storedWithMessage() {
+            given(memberDetails.getId()).willReturn(1L);
+            ChatMessageRequest request = mock(ChatMessageRequest.class);
+            given(request.getType()).willReturn(TEXT);
+            given(request.getClientMessageId()).willReturn(" c-456 ");
+            given(entityManager.getReference(Member.class, 1L)).willReturn(sender);
+            given(entityManager.getReference(ChatRoom.class, 10L)).willReturn(chatRoom);
+            given(messageMapper.toEntityWithText(chatRoom, sender, request)).willReturn(textMessage);
+            given(textMessage.getType()).willReturn(TEXT);
+            given(textMessage.getChatRoom()).willReturn(chatRoom);
+            given(chatRoom.getId()).willReturn(10L);
+            given(messageMapper.toIndexStatus(textMessage)).willReturn(mock(ChatMessageIndexStatus.class));
+
+            chatMessageService.save(10L, request, memberDetails);
+
+            then(textMessage).should().assignClientMessageId("c-456");
+            then(chatMessageRepository).should().save(textMessage);
+        }
+
+        @Test
         @DisplayName("방 참여자가 아니면 메시지를 저장하지 않는다")
         void save_notParticipant_rejected() {
             given(memberDetails.getId()).willReturn(1L);

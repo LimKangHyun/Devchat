@@ -643,6 +643,72 @@
   word-break: break-word;
 }
 
+/* 아직 서버가 확인하지 않은 내 메시지 (목록 맨 아래) */
+.pendingList {
+  padding-bottom: 4px;
+}
+
+.pendingRow {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.pendingText {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0.7;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pendingCode {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 13px;
+}
+
+.pendingStatus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.pendingFailed .pendingText {
+  opacity: 1;
+  color: var(--text);
+}
+
+.pendingFailed .pendingStatus {
+  color: var(--danger);
+}
+
+.pendingAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pendingAction:hover {
+  background: var(--bg-muted);
+  color: var(--text);
+}
+
 .link {
   color: var(--link);
   text-decoration: none;

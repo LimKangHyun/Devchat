@@ -58,6 +58,14 @@ public class ChatMessage {
     @JoinColumn(name = "ai_review_id")
     private AiReview aiReview;
 
+    /** 보낸 브라우저가 붙인 임시 id. 다시 보내기를 중복 저장하지 않고, 화면의 "전송 중" 메시지와 짝을 맞춘다 */
+    @Column(name = "client_message_id", length = 36)
+    private String clientMessageId;
+
+    public void assignClientMessageId(String clientMessageId) {
+        this.clientMessageId = clientMessageId;
+    }
+
 
     public Long getChatRoomId() {
         return chatRoom.getId();

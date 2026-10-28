@@ -124,7 +124,8 @@ const useWebSocket = ({
     const sub = client.subscribe(`/user/queue/errors`, (message) => {
       try {
         const error = JSON.parse(message.body)
-        onErrorRef.current?.(error.message)
+        // 두 번째 인자: 전체 오류 (clientMessageId가 있으면 어느 메시지가 거절됐는지 알 수 있다)
+        onErrorRef.current?.(error.message, error)
       } catch (e) {
         console.error("📛 Failed to parse error message", e)
       }

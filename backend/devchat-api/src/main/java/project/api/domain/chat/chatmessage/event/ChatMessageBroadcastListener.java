@@ -25,4 +25,13 @@ public class ChatMessageBroadcastListener {
         ChatMessageResponse response = messageMapper.toBroadcastResponse(event, profileImage);
         messagingTemplate.convertAndSend("/topic/chat/" + event.roomId(), response);
     }
+
+    public static final String ACK_DESTINATION = "/queue/message-ack";
+
+    // 다시 보낸 메시지가 이미 저장돼 있으면 보낸 사람에게만 저장된 메시지를 돌려준다
+    @Async("chatBroadcastExecutor")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void handleAck(ChatMessageAckEvent event) {
+        messagingTemplate.convertAndSendToUser(event.senderUsername(), ACK_DESTINATION, event.message());
+    }
 }

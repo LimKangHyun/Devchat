@@ -11,6 +11,7 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import project.api.global.exception.ex.stomp.StompExceptionHandler;
 import project.api.auth.dto.MemberDetails;
 import project.api.global.ratelimit.UserRateLimiter;
 import project.api.global.websocket.interceptor.event.RateLimitExceededEvent;
@@ -35,7 +36,8 @@ public class RateLimitChannelInterceptor implements ChannelInterceptor {
             MemberDetails user = (MemberDetails) authentication.getPrincipal();
 
             if (!isAllowed(user.getId())) {
-                eventPublisher.publishEvent(new RateLimitExceededEvent(user.getUsername()));
+                eventPublisher.publishEvent(new RateLimitExceededEvent(user.getUsername(),
+                        accessor.getFirstNativeHeader(StompExceptionHandler.CLIENT_MESSAGE_ID_HEADER)));
                 return null;
             }
         }

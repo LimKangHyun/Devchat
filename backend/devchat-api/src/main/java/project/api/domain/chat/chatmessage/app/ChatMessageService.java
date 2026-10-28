@@ -5,6 +5,7 @@ import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -22,6 +23,7 @@ import project.api.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.api.domain.chat.chatmessage.dto.ChatMessageSearchSlice;
 import project.api.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.api.domain.chat.chatmessage.event.ChatMentionEvent;
+import project.api.domain.chat.chatmessage.event.ChatMessageAckEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessageBroadcastEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessageSavedEvent;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
@@ -63,10 +65,23 @@ public class ChatMessageService {
         chatRoomParticipantService.validateParticipant(memberDetails.getId(), roomId);
         validateContentLength(request.getContent());
 
+        // 연결이 끊겨 다시 보낸 메시지가 이미 저장돼 있으면 새로 저장하지 않고 보낸 사람에게만 알린다
+        String clientMessageId = normalizeClientMessageId(request.getClientMessageId());
+        if (clientMessageId != null) {
+            Optional<ChatMessage> existing =
+                chatMessageRepository.findBySender_IdAndClientMessageId(memberDetails.getId(), clientMessageId);
+            if (existing.isPresent()) {
+                eventPublisher.publishEvent(new ChatMessageAckEvent(
+                    memberDetails.getUsername(), messageMapper.toResponse(existing.get())));
+                return;
+            }
+        }
+
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);
 
         ChatMessage message = createMessage(room, sender, request);
+        message.assignClientMessageId(clientMessageId);
         chatMessageRepository.save(message);
 
         if (isSearchable(message)) {
@@ -86,6 +101,15 @@ public class ChatMessageService {
         if (content != null && content.length() > MAX_CONTENT_LENGTH) {
             throw new ChatMessageException(ChatMessageErrorCode.MESSAGE_TOO_LONG);
         }
+    }
+
+    private static final int CLIENT_MESSAGE_ID_MAX = 36;
+
+    // 형식이 이상한 임시 id는 무시한다 (메시지는 그대로 저장, 중복 확인만 하지 않음)
+    private static String normalizeClientMessageId(String raw) {
+        if (raw == null) return null;
+        String id = raw.trim();
+        return id.isEmpty() || id.length() > CLIENT_MESSAGE_ID_MAX ? null : id;
     }
 
     private static final int MAX_MENTIONS = 20;
