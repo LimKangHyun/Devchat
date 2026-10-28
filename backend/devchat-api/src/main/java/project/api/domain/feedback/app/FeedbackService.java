@@ -1,0 +1,78 @@
+package project.api.domain.feedback.app;
+
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.regex.Pattern;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import project.api.domain.feedback.client.GitHubIssueClient;
+import project.api.domain.feedback.dto.FeedbackRequest;
+import project.api.domain.feedback.dto.FeedbackResponse;
+import project.api.global.exception.errorcode.FeedbackErrorCode;
+import project.api.global.exception.ex.FeedbackException;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class FeedbackService {
+
+    // @사용자·@조직/팀 멘션. 공개 이슈로 아무나 남을 호출(알림)하지 못하게 @ 뒤에 보이지 않는 문자를 넣는다
+    private static final Pattern MENTION = Pattern.compile("@(?=[A-Za-z0-9])");
+    private static final String NO_MENTION = "@​";
+    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    private final GitHubIssueClient issueClient;
+    private final FeedbackRateLimiter rateLimiter;
+
+    public FeedbackResponse submit(Long memberId, FeedbackRequest req) {
+        if (!issueClient.isConfigured()) {
+            throw new FeedbackException(FeedbackErrorCode.FEEDBACK_NOT_CONFIGURED);
+        }
+        if (!rateLimiter.tryAcquire(memberId)) {
+            throw new FeedbackException(FeedbackErrorCode.TOO_MANY_FEEDBACK);
+        }
+
+        String title = "[" + req.type().getLabel() + "] " + noMention(oneLine(req.title()));
+        String body = buildBody(memberId, req);
+        try {
+            GitHubIssueClient.CreatedIssue issue = issueClient.createIssue(title, body);
+            log.info("피드백 이슈 생성 - memberId={}, issue=#{}", memberId, issue.number());
+            return new FeedbackResponse(issue.number(), issue.url());
+        } catch (Exception e) {
+            log.warn("피드백 이슈 생성 실패 - memberId={}, error={}", memberId, e.getMessage());
+            throw new FeedbackException(FeedbackErrorCode.FEEDBACK_SEND_FAILED, e);
+        }
+    }
+
+    private String buildBody(Long memberId, FeedbackRequest req) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(noMention(req.content().strip())).append("\n\n---\n");
+        sb.append("- 종류: ").append(req.type().getLabel()).append('\n');
+        sb.append("- 사용자 번호: ").append(memberId).append('\n');
+        if (hasText(req.pagePath())) sb.append("- 화면: `").append(codeSafe(req.pagePath())).append("`\n");
+        if (hasText(req.userAgent())) sb.append("- 브라우저: `").append(codeSafe(req.userAgent())).append("`\n");
+        sb.append("- 보낸 시각: ").append(ZonedDateTime.now(ZoneId.of("Asia/Seoul")).format(TIME)).append(" (KST)\n");
+        sb.append("\n_DevChat 앱의 피드백 보내기로 등록된 이슈입니다._");
+        return sb.toString();
+    }
+
+    private static String noMention(String s) {
+        return MENTION.matcher(s).replaceAll(NO_MENTION);
+    }
+
+    private static String oneLine(String s) {
+        return s.replaceAll("\\s+", " ").strip();
+    }
+
+    // 인라인 코드 안에 넣을 값: 줄바꿈과 백틱을 없앤다
+    private static String codeSafe(String s) {
+        return oneLine(s).replace('`', '\'');
+    }
+
+    private static boolean hasText(String s) {
+        return s != null && !s.isBlank();
+    }
+}

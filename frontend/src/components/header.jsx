@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { flushSync, createPortal } from "react-dom"
-import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound } from "lucide-react"
+import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound, MessageSquareHeart } from "lucide-react"
 import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link, useLocation, useNavigate } from "react-router-dom"
@@ -10,6 +10,7 @@ import { useUser } from '../context/UserContext'
 import { useAlarm, clearRoomsCache } from '../context/AlarmContext'
 import AppMenuItems from "./pwa/AppMenuItems"
 import IOSInstallGuide from "./pwa/IOSInstallGuide"
+import FeedbackModal from "./modals/FeedbackModal"
 import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
 import { showAppNotification, closeSeenNotifications } from "../utils/showNotification"
 import { clearAppBadge } from "../utils/appBadge"
@@ -574,6 +575,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
   }, [currentUser?.username])
 
   const [showIOSGuide, setShowIOSGuide] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -752,6 +754,10 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
                     onShowIOSGuide={() => setShowIOSGuide(true)}
                     onClose={() => setIsProfileOpen(false)}
                   />
+                  <button type="button" className={styles.profileDropdownItem} onClick={() => { setIsProfileOpen(false); setShowFeedback(true) }}>
+                    <MessageSquareHeart size={16} />
+                    피드백 보내기
+                  </button>
                   <button type="button" className={`${styles.profileDropdownItem} ${styles.profileDropdownItemDanger}`} onClick={handleLogout}>
                     <LogOut size={16} />
                     로그아웃
@@ -788,6 +794,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       </audio>
       {/* 헤더가 숨겨지는 화면도 있어 body에 그린다 */}
       {showIOSGuide && createPortal(<IOSInstallGuide onClose={() => setShowIOSGuide(false)} />, document.body)}
+      {showFeedback && createPortal(<FeedbackModal onClose={() => setShowFeedback(false)} />, document.body)}
     </nav>
   )
 }
