@@ -465,12 +465,48 @@ const ChatRoom = () => {
       setDeleteNotification(e.content);
     },
     onError: (message, error) => {
+      if (error?.type === 'TOO_MANY_REQUESTS') {
+        // 너무 빠르게 보내 막힌 메시지는 다시 보내기 없이 버리고, 잠시 전송을 막는다
+        if (error.clientMessageId) outboxRef.current.discard(error.clientMessageId);
+        blockSending(error.retryAfterSeconds);
+        return;
+      }
       // 어느 메시지가 거절됐는지 알 수 있으면 그 메시지를 "전송 실패"로 바꾼다
       if (error?.clientMessageId) outboxRef.current.fail(error.clientMessageId, message);
-      setToast({ open: true, message });
-      setTimeout(() => setToast({ open: false, message: '' }), 3000);
+      showToast(message);
     },
   });
+
+  const showToast = (message) => {
+    setToast({ open: true, message });
+    setTimeout(() => setToast({ open: false, message: '' }), 3000);
+  };
+
+  // 전송 속도 제한에 걸리면 서버가 알려준 시간 동안 보내지 못하게 한다
+  const sendBlockedUntilRef = useRef(0);
+  const [sendBlockedUntil, setSendBlockedUntil] = useState(0);
+  const [blockedSeconds, setBlockedSeconds] = useState(0);
+  const blockSending = (retryAfterSeconds = 5) => {
+    const now = Date.now();
+    const alreadyBlocked = sendBlockedUntilRef.current > now;
+    const until = Math.max(sendBlockedUntilRef.current, now + retryAfterSeconds * 1000);
+    sendBlockedUntilRef.current = until;
+    setSendBlockedUntil(until);
+    // 연달아 막혀도 안내는 한 번만
+    if (!alreadyBlocked) showToast(`메시지를 너무 빠르게 보내고 있어요. ${retryAfterSeconds}초 후에 다시 보내 주세요.`);
+  };
+  const isSendBlocked = () => Date.now() < sendBlockedUntilRef.current;
+  useEffect(() => {
+    if (!sendBlockedUntil) return undefined;
+    const tick = () => {
+      const left = Math.ceil((sendBlockedUntil - Date.now()) / 1000);
+      setBlockedSeconds(Math.max(0, left));
+      if (left <= 0) setSendBlockedUntil(0);
+    };
+    tick();
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+  }, [sendBlockedUntil]);
 
   // 끊겼다 다시 연결되면, 끊긴 사이에 온 메시지를 채운다 (첫 연결은 초기 로딩이 맡는다).
   // 보내던 메시지는 끊기면 기다리고, 다시 연결되면 같은 임시 id로 다시 보낸다
@@ -636,6 +672,7 @@ const ChatRoom = () => {
   };
 
   const handleUnifiedSend = async () => {
+    if (isSendBlocked()) return; // 속도 제한 중: 입력한 글은 그대로 두고 보내지 않는다
     if (inputMode === 'IMAGE') {
       if (!imageFile) { alert('이미지를 선택하세요.'); return; }
       try {
@@ -651,6 +688,7 @@ const ChatRoom = () => {
   };
 
   const sendMessage = (override = null) => {
+    if (isSendBlocked()) return;
     if (!roomId || !initState.isRoomValidated) { alert('채팅방 로딩 중입니다.'); return; }
     if (!currentUser) { alert('사용자 정보 로딩 중입니다.'); return; }
     // 키보드 전송은 버튼 비활성과 상관없이 들어오므로 여기서도 막는다
@@ -881,6 +919,7 @@ const ChatRoom = () => {
               imagePreviewUrl={imagePreviewUrl} setImagePreviewUrl={setImagePreviewUrl}
               roomName={roomName}
               mentionCandidates={mentionCandidates}
+              blockedSeconds={blockedSeconds}
             />
           </div>
         </div>

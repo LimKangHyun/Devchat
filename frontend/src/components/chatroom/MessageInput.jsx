@@ -29,6 +29,7 @@ const MessageInput = ({
   setImagePreviewUrl,
   roomName,
   mentionCandidates = [],
+  blockedSeconds = 0, // 너무 빠르게 보내 막힌 동안 남은 초
 }) => {
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -85,7 +86,8 @@ const MessageInput = ({
 
   const tooLong = inputMode !== 'IMAGE' && isTooLong(content);
   const showCount = inputMode !== 'IMAGE' && content.length >= SHOW_COUNT_FROM;
-  const canSend = inputMode === 'IMAGE' ? !!imagePreviewUrl : content.trim().length > 0 && !tooLong;
+  const blocked = blockedSeconds > 0;
+  const canSend = !blocked && (inputMode === 'IMAGE' ? !!imagePreviewUrl : content.trim().length > 0 && !tooLong);
   const isCode = inputMode === 'CODE';
   const target = roomName || '이 방';
 
@@ -224,7 +226,11 @@ const MessageInput = ({
           </div>
         )}
 
-        {showCount ? (
+        {blocked ? (
+          <span className={`${s.charCount} ${s.charCountOver}`} role="status">
+            너무 빠르게 보내고 있어요 · {blockedSeconds}초 후에 보낼 수 있어요
+          </span>
+        ) : showCount ? (
           <span className={`${s.charCount} ${tooLong ? s.charCountOver : ''}`} role={tooLong ? 'alert' : undefined}>
             {tooLong && <>{TOO_LONG_MESSAGE} · </>}
             {content.length.toLocaleString()} / {MAX_MESSAGE_LENGTH.toLocaleString()}
