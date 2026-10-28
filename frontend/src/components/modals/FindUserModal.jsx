@@ -77,20 +77,8 @@ const SearchSection = memo(({ onSearchChange, onSearch, loading, hasValidQuery }
 })
 
 // Highly optimized User Item - no inline styles, no manual DOM manipulation
+// 친구가 아닌 사람의 접속 상태는 보여주지 않는다
 const UserItem = memo(({ user, sendingRequest, onSendFriendRequest }) => {
-    const statusClass = useMemo(() => {
-        switch (user.status) {
-            case "online":
-                return "online"
-            case "away":
-                return "away"
-            case "offline":
-                return "offline"
-            default:
-                return "offline"
-        }
-    }, [user.status])
-
     const handleAddFriend = useCallback(() => {
         onSendFriendRequest(user)
     }, [user, onSendFriendRequest])
@@ -99,12 +87,10 @@ const UserItem = memo(({ user, sendingRequest, onSendFriendRequest }) => {
         <div className="user-item">
             <div className="user-avatar">
                 <FaUser size={16} />
-                <div className={`status-indicator status-${statusClass}`} />
             </div>
             <div className="user-info">
                 <div className="user-name-line">
                     <span className="user-name">{user.nickname || user.username}</span>
-                    {user.status && <span className={`status-badge ${statusClass}`}>{user.status}</span>}
                 </div>
                 <div className="user-username">@{user.username}</div>
             </div>

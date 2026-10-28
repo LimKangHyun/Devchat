@@ -618,6 +618,14 @@
   margin: 2px 4px 6px;
 }
 
+/* 푸시 알림 켜기 결과 등 짧은 안내 */
+.profileDropdownNote {
+  margin: 2px 10px 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
 .profileDropdownItem {
   display: flex;
   align-items: center;

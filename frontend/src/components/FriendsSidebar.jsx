@@ -7,6 +7,7 @@ import FindUserModal from "./modals/FindUserModal"
 import axiosInstance from "./api/axiosInstance"
 import { useUser } from '../context/UserContext'
 import useWebSocketNotifications from "./common/useWebSocket"
+import { useWebSocketContext } from "./common/WebSocketContext"
 
 const FriendsSidebar = ({ onStartChat }) => {
   useEffect(() => {
@@ -30,26 +31,8 @@ const FriendsSidebar = ({ onStartChat }) => {
   const handleFriendNotification = useCallback((notification) => {
     switch (notification.type) {
       case "FRIEND_ACCEPTED":
-        const newFriend = {
-          username: notification.senderUsername,
-          nickname: notification.senderNickname,
-          status: "online",
-          avatar: notification.senderImg,
-        }
-        setFriends((prev) => {
-          if (!prev.some((f) => f.username === newFriend.username)) {
-            setTotalFriendsCount((c) => c + 1)
-            return [newFriend, ...prev]
-          }
-          return prev
-        })
-        break
-      case "FRIEND_STATUS_UPDATE":
-        setFriends((prev) =>
-          prev.map((friend) =>
-            friend.username === notification.sender ? { ...friend, status: notification.status || "offline" } : friend,
-          ),
-        )
+        // 새 친구의 실제 접속 상태를 받아오도록 목록을 다시 불러온다
+        window.dispatchEvent(new Event("friend-request-accepted"))
         break
       case "FRIEND_REMOVED":
         setFriends((prev) => {
@@ -66,8 +49,33 @@ const FriendsSidebar = ({ onStartChat }) => {
   }, [])
 
   useWebSocketNotifications({
+    username: currentUser?.username,
     onNotificationReceived: handleFriendNotification,
   })
+
+  // 친구 접속 상태 실시간 반영. 다시 연결되면 끊긴 사이 바뀐 상태를 맞추려고 목록을 다시 받는다
+  const { stompClientRef, connected } = useWebSocketContext()
+  const wasConnectedRef = useRef(false)
+  useEffect(() => {
+    const client = stompClientRef.current
+    if (!connected || !client?.connected || !currentUser) return
+
+    if (wasConnectedRef.current) fetchFriends(0, true)
+    wasConnectedRef.current = true
+
+    const sub = client.subscribe("/user/queue/presence", (message) => {
+      try {
+        const { username, status } = JSON.parse(message.body)
+        setFriends((prev) => prev.map((f) => (f.username === username ? { ...f, status } : f)))
+      } catch (e) {
+        console.error("접속 상태 메시지 처리 실패", e)
+      }
+    })
+    return () => {
+      try { if (client.connected) sub.unsubscribe() } catch (e) {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, currentUser])
 
   useEffect(() => {
     const handleNewDmForSidebar = (event) => {

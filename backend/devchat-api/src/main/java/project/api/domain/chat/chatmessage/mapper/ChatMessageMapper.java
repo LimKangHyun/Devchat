@@ -125,6 +125,7 @@ public class ChatMessageMapper {
                 .aiReviewStatus(message.getAiReview() != null ? message.getAiReview().getStatus().name() : null)
                 .publishedBy(message.getAiReview() != null ? message.getAiReview().getPublishedBy() : null)
                 .prStatus(message.getAiReview() != null ? message.getAiReview().getPrStatus().name() : null)
+                .clientMessageId(message.getClientMessageId())
                 .build();
     }
 
@@ -190,6 +191,7 @@ public class ChatMessageMapper {
                         ? event.message().getChatImage().getStoreFileName() : null)
                 .messageId(event.message().getId())
                 .status(event.message().getStatus())
+                .clientMessageId(event.message().getClientMessageId())
                 .build();
     }
 

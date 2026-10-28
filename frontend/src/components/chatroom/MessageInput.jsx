@@ -3,6 +3,8 @@ import { ImagePlus, Code2, SendHorizontal, X } from 'lucide-react';
 import s from './Chat.module.css';
 import { handleCodeKeyDown } from './codeEditorKeys';
 import { getMentionQuery } from '../../utils/mention';
+import { compressImage, CHAT_IMAGE_OPTIONS, MAX_UPLOAD_BYTES, formatBytes } from '../../utils/imageCompress';
+import { MAX_MESSAGE_LENGTH, SHOW_COUNT_FROM, TOO_LONG_MESSAGE, isTooLong } from '../../utils/messageLimits';
 
 const MAX_MENTION_CANDIDATES = 6;
 
@@ -81,7 +83,9 @@ const MessageInput = ({
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
 
-  const canSend = inputMode === 'IMAGE' ? !!imagePreviewUrl : content.trim().length > 0;
+  const tooLong = inputMode !== 'IMAGE' && isTooLong(content);
+  const showCount = inputMode !== 'IMAGE' && content.length >= SHOW_COUNT_FROM;
+  const canSend = inputMode === 'IMAGE' ? !!imagePreviewUrl : content.trim().length > 0 && !tooLong;
   const isCode = inputMode === 'CODE';
   const target = roomName || '이 방';
 
@@ -114,6 +118,7 @@ const MessageInput = ({
                 className={s.mentionAvatar}
                 src={p.profileImageUrl ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${p.profileImageUrl}` : '/images/not-found-profile.webp'}
                 alt=""
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/not-found-profile.webp'; }}
               />
               <span>{p.nickname}</span>
             </li>
@@ -219,13 +224,20 @@ const MessageInput = ({
           </div>
         )}
 
-        <span className={s.composerHint}>
-          {isCode ? (
-            <><b>Tab</b> 들여쓰기 · <b>Ctrl + Enter</b> 전송</>
-          ) : (
-            <><b>Shift + Enter</b> 줄바꿈</>
-          )}
-        </span>
+        {showCount ? (
+          <span className={`${s.charCount} ${tooLong ? s.charCountOver : ''}`} role={tooLong ? 'alert' : undefined}>
+            {tooLong && <>{TOO_LONG_MESSAGE} · </>}
+            {content.length.toLocaleString()} / {MAX_MESSAGE_LENGTH.toLocaleString()}
+          </span>
+        ) : (
+          <span className={s.composerHint}>
+            {isCode ? (
+              <><b>Tab</b> 들여쓰기 · <b>Ctrl + Enter</b> 전송</>
+            ) : (
+              <><b>Shift + Enter</b> 줄바꿈</>
+            )}
+          </span>
+        )}
 
         <button
           type="button"
@@ -243,14 +255,19 @@ const MessageInput = ({
         type="file"
         accept="image/*"
         ref={fileInputRef}
-        onChange={(e) => {
-          if (e.target.files?.[0]) {
-            const file = e.target.files[0];
-            setImageFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => setImagePreviewUrl(reader.result);
-            reader.readAsDataURL(file);
+        onChange={async (e) => {
+          const picked = e.target.files?.[0];
+          e.target.value = '';
+          if (!picked) return;
+          const file = await compressImage(picked, CHAT_IMAGE_OPTIONS);
+          if (file.size > MAX_UPLOAD_BYTES) {
+            alert(`이미지 용량이 너무 큽니다 (${formatBytes(file.size)}). ${formatBytes(MAX_UPLOAD_BYTES)} 이하로 올려주세요.`);
+            return;
           }
+          setImageFile(file);
+          const reader = new FileReader();
+          reader.onloadend = () => setImagePreviewUrl(reader.result);
+          reader.readAsDataURL(file);
         }}
         style={{ display: 'none' }}
       />

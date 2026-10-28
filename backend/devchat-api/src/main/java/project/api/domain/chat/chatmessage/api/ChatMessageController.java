@@ -20,6 +20,7 @@ import project.api.auth.dto.MemberDetails;
 import project.api.domain.chat.chatmessage.app.ChatMessageService;
 import project.api.domain.chat.chatmessage.dto.ChatMessageEditRequest;
 import project.api.domain.chat.chatmessage.dto.ChatMessageRequest;
+import project.api.domain.chat.chatmessage.dto.ChatCatchUpResponse;
 import project.api.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.api.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.api.domain.imagefile.ImageFile;
@@ -78,6 +79,17 @@ public class ChatMessageController {
         @RequestParam(defaultValue = "30") int size
     ) {
         return chatMessageService.getMessagesByRoomId(memberDetails.getId(), roomId, cursor, size);
+    }
+
+    @Operation(summary = "놓친 메시지 조회", description = "after 이후 메시지를 오래된 순서로. hasMore면 마지막 id로 이어서 받는다.")
+    @GetMapping("/{roomId}/messages/after")
+    public ChatCatchUpResponse getMessagesAfter(
+        @AuthenticationPrincipal MemberDetails memberDetails,
+        @PathVariable Long roomId,
+        @RequestParam Long after,
+        @RequestParam(defaultValue = "100") int size
+    ) {
+        return chatMessageService.getMessagesAfter(memberDetails.getId(), roomId, after, size);
     }
 
     @MessageMapping("/delete-message/{roomId}")

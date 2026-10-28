@@ -155,3 +155,10 @@ management:
   metrics:
     tags:
       application: devchat
+# 휴대폰 알림(웹 푸시). 서버 .env에 VAPID_PUBLIC_KEY·VAPID_PRIVATE_KEY·VAPID_SUBJECT를 넣는다.
+# 비어 있으면 휴대폰 알림만 꺼지고 나머지 기능은 그대로 동작한다.
+webpush:
+  vapid:
+    public-key: ${VAPID_PUBLIC_KEY:}
+    private-key: ${VAPID_PRIVATE_KEY:}
+    subject: ${VAPID_SUBJECT:mailto:admin@devchat.app}

@@ -1,13 +1,20 @@
 import { createContext, useContext, useEffect, useCallback } from "react"
 import { useWebSocketContext } from "../components/common/WebSocketContext"
 import { useAlarm } from "./AlarmContext"
+import { useUser } from "./UserContext"
 
 const ChatSubscriptionContext = createContext(null)
 export const useChatSubscription = () => useContext(ChatSubscriptionContext)
 
 export const ChatSubscriptionProvider = ({ children }) => {
   const { stompClientRef, connected } = useWebSocketContext()
-  const { alarmRooms, currentRoomIdRef, incrementUnread, bringRoomToTop, getAlarmStatus } = useAlarm()
+  const { alarmRooms, currentRoomIdRef, incrementUnread, bringRoomToTop, getAlarmStatus, bindRoomsToUser, isRoomsTrusted } = useAlarm()
+  const { currentUser } = useUser() || {}
+  const username = currentUser?.username
+
+  // 다른 계정이 남긴 방 목록 캐시를 쓰지 않도록 지금 계정을 알려준다
+  useEffect(() => { bindRoomsToUser(username) }, [username, bindRoomsToUser])
+  const roomsTrusted = isRoomsTrusted(username)
 
   const chatRoomIdsKey = alarmRooms.map(r => r.uniqueId).join(',')
 
@@ -21,7 +28,7 @@ export const ChatSubscriptionProvider = ({ children }) => {
 
   useEffect(() => {
     const client = stompClientRef.current
-    if (!connected || !client?.connected || !alarmRooms.length) return
+    if (!connected || !client?.connected || !roomsTrusted || !alarmRooms.length) return
 
     const subs = alarmRooms
       .filter(room => room.uniqueId)
@@ -57,7 +64,7 @@ export const ChatSubscriptionProvider = ({ children }) => {
       }))
 
     return () => safeUnsubscribe(subs)
-  }, [connected, chatRoomIdsKey, safeUnsubscribe])
+  }, [connected, chatRoomIdsKey, roomsTrusted, safeUnsubscribe])
 
   return (
     <ChatSubscriptionContext.Provider value={{}}>

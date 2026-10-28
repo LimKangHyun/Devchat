@@ -1,13 +1,16 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { flushSync } from "react-dom"
+import { flushSync, createPortal } from "react-dom"
 import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound } from "lucide-react"
 import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useUser } from '../context/UserContext'
-import { useAlarm } from '../context/AlarmContext'
+import { useAlarm, clearRoomsCache } from '../context/AlarmContext'
+import AppMenuItems from "./pwa/AppMenuItems"
+import IOSInstallGuide from "./pwa/IOSInstallGuide"
+import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
 import useWebSocketNotifications from "./common/useWebSocket"
 
 window.__devchatActiveNoti ??= null;
@@ -24,6 +27,19 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
   const roomUrlById = (roomId) => {
     const room = (alarmRoomsRef.current || []).find((r) => Number(r.uniqueId) === Number(roomId))
     return room?.inviteCode ? `/chat/${room.inviteCode}` : null
+  }
+  // 캐시에 없는 방(새로 초대된 방 등)이면 방 목록을 다시 받아 찾는다
+  const resolveRoomUrl = async (roomId) => {
+    const cached = roomUrlById(roomId)
+    if (cached) return cached
+    try {
+      const res = await axiosInstance.get('/chat-rooms/all')
+      const room = (res.data || []).find((r) => Number(r.roomId ?? r.id) === Number(roomId))
+      return room?.inviteCode ? `/chat/${room.inviteCode}` : null
+    } catch (err) {
+      console.error("채팅방 주소 조회 실패:", err)
+      return null
+    }
   }
 
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -77,7 +93,11 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       setRealtimeNotificationCount((prev) => prev + 1)
     })
     if (notification.type === "MENTION") {
-      showImmediateNotification({ ...notification, url: roomUrlById(notification.referenceId) })
+      showImmediateNotification({
+        ...notification,
+        url: roomUrlById(notification.referenceId),
+        resolveUrl: () => resolveRoomUrl(notification.referenceId),
+      })
       setHasUnreadNotifications(true)
       return
     }
@@ -162,11 +182,12 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
           : "/images/not-found-profile.webp",
       })
 
-      if (notification.url) {
-        noti.onclick = () => {
+      if (notification.url || notification.resolveUrl) {
+        noti.onclick = async () => {
           try { window.focus() } catch {}
-          window.location.href = notification.url
           noti.close()
+          const url = notification.url || (await notification.resolveUrl())
+          if (url) window.location.href = url
         }
       }
 
@@ -324,8 +345,9 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       case "STUDY_APPROVED":
       case "STUDY_REJECTED": window.location.href = `/community/${entityId}`; break
       case "MENTION": {
-        const url = roomUrlById(entityId)
+        const url = await resolveRoomUrl(entityId)
         if (url) navigate(url)
+        else alert("채팅방을 찾을 수 없습니다. 방에서 나갔거나 삭제된 방일 수 있습니다.")
         break
       }
       default: break
@@ -371,7 +393,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
     const isFriendRequest = notification.type === "FRIEND_REQUESTED"
     const typeInfo = getNotificationTypeInfo(notification.type)
     const showActionButtonsForFriendRequest = isFriendRequest && !notification.isRead
-    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", "CODE_REVIEW", "MESSAGE", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"]
+    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", "CODE_REVIEW", "MESSAGE", "MENTION", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"]
     const canMarkAsRead = !typesWithoutMarkAsReadButton.includes(notification.type) && !notification.isRead
 
     let actionElement = null
@@ -393,7 +415,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
           {markingAsReadId === notification.id ? <div className={styles.buttonSpinner}></div> : <Check size={16} />}
         </button>
       )
-    } else if (["CODE_REVIEW", "MESSAGE", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"].includes(notification.type)) {
+    } else if (["CODE_REVIEW", "MESSAGE", "MENTION", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"].includes(notification.type)) {
       actionElement = (
         <button className={styles.navigationButton} onClick={() => handleNotificationNavigation(notification)} aria-label={`Navigate to ${typeInfo.label}`}>
           <ArrowRight size={16} />
@@ -456,8 +478,12 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       if (currentRoomId) {
         await axiosInstance.post(`/chat-rooms/${currentRoomId}/read`).catch(() => {})
       }
+      // 로그아웃한 기기로 이 계정의 휴대폰 알림이 계속 오지 않게 (로그아웃 전에, 인증이 살아 있을 때)
+      await disablePush().catch(() => {})
       const response = await axiosInstance.post("/logout", {})
       if (response.status === 204) {
+        // 같은 브라우저로 다른 계정이 로그인할 때 이전 계정의 방 목록이 남지 않게
+        clearRoomsCache()
         alert("로그아웃 되었습니다.")
         window.location.href = "/login"
       } else {
@@ -488,9 +514,16 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
 
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission()
+      Notification.requestPermission().then((p) => { if (p === "granted") syncPushSubscription() })
     }
   }, [])
+
+  // 이미 알림을 허용한 기기면 로그인한 계정으로 휴대폰 알림 구독을 맞춘다 (로그아웃 때 해지되므로)
+  useEffect(() => {
+    if (currentUser?.username) syncPushSubscription()
+  }, [currentUser?.username])
+
+  const [showIOSGuide, setShowIOSGuide] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -663,6 +696,12 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
                     <UserRound size={16} />
                     내 프로필
                   </Link>
+                  <AppMenuItems
+                    itemClassName={styles.profileDropdownItem}
+                    noteClassName={styles.profileDropdownNote}
+                    onShowIOSGuide={() => setShowIOSGuide(true)}
+                    onClose={() => setIsProfileOpen(false)}
+                  />
                   <button type="button" className={`${styles.profileDropdownItem} ${styles.profileDropdownItemDanger}`} onClick={handleLogout}>
                     <LogOut size={16} />
                     로그아웃
@@ -697,6 +736,8 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       <audio ref={audioRef} preload="auto">
         <source src="/sounds/notification.mp3" type="audio/mpeg" />
       </audio>
+      {/* 헤더가 숨겨지는 화면도 있어 body에 그린다 */}
+      {showIOSGuide && createPortal(<IOSInstallGuide onClose={() => setShowIOSGuide(false)} />, document.body)}
     </nav>
   )
 }

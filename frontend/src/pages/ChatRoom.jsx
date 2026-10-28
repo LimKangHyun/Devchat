@@ -18,6 +18,12 @@ import IndexingBar from '../components/chatroom/IndexingBar';
 import s from '../components/chatroom/Chat.module.css';
 import { MessageSquareDashed, Code2, GitPullRequest, UserPlus, Copy } from 'lucide-react';
 import { findMentionedIds } from '../utils/mention';
+import { uploadErrorMessage } from '../utils/imageCompress';
+import { isTooLong, TOO_LONG_MESSAGE } from '../utils/messageLimits';
+import { useWebSocketContext } from '../components/common/WebSocketContext';
+import useOutbox from '../components/chatroom/useOutbox';
+import PendingMessages from '../components/chatroom/PendingMessages';
+import { CATCH_UP_PAGE, fetchMissedMessages, maxMessageId, mergeMessages } from '../components/chatroom/catchUp';
 
 // 레포 연동 방에 자동으로 들어오는 봇 계정 (서버 github.username, github.bot.username)
 const BOT_NICKNAMES = new Set(['GitHubBot', 'Devchat-Code-Assist']);
@@ -139,7 +145,23 @@ const ChatRoom = () => {
   const isLoadingRef = useRef(false);
   const isAtBottomRef = useRef(true);
   const currentUserRef = useRef(null);
-  const lastSequenceRef = useRef(null);
+
+  // 서버가 받았다고 확인하지 않은 내 메시지. 확인되면 지우고, 안 되면 "전송 실패"로 보여준다
+  const { stompClientRef: sharedClientRef } = useWebSocketContext();
+  const outbox = useOutbox({
+    publish: ({ roomId: targetRoomId, payload }, clientMessageId) => {
+      const client = sharedClientRef.current;
+      if (!client?.connected) throw new Error('disconnected');
+      client.publish({
+        destination: `/chat/send-message/${targetRoomId}`,
+        body: JSON.stringify({ ...payload, clientMessageId }),
+        headers: { 'client-message-id': clientMessageId },
+      });
+    },
+    isConnected: () => !!sharedClientRef.current?.connected,
+  });
+  const outboxRef = useRef(outbox);
+  outboxRef.current = outbox;
 
   const [roomName, setRoomName] = useState('로딩 중...');
   const [roomId, setRoomId] = useState(null);
@@ -295,6 +317,7 @@ const ChatRoom = () => {
       const res = await axiosInstance.get(`/${roomId}/messages`, { params });
       const data = res.data;
       const messageList = data.messages || [];
+      messageList.forEach((m) => m.clientMessageId && outboxRef.current.resolve(m.clientMessageId));
       const sorted = messageList
         .map((msg) => ({ ...msg, createdAt: msg.createdAt && !isNaN(new Date(msg.createdAt).getTime()) ? msg.createdAt : new Date().toISOString() }))
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
@@ -311,10 +334,6 @@ const ChatRoom = () => {
       } else {
         setFirstItemIndex(INDEX_OFFSET);
         setMessages(sorted);
-        if (sorted.length > 0) {
-          const lastMsg = sorted[sorted.length - 1];
-          if (lastMsg.sequence != null) lastSequenceRef.current = lastMsg.sequence;
-        }
         setInitState((prev) => ({ ...prev, isMessagesLoaded: true }));
       }
       setCursor(data.nextCursor);
@@ -327,26 +346,35 @@ const ChatRoom = () => {
     }
   }, [roomId]);
 
+  // 다시 연결됐을 때 끊긴 사이 메시지를 채운다 (catchUp.js 참고)
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
   const fetchMissingMessages = useCallback(async () => {
     if (!roomId) return;
+    const resolveSent = (list) => list.forEach((m) => m.clientMessageId && outboxRef.current.resolve(m.clientMessageId));
+    const lastId = maxMessageId(messagesRef.current);
     try {
-      const res = await axiosInstance.get(`/${roomId}/messages`);
-      const data = res.data;
-      const messageList = data.messages || [];
-      const sorted = messageList
-        .map((msg) => ({ ...msg, createdAt: msg.createdAt && !isNaN(new Date(msg.createdAt).getTime()) ? msg.createdAt : new Date().toISOString() }))
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      if (lastId == null) { await fetchMessages(null, false); return; }
 
-      setMessages((prev) => {
-        const ids = new Set(prev.map((m) => m.messageId));
-        const missing = sorted.filter((m) => !ids.has(m.messageId));
-        if (missing.length === 0) return prev;
-        return [...prev, ...missing].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      });
+      const { messages: missed, complete } = await fetchMissedMessages(
+        (after) => axiosInstance.get(`/${roomId}/messages/after`, { params: { after, size: CATCH_UP_PAGE } }).then((r) => r.data),
+        lastId
+      );
+      if (!complete) {
+        // 너무 많이 놓쳤다: 다 받지 않고 방에 다시 들어온 것처럼 최신 메시지로 새로 그린다
+        resolveSent(missed);
+        await fetchMessages(null, false);
+        return;
+      }
+      const latest = (await axiosInstance.get(`/${roomId}/messages`)).data.messages || [];
+      resolveSent(missed);
+      resolveSent(latest);
+      setMessages((prev) => mergeMessages(prev, missed, latest));
     } catch (e) {
       console.error('누락 메시지 조회 실패', e);
     }
-  }, [roomId]);
+  }, [roomId, fetchMessages]);
 
   const handleToggleAiReview = async () => {
     try {
@@ -396,7 +424,7 @@ const ChatRoom = () => {
     );
   }, []);
 
-  const { stompClientRef } = useWebSocket({
+  const { stompClientRef, connected: socketConnected } = useWebSocket({
     roomId: initState.isRoomValidated ? roomId : null,
     onMessageReceived: (received) => {
       if (received.type === 'INDEXING_PROGRESS') {
@@ -408,11 +436,8 @@ const ChatRoom = () => {
         }
         return;
       }
+      if (received.clientMessageId) outboxRef.current.resolve(received.clientMessageId);
       if (received?.profileImageUrl) preloadImages([received.profileImageUrl]);
-      if (received.sequence != null && lastSequenceRef.current != null) {
-        if (received.sequence - lastSequenceRef.current > 1) fetchMissingMessages();
-      }
-      if (received.sequence != null) lastSequenceRef.current = received.sequence;
 
       setMessages((prev) => {
         const updated = prev.some((m) => m.messageId === received.messageId)
@@ -439,11 +464,51 @@ const ChatRoom = () => {
       if (isDeleting.current) return; // 본인이 삭제한 거면 모달 안 띄움
       setDeleteNotification(e.content);
     },
-    onError: (message) => {
+    onError: (message, error) => {
+      // 어느 메시지가 거절됐는지 알 수 있으면 그 메시지를 "전송 실패"로 바꾼다
+      if (error?.clientMessageId) outboxRef.current.fail(error.clientMessageId, message);
       setToast({ open: true, message });
       setTimeout(() => setToast({ open: false, message: '' }), 3000);
     },
   });
+
+  // 끊겼다 다시 연결되면, 끊긴 사이에 온 메시지를 채운다 (첫 연결은 초기 로딩이 맡는다).
+  // 보내던 메시지는 끊기면 기다리고, 다시 연결되면 같은 임시 id로 다시 보낸다
+  const socketStateRef = useRef('never'); // never → up → dropped → up ...
+  useEffect(() => {
+    if (socketConnected) {
+      if (socketStateRef.current === 'dropped') fetchMissingMessages();
+      socketStateRef.current = 'up';
+      outboxRef.current.flush();
+    } else if (socketStateRef.current === 'up') {
+      socketStateRef.current = 'dropped';
+      outboxRef.current.pause();
+    }
+  }, [socketConnected, fetchMissingMessages]);
+
+  // 다시 보낸 메시지가 이미 저장돼 있을 때 서버가 나에게만 돌려주는 확인
+  useEffect(() => {
+    const client = stompClientRef.current;
+    if (!socketConnected || !client?.connected) return;
+    const sub = client.subscribe('/user/queue/message-ack', (frame) => {
+      try {
+        const saved = JSON.parse(frame.body);
+        const pending = outboxRef.current.items.find((it) => it.clientMessageId === saved.clientMessageId);
+        outboxRef.current.resolve(saved.clientMessageId);
+        // 원래 방송을 놓쳤을 수 있으니 지금 방의 메시지면 목록에 넣는다
+        if (pending && String(pending.body.roomId) === String(roomIdRef.current)) {
+          setMessages((prev) => (prev.some((m) => m.messageId === saved.messageId)
+            ? prev
+            : [...prev, saved].sort((a, b) => a.messageId - b.messageId)));
+        }
+      } catch (e) {
+        console.error('전송 확인 처리 실패', e);
+      }
+    });
+    return () => { try { if (client.connected) sub.unsubscribe(); } catch (e) {} };
+  }, [socketConnected, stompClientRef]);
+
+  const pendingHere = outbox.items.filter((it) => String(it.body.roomId) === String(roomId));
 
   useEffect(() => {
     if (!inviteCode) { navigate('/error'); return; }
@@ -466,7 +531,6 @@ const ChatRoom = () => {
       setNewMessageCount(0);
       isAtBottomRef.current = true;
       isLoadingRef.current = false;
-      lastSequenceRef.current = null;
       const id = await fetchRoomInfo();
       if (!id) { navigate('/error'); return; }
       prevRoomIdRef.current = id;
@@ -580,17 +644,17 @@ const ChatRoom = () => {
         const res = await axiosInstance.post('/send-image', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
         sendMessage({ type: 'IMAGE', content: '', imageFileId: res.data });
         setImageFile(null); setImagePreviewUrl(null);
-      } catch { alert('이미지 전송 실패'); }
+      } catch (err) { alert(uploadErrorMessage(err, '이미지 전송에 실패했습니다.')); }
     } else {
       sendMessage();
     }
   };
 
   const sendMessage = (override = null) => {
-    const client = stompClientRef.current;
     if (!roomId || !initState.isRoomValidated) { alert('채팅방 로딩 중입니다.'); return; }
-    if (!client?.connected) { alert('서버와 연결이 끊어졌습니다.'); return; }
     if (!currentUser) { alert('사용자 정보 로딩 중입니다.'); return; }
+    // 키보드 전송은 버튼 비활성과 상관없이 들어오므로 여기서도 막는다
+    if (!override && isTooLong(content)) return;
     const base = {
       content,
       type: inputMode,
@@ -605,13 +669,17 @@ const ChatRoom = () => {
     }
     const msg = override ? { ...base, ...override } : base;
     if (msg.type !== 'IMAGE' && !String(msg.content).trim()) return;
-    client.publish({ destination: `/chat/send-message/${roomId}`, body: JSON.stringify(msg) });
+    // 끊겨 있어도 버리지 않는다: "연결되면 보낼게요"로 두었다가 다시 연결되면 보낸다
+    outbox.enqueue({ roomId, payload: msg });
     setContent(''); setInputMode('TEXT');
+    isAtBottomRef.current = true;
+    setTimeout(() => virtuosoRef.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER }), 30);
   };
 
   const handleEditMessage = (messageId) => {
     const client = stompClientRef.current;
     if (!client?.connected) { alert('서버에 연결되어 있지 않습니다.'); return; }
+    if (isTooLong(editContent)) { alert(TOO_LONG_MESSAGE); return; }
     client.publish({ destination: `/chat/edit-message/${roomId}`, body: JSON.stringify({ messageId, content: editContent }) });
     setEditMessageId(null); setEditContent('');
   };
@@ -674,6 +742,7 @@ const ChatRoom = () => {
                   <div className={s.emptyRoomIcon}><MessageSquareDashed size={26} /></div>
                   <div className={s.channelIntroTitle}><span>{roomName}</span></div>
                   <p className={s.emptyRoomDesc}>아직 대화가 없어요. 아래 입력창에 첫 메시지를 남겨 보세요.</p>
+                  <PendingMessages items={pendingHere} onRetry={outbox.retry} onDiscard={outbox.discard} />
 
                   <ul className={s.emptyRoomTips}>
                     <li>
@@ -760,7 +829,12 @@ const ChatRoom = () => {
                         </div>
                       </div>
                     ) : null,
-                  Footer: () => <div style={{ height: 12 }} />,
+                  Footer: () => (
+                    <>
+                      <PendingMessages items={pendingHere} onRetry={outbox.retry} onDiscard={outbox.discard} />
+                      <div style={{ height: 12 }} />
+                    </>
+                  ),
                 }}
                 itemContent={(index, msg) => {
                   const arrayIndex = index - firstItemIndex;

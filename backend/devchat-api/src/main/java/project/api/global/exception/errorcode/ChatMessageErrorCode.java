@@ -12,7 +12,8 @@ public enum ChatMessageErrorCode implements ErrorCode {
             400),
     INVALID_ROUTE("CME-002", "유효하지 않은 경로입니다.", 400),
     MESSAGE_NOT_FOUND("CME-003", "메세지를 찾을 수 없습니다.", 400),
-    TOO_MANY_REQUESTS("CME-004", "메시지를 너무 빠르게 보내고 있어요. 잠시 후 다시 시도해주세요.", 429);
+    TOO_MANY_REQUESTS("CME-004", "메시지를 너무 빠르게 보내고 있어요. 잠시 후 다시 시도해주세요.", 429),
+    MESSAGE_TOO_LONG("CME-005", "메시지는 10,000자까지 보낼 수 있어요.", 400);
 
     private final String code;
     private final String message;

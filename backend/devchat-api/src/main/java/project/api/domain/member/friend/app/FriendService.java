@@ -1,6 +1,7 @@
 package project.api.domain.member.friend.app;
 
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -15,6 +16,8 @@ import project.api.domain.member.entity.Member;
 import project.api.domain.member.friend.dao.FriendRequestRepository;
 import project.api.domain.member.friend.dao.FriendsListRepository;
 import project.api.domain.member.friend.dto.FriendResponse;
+import project.api.domain.member.friend.dto.FriendRow;
+import project.api.domain.member.presence.PresenceService;
 import project.api.domain.member.friend.entity.FriendRequest;
 import project.api.domain.member.friend.entity.RequestStatus;
 import project.api.domain.notification.dto.NotificationDto;
@@ -36,6 +39,7 @@ public class FriendService {
 	private final NotificationService notificationService;
 	private final ApplicationEventPublisher eventPublisher;
 	private final DmRoomService dmRoomService;
+	private final PresenceService presenceService;
 
 	private record FriendContext(Member receiver, Member requester, FriendRequest friendRequest) {
 
@@ -128,7 +132,9 @@ public class FriendService {
 	public Page<FriendResponse> getFriends(Authentication auth, Pageable pageable) {
 		MemberDetails memberDetails = memberService.checkAuthentication(auth);
 		Long id = memberDetails.getId();
-		return friendsListRepository.getFriendsDto(id, pageable);
+		Page<FriendRow> rows = friendsListRepository.getFriendRows(id, pageable);
+		Set<Long> online = presenceService.onlineAmong(rows.map(FriendRow::id).getContent());
+		return rows.map(row -> row.toResponse(presenceService.statusOf(row.id(), online)));
 	}
 
 	private void checkAlreadyFriends(Member owner, Member friend) {

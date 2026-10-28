@@ -192,6 +192,12 @@
   margin-top: 1px;
 }
 
+/* 채팅방 줄은 조금 더 슬림하게 */
+.roomRow {
+  min-height: 36px;
+  padding: 4px 6px 4px 10px;
+}
+
 .roomRow:hover,
 .friendRow:hover {
   background: var(--side-hover);
@@ -243,6 +249,23 @@
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
+}
+
+/* 방 이름 + (레포 연결된 방만) 브랜치 아이콘 */
+.roomTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.roomTitleLine .roomName {
+  min-width: 0;
+}
+
+.roomRepoIcon {
+  flex-shrink: 0;
+  color: var(--text-3);
 }
 
 .roomRowActive .roomName {
@@ -501,6 +524,10 @@
   .roomRow + .roomRow,
   .friendRow + .friendRow {
     margin-top: 0;
+  }
+
+  .roomRow {
+    min-height: 52px;
   }
 
   .roomRow:hover,

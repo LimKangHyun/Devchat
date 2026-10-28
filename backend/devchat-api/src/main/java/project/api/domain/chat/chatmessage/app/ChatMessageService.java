@@ -5,6 +5,7 @@ import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import project.api.auth.dto.MemberDetails;
 import project.api.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.api.domain.chat.chatsearch.dao.ChatMessageSearchRepository;
+import project.api.domain.chat.chatmessage.dto.ChatCatchUpResponse;
 import project.api.domain.chat.chatmessage.dto.ChatMessageEditRequest;
 import project.api.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.api.domain.chat.chatmessage.dto.ChatMessageResponse;
@@ -22,6 +24,7 @@ import project.api.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.api.domain.chat.chatmessage.dto.ChatMessageSearchSlice;
 import project.api.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.api.domain.chat.chatmessage.event.ChatMentionEvent;
+import project.api.domain.chat.chatmessage.event.ChatMessageAckEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessageBroadcastEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessageSavedEvent;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
@@ -59,11 +62,27 @@ public class ChatMessageService {
     @Transactional(timeout = 3)
     public void save(Long roomId, ChatMessageRequest request,
                                     MemberDetails memberDetails) {
+        // 구독만 막으면 방 번호를 아는 누구나 SEND로 메시지를 올릴 수 있다
+        chatRoomParticipantService.validateParticipant(memberDetails.getId(), roomId);
+        validateContentLength(request.getContent());
+
+        // 연결이 끊겨 다시 보낸 메시지가 이미 저장돼 있으면 새로 저장하지 않고 보낸 사람에게만 알린다
+        String clientMessageId = normalizeClientMessageId(request.getClientMessageId());
+        if (clientMessageId != null) {
+            Optional<ChatMessage> existing =
+                chatMessageRepository.findBySender_IdAndClientMessageId(memberDetails.getId(), clientMessageId);
+            if (existing.isPresent()) {
+                eventPublisher.publishEvent(new ChatMessageAckEvent(
+                    memberDetails.getUsername(), messageMapper.toResponse(existing.get())));
+                return;
+            }
+        }
 
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);
 
         ChatMessage message = createMessage(room, sender, request);
+        message.assignClientMessageId(clientMessageId);
         chatMessageRepository.save(message);
 
         if (isSearchable(message)) {
@@ -71,6 +90,27 @@ public class ChatMessageService {
         }
         publishEvents(message, memberDetails);
         publishMention(roomId, memberDetails.getId(), request);
+    }
+
+    /**
+     * 메시지 최대 길이(글자 수). content 컬럼(TEXT, 65,535바이트)과 웹소켓 메시지 한계(약 48~63KB)를
+     * 넘지 않도록 정했다. 한글 3바이트·이모지 4바이트를 고려해도 약 40KB다. 프론트도 같은 값을 쓴다.
+     */
+    public static final int MAX_CONTENT_LENGTH = 10_000;
+
+    private static void validateContentLength(String content) {
+        if (content != null && content.length() > MAX_CONTENT_LENGTH) {
+            throw new ChatMessageException(ChatMessageErrorCode.MESSAGE_TOO_LONG);
+        }
+    }
+
+    private static final int CLIENT_MESSAGE_ID_MAX = 36;
+
+    // 형식이 이상한 임시 id는 무시한다 (메시지는 그대로 저장, 중복 확인만 하지 않음)
+    private static String normalizeClientMessageId(String raw) {
+        if (raw == null) return null;
+        String id = raw.trim();
+        return id.isEmpty() || id.length() > CLIENT_MESSAGE_ID_MAX ? null : id;
     }
 
     private static final int MAX_MENTIONS = 20;
@@ -162,6 +202,7 @@ public class ChatMessageService {
             throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_EDIT);
         }
 
+        validateContentLength(request.content());
         message.updateContent(request.content());
 
         if (message.getType().equals(MessageType.CODE)) {
@@ -225,6 +266,26 @@ public class ChatMessageService {
         Long nextCursor = scroll.isLastScroll() ? null : scroll.getNextCursor().getId();
 
         return new ChatScrollResponse(responses, nextCursor);
+    }
+
+    /** 놓친 메시지를 한 번에 받는 최대 개수 */
+    public static final int CATCH_UP_MAX_SIZE = 100;
+
+    /** 다시 연결됐을 때: afterId 이후 메시지를 오래된 순서로 (최대 CATCH_UP_MAX_SIZE개) */
+    @Transactional(readOnly = true)
+    public ChatCatchUpResponse getMessagesAfter(Long memberId, Long roomId, Long afterId, int size) {
+        chatRoomParticipantService.validateParticipant(memberId, roomId);
+        int limit = Math.max(1, Math.min(size, CATCH_UP_MAX_SIZE));
+
+        List<ChatMessage> found = chatMessageRepository.findByChatRoom_IdAndIdGreaterThanOrderByIdAsc(
+                roomId, afterId, PageRequest.of(0, limit + 1));
+        boolean hasMore = found.size() > limit;
+
+        List<ChatMessageResponse> messages = found.stream()
+                .limit(limit)
+                .map(messageMapper::toResponse)
+                .toList();
+        return new ChatCatchUpResponse(messages, hasMore);
     }
 
     public ChatMessage saveJoinEvent(ChatRoom room, Member member) {

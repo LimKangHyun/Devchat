@@ -50,7 +50,8 @@ const useWebSocket = ({
         } catch (e) {
           console.error("📛 Failed to parse chat message", e)
         }
-      }),
+        // 지금 보고 있는 방이라는 표시. 연결이 끊기면 서버가 이 방만 읽음 처리한다
+      }, { "active-room": "true" }),
       client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
         try {
           onRoomDeletedRef.current?.(JSON.parse(message.body))
@@ -79,12 +80,13 @@ const useWebSocket = ({
     return () => safeUnsubscribe([sub])
   }, [connected, onProfileUpdate, safeUnsubscribe])
 
-  // 알림 구독
+  // 알림 구독. 서버가 로그인한 본인 세션에만 보내는 주소라 username을 주소에 넣지 않는다
+  // (username은 로그인 정보가 준비됐는지 확인하는 용도)
   useEffect(() => {
     const client = stompClientRef.current
     if (!connected || !client?.connected || !username) return
 
-    const sub = client.subscribe(`/topic/notifications/${username}`, (message) => {
+    const sub = client.subscribe("/user/queue/notifications", (message) => {
       try {
         const notification = JSON.parse(message.body)
         notification.timestamp = new Date().toISOString()
@@ -122,7 +124,8 @@ const useWebSocket = ({
     const sub = client.subscribe(`/user/queue/errors`, (message) => {
       try {
         const error = JSON.parse(message.body)
-        onErrorRef.current?.(error.message)
+        // 두 번째 인자: 전체 오류 (clientMessageId가 있으면 어느 메시지가 거절됐는지 알 수 있다)
+        onErrorRef.current?.(error.message, error)
       } catch (e) {
         console.error("📛 Failed to parse error message", e)
       }

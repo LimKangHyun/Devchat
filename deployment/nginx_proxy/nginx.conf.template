@@ -84,6 +84,9 @@ http {
     location /api/ {
       set $backend "dev-chat-backend-${ACTIVE_COLOR}:8080";
       rewrite ^/api/(.*) /$1 break;
+      # 이미지 업로드용. 기본값(1m)이면 1MB가 넘는 사진이 413으로 막힌다.
+      # 서버 한도(10MB)보다 조금 크게 둬서, 초과분은 서버가 JSON으로 안내하게 한다.
+      client_max_body_size 11m;
       proxy_pass http://$backend;
       proxy_http_version 1.1;
       proxy_set_header Host thedevchat.duckdns.org;
@@ -124,6 +127,9 @@ http {
       proxy_http_version 1.1;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection "Upgrade";
+      # 기본 60초는 heartbeat가 잠깐 밀리면(백그라운드 탭 등) 연결을 끊는다
+      proxy_read_timeout 300s;
+      proxy_send_timeout 300s;
       proxy_set_header Host thedevchat.duckdns.org;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
