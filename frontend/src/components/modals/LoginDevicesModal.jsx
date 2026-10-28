@@ -3,14 +3,7 @@ import { X, MonitorSmartphone, Loader2 } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import Toast from '../common/Toast';
 import s from './Modals.module.css';
-import { relativeTime, parseServerTime } from '../../utils/relativeTime';
-
-const formatDate = (value) => {
-  const d = parseServerTime(value);
-  // 한국 시간 기준 날짜
-  const k = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-  return `${k.getUTCFullYear()}.${k.getUTCMonth() + 1}.${k.getUTCDate()}`;
-};
+import { relativeTime, formatKstDate } from '../../utils/relativeTime';
 
 // 로그인된 기기 목록을 보고, 다른 기기를 로그아웃한다
 const LoginDevicesModal = ({ onClose }) => {
@@ -25,7 +18,6 @@ const LoginDevicesModal = ({ onClose }) => {
     try {
       const res = await axiosInstance.get('/sessions');
       setSessions(res.data);
-      setError(null);
     } catch (err) {
       setError('기기 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
     }
@@ -37,6 +29,7 @@ const LoginDevicesModal = ({ onClose }) => {
   const run = async () => {
     if (!confirm) return;
     setBusy(true);
+    setError(null);
     try {
       if (confirm.all) await axiosInstance.post('/sessions/logout-others');
       else await axiosInstance.delete(`/sessions/${confirm.id}`);
@@ -47,8 +40,8 @@ const LoginDevicesModal = ({ onClose }) => {
       toastTimer.current = setTimeout(() => setToast(false), 2500);
     } catch (err) {
       setConfirm(null);
+      await load();
       setError('로그아웃하지 못했어요. 잠시 후 다시 시도해 주세요.');
-      load();
     } finally {
       setBusy(false);
     }
@@ -57,6 +50,7 @@ const LoginDevicesModal = ({ onClose }) => {
   const hasOthers = !!sessions && sessions.some((x) => !x.current);
 
   return (
+    <>
     <div className="dc-modal-backdrop" onClick={busy ? undefined : onClose}>
       <div className="dc-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="devices-title">
         <div className="dc-modal-header">
@@ -94,7 +88,7 @@ const LoginDevicesModal = ({ onClose }) => {
                         {x.current && <span className={s.deviceBadge}>이 기기</span>}
                       </div>
                       <div className={s.deviceMeta}>마지막 사용 · {relativeTime(x.lastUsedAt)}</div>
-                      <div className={s.deviceMeta}>처음 로그인 · {formatDate(x.createdAt)}</div>
+                      <div className={s.deviceMeta}>처음 로그인 · {formatKstDate(x.createdAt)}</div>
                     </div>
                     {!x.current && (
                       <button type="button" className="dc-btn" onClick={() => setConfirm({ id: x.id, name: x.deviceName })}>
@@ -116,8 +110,9 @@ const LoginDevicesModal = ({ onClose }) => {
           </div>
         )}
       </div>
+      </div>
       <Toast open={toast} message="로그아웃했어요" />
-    </div>
+    </>
   );
 };
 

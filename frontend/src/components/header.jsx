@@ -190,7 +190,10 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
     try {
       await safeRefreshToken()
     } catch (e) {
-      window.location.replace(loginUrlFor(window.location.pathname + window.location.search))
+      // 네트워크 오류나 5xx면 그대로 둔다. 인증 거절일 때만 로그인 화면으로 보낸다
+      if ([400, 401, 403].includes(e?.response?.status)) {
+        window.location.replace(loginUrlFor(window.location.pathname + window.location.search))
+      }
     }
   }, [])
 

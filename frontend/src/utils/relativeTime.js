@@ -14,6 +14,12 @@ const kst = (date) => {
   return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), day: Math.floor(d.getTime() / DAY_MS) };
 };
 
+// YYYY.M.D (한국 날짜)
+export const formatKstDate = (date) => {
+  const t = kst(parseServerTime(date));
+  return `${t.y}.${t.m}.${t.d}`;
+};
+
 // 방금 전 / N분 전 / N시간 전 / 어제 / M월 D일 / YYYY년 M월 D일
 export const relativeTime = (date, now = new Date()) => {
   const target = parseServerTime(date);
