@@ -11,6 +11,7 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import project.api.domain.chat.typing.TypingController;
 import project.api.domain.member.presence.PresenceController;
 import project.api.global.exception.ex.stomp.StompExceptionHandler;
 import project.api.auth.dto.MemberDetails;
@@ -31,7 +32,10 @@ public class RateLimitChannelInterceptor implements ChannelInterceptor {
 
         // 화면 보임 신호는 브라우저가 30초마다 자동으로 보내므로 메시지 전송 횟수에 넣지 않는다
         boolean presenceSignal = ("/chat" + PresenceController.VISIBILITY_DESTINATION).equals(accessor.getDestination());
-        if (StompCommand.SEND.equals(accessor.getCommand()) && !presenceSignal) {
+        // 입력 중 신호도 타이핑하는 동안 자동으로 오가므로 넣지 않는다 (TypingService가 따로 횟수를 제한)
+        String destination = accessor.getDestination();
+        boolean typingSignal = destination != null && destination.startsWith("/chat" + TypingController.DESTINATION_PREFIX);
+        if (StompCommand.SEND.equals(accessor.getCommand()) && !presenceSignal && !typingSignal) {
             Authentication authentication = (Authentication) accessor.getUser();
             if (authentication == null || !authentication.isAuthenticated()) {
                 return message;
