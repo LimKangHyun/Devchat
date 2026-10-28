@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useCallback } from "react"
 import { useWebSocketContext } from "../components/common/WebSocketContext"
 import { useAlarm } from "./AlarmContext"
 import { useUser } from "./UserContext"
+import { setAppBadgeCount } from "../utils/appBadge"
 
 const ChatSubscriptionContext = createContext(null)
 export const useChatSubscription = () => useContext(ChatSubscriptionContext)
@@ -15,6 +16,14 @@ export const ChatSubscriptionProvider = ({ children }) => {
   // 다른 계정이 남긴 방 목록 캐시를 쓰지 않도록 지금 계정을 알려준다
   useEffect(() => { bindRoomsToUser(username) }, [username, bindRoomsToUser])
   const roomsTrusted = isRoomsTrusted(username)
+
+  // 앱 아이콘 숫자 배지 = 안 읽은 채팅 수의 합 (앱이 열려 있을 때는 여기서, 닫혀 있을 때는 푸시가 갱신)
+  const totalUnread = roomsTrusted
+    ? alarmRooms.reduce((sum, r) => sum + (Number(r.unreadCount) > 0 ? Number(r.unreadCount) : 0), 0)
+    : null
+  useEffect(() => {
+    if (totalUnread !== null) setAppBadgeCount(totalUnread)
+  }, [totalUnread])
 
   const chatRoomIdsKey = alarmRooms.map(r => r.uniqueId).join(',')
 

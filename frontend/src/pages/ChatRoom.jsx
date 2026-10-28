@@ -249,7 +249,15 @@ const ChatRoom = () => {
   useEffect(() => {
     if (!roomId || !initState.isRoomValidated) return undefined;
     markRoomSeen(roomId);
-    const onVisible = () => { if (document.visibilityState === 'visible') markRoomSeen(roomIdRef.current); };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        markRoomSeen(roomIdRef.current);
+      } else if (roomIdRef.current) {
+        // 앱을 내리면 지금까지 본 메시지를 읽음 처리한다. 안 그러면 휴대폰 푸시의 아이콘 숫자에
+        // 방금 보던 방의 메시지까지 안 읽은 것으로 잡힌다 (방을 나갈 때만 읽음 처리됐다)
+        axiosInstance.post(`/chat-rooms/${roomIdRef.current}/read`).catch(() => {});
+      }
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [roomId, initState.isRoomValidated, markRoomSeen]);

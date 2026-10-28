@@ -25,6 +25,7 @@ public class PushNotificationService {
     private final MemberRepository memberRepository;
     private final ObjectMapper objectMapper;
     private final SeenRoomTracker seenRoomTracker;
+    private final BadgeCountService badgeCountService;
 
     private static final int MAX_SEEN_IN_PAYLOAD = 30;
 
@@ -65,6 +66,9 @@ public class PushNotificationService {
             payload.put("url", message.url());
             payload.put("tag", message.tag());
             payload.put("seen", seen);
+            // 앱 아이콘 숫자 배지 (안 읽은 채팅 수). 계산 실패 시 빼서 배지를 건드리지 않는다
+            Long badge = badgeCountService.totalUnread(memberId);
+            if (badge != null) payload.put("badge", badge);
             json = objectMapper.writeValueAsString(payload);
         } catch (Exception e) {
             log.warn("[웹푸시] 알림 내용 변환 실패: {}", e.getMessage());

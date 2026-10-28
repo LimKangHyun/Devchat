@@ -57,6 +57,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     Long findMaxIdByRoomIdAndCreatedBefore(@Param("roomId") Long roomId,
         @Param("threshold") LocalDateTime threshold);
 
+    long countByChatRoom_Id(Long roomId);
+
     long countByChatRoom_IdAndIdGreaterThanAndIdLessThanEqual(
         Long roomId, Long exclusiveFrom, Long inclusiveTo);
 

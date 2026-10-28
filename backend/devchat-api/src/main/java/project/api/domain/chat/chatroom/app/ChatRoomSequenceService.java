@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import project.api.domain.chat.chatmessage.dao.ChatMessageRepository;
 import project.api.domain.chat.chatroom.dao.ChatRoomRedisRepository;
 
 import java.util.ArrayList;
@@ -21,9 +22,16 @@ public class ChatRoomSequenceService {
     private final ChatRoomSyncService chatRoomSyncService;
     private final CheckpointReconstructor reconstructor;
     private final MeterRegistry meterRegistry;
+    private final ChatMessageRepository chatMessageRepository;
 
     @CircuitBreaker(name = "redis", fallbackMethod = "incrementCacheFallback")
     public void incrementCache(Long roomId) {
+        Long seq = chatRoomRedisRepository.genMessageSeq(roomId);
+        if (seq == null || seq != -1L) return;
+        // 번호가 없으면(새 방, Redis가 비워진 뒤) 예전에는 그냥 넘어가 안 읽은 수가 비거나 몇 분씩 늦었다.
+        // 커밋된 메시지 수로 채우고 올린다. 방금 저장된 메시지도 개수에 들어 있으니 하나 적게 채운다
+        long saved = chatMessageRepository.countByChatRoom_Id(roomId);
+        chatRoomRedisRepository.setSequenceIfGreater(roomId, Math.max(0, saved - 1));
         chatRoomRedisRepository.genMessageSeq(roomId);
     }
 
