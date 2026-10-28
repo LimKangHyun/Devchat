@@ -116,11 +116,11 @@ class PushNotificationTest {
             given(bob.getId()).willReturn(id);
             given(sender.isEnabled()).willReturn(true);
             given(memberRepository.findByUsername("bob")).willReturn(Optional.of(bob));
-            given(presence.onlineAmong(List.of(id))).willReturn(online ? Set.of(id) : Set.of());
+            given(presence.foregroundAmong(List.of(id))).willReturn(online ? Set.of(id) : Set.of());
         }
 
         @Test
-        @DisplayName("받는 사람이 앱을 열어 두었으면 휴대폰 알림은 보내지 않는다")
+        @DisplayName("받는 사람이 앱 화면을 보고 있으면 휴대폰 알림은 보내지 않는다")
         void skipWhenOnline() {
             receiverIs(9L, true);
             dispatcher.dispatch("bob", notification(NotificationType.NEW_DM, 3L));
@@ -128,7 +128,7 @@ class PushNotificationTest {
         }
 
         @Test
-        @DisplayName("접속해 있지 않으면 보낸다")
+        @DisplayName("앱 화면을 보고 있지 않으면 보낸다")
         void sendWhenOffline() {
             receiverIs(9L, false);
             dispatcher.dispatch("bob", notification(NotificationType.NEW_DM, 3L));
@@ -156,6 +156,49 @@ class PushNotificationTest {
                 .isEqualTo("/community/5/applicants");
             assertThat(dispatcher.toPushMessage(notification(NotificationType.FRIEND_REQUESTED, 5L)).url())
                 .isEqualTo("/");
+        }
+    }
+
+    @Nested
+    @DisplayName("ChatMessagePushListener")
+    class ChatPush {
+
+        private final PushNotificationService pushService = mock(PushNotificationService.class);
+        private final PresenceService presence = mock(PresenceService.class);
+        private final project.api.domain.chat.chatroom.dao.ChatParticipantRepository participants =
+            mock(project.api.domain.chat.chatroom.dao.ChatParticipantRepository.class);
+        private final ChatRoomRepository roomRepository = mock(ChatRoomRepository.class);
+        private final ChatMessagePushListener listener =
+            new ChatMessagePushListener(sender, pushService, presence, participants, roomRepository);
+
+        @Test
+        @DisplayName("화면을 보고 있는 사람과 멘션된 사람을 빼고, 나머지에게 방 이름·보낸 사람·미리보기로 보낸다")
+        void sendsToBackgroundParticipants() {
+            ChatRoom room = mock(ChatRoom.class);
+            given(room.getId()).willReturn(10L);
+            given(room.getName()).willReturn("백엔드");
+            given(room.getInviteCode()).willReturn("inv");
+            given(sender.isEnabled()).willReturn(true);
+            given(participants.findMessagePushTargets(10L, 1L)).willReturn(List.of(2L, 3L, 4L));
+            given(presence.foregroundAmong(any())).willReturn(Set.of(3L)); // 3번은 앱을 보고 있음
+            given(roomRepository.findById(10L)).willReturn(Optional.of(room));
+
+            listener.onMessage(new project.api.domain.chat.chatmessage.event.ChatMessagePushEvent(
+                10L, 1L, "앨리스", "배포했어요", List.of(4L))); // 4번은 멘션됨
+
+            PushMessage expected = new PushMessage("백엔드", "앨리스: 배포했어요", "/chat/inv", "room-10");
+            then(pushService).should().sendToMember(2L, expected);
+            then(pushService).should(never()).sendToMember(org.mockito.ArgumentMatchers.eq(3L), any());
+            then(pushService).should(never()).sendToMember(org.mockito.ArgumentMatchers.eq(4L), any());
+        }
+
+        @Test
+        @DisplayName("푸시 키가 없으면 대상을 조회하지도 않는다")
+        void disabled() {
+            given(sender.isEnabled()).willReturn(false);
+            listener.onMessage(new project.api.domain.chat.chatmessage.event.ChatMessagePushEvent(
+                10L, 1L, "앨리스", "x", List.of()));
+            then(participants).should(never()).findMessagePushTargets(anyLong(), anyLong());
         }
     }
 }

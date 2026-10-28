@@ -48,7 +48,37 @@ public class PresenceService {
         if (member == null) return Optional.empty();
 
         store.removeSession(member.id(), sessionId);
+        store.clearVisible(sessionId);
         return store.isOnline(member.id()) ? Optional.empty() : Optional.of(member);
+    }
+
+    /**
+     * 브라우저가 화면이 보이는 동안 30초마다, 숨겨질 때 한 번 알린다.
+     * 휴대폰은 앱이 백그라운드로 가면 스크립트가 멈춰 "숨김"을 못 보낼 수 있으므로
+     * 신호가 VISIBLE_TTL 동안 없으면 저절로 "안 보는 중"이 된다.
+     */
+    static final Duration VISIBLE_TTL = Duration.ofSeconds(45);
+
+    public void updateVisibility(String sessionId, boolean visible) {
+        if (sessionId == null || !localSessions.containsKey(sessionId)) return;
+        try {
+            if (visible) store.markVisible(sessionId, VISIBLE_TTL);
+            else store.clearVisible(sessionId);
+        } catch (Exception e) {
+            log.warn("[접속상태] 화면 상태 기록 실패: {}", e.getMessage());
+        }
+    }
+
+    /** 지금 앱 화면을 보고 있는 회원 (휴대폰 알림을 보내지 않아도 되는 사람) */
+    public Set<Long> foregroundAmong(Collection<Long> memberIds) {
+        if (memberIds.isEmpty()) return Set.of();
+        try {
+            return store.visibleAmong(memberIds);
+        } catch (Exception e) {
+            // 모르면 보내는 쪽이 낫다: 알림이 한 번 더 가는 게 놓치는 것보다 덜 나쁘다
+            log.warn("[접속상태] 화면 상태 조회 실패: {}", e.getMessage());
+            return Set.of();
+        }
     }
 
     public Set<Long> onlineAmong(Collection<Long> memberIds) {

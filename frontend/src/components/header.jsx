@@ -11,9 +11,10 @@ import { useAlarm, clearRoomsCache } from '../context/AlarmContext'
 import AppMenuItems from "./pwa/AppMenuItems"
 import IOSInstallGuide from "./pwa/IOSInstallGuide"
 import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
+import { showAppNotification } from "../utils/showNotification"
 import useWebSocketNotifications from "./common/useWebSocket"
 
-window.__devchatActiveNoti ??= null;
+
 
 export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, hidden = false }) {
   const { currentUser, isLoading } = useUser()
@@ -129,7 +130,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
 
   useEffect(() => {
     const handleExternalNotify = (e) => {
-      const { senderNickname, body, senderImg, url, tag, silent, roomName } = e.detail || {}
+      const { senderNickname, body, senderImg, url, silent, roomName, roomId } = e.detail || {}
       if (!silent) playNotificationSound()
       showImmediateNotification({
         type: "CHAT_MESSAGE",
@@ -137,6 +138,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
         senderImg,
         content: body,
         roomName,
+        roomId,
         url,
       })
     }
@@ -168,37 +170,26 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       }
     }
 
-    if (Notification.permission === "granted") {
-      if (window.__devchatActiveNoti) {
-        try { window.__devchatActiveNoti.onclose = null; } catch {}
-        try { window.__devchatActiveNoti.close(); } catch {}
-        window.__devchatActiveNoti = null;
-      }
+    if (!("Notification" in window) || Notification.permission !== "granted") return
 
-      const noti = new Notification(getTitleByType(notification.type), {
+    // 서버 푸시(NotificationPushDispatcher·ChatMessagePushListener)와 같은 tag를 써서
+    // 같은 대화의 알림이 겹치지 않고 하나로 합쳐지게 한다
+    const tag = notification.type === "CHAT_MESSAGE"
+      ? `room-${notification.roomId}`
+      : `${notification.type}-${notification.referenceId ?? ""}`
+
+    ;(async () => {
+      const url = notification.url || (notification.resolveUrl ? await notification.resolveUrl() : null)
+      await showAppNotification({
+        title: getTitleByType(notification.type),
         body: message,
         icon: notification.senderImg
           ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
           : "/images/not-found-profile.webp",
+        tag,
+        url,
       })
-
-      if (notification.url || notification.resolveUrl) {
-        noti.onclick = async () => {
-          try { window.focus() } catch {}
-          noti.close()
-          const url = notification.url || (await notification.resolveUrl())
-          if (url) window.location.href = url
-        }
-      }
-
-      window.__devchatActiveNoti = noti;
-      noti.onclose = () => {
-        if (window.__devchatActiveNoti === noti) {
-          window.__devchatActiveNoti = null;
-        }
-      }
-      return noti;
-    }
+    })()
   }
 
   const getNotificationTypeInfo = (type) => {

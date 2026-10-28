@@ -7,6 +7,9 @@ import { reconnectDelay } from "./reconnectBackoff"
 
 const WebSocketContext = createContext(null)
 
+// 화면 보임 신호 주기. 서버 유효 시간(45초)보다 짧아야 한다
+const VISIBILITY_INTERVAL_MS = 30000
+
 // 토큰 갱신이 401이면 refresh 토큰까지 만료된 것. 네트워크 오류 등은 재시도한다
 const isSessionExpired = (err) => err?.response?.status === 401
 
@@ -156,6 +159,30 @@ export const WebSocketProvider = ({ children }) => {
       window.removeEventListener("online", reconnectIfDropped)
     }
   }, [reconnect])
+
+  // 화면이 보이는 동안 30초마다 서버에 "보고 있음"을 알린다. 서버는 45초간 신호가 없으면
+  // "안 보는 중"으로 보고 휴대폰 알림을 보낸다. 휴대폰은 앱이 백그라운드로 가면 스크립트가
+  // 멈춰 신호가 끊기므로, 숨김 신호를 못 보내도 저절로 알림이 가게 된다.
+  useEffect(() => {
+    if (!connected) return
+    const send = () => {
+      const client = stompClientRef.current
+      if (!client?.connected) return
+      try {
+        client.publish({
+          destination: "/chat/presence/visibility",
+          body: JSON.stringify({ visible: document.visibilityState === "visible" }),
+        })
+      } catch { /* 끊기는 중이면 다음 연결에서 다시 보낸다 */ }
+    }
+    send()
+    const timer = setInterval(() => { if (document.visibilityState === "visible") send() }, VISIBILITY_INTERVAL_MS)
+    document.addEventListener("visibilitychange", send)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener("visibilitychange", send)
+    }
+  }, [connected])
 
   return (
     <WebSocketContext.Provider value={{ stompClientRef, connected, reconnect }}>

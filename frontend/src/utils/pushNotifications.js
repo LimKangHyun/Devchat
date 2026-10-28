@@ -68,7 +68,17 @@ async function subscribeThisDevice() {
     })
   }
   await axiosInstance.post("/push/subscriptions", sub.toJSON())
+  setPushOnHere(true)
   return "on"
+}
+
+// 이 기기에서 서버 푸시를 받는 중인지. 화면을 안 볼 때 앱 안 알림과 푸시가 겹치지 않게 쓴다
+const PUSH_ON_KEY = "devchat_push_on"
+export const isPushOnHere = () => {
+  try { return localStorage.getItem(PUSH_ON_KEY) === "1" } catch { return false }
+}
+const setPushOnHere = (on) => {
+  try { on ? localStorage.setItem(PUSH_ON_KEY, "1") : localStorage.removeItem(PUSH_ON_KEY) } catch { /* 무시 */ }
 }
 
 /** 버튼을 눌렀을 때 부른다 (아이폰은 사용자가 누른 동작 안에서만 권한을 물을 수 있다) */
@@ -94,6 +104,7 @@ export async function syncPushSubscription() {
 /** 알림 끄기·로그아웃: 서버에서 지우고 브라우저 구독도 해지한다 */
 export async function disablePush() {
   if (!pushSupported()) return "unsupported"
+  setPushOnHere(false)
   try {
     const reg = await navigator.serviceWorker.getRegistration()
     const sub = await reg?.pushManager.getSubscription()
