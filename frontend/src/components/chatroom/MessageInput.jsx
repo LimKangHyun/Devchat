@@ -1,10 +1,11 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { ImagePlus, Code2, SendHorizontal, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ImagePlus, Code2, SendHorizontal, X, Reply } from 'lucide-react';
 import s from './Chat.module.css';
 import { handleCodeKeyDown } from './codeEditorKeys';
 import { getMentionQuery } from '../../utils/mention';
 import { compressImage, CHAT_IMAGE_OPTIONS, MAX_UPLOAD_BYTES, formatBytes } from '../../utils/imageCompress';
 import { MAX_MESSAGE_LENGTH, SHOW_COUNT_FROM, TOO_LONG_MESSAGE, isTooLong } from '../../utils/messageLimits';
+import { replyPreviewOf } from '../../utils/replyPreview';
 
 const MAX_MENTION_CANDIDATES = 6;
 
@@ -33,6 +34,9 @@ const MessageInput = ({
   roomName,
   mentionCandidates = [],
   blockedSeconds = 0, // 너무 빠르게 보내 막힌 동안 남은 초
+  replyTarget = null, // 답장할 메시지 (없으면 null)
+  onCancelReply,
+  onTyping, // 입력 내용이 바뀔 때 (입력 중 표시용)
 }) => {
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -41,6 +45,11 @@ const MessageInput = ({
   // @멘션 자동완성: { start: '@' 위치, query }
   const [mention, setMention] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // 답장을 고르면 바로 입력할 수 있게 입력창에 커서를 둔다
+  useEffect(() => {
+    if (replyTarget && textareaRef.current && !textareaRef.current.disabled) textareaRef.current.focus();
+  }, [replyTarget]);
 
   const candidates = useMemo(() => {
     if (!mention) return [];
@@ -96,6 +105,18 @@ const MessageInput = ({
 
   return (
     <div className={`${s.composer} ${isFocused ? s.composerFocused : ''}`}>
+      {replyTarget && (
+        <div className={s.replyBar}>
+          <Reply size={14} className={s.replyBarIcon} />
+          <div className={s.replyBarBody}>
+            <span className={s.replyBarName}>{replyTarget.senderName}님에게 답장</span>
+            <span className={s.replyBarText}>{replyPreviewOf(replyTarget)}</span>
+          </div>
+          <button type="button" className={s.replyBarClose} onClick={onCancelReply} aria-label="답장 취소" title="답장 취소 (Esc)">
+            <X size={14} />
+          </button>
+        </div>
+      )}
       {inputMode === 'IMAGE' && imagePreviewUrl && (
         <div className={s.composerAttachments}>
           <div className={s.previewThumb}>
@@ -147,6 +168,7 @@ const MessageInput = ({
         onChange={(e) => {
           setContent(e.target.value);
           updateMention(e.target.value, e.target.selectionStart);
+          onTyping?.(e.target.value);
         }}
         onSelect={(e) => updateMention(e.target.value, e.target.selectionStart)}
         onFocus={() => setIsFocused(true)}
@@ -188,6 +210,11 @@ const MessageInput = ({
               setMention(null);
               return;
             }
+          }
+          if (e.key === 'Escape' && replyTarget && !isComposingRef.current) {
+            e.preventDefault();
+            onCancelReply?.();
+            return;
           }
           // 휴대폰(터치)에서는 카톡처럼 리턴이 줄바꿈이고 전송은 버튼으로 한다.
           // 한글 조합 중에 누른 리턴이 전송 대신 줄바꿈만 되어 "전송이 안 된다"고 느끼는 것도 막는다

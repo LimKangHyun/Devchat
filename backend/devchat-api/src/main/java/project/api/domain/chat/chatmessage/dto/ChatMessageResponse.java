@@ -29,4 +29,6 @@ public class ChatMessageResponse {
 	private String publishedBy;
 	/** 보낸 브라우저가 붙인 임시 id. 화면의 "전송 중" 메시지를 이 메시지로 바꾸는 데 쓴다 */
 	private String clientMessageId;
+	/** 답장한 원문 미리보기 (답장이 아니면 null) */
+	private ReplyPreview replyTo;
 }

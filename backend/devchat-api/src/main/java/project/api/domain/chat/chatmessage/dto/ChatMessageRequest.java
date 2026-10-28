@@ -15,5 +15,7 @@ public class ChatMessageRequest {
     private List<Long> mentionedMemberIds;
     /** 보낸 브라우저가 붙인 임시 id(UUID). 같은 id로 다시 보내면 새로 저장하지 않는다 */
     private String clientMessageId;
+    /** 답장할 원문 메시지 id. 같은 방 메시지가 아니면 무시한다 */
+    private Long replyToId;
 
 }

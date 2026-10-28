@@ -23,6 +23,8 @@ import project.api.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.api.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
 import project.api.domain.chat.chatmessage.dto.ChatMessageSearchSlice;
 import project.api.domain.chat.chatmessage.dto.ChatScrollResponse;
+import project.api.domain.chat.chatmessage.dto.ReplyPreview;
+import project.api.domain.chat.chatmessage.entity.MessageStatus;
 import project.api.domain.chat.chatmessage.event.ChatMentionEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessageAckEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessagePushEvent;
@@ -84,6 +86,7 @@ public class ChatMessageService {
 
         ChatMessage message = createMessage(room, sender, request);
         message.assignClientMessageId(clientMessageId);
+        attachReply(message, roomId, request.getReplyToId());
         chatMessageRepository.save(message);
 
         if (isSearchable(message)) {
@@ -144,6 +147,18 @@ public class ChatMessageService {
         if (content == null) return "";
         String oneLine = content.replaceAll("\\s+", " ").trim();
         return oneLine.length() <= MENTION_PREVIEW_LENGTH ? oneLine : oneLine.substring(0, MENTION_PREVIEW_LENGTH) + "…";
+    }
+
+    // 답장 원문은 같은 방 메시지만 허용한다 (다른 방 메시지 내용이 미리보기로 새지 않게).
+    // 없거나 다른 방이면 답장 없이 보통 메시지로 저장한다
+    private void attachReply(ChatMessage message, Long roomId, Long replyToId) {
+        if (replyToId == null) return;
+        chatMessageRepository.findById(replyToId)
+                .filter(original -> original.getChatRoom().getId().equals(roomId))
+                .filter(original -> original.getType() != MessageType.EVENT)
+                .filter(original -> original.getStatus() != MessageStatus.DELETED)
+                // 답장한 순간의 원문 모습을 저장한다. 원문을 나중에 고치거나 지워도 답장은 그대로
+                .ifPresent(original -> message.replyTo(original, ReplyPreview.previewOf(original)));
     }
 
     private ChatMessage createMessage(ChatRoom room, Member sender,

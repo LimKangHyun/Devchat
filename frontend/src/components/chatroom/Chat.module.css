@@ -1112,9 +1112,115 @@
    입력창
    ===================================================== */
 .composerArea {
+  position: relative;
   flex-shrink: 0;
   padding: 4px 24px 20px;
   background: var(--bg);
+}
+
+/* "○○님이 입력 중…": 입력창 바로 위, 자리를 차지하지 않게 겹쳐 둔다 */
+.typingLine {
+  position: absolute;
+  left: 28px;
+  right: 24px;
+  bottom: 100%;
+  height: 20px;
+  line-height: 20px;
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.typingLine:empty {
+  display: none;
+}
+
+/* 답장: 입력창 위 "○○님에게 답장" 막대 */
+.replyBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-soft);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.replyBarIcon {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+.replyBarBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.replyBarName {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.replyBarText {
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.replyBarClose {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.replyBarClose:hover {
+  background: var(--bg-muted);
+  color: var(--text);
+}
+
+/* 답장 메시지 위의 원문 미리보기 */
+.replyQuote {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  margin: 2px 0 4px;
+  padding: 3px 10px 3px 8px;
+  border: none;
+  border-left: 3px solid var(--border-strong);
+  border-radius: 0 6px 6px 0;
+  background: var(--bg-soft);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.replyQuote:hover {
+  border-left-color: var(--primary);
+  background: var(--bg-muted);
+}
+.replyQuoteName {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.replyQuoteText {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .composer {
@@ -1558,6 +1664,21 @@
   .eventRow {
     padding-left: 12px;
     padding-right: 12px;
+  }
+
+  /* 휴대폰에서는 프로필 사진을 조금 크게 */
+  .gutter {
+    width: 40px;
+  }
+
+  .avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .typingLine {
+    left: 14px;
+    right: 10px;
   }
 
   .msgRow:hover,

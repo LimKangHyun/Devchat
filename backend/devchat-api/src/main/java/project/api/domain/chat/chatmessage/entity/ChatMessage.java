@@ -66,6 +66,34 @@ public class ChatMessage {
         this.clientMessageId = clientMessageId;
     }
 
+    /*
+     * 답장: 원문 id(원문으로 이동할 때)와 답장한 순간의 원문 모습.
+     * 원문을 나중에 고치거나 지워도 바꾸지 않는다 (그 내용에 답한 것이므로).
+     */
+    @Column(name = "reply_to_id")
+    private Long replyToId;
+
+    @Column(name = "reply_to_sender_id")
+    private Long replyToSenderId;
+
+    @Column(name = "reply_to_sender_name", length = 50)
+    private String replyToSenderName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reply_to_type", length = 20)
+    private MessageType replyToType;
+
+    @Column(name = "reply_to_preview", length = 120)
+    private String replyToPreview;
+
+    public void replyTo(ChatMessage original, String preview) {
+        this.replyToId = original.getId();
+        this.replyToSenderId = original.getSender() != null ? original.getSender().getId() : null;
+        this.replyToSenderName = original.getSender() != null ? original.getSender().getNickname() : null;
+        this.replyToType = original.getType();
+        this.replyToPreview = preview;
+    }
+
 
     public Long getChatRoomId() {
         return chatRoom.getId();

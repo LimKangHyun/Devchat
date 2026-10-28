@@ -11,6 +11,7 @@ import project.api.domain.chat.chatmessage.dto.ChatMessageRequest;
 import project.api.domain.chat.chatmessage.dto.ChatMessageResponse;
 import project.api.domain.chat.chatmessage.dto.ChatMessageSearchProjection;
 import project.api.domain.chat.chatmessage.dto.ChatMessageSearchResponse;
+import project.api.domain.chat.chatmessage.dto.ReplyPreview;
 import project.api.domain.chat.chatmessage.event.ChatMessageBroadcastEvent;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
 import project.api.domain.chat.chatmessage.entity.ChatMessageIndexStatus;
@@ -126,6 +127,7 @@ public class ChatMessageMapper {
                 .publishedBy(message.getAiReview() != null ? message.getAiReview().getPublishedBy() : null)
                 .prStatus(message.getAiReview() != null ? message.getAiReview().getPrStatus().name() : null)
                 .clientMessageId(message.getClientMessageId())
+                .replyTo(ReplyPreview.of(message))
                 .build();
     }
 
@@ -192,6 +194,7 @@ public class ChatMessageMapper {
                 .messageId(event.message().getId())
                 .status(event.message().getStatus())
                 .clientMessageId(event.message().getClientMessageId())
+                .replyTo(ReplyPreview.of(event.message()))
                 .build();
     }
 
