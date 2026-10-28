@@ -251,6 +251,23 @@
   line-height: 1.3;
 }
 
+/* 방 이름 + (레포 연결된 방만) 브랜치 아이콘 */
+.roomTitleLine {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.roomTitleLine .roomName {
+  min-width: 0;
+}
+
+.roomRepoIcon {
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
 .roomRowActive .roomName {
   font-weight: 600;
 }

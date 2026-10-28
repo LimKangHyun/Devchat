@@ -267,12 +267,12 @@ const Sidebar = ({ onStartChat, activeTab = "chat", hidden = false }) => {
                   </span>
 
                   <div className={styles.roomBody}>
-                    <span className={styles.roomName}>{displayName}</span>
-                    {repoLabel && (
-                      <span className={styles.roomSub}>
-                        <GitBranch size={11} /><span className={styles.roomSubText}>{repoLabel}</span>
-                      </span>
-                    )}
+                    <span className={styles.roomTitleLine}>
+                      <span className={styles.roomName}>{displayName}</span>
+                      {repoLabel && (
+                        <GitBranch size={12} className={styles.roomRepoIcon} aria-label={`레포 연결됨: ${repoLabel}`} />
+                      )}
+                    </span>
                   </div>
 
                   <div className={styles.roomSide}>
