@@ -50,7 +50,8 @@ const useWebSocket = ({
         } catch (e) {
           console.error("📛 Failed to parse chat message", e)
         }
-      }),
+        // 지금 보고 있는 방이라는 표시. 연결이 끊기면 서버가 이 방만 읽음 처리한다
+      }, { "active-room": "true" }),
       client.subscribe(`/topic/chat/${roomId}/deleted`, (message) => {
         try {
           onRoomDeletedRef.current?.(JSON.parse(message.body))

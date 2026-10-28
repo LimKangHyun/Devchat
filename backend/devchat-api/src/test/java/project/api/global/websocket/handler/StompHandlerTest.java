@@ -40,15 +40,43 @@ class StompHandlerTest {
     }
 
     @Test
-    @DisplayName("참여 중인 방 구독은 통과시키고 세션에 방 정보를 남긴다")
-    void participantSubscribePasses() {
+    @DisplayName("보고 있는 방(active-room) 구독은 세션에 현재 방으로 남긴다")
+    void activeRoomSubscribeRecordsCurrentRoom() {
         given(participantRepository.existsByParticipantIdAndChatRoomIdAndIsActiveTrue(1L, 10L)).willReturn(true);
         Map<String, Object> attrs = new HashMap<>();
 
-        Message<?> result = handler.preSend(subscribe("/topic/chat/10", user(1L), attrs), channel);
+        Message<?> result = handler.preSend(subscribe("/topic/chat/10", user(1L), attrs, "sub-room", true), channel);
 
         assertThat(result).isNotNull();
         assertThat(attrs).containsEntry("currentRoomId", 10L).containsEntry("memberId", 1L);
+    }
+
+    @Test
+    @DisplayName("사이드바용 구독(헤더 없음)은 통과시키되 현재 방을 덮어쓰지 않는다")
+    void sidebarSubscribeDoesNotOverwriteCurrentRoom() {
+        given(participantRepository.existsByParticipantIdAndChatRoomIdAndIsActiveTrue(1L, 10L)).willReturn(true);
+        given(participantRepository.existsByParticipantIdAndChatRoomIdAndIsActiveTrue(1L, 20L)).willReturn(true);
+        Map<String, Object> attrs = new HashMap<>();
+
+        handler.preSend(subscribe("/topic/chat/10", user(1L), attrs, "sub-room", true), channel);
+        Message<?> sidebar = handler.preSend(subscribe("/topic/chat/20", user(1L), attrs, "sub-side", false), channel);
+
+        assertThat(sidebar).isNotNull();
+        assertThat(attrs).containsEntry("currentRoomId", 10L);
+    }
+
+    @Test
+    @DisplayName("보고 있던 방 구독을 해제하면 현재 방 기록을 지우고, 다른 구독 해제는 무시한다")
+    void unsubscribeActiveRoomClearsCurrentRoom() {
+        given(participantRepository.existsByParticipantIdAndChatRoomIdAndIsActiveTrue(1L, 10L)).willReturn(true);
+        Map<String, Object> attrs = new HashMap<>();
+        handler.preSend(subscribe("/topic/chat/10", user(1L), attrs, "sub-room", true), channel);
+
+        handler.preSend(unsubscribe("sub-side", attrs), channel);
+        assertThat(attrs).containsEntry("currentRoomId", 10L);
+
+        handler.preSend(unsubscribe("sub-room", attrs), channel);
+        assertThat(attrs).doesNotContainKey("currentRoomId");
     }
 
     @Test
@@ -83,11 +111,25 @@ class StompHandlerTest {
     }
 
     private static Message<byte[]> subscribe(String destination, Principal user, Map<String, Object> attrs) {
+        return subscribe(destination, user, attrs, "sub-0", false);
+    }
+
+    private static Message<byte[]> subscribe(String destination, Principal user, Map<String, Object> attrs,
+                                             String subscriptionId, boolean activeRoom) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
         accessor.setDestination(destination);
-        accessor.setSubscriptionId("sub-0");
+        accessor.setSubscriptionId(subscriptionId);
         accessor.setSessionId("s1");
         accessor.setUser(user);
+        accessor.setSessionAttributes(attrs);
+        if (activeRoom) accessor.setNativeHeader(StompHandler.ACTIVE_ROOM_HEADER, "true");
+        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    }
+
+    private static Message<byte[]> unsubscribe(String subscriptionId, Map<String, Object> attrs) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.UNSUBSCRIBE);
+        accessor.setSubscriptionId(subscriptionId);
+        accessor.setSessionId("s1");
         accessor.setSessionAttributes(attrs);
         return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
     }
