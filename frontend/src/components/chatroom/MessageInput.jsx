@@ -8,6 +8,9 @@ import { MAX_MESSAGE_LENGTH, SHOW_COUNT_FROM, TOO_LONG_MESSAGE, isTooLong } from
 
 const MAX_MENTION_CANDIDATES = 6;
 
+// 손가락으로 쓰는 기기(휴대폰·태블릿). 리턴을 줄바꿈으로 쓰고 전송은 버튼으로 한다
+const isTouchDevice = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+
 const LANGUAGES = [
   ['javascript', 'JavaScript'],
   ['java', 'Java'],
@@ -132,6 +135,14 @@ const MessageInput = ({
         ref={textareaRef}
         rows={1}
         disabled={inputMode === 'IMAGE'}
+        // 채팅 메시지 칸임을 알려 휴대폰 키보드가 연락처·주소 자동완성을 띄우지 않게 한다
+        // (오타 교정·단어 추천은 카톡처럼 그대로 둔다)
+        name="chat-message"
+        autoComplete="off"
+        aria-autocomplete="none"
+        data-form-type="other"
+        data-lpignore="true"
+        enterKeyHint={isTouchDevice ? 'enter' : 'send'}
         value={content}
         onChange={(e) => {
           setContent(e.target.value);
@@ -178,7 +189,9 @@ const MessageInput = ({
               return;
             }
           }
-          if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current) {
+          // 휴대폰(터치)에서는 카톡처럼 리턴이 줄바꿈이고 전송은 버튼으로 한다.
+          // 한글 조합 중에 누른 리턴이 전송 대신 줄바꿈만 되어 "전송이 안 된다"고 느끼는 것도 막는다
+          if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current && !isTouchDevice) {
             e.preventDefault();
             handleUnifiedSend();
           }
@@ -247,6 +260,10 @@ const MessageInput = ({
 
         <button
           type="button"
+          // 누르는 순간 입력창 포커스가 빠지면 휴대폰 키보드가 내려가며 버튼이 움직여
+          // 탭이 버튼에 닿지 않는다. 포커스를 유지해 키보드도 그대로 두고 바로 보낸다
+          onPointerDown={(e) => e.preventDefault()}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={handleUnifiedSend}
           disabled={!canSend}
           title="전송"
