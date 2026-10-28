@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import styles from "./Auth.module.css"
 import AuthLayout from "../components/AuthLayout"
 import { loginUrlFor } from "../utils/postLoginRedirect"
+import { nicknameError, NICKNAME_HINT } from "../utils/nicknameRule"
 
 function App() {
   const navigate = useNavigate();
@@ -17,6 +18,9 @@ function App() {
 
   const handleSubmit = async (e) => {
   e.preventDefault();
+
+  const nickError = nicknameError(nickname);
+  if (nickError) { alert(nickError); return; }
 
     // 이메일이 비어있을 경우 확인 메시지 표시
   if (!email) {
@@ -111,9 +115,11 @@ function App() {
               type="text"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
-              placeholder="사용할 닉네임을 입력해주세요"
+              placeholder={NICKNAME_HINT}
+              title={NICKNAME_HINT}
               required
               minLength="3"
+              maxLength="20"
             />
           </div>
 
