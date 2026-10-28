@@ -127,6 +127,32 @@ class ChatMessageServiceTest {
         }
 
         @Test
+        @DisplayName("10,000자를 넘는 메시지는 저장하지 않는다 (10,000자는 허용)")
+        void save_tooLong_rejected() {
+            given(memberDetails.getId()).willReturn(1L);
+            ChatMessageRequest tooLong = mock(ChatMessageRequest.class);
+            given(tooLong.getContent()).willReturn("가".repeat(ChatMessageService.MAX_CONTENT_LENGTH + 1));
+
+            assertThatThrownBy(() -> chatMessageService.save(10L, tooLong, memberDetails))
+                .isInstanceOf(ChatMessageException.class);
+            then(chatMessageRepository).should(never()).save(any());
+
+            ChatMessageRequest atLimit = mock(ChatMessageRequest.class);
+            given(atLimit.getContent()).willReturn("가".repeat(ChatMessageService.MAX_CONTENT_LENGTH));
+            given(atLimit.getType()).willReturn(TEXT);
+            given(entityManager.getReference(Member.class, 1L)).willReturn(sender);
+            given(entityManager.getReference(ChatRoom.class, 10L)).willReturn(chatRoom);
+            given(messageMapper.toEntityWithText(chatRoom, sender, atLimit)).willReturn(textMessage);
+            given(textMessage.getType()).willReturn(TEXT);
+            given(textMessage.getChatRoom()).willReturn(chatRoom);
+            given(chatRoom.getId()).willReturn(10L);
+            given(messageMapper.toIndexStatus(textMessage)).willReturn(mock(ChatMessageIndexStatus.class));
+
+            chatMessageService.save(10L, atLimit, memberDetails);
+            then(chatMessageRepository).should().save(textMessage);
+        }
+
+        @Test
         @DisplayName("IMAGE 메시지를 저장하면 색인 상태가 저장되지 않는다")
         void save_imageMessage_noIndexStatus() {
             given(memberDetails.getId()).willReturn(1L);

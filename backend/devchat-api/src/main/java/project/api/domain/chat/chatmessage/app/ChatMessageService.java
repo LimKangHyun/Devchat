@@ -61,6 +61,7 @@ public class ChatMessageService {
                                     MemberDetails memberDetails) {
         // 구독만 막으면 방 번호를 아는 누구나 SEND로 메시지를 올릴 수 있다
         chatRoomParticipantService.validateParticipant(memberDetails.getId(), roomId);
+        validateContentLength(request.getContent());
 
         Member sender = entityManager.getReference(Member.class, memberDetails.getId());
         ChatRoom room = entityManager.getReference(ChatRoom.class, roomId);
@@ -73,6 +74,18 @@ public class ChatMessageService {
         }
         publishEvents(message, memberDetails);
         publishMention(roomId, memberDetails.getId(), request);
+    }
+
+    /**
+     * 메시지 최대 길이(글자 수). content 컬럼(TEXT, 65,535바이트)과 웹소켓 메시지 한계(약 48~63KB)를
+     * 넘지 않도록 정했다. 한글 3바이트·이모지 4바이트를 고려해도 약 40KB다. 프론트도 같은 값을 쓴다.
+     */
+    public static final int MAX_CONTENT_LENGTH = 10_000;
+
+    private static void validateContentLength(String content) {
+        if (content != null && content.length() > MAX_CONTENT_LENGTH) {
+            throw new ChatMessageException(ChatMessageErrorCode.MESSAGE_TOO_LONG);
+        }
     }
 
     private static final int MAX_MENTIONS = 20;
@@ -164,6 +177,7 @@ public class ChatMessageService {
             throw new AuthException(AuthErrorCode.FORBIDDEN_MESSAGE_EDIT);
         }
 
+        validateContentLength(request.content());
         message.updateContent(request.content());
 
         if (message.getType().equals(MessageType.CODE)) {

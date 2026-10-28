@@ -1217,6 +1217,23 @@
   color: var(--text-2);
 }
 
+/* 길이 제한 가까이 가면 힌트 자리에 글자 수를 보여준다 */
+.charCount {
+  margin-left: auto;
+  margin-right: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.charCountOver {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 .sendBtn {
   width: 32px;
   height: 32px;

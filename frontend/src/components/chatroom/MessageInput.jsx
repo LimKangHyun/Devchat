@@ -4,6 +4,7 @@ import s from './Chat.module.css';
 import { handleCodeKeyDown } from './codeEditorKeys';
 import { getMentionQuery } from '../../utils/mention';
 import { compressImage, CHAT_IMAGE_OPTIONS, MAX_UPLOAD_BYTES, formatBytes } from '../../utils/imageCompress';
+import { MAX_MESSAGE_LENGTH, SHOW_COUNT_FROM, TOO_LONG_MESSAGE, isTooLong } from '../../utils/messageLimits';
 
 const MAX_MENTION_CANDIDATES = 6;
 
@@ -82,7 +83,9 @@ const MessageInput = ({
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
 
-  const canSend = inputMode === 'IMAGE' ? !!imagePreviewUrl : content.trim().length > 0;
+  const tooLong = inputMode !== 'IMAGE' && isTooLong(content);
+  const showCount = inputMode !== 'IMAGE' && content.length >= SHOW_COUNT_FROM;
+  const canSend = inputMode === 'IMAGE' ? !!imagePreviewUrl : content.trim().length > 0 && !tooLong;
   const isCode = inputMode === 'CODE';
   const target = roomName || '이 방';
 
@@ -221,13 +224,20 @@ const MessageInput = ({
           </div>
         )}
 
-        <span className={s.composerHint}>
-          {isCode ? (
-            <><b>Tab</b> 들여쓰기 · <b>Ctrl + Enter</b> 전송</>
-          ) : (
-            <><b>Shift + Enter</b> 줄바꿈</>
-          )}
-        </span>
+        {showCount ? (
+          <span className={`${s.charCount} ${tooLong ? s.charCountOver : ''}`} role={tooLong ? 'alert' : undefined}>
+            {tooLong && <>{TOO_LONG_MESSAGE} · </>}
+            {content.length.toLocaleString()} / {MAX_MESSAGE_LENGTH.toLocaleString()}
+          </span>
+        ) : (
+          <span className={s.composerHint}>
+            {isCode ? (
+              <><b>Tab</b> 들여쓰기 · <b>Ctrl + Enter</b> 전송</>
+            ) : (
+              <><b>Shift + Enter</b> 줄바꿈</>
+            )}
+          </span>
+        )}
 
         <button
           type="button"

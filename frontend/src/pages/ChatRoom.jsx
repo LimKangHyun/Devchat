@@ -19,6 +19,7 @@ import s from '../components/chatroom/Chat.module.css';
 import { MessageSquareDashed, Code2, GitPullRequest, UserPlus, Copy } from 'lucide-react';
 import { findMentionedIds } from '../utils/mention';
 import { uploadErrorMessage } from '../utils/imageCompress';
+import { isTooLong, TOO_LONG_MESSAGE } from '../utils/messageLimits';
 
 // 레포 연동 방에 자동으로 들어오는 봇 계정 (서버 github.username, github.bot.username)
 const BOT_NICKNAMES = new Set(['GitHubBot', 'Devchat-Code-Assist']);
@@ -603,6 +604,8 @@ const ChatRoom = () => {
     if (!roomId || !initState.isRoomValidated) { alert('채팅방 로딩 중입니다.'); return; }
     if (!client?.connected) { alert('서버와 연결이 끊어졌습니다.'); return; }
     if (!currentUser) { alert('사용자 정보 로딩 중입니다.'); return; }
+    // 키보드 전송은 버튼 비활성과 상관없이 들어오므로 여기서도 막는다
+    if (!override && isTooLong(content)) return;
     const base = {
       content,
       type: inputMode,
@@ -624,6 +627,7 @@ const ChatRoom = () => {
   const handleEditMessage = (messageId) => {
     const client = stompClientRef.current;
     if (!client?.connected) { alert('서버에 연결되어 있지 않습니다.'); return; }
+    if (isTooLong(editContent)) { alert(TOO_LONG_MESSAGE); return; }
     client.publish({ destination: `/chat/edit-message/${roomId}`, body: JSON.stringify({ messageId, content: editContent }) });
     setEditMessageId(null); setEditContent('');
   };
