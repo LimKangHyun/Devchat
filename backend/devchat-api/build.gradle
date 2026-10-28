@@ -24,6 +24,10 @@ dependencies {
     implementation 'io.awspring.cloud:spring-cloud-aws-starter:3.1.1'
     implementation 'com.amazonaws:aws-java-sdk-s3:1.12.767'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // 웹 푸시(PWA 알림): 암호화·VAPID 서명. 옛 BouncyCastle(jdk15on) 대신 위의 jdk18on을 쓴다
+    implementation('nl.martijndwars:web-push:5.1.1') {
+        exclude group: 'org.bouncycastle'
+    }
 
     runtimeOnly 'com.mysql:mysql-connector-j'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
