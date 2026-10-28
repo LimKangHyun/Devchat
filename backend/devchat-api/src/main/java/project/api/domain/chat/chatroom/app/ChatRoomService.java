@@ -25,6 +25,7 @@ import project.api.domain.chat.chatroom.event.ChatRoomCreatedEvent;
 import project.common.enums.IndexingStatus;
 import project.api.domain.chat.chatroom.event.DeleteChatRoomEvent;
 import project.api.domain.chat.chatroom.event.JoinChatRoomEvent;
+import project.api.domain.chat.chatroom.event.RoomCreatedByMemberEvent;
 import project.api.domain.chat.chatroom.mapper.ChatRoomMapper;
 import project.api.domain.aireview.app.AiReviewService;
 import project.api.domain.github.app.GitMessageService;
@@ -67,8 +68,10 @@ public class ChatRoomService {
     @Transactional
     public ChatRoomSimpleResponse createChatRoom(ChatRoomRequest request, Long ownerId) {
         Member owner = memberService.getMemberById(ownerId);
+        // 레포 없이 만드는 방은 repositoryUrl이 빠져(null) 올 수 있다
+        boolean hasRepository = request.getRepositoryUrl() != null && !request.getRepositoryUrl().isBlank();
 
-        if (!request.getRepositoryUrl().isBlank() &&
+        if (hasRepository &&
             chatRoomRepository.existsByRepositoryUrl(request.getRepositoryUrl())) {
             throw new ChatRoomException(ChatRoomErrorCode.REPOSITORY_ALREADY_CONNECTED);
         }
@@ -79,8 +82,10 @@ public class ChatRoomService {
         ChatRoom savedRoom = chatRoomRepository.save(chatRoom);
 
         chatRoomAlarmService.createAlarm(ownerId, chatRoom.getId());
+        // 만든 사람의 다른 창·기기에도 새 방이 사이드바에 보이도록
+        eventPublisher.publishEvent(new RoomCreatedByMemberEvent(savedRoom.getId(), ownerId));
 
-        if (!request.getRepositoryUrl().isBlank()) {
+        if (hasRepository) {
             gitMessageService.registerWebhook(request.getRepositoryUrl(),
                     savedRoom.getId(), owner.getId()); // 트랜잭션내에서 수행
             joinGitHubBot(savedRoom); // 트랜잭션 내에서 수행
