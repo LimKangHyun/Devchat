@@ -7,7 +7,7 @@ import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useUser } from '../context/UserContext'
-import { useAlarm } from '../context/AlarmContext'
+import { useAlarm, clearRoomsCache } from '../context/AlarmContext'
 import useWebSocketNotifications from "./common/useWebSocket"
 
 window.__devchatActiveNoti ??= null;
@@ -477,6 +477,8 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       }
       const response = await axiosInstance.post("/logout", {})
       if (response.status === 204) {
+        // 같은 브라우저로 다른 계정이 로그인할 때 이전 계정의 방 목록이 남지 않게
+        clearRoomsCache()
         alert("로그아웃 되었습니다.")
         window.location.href = "/login"
       } else {

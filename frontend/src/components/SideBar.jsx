@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Search, Info, Plus, LogIn, X, ChevronDown, GitBranch } from "lucide-react"
 
@@ -36,7 +36,10 @@ const Sidebar = ({ onStartChat, activeTab = "chat", hidden = false }) => {
   const [roomId, setRoomId] = useState(null)
 
   const { currentUser } = useUser()
-  const { getAlarmStatus, alarmStatusMap, alarmRooms, updateRooms, clearUnread, enterRoom } = useAlarm()
+  const { getAlarmStatus, alarmStatusMap, alarmRooms: allRooms, updateRooms, clearUnread, enterRoom, isRoomsTrusted } = useAlarm()
+  // 다른 계정이 남긴 캐시는 보여주지 않는다 (서버 목록이 오거나 내 캐시로 확인될 때까지 로딩)
+  const roomsTrusted = isRoomsTrusted(currentUser?.username)
+  const alarmRooms = useMemo(() => (roomsTrusted ? allRooms : []), [roomsTrusted, allRooms])
 
   useEffect(() => {
     if (!inviteCode) {
@@ -236,7 +239,7 @@ const Sidebar = ({ onStartChat, activeTab = "chat", hidden = false }) => {
         </button>
 
         {!roomsCollapsed && (
-          loading ? (
+          loading || !roomsTrusted ? (
             <div className={styles.loadingState}>채팅방 불러오는 중...</div>
           ) : alarmRooms.length === 0 ? (
             <div className={styles.emptyState}>
