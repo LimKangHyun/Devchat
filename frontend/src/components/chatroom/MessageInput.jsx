@@ -115,6 +115,7 @@ const MessageInput = ({
                 className={s.mentionAvatar}
                 src={p.profileImageUrl ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${p.profileImageUrl}` : '/images/not-found-profile.webp'}
                 alt=""
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/not-found-profile.webp'; }}
               />
               <span>{p.nickname}</span>
             </li>

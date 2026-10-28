@@ -587,6 +587,7 @@ export function ChatModal({ isOpen, onClose, friend, currentUser, initialPositio
                               className={styles.messageAvatar}
                               src={`${process.env.REACT_APP_PROFILE_IMAGE_URL}/${friend.avatar}`}
                               alt={senderName}
+                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/images/not-found-profile.webp" }}
                             />
                           ) : (
                             <div className={styles.messageAvatarFallback}>
