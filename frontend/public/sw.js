@@ -36,6 +36,13 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'DevChat'
   event.waitUntil((async () => {
     try { await closeSeen(data.seen) } catch { /* 정리에 실패해도 새 알림은 띄운다 */ }
+    // 앱 아이콘 숫자 배지 = 안 읽은 채팅 수 (서버가 계산해 보낸다)
+    try {
+      if (typeof data.badge === 'number' && self.navigator.setAppBadge) {
+        if (data.badge > 0) await self.navigator.setAppBadge(data.badge)
+        else await self.navigator.clearAppBadge()
+      }
+    } catch { /* 지원하지 않는 기기는 무시 */ }
     await self.registration.showNotification(title, {
       body: data.body || '',
       icon: '/icons/icon-192.png',
