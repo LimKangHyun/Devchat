@@ -15,7 +15,7 @@ public class UserRateLimiter {
     private static final int STRICT_COST = 2;
     private static final long BUCKET_TTL_MS = 60_000; // 1분 미사용 시 제거
 
-    private static final int COOLDOWN_SECONDS = 5;
+    public static final int COOLDOWN_SECONDS = 5;
 
     private final RateLimitRedisClient rateLimitRedisClient;
     private final ConcurrentHashMap<Long, TokenBucket> memoryBuckets = new ConcurrentHashMap<>();

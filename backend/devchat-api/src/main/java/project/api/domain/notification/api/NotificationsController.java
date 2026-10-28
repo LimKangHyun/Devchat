@@ -45,4 +45,18 @@ public class NotificationsController {
 	public void readNotification(@PathVariable Long notificationId, Authentication auth) {
 		notificationService.readNotification(notificationId, auth);
 	}
+
+	@Operation(summary = "방의 멘션 알림 읽음 처리", description = "채팅방을 열어 메시지를 봤을 때 그 방에서 온 멘션 알림을 읽음 처리한다.")
+	@PostMapping("/read-room/{roomId}")
+	@ResponseStatus(HttpStatus.OK)
+	public java.util.Map<String, Integer> readRoomMentions(@PathVariable Long roomId, Authentication auth) {
+		return java.util.Map.of("readCount", notificationService.readMentionsInRoom(auth, roomId));
+	}
+
+	@Operation(summary = "최근에 본 방", description = "어느 기기에서든 최근 하루 안에 본 방과 그 시각. 알림 센터에서 이미 본 방의 알림을 지우는 데 쓴다.")
+	@GetMapping("/seen-rooms")
+	@ResponseStatus(HttpStatus.OK)
+	public java.util.List<project.api.domain.notification.app.SeenRoomTracker.SeenRoom> seenRooms(Authentication auth) {
+		return notificationService.recentlySeenRooms(auth);
+	}
 }

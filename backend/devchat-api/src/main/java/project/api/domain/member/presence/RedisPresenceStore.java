@@ -25,6 +25,8 @@ public class RedisPresenceStore implements PresenceStore {
 
     private static final String MEMBER_KEY = "presence:member:";
     private static final String SESSION_KEY = "presence:session:";
+    // 화면을 보고 있는 세션. 브라우저가 30초마다 다시 알리지 않으면 만료된다
+    private static final String VISIBLE_KEY = "presence:visible:";
     // 세션 집합 자체가 영영 남지 않도록 넉넉한 만료
     private static final Duration MEMBER_KEY_TTL = Duration.ofDays(1);
 
@@ -72,5 +74,29 @@ public class RedisPresenceStore implements PresenceStore {
             }
         }
         return online;
+    }
+
+    @Override
+    public void markVisible(String sessionId, Duration ttl) {
+        redis.opsForValue().set(VISIBLE_KEY + sessionId, "1", ttl);
+    }
+
+    @Override
+    public void clearVisible(String sessionId) {
+        redis.delete(VISIBLE_KEY + sessionId);
+    }
+
+    @Override
+    public Set<Long> visibleAmong(Collection<Long> memberIds) {
+        Set<Long> visible = new HashSet<>();
+        for (Long memberId : new HashSet<>(memberIds)) {
+            Set<String> sessionIds = redis.opsForSet().members(MEMBER_KEY + memberId);
+            if (sessionIds == null || sessionIds.isEmpty()) continue;
+            List<String> flags = redis.opsForValue().multiGet(sessionIds.stream().map(id -> VISIBLE_KEY + id).toList());
+            if (flags != null && flags.stream().anyMatch(Objects::nonNull)) {
+                visible.add(memberId);
+            }
+        }
+        return visible;
     }
 }

@@ -20,4 +20,12 @@ public interface PresenceStore {
     default boolean isOnline(Long memberId) {
         return onlineAmong(Set.of(memberId)).contains(memberId);
     }
+
+    /** 이 세션이 지금 화면에 보이고 있다 (ttl 동안만 유효, 브라우저가 주기적으로 다시 알린다) */
+    void markVisible(String sessionId, Duration ttl);
+
+    void clearVisible(String sessionId);
+
+    /** 화면을 보고 있는 세션이 하나라도 있는 회원 id */
+    Set<Long> visibleAmong(Collection<Long> memberIds);
 }

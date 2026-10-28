@@ -10,6 +10,7 @@ import FriendsSidebar from "./FriendsSidebar"
 import axiosInstance from "./api/axiosInstance"
 import { useAlarm } from '../context/AlarmContext'
 import { useUser } from "../context/UserContext"
+import { useWebSocketContext } from "./common/WebSocketContext"
 import styles from './Sidebar.module.css'
 
 const CACHE_KEY = 'sidebar_rooms_cache'
@@ -79,6 +80,20 @@ const Sidebar = ({ onStartChat, activeTab = "chat", hidden = false }) => {
     window.addEventListener('room:read', handleRoomRead)
     return () => window.removeEventListener('room:read', handleRoomRead)
   }, [fetchAllRooms])
+
+  // 다른 창·기기에서 방을 만들거나 들어가거나 나가면 서버가 알려준다. 방 목록을 다시 받아야
+  // 그 방을 구독해서 새 메시지가 안읽음·알림에 잡힌다 (예전에는 새로고침해야 했다).
+  // 다시 연결됐을 때도 끊긴 사이 바뀐 것을 맞추려고 다시 받는다.
+  const { stompClientRef, connected } = useWebSocketContext() || {}
+  const everConnectedRef = useRef(false)
+  useEffect(() => {
+    const client = stompClientRef?.current
+    if (!connected || !client?.connected) return
+    if (everConnectedRef.current) fetchAllRooms() // 첫 연결은 처음 불러오기가 맡는다
+    everConnectedRef.current = true
+    const sub = client.subscribe("/user/queue/rooms", () => fetchAllRooms())
+    return () => { try { if (client.connected) sub.unsubscribe() } catch (e) {} }
+  }, [connected, stompClientRef, fetchAllRooms])
 
   const navigateToRoom = (id, inviteCode) => {
     if (id) {

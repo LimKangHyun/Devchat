@@ -2,6 +2,8 @@ package project.api.domain.push.app;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import java.util.Map;
+import project.api.domain.notification.app.SeenRoomTracker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,9 @@ public class PushNotificationService {
     private final PushSender pushSender;
     private final MemberRepository memberRepository;
     private final ObjectMapper objectMapper;
+    private final SeenRoomTracker seenRoomTracker;
+
+    private static final int MAX_SEEN_IN_PAYLOAD = 30;
 
     @Transactional
     public void subscribe(Long memberId, PushSubscribeRequest request) {
@@ -48,7 +53,19 @@ public class PushNotificationService {
 
         String json;
         try {
-            json = objectMapper.writeValueAsString(message);
+            // 다른 기기에서 이미 본 방의 알림을 이 기기 알림 센터에서 지우도록 함께 보낸다
+            // (웹 푸시 내용은 약 4KB까지라 최근 것만)
+            List<SeenRoomTracker.SeenRoom> seen = seenRoomTracker.recentlySeen(memberId).stream()
+                .sorted(java.util.Comparator.comparingLong(SeenRoomTracker.SeenRoom::at).reversed())
+                .limit(MAX_SEEN_IN_PAYLOAD)
+                .toList();
+            Map<String, Object> payload = new java.util.LinkedHashMap<>();
+            payload.put("title", message.title());
+            payload.put("body", message.body());
+            payload.put("url", message.url());
+            payload.put("tag", message.tag());
+            payload.put("seen", seen);
+            json = objectMapper.writeValueAsString(payload);
         } catch (Exception e) {
             log.warn("[웹푸시] 알림 내용 변환 실패: {}", e.getMessage());
             return;

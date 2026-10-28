@@ -49,10 +49,10 @@ export const ChatSubscriptionProvider = ({ children }) => {
             new CustomEvent("chat:notify", {
               detail: {
                 senderNickname: received.senderName,
-                body: received.content,
+                body: received.type === "IMAGE" ? "[이미지]" : received.type === "CODE" ? "[코드]" : received.content,
                 senderImg: received.profileImageUrl,
                 url: room?.inviteCode ? `/chat/${room.inviteCode}` : undefined,
-                tag: `room-${Date.now()}`,
+                roomId: room.uniqueId, // 알림 tag(room-{id})로 같은 방 알림을 하나로 합친다
                 silent: false,
                 roomName: room?.roomName || `Room ${room.uniqueId}`
               },

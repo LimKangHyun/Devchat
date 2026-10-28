@@ -25,6 +25,7 @@ import project.api.domain.chat.chatmessage.dto.ChatMessageSearchSlice;
 import project.api.domain.chat.chatmessage.dto.ChatScrollResponse;
 import project.api.domain.chat.chatmessage.event.ChatMentionEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessageAckEvent;
+import project.api.domain.chat.chatmessage.event.ChatMessagePushEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessageBroadcastEvent;
 import project.api.domain.chat.chatmessage.event.ChatMessageSavedEvent;
 import project.api.domain.chat.chatmessage.entity.ChatMessage;
@@ -90,6 +91,18 @@ public class ChatMessageService {
         }
         publishEvents(message, memberDetails);
         publishMention(roomId, memberDetails.getId(), request);
+        // 앱을 보고 있지 않은 참여자에게 휴대폰 알림 (멘션된 사람은 멘션 알림이 따로 간다)
+        eventPublisher.publishEvent(new ChatMessagePushEvent(roomId, memberDetails.getId(),
+            memberDetails.getNickname(), pushPreview(request),
+            request.getMentionedMemberIds() == null ? List.of() : request.getMentionedMemberIds()));
+    }
+
+    private static String pushPreview(ChatMessageRequest request) {
+        return switch (request.getType()) {
+            case IMAGE -> "[이미지]";
+            case CODE -> "[코드]";
+            default -> abbreviate(request.getContent());
+        };
     }
 
     /**

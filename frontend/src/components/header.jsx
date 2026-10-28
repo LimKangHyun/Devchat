@@ -11,13 +11,15 @@ import { useAlarm, clearRoomsCache } from '../context/AlarmContext'
 import AppMenuItems from "./pwa/AppMenuItems"
 import IOSInstallGuide from "./pwa/IOSInstallGuide"
 import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
+import { showAppNotification, closeSeenNotifications } from "../utils/showNotification"
 import useWebSocketNotifications from "./common/useWebSocket"
+import { useWebSocketContext } from "./common/WebSocketContext"
 
-window.__devchatActiveNoti ??= null;
+
 
 export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, hidden = false }) {
   const { currentUser, isLoading } = useUser()
-  const { currentRoomId, alarmRooms } = useAlarm()
+  const { currentRoomId, currentRoomIdRef, alarmRooms } = useAlarm()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -69,8 +71,64 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
   const notificationRef = useRef(null)
   const notificationContentRef = useRef(null)
 
+  // 방의 멘션 알림이 읽음 처리됐을 때 (이 창에서 방을 열었거나, 내 다른 창·기기에서 열었을 때)
+  const syncAfterRoomRead = useCallback((roomId) => {
+    setApiNotifications((prev) => prev.map((n) =>
+      n.type === "MENTION" && Number(n.referenceId) === Number(roomId) ? { ...n, isRead: true, isNew: false } : n))
+    setRealtimeNotificationCount(0)
+    fetchUnreadCount()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const onRoomRead = (e) => syncAfterRoomRead(e.detail?.roomId)
+    window.addEventListener("notifications:room-read", onRoomRead)
+    return () => window.removeEventListener("notifications:room-read", onRoomRead)
+  }, [syncAfterRoomRead])
+
+  const { stompClientRef, connected } = useWebSocketContext() || {}
+  useEffect(() => {
+    const client = stompClientRef?.current
+    if (!connected || !client?.connected) return
+    const sub = client.subscribe("/user/queue/notification-sync", (frame) => {
+      try {
+        const data = JSON.parse(frame.body)
+        if (data.type !== "READ_ROOM") return
+        // 내 다른 창·기기에서 이 방을 봤다: 이 기기 알림 센터의 그 방 알림을 지운다
+        closeSeenNotifications([{ roomId: data.roomId, at: Date.now() }])
+        if (data.count > 0) syncAfterRoomRead(data.roomId)
+      } catch (e) {
+        console.error("알림 동기화 처리 실패", e)
+      }
+    })
+    return () => { try { if (client.connected) sub.unsubscribe() } catch (e) {} }
+  }, [connected, stompClientRef, syncAfterRoomRead])
+
+  // 앱을 열거나 다시 보일 때: 다른 기기에서 이미 본 방의 알림을 알림 센터에서 지운다
+  useEffect(() => {
+    if (!currentUser?.username) return undefined
+    const cleanUp = async () => {
+      if (document.visibilityState !== "visible") return
+      try {
+        const { data } = await axiosInstance.get("/notification/seen-rooms")
+        await closeSeenNotifications(data)
+      } catch { /* 다음에 다시 정리한다 */ }
+    }
+    cleanUp()
+    document.addEventListener("visibilitychange", cleanUp)
+    return () => document.removeEventListener("visibilitychange", cleanUp)
+  }, [currentUser?.username])
+
   const handleNotificationReceived = useCallback((notification) => {
     console.log("🔔 Processing new real-time notification:", notification)
+
+    // 지금 보고 있는 방에서 나를 멘션했으면 이미 본 것이므로 바로 읽음 처리하고 알리지 않는다
+    if (notification.type === "MENTION"
+      && Number(currentRoomIdRef.current) === Number(notification.referenceId)
+      && document.visibilityState === "visible") {
+      axiosInstance.post(`/notification/read-room/${notification.referenceId}`).catch(() => {})
+      return
+    }
 
     if (notification.type === "NEW_DM") {
       const senderUsername = notification.senderUsername
@@ -129,7 +187,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
 
   useEffect(() => {
     const handleExternalNotify = (e) => {
-      const { senderNickname, body, senderImg, url, tag, silent, roomName } = e.detail || {}
+      const { senderNickname, body, senderImg, url, silent, roomName, roomId } = e.detail || {}
       if (!silent) playNotificationSound()
       showImmediateNotification({
         type: "CHAT_MESSAGE",
@@ -137,6 +195,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
         senderImg,
         content: body,
         roomName,
+        roomId,
         url,
       })
     }
@@ -168,37 +227,26 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       }
     }
 
-    if (Notification.permission === "granted") {
-      if (window.__devchatActiveNoti) {
-        try { window.__devchatActiveNoti.onclose = null; } catch {}
-        try { window.__devchatActiveNoti.close(); } catch {}
-        window.__devchatActiveNoti = null;
-      }
+    if (!("Notification" in window) || Notification.permission !== "granted") return
 
-      const noti = new Notification(getTitleByType(notification.type), {
+    // 서버 푸시(NotificationPushDispatcher·ChatMessagePushListener)와 같은 tag를 써서
+    // 같은 대화의 알림이 겹치지 않고 하나로 합쳐지게 한다
+    const tag = notification.type === "CHAT_MESSAGE"
+      ? `room-${notification.roomId}`
+      : `${notification.type}-${notification.referenceId ?? ""}`
+
+    ;(async () => {
+      const url = notification.url || (notification.resolveUrl ? await notification.resolveUrl() : null)
+      await showAppNotification({
+        title: getTitleByType(notification.type),
         body: message,
         icon: notification.senderImg
           ? `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${notification.senderImg}`
           : "/images/not-found-profile.webp",
+        tag,
+        url,
       })
-
-      if (notification.url || notification.resolveUrl) {
-        noti.onclick = async () => {
-          try { window.focus() } catch {}
-          noti.close()
-          const url = notification.url || (await notification.resolveUrl())
-          if (url) window.location.href = url
-        }
-      }
-
-      window.__devchatActiveNoti = noti;
-      noti.onclose = () => {
-        if (window.__devchatActiveNoti === noti) {
-          window.__devchatActiveNoti = null;
-        }
-      }
-      return noti;
-    }
+    })()
   }
 
   const getNotificationTypeInfo = (type) => {

@@ -11,6 +11,7 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import project.api.domain.member.presence.PresenceController;
 import project.api.global.exception.ex.stomp.StompExceptionHandler;
 import project.api.auth.dto.MemberDetails;
 import project.api.global.ratelimit.UserRateLimiter;
@@ -28,7 +29,9 @@ public class RateLimitChannelInterceptor implements ChannelInterceptor {
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
 
-        if (StompCommand.SEND.equals(accessor.getCommand())) {
+        // 화면 보임 신호는 브라우저가 30초마다 자동으로 보내므로 메시지 전송 횟수에 넣지 않는다
+        boolean presenceSignal = ("/chat" + PresenceController.VISIBILITY_DESTINATION).equals(accessor.getDestination());
+        if (StompCommand.SEND.equals(accessor.getCommand()) && !presenceSignal) {
             Authentication authentication = (Authentication) accessor.getUser();
             if (authentication == null || !authentication.isAuthenticated()) {
                 return message;

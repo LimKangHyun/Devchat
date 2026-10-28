@@ -8,6 +8,7 @@ import axiosInstance from "../components/api/axiosInstance";
 import styles from "../edit-profile-page.module.css";
 import { useWebSocketContext } from "../components/common/WebSocketContext";
 import { compressImage, PROFILE_IMAGE_OPTIONS, MAX_UPLOAD_BYTES, formatBytes, uploadErrorMessage } from "../utils/imageCompress";
+import { nicknameError, NICKNAME_HINT } from "../utils/nicknameRule";
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
@@ -59,6 +60,8 @@ export default function EditProfilePage() {
   };
 
   const handleSavePersonalInfo = async () => {
+    const nickError = nicknameError(nickname);
+    if (nickError) { alert(nickError); return; }
     const formData = new FormData();
     formData.append(
       "request",
@@ -160,6 +163,8 @@ export default function EditProfilePage() {
                         <input
                           type="text"
                           placeholder="닉네임 입력"
+                          title={NICKNAME_HINT}
+                          maxLength={20}
                           value={nickname}
                           onChange={(e) => {
                             const value = e.target.value;

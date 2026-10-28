@@ -14,7 +14,8 @@ import project.api.domain.notification.dto.NotificationDto;
 
 /**
  * 앱 안 알림을 휴대폰 알림으로도 보낸다.
- * 받는 사람이 접속해 있으면(웹소켓 연결 중) 앱 안 알림으로 충분하므로 보내지 않는다.
+ * 받는 사람이 지금 앱 화면을 보고 있으면 앱 안 알림으로 충분하므로 보내지 않는다.
+ * (연결만 돼 있고 화면이 꺼졌거나 백그라운드면 보낸다)
  */
 @Slf4j
 @Component
@@ -33,7 +34,8 @@ public class NotificationPushDispatcher {
         try {
             Member receiver = memberRepository.findByUsername(receiverUsername).orElse(null);
             if (receiver == null) return;
-            if (!presenceService.onlineAmong(List.of(receiver.getId())).isEmpty()) return;
+            // 지금 앱 화면을 보고 있으면 앱 안 알림으로 충분하다
+            if (!presenceService.foregroundAmong(List.of(receiver.getId())).isEmpty()) return;
 
             pushNotificationService.sendToMember(receiver.getId(), toPushMessage(notification));
         } catch (Exception e) {

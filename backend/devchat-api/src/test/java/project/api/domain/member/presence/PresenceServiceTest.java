@@ -92,5 +92,52 @@ class PresenceServiceTest {
             if (failLookups) throw new IllegalStateException("redis down");
             return sessions.values().stream().filter(memberIds::contains).collect(Collectors.toSet());
         }
+
+        final Set<String> visibleSessions = new HashSet<>();
+
+        @Override
+        public void markVisible(String sessionId, Duration ttl) {
+            visibleSessions.add(sessionId);
+        }
+
+        @Override
+        public void clearVisible(String sessionId) {
+            visibleSessions.remove(sessionId);
+        }
+
+        @Override
+        public Set<Long> visibleAmong(Collection<Long> memberIds) {
+            if (failLookups) throw new IllegalStateException("redis down");
+            return visibleSessions.stream().map(sessions::get)
+                .filter(id -> id != null && memberIds.contains(id)).collect(Collectors.toSet());
+        }
+    }
+
+    @Test
+    @DisplayName("화면을 보고 있다고 알린 세션만 '보는 중'이고, 숨기거나 끊기면 빠진다")
+    void visibility() {
+        service.connect(1L, "alice", "phone");
+        service.connect(1L, "alice", "laptop");
+        assertThat(service.foregroundAmong(List.of(1L))).isEmpty(); // 연결만으로는 '보는 중'이 아니다
+
+        service.updateVisibility("phone", true);
+        assertThat(service.foregroundAmong(List.of(1L))).containsExactly(1L);
+
+        service.updateVisibility("phone", false);
+        assertThat(service.foregroundAmong(List.of(1L))).isEmpty();
+
+        service.updateVisibility("laptop", true);
+        service.disconnect("laptop");
+        assertThat(service.foregroundAmong(List.of(1L))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("이 서버에 없는 세션의 화면 신호는 무시하고, 조회 실패 시엔 '안 보는 중'으로 본다(알림을 놓치지 않게)")
+    void visibilityEdgeCases() {
+        service.updateVisibility("unknown", true);
+        assertThat(store.visibleSessions).isEmpty();
+
+        store.failLookups = true;
+        assertThat(service.foregroundAmong(List.of(1L))).isEmpty();
     }
 }
