@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { flushSync, createPortal } from "react-dom"
-import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound, MessageSquareHeart } from "lucide-react"
+import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound, MessageSquareHeart, MonitorSmartphone } from "lucide-react"
 import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link, useLocation, useNavigate } from "react-router-dom"
@@ -11,6 +11,9 @@ import { useAlarm, clearRoomsCache } from '../context/AlarmContext'
 import AppMenuItems from "./pwa/AppMenuItems"
 import IOSInstallGuide from "./pwa/IOSInstallGuide"
 import FeedbackModal from "./modals/FeedbackModal"
+import LoginDevicesModal from "./modals/LoginDevicesModal"
+import { safeRefreshToken } from "./api/refreshManager"
+import { loginUrlFor } from "../utils/postLoginRedirect"
 import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
 import { showAppNotification, closeSeenNotifications } from "../utils/showNotification"
 import { clearAppBadge } from "../utils/appBadge"
@@ -182,9 +185,19 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
     }
   }, [currentUser?.username])
 
+  // 다른 기기에서 로그아웃시키면 refresh가 실패한다. 이 기기가 끊긴 거라면 로그인 화면으로 보낸다
+  const handleSessionRevoked = useCallback(async () => {
+    try {
+      await safeRefreshToken()
+    } catch (e) {
+      window.location.replace(loginUrlFor(window.location.pathname + window.location.search))
+    }
+  }, [])
+
   useWebSocketNotifications({
     username: currentUser?.username,
     onNotificationReceived: handleNotificationReceived,
+    onSessionRevoked: handleSessionRevoked,
   })
 
   useEffect(() => {
@@ -576,6 +589,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
 
   const [showIOSGuide, setShowIOSGuide] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
+  const [showDevices, setShowDevices] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -754,6 +768,10 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
                     onShowIOSGuide={() => setShowIOSGuide(true)}
                     onClose={() => setIsProfileOpen(false)}
                   />
+                  <button type="button" className={styles.profileDropdownItem} onClick={() => { setIsProfileOpen(false); setShowDevices(true) }}>
+                    <MonitorSmartphone size={16} />
+                    로그인 기기
+                  </button>
                   <button type="button" className={styles.profileDropdownItem} onClick={() => { setIsProfileOpen(false); setShowFeedback(true) }}>
                     <MessageSquareHeart size={16} />
                     피드백 보내기
@@ -795,6 +813,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       {/* 헤더가 숨겨지는 화면도 있어 body에 그린다 */}
       {showIOSGuide && createPortal(<IOSInstallGuide onClose={() => setShowIOSGuide(false)} />, document.body)}
       {showFeedback && createPortal(<FeedbackModal onClose={() => setShowFeedback(false)} />, document.body)}
+      {showDevices && createPortal(<LoginDevicesModal onClose={() => setShowDevices(false)} />, document.body)}
     </nav>
   )
 }
