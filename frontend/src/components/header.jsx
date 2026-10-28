@@ -1,13 +1,16 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { flushSync } from "react-dom"
+import { flushSync, createPortal } from "react-dom"
 import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound } from "lucide-react"
 import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useUser } from '../context/UserContext'
 import { useAlarm, clearRoomsCache } from '../context/AlarmContext'
+import AppMenuItems from "./pwa/AppMenuItems"
+import IOSInstallGuide from "./pwa/IOSInstallGuide"
+import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
 import useWebSocketNotifications from "./common/useWebSocket"
 
 window.__devchatActiveNoti ??= null;
@@ -475,6 +478,8 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       if (currentRoomId) {
         await axiosInstance.post(`/chat-rooms/${currentRoomId}/read`).catch(() => {})
       }
+      // 로그아웃한 기기로 이 계정의 휴대폰 알림이 계속 오지 않게 (로그아웃 전에, 인증이 살아 있을 때)
+      await disablePush().catch(() => {})
       const response = await axiosInstance.post("/logout", {})
       if (response.status === 204) {
         // 같은 브라우저로 다른 계정이 로그인할 때 이전 계정의 방 목록이 남지 않게
@@ -509,9 +514,16 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
 
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission()
+      Notification.requestPermission().then((p) => { if (p === "granted") syncPushSubscription() })
     }
   }, [])
+
+  // 이미 알림을 허용한 기기면 로그인한 계정으로 휴대폰 알림 구독을 맞춘다 (로그아웃 때 해지되므로)
+  useEffect(() => {
+    if (currentUser?.username) syncPushSubscription()
+  }, [currentUser?.username])
+
+  const [showIOSGuide, setShowIOSGuide] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -684,6 +696,12 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
                     <UserRound size={16} />
                     내 프로필
                   </Link>
+                  <AppMenuItems
+                    itemClassName={styles.profileDropdownItem}
+                    noteClassName={styles.profileDropdownNote}
+                    onShowIOSGuide={() => setShowIOSGuide(true)}
+                    onClose={() => setIsProfileOpen(false)}
+                  />
                   <button type="button" className={`${styles.profileDropdownItem} ${styles.profileDropdownItemDanger}`} onClick={handleLogout}>
                     <LogOut size={16} />
                     로그아웃
@@ -718,6 +736,8 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       <audio ref={audioRef} preload="auto">
         <source src="/sounds/notification.mp3" type="audio/mpeg" />
       </audio>
+      {/* 헤더가 숨겨지는 화면도 있어 body에 그린다 */}
+      {showIOSGuide && createPortal(<IOSInstallGuide onClose={() => setShowIOSGuide(false)} />, document.body)}
     </nav>
   )
 }
