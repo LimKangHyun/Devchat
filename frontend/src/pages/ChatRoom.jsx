@@ -24,6 +24,7 @@ import { isTooLong, TOO_LONG_MESSAGE } from '../utils/messageLimits';
 import { useWebSocketContext } from '../components/common/WebSocketContext';
 import useOutbox from '../components/chatroom/useOutbox';
 import PendingMessages from '../components/chatroom/PendingMessages';
+import useTypingIndicator from '../components/chatroom/useTypingIndicator';
 import { CATCH_UP_PAGE, fetchMissedMessages, maxMessageId, mergeMessages } from '../components/chatroom/catchUp';
 
 // 레포 연동 방에 자동으로 들어오는 봇 계정 (서버 github.username, github.bot.username)
@@ -83,7 +84,7 @@ const VirtuosoMessageItem = React.memo(({
   setEditMessageId, setEditContent,
   handleDeleteMessage, editMessageId, editContent,
   handleEditMessage, onCodeClick, onRetryClick,
-  subMessages,
+  subMessages, onReply, onJumpTo,
 }) => {
   const msgDate = formatDate(msg.createdAt || msg.joinAt);
   const prevDate = prevMsg ? formatDate(prevMsg.createdAt || prevMsg.joinAt) : null;
@@ -107,6 +108,8 @@ const VirtuosoMessageItem = React.memo(({
         onCodeClick={onCodeClick}
         onRetryClick={onRetryClick}
         subMessages={subMessages}
+        onReply={onReply}
+        onJumpTo={onJumpTo}
       />
     </div>
   );
@@ -136,6 +139,8 @@ const ChatRoom = () => {
   const [aiReviewEnabled, setAiReviewEnabled] = useState(true);
   const [aiSummaryEnabled, setAiSummaryEnabled] = useState(true);
   const [showConnectRepo, setShowConnectRepo] = useState(false);
+  // 답장할 메시지 (입력창 위에 "○○님에게 답장"으로 보인다)
+  const [replyTarget, setReplyTarget] = useState(null);
 
   const virtuosoRef = useRef(null);
   const inputAreaRef = useRef(null);
@@ -506,6 +511,14 @@ const ChatRoom = () => {
     },
   });
 
+  // "○○님이 입력 중…"
+  const typing = useTypingIndicator({
+    roomId: initState.isRoomValidated ? roomId : null,
+    clientRef: stompClientRef,
+    connected: socketConnected,
+    myId: currentUser?.id,
+  });
+
   const showToast = (message) => {
     setToast({ open: true, message });
     setTimeout(() => setToast({ open: false, message: '' }), 3000);
@@ -587,6 +600,7 @@ const ChatRoom = () => {
       }
       setInitState({ isRoomValidated: false, isMessagesLoaded: false, hasError: false, errorMessage: '' });
       setMessages([]);
+      setReplyTarget(null);
       setCursor(null);
       setHasMoreMessages(true);
       setIsInitialLoad(true);
@@ -645,6 +659,22 @@ const ChatRoom = () => {
       setTimeout(() => { el.style.backgroundColor = ''; }, 2000);
     }, 300);
   }, [displayMessages]);
+
+  const handleReply = useCallback((msg) => setReplyTarget(msg), []);
+
+  // 답장 위 원문을 누르면 원문으로 이동한다. 아직 불러오지 않은 옛 메시지면 알려 준다
+  const displayMessagesRef = useRef(displayMessages);
+  displayMessagesRef.current = displayMessages;
+  const scrollToMessageRef = useRef(scrollToMessage);
+  scrollToMessageRef.current = scrollToMessage;
+  const handleJumpTo = useCallback((messageId) => {
+    if (displayMessagesRef.current.some((m) => m.messageId === messageId)) {
+      scrollToMessageRef.current(messageId);
+    } else {
+      setToast({ open: true, message: '원문이 너무 오래돼서 여기서는 찾을 수 없어요. 위로 스크롤해 보세요.' });
+      setTimeout(() => setToast({ open: false, message: '' }), 2500);
+    }
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     virtuosoRef.current?.scrollToIndex({ index: 999999, behavior: 'smooth' });
@@ -729,6 +759,7 @@ const ChatRoom = () => {
       senderName: currentUser.nickname,
       profileImageUrl: currentUser.profileImageUrl,
       ...(inputMode === 'CODE' && { language }),
+      ...(replyTarget?.messageId && { replyToId: replyTarget.messageId }),
     };
     if (inputMode === 'TEXT') {
       const mentionedMemberIds = findMentionedIds(content, mentionCandidates);
@@ -738,6 +769,8 @@ const ChatRoom = () => {
     if (msg.type !== 'IMAGE' && !String(msg.content).trim()) return;
     // 끊겨 있어도 버리지 않는다: "연결되면 보낼게요"로 두었다가 다시 연결되면 보낸다
     outbox.enqueue({ roomId, payload: msg });
+    typing.stopTyping();
+    setReplyTarget(null);
     setContent(''); setInputMode('TEXT');
     isAtBottomRef.current = true;
     setTimeout(() => virtuosoRef.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER }), 30);
@@ -918,6 +951,8 @@ const ChatRoom = () => {
                       onCodeClick={handleCodeClick}
                       onRetryClick={handleRetryAiReview}
                       subMessages={subMessages}
+                      onReply={handleReply}
+                      onJumpTo={handleJumpTo}
                     />
                   );
                 }}
@@ -939,6 +974,7 @@ const ChatRoom = () => {
           )}
 
           <div ref={inputAreaRef} className={s.composerArea} style={{ pointerEvents: isFullyLoaded ? 'auto' : 'none' }}>
+            <div className={s.typingLine} aria-live="polite">{typing.text}</div>
             <MessageInput
               inputMode={inputMode} setInputMode={setInputMode}
               content={content} setContent={setContent}
@@ -949,6 +985,9 @@ const ChatRoom = () => {
               roomName={roomName}
               mentionCandidates={mentionCandidates}
               blockedSeconds={blockedSeconds}
+              replyTarget={replyTarget}
+              onCancelReply={() => setReplyTarget(null)}
+              onTyping={typing.notifyTyping}
             />
           </div>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Highlight from 'react-highlight';
-import { UserPlus, Pencil, Trash2, GitPullRequest, Bot, ExternalLink, Maximize2 } from 'lucide-react';
+import { UserPlus, Pencil, Trash2, GitPullRequest, Bot, ExternalLink, Maximize2, Reply } from 'lucide-react';
 import s from './Chat.module.css';
 import { splitMentions } from '../../utils/mention';
 
@@ -222,6 +222,19 @@ const AiReviewContent = ({ msg, onCodeClick, onRetryClick }) => {
   );
 };
 
+/* ── 답장 원문 미리보기: 답장한 순간의 원문 그대로 (누르면 원문으로 이동) ── */
+const ReplyQuote = ({ reply, onJump }) => (
+  <button
+    type="button"
+    className={s.replyQuote}
+    onClick={() => onJump?.(reply.messageId)}
+    aria-label={`${reply.senderName || '알 수 없음'}님의 메시지로 이동`}
+  >
+    <span className={s.replyQuoteName}>{reply.senderName || '알 수 없음'}</span>
+    <span className={s.replyQuoteText}>{reply.preview}</span>
+  </button>
+);
+
 /* ── 시스템 이벤트 (입장 등) ── */
 const EventMessage = ({ msg }) => (
   <div className={s.eventRow}>
@@ -240,7 +253,7 @@ export const MessageItem = ({
   msg, prevMsg, nextMsg, currentUser, contextMenuId, setContextMenuId,
   setEditMessageId, setEditContent, handleEditMessage,
   handleDeleteMessage, editMessageId, editContent, onCodeClick, onRetryClick,
-  subMessages,
+  subMessages, onReply, onJumpTo,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -258,6 +271,7 @@ export const MessageItem = ({
 
   const canEdit = isOwn && !isDeleted && msg.type !== 'IMAGE' && msg.type !== 'AI_REVIEW' && msg.type !== 'GIT';
   const canDelete = isOwn && !isDeleted;
+  const canReply = !!onReply && !isDeleted && msg.messageId != null;
 
   const renderBody = () => {
     if (isEditing) {
@@ -318,7 +332,7 @@ export const MessageItem = ({
     );
   };
 
-  const showToolbar = (canEdit || canDelete) && !isEditing && (isHovered || isMenuOpen);
+  const showToolbar = (canReply || canEdit || canDelete) && !isEditing && (isHovered || isMenuOpen);
 
   return (
     <div
@@ -351,11 +365,19 @@ export const MessageItem = ({
             <span className={s.msgTime}>{formatTime(msg.createdAt)}</span>
           </div>
         )}
+        {msg.replyTo && !isDeleted && !isEditing && <ReplyQuote reply={msg.replyTo} onJump={onJumpTo} />}
         {renderBody()}
       </div>
 
       {showToolbar && (
         <div className={s.toolbar}>
+          {canReply && (
+            <ActionBtn
+              label="답장"
+              icon={<Reply size={15} />}
+              onClick={() => { onReply(msg); setIsHovered(false); setContextMenuId(null); }}
+            />
+          )}
           {canEdit && (
             <ActionBtn
               label="메시지 편집"
