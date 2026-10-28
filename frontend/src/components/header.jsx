@@ -12,6 +12,7 @@ import AppMenuItems from "./pwa/AppMenuItems"
 import IOSInstallGuide from "./pwa/IOSInstallGuide"
 import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
 import { showAppNotification, closeSeenNotifications } from "../utils/showNotification"
+import { clearAppBadge } from "../utils/appBadge"
 import useWebSocketNotifications from "./common/useWebSocket"
 import { useWebSocketContext } from "./common/WebSocketContext"
 
@@ -532,6 +533,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       if (response.status === 204) {
         // 같은 브라우저로 다른 계정이 로그인할 때 이전 계정의 방 목록이 남지 않게
         clearRoomsCache()
+        clearAppBadge() // 로그아웃하면 앱 아이콘 숫자도 지운다
         alert("로그아웃 되었습니다.")
         window.location.href = "/login"
       } else {
