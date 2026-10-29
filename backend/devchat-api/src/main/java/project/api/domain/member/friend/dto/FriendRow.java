@@ -9,6 +9,6 @@ public record FriendRow(
 ) {
 
 	public FriendResponse toResponse(String status) {
-		return new FriendResponse(username, nickname, status, profileImage);
+		return new FriendResponse(id, username, nickname, status, profileImage);
 	}
 }
