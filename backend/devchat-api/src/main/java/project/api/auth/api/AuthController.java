@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import project.api.auth.app.AuthTokenService;
@@ -25,9 +26,10 @@ public class AuthController {
 	@PostMapping("/refresh")
 	public ResponseEntity<String> refresh(
 			@CookieValue(name = "refreshToken") String refreshToken,
+			@RequestHeader(value = "User-Agent", required = false) String userAgent,
 			HttpServletResponse response) {
 
-		authTokenService.refresh(refreshToken, response);
+		authTokenService.refresh(refreshToken, userAgent, response);
 		return ResponseEntity.ok("토큰 재발급 성공");
 	}
 }

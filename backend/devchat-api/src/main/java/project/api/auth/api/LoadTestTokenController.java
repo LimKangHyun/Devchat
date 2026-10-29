@@ -27,7 +27,7 @@ public class LoadTestTokenController {
         return memberRepository.findAll(PageRequest.of(0, count))
                 .map(m -> new MemberDetails(
                         m.getId(), m.getUsername(), m.getNickname(), m.getProfileImage()))
-                .map(md -> jwtProvider.generateTokenPair(md).accessToken())
+                .map(md -> jwtProvider.generateTokenPair(md, null).accessToken())
                 .toList();
     }
 }

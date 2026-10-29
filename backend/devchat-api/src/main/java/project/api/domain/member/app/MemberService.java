@@ -70,7 +70,8 @@ public class MemberService {
         eventPublisher.publishEvent(ProfileUpdateEvent.of(targetMember));
 
         if (request.getNickname() != null) {
-            authTokenService.reissueTokensForNicknameChange(targetMember, response);
+            authTokenService.reissueTokensForNicknameChange(
+                targetMember, memberDetails.getSessionId(), response);
         }
 
         return MemberMapper.toResponse(targetMember);
