@@ -154,6 +154,14 @@ class IcsWriterTest {
     }
 
     @Test
+    void escape_stripsControlChars_keepsTabAndNewline() {
+        // TEXT 값에 제어 문자가 있으면 캘린더 앱이 피드를 못 읽는다
+        String raw = "a\u0000b\u0007c\u000Bd\u000Ce\u001Bf\u007Fg\th\ni\r\nj";
+
+        assertThat(IcsWriter.escape(raw)).isEqualTo("abcdefg\th\\ni\\nj");
+    }
+
+    @Test
     void crlfLineEndings() {
         Schedule s = schedule(1, "회의", at(2026, 11, 3, 15), at(2026, 11, 3, 16), false,
             RepeatFrequency.NONE, null, null, null);

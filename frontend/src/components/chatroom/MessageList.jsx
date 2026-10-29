@@ -1,11 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Highlight from 'react-highlight';
 import { UserPlus, Pencil, Trash2, GitPullRequest, Bot, ExternalLink, Maximize2, Reply, CalendarPlus } from 'lucide-react';
 import s from './Chat.module.css';
-import { splitMentions } from '../../utils/mention';
 import { findDates } from '../../utils/dateDetect';
 import { parseServerTime } from '../../utils/relativeTime';
-import { chatSchedulePrefill } from '../../utils/chatSchedule';
+import { chatSchedulePrefill, firstDateInMessage, messageSegments } from '../../utils/chatSchedule';
 import { useScheduleModal } from '../schedule/ScheduleModalContext';
 
 /* ── 유틸리티 함수 ── */
@@ -48,6 +47,19 @@ const isSameGroup = (a, b) => {
 const DateChip = ({ text, found, onDate }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const popRef = useRef(null);
+
+  // 화면 끝에 가까운 칩이면 팝오버가 잘리지 않게 안쪽으로 민다 (양옆 16px 여백)
+  useLayoutEffect(() => {
+    const el = popRef.current;
+    if (!open || !el) return;
+    const gutter = 16;
+    const rect = el.getBoundingClientRect();
+    let dx = 0;
+    if (rect.right > window.innerWidth - gutter) dx = window.innerWidth - gutter - rect.right;
+    if (rect.left + dx < gutter) dx = gutter - rect.left;
+    el.style.transform = dx ? `translateX(${Math.round(dx)}px)` : '';
+  }, [open]);
 
   // 바깥을 누르거나 Esc를 누르면 닫는다. 다른 칩을 누르면 이것도 닫힌다
   useEffect(() => {
@@ -70,6 +82,7 @@ const DateChip = ({ text, found, onDate }) => {
       {open && (
         <button
           type="button"
+          ref={popRef}
           className={s.dateChipPopover}
           autoFocus
           onClick={() => { setOpen(false); onDate(found); }}
@@ -97,26 +110,21 @@ const renderDates = (text, base, onDate) => {
   return out;
 };
 
-// 링크와 @멘션을 표시한다. split에 캡처 그룹을 쓰면 홀수 번째 조각이 URL이다.
-// onDate가 있으면 URL·멘션이 아닌 글에서 날짜를 찾아 칩으로 보여준다
+// 링크와 @멘션을 표시한다.
+// onDate가 있으면 URL·멘션이 아닌 글에서 날짜를 찾아 칩으로 보여준다 (툴바 "일정 만들기"와 같은 기준)
 const renderWithLink = (text, createdAt, onDate) => {
-  const urlRegex = /(https?:\/\/[^\s]+)/;
   const base = createdAt ? parseServerTime(createdAt) : new Date();
-  return text.split(urlRegex).map((part, i) =>
-    i % 2 === 1 ? (
-      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className={s.link}>
-        {part}
-      </a>
-    ) : (
-      <React.Fragment key={i}>
-        {splitMentions(part).map((p, j) =>
-          p.mention
-            ? <span key={j} className={s.mention}>{p.text}</span>
-            : <React.Fragment key={j}>{renderDates(p.text, base, onDate)}</React.Fragment>
-        )}
-      </React.Fragment>
-    )
-  );
+  return messageSegments(text).map((seg, i) => {
+    if (seg.type === 'url') {
+      return (
+        <a key={i} href={seg.text} target="_blank" rel="noopener noreferrer" className={s.link}>
+          {seg.text}
+        </a>
+      );
+    }
+    if (seg.type === 'mention') return <span key={i} className={s.mention}>{seg.text}</span>;
+    return <React.Fragment key={i}>{renderDates(seg.text, base, onDate)}</React.Fragment>;
+  });
 };
 
 /* ── 코드 블록 ── */
@@ -396,8 +404,7 @@ export const MessageItem = ({
 
   const canSchedule = msg.type === 'TEXT' && !isDeleted && !!msg.content;
   const makeSchedule = () => {
-    const base = msg.createdAt ? parseServerTime(msg.createdAt) : new Date();
-    openCreate(chatSchedulePrefill(msg.content, findDates(msg.content, base)[0]));
+    openCreate(chatSchedulePrefill(msg.content, firstDateInMessage(msg.content, msg.createdAt)));
   };
 
   const showToolbar = (canReply || canSchedule || canEdit || canDelete) && !isEditing && (isHovered || isMenuOpen);

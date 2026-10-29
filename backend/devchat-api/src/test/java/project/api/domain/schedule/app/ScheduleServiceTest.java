@@ -227,6 +227,44 @@ class ScheduleServiceTest {
         verify(events).publishEvent(new ParticipantsAddedEvent(10L, 1L, List.of(2L, 3L)));
     }
 
+    private static List<Long> ids(long from, int count) {
+        return java.util.stream.LongStream.range(from, from + count).boxed().toList();
+    }
+
+    @Test
+    void create_over50Participants_rejected() {
+        // 나 자신·중복은 세지 않는다
+        List<Long> requested = new java.util.ArrayList<>(ids(2L, 51));
+        assertCode(() -> service.create(1L, timed("회의", START, START.plusHours(1), null,
+            requested)), ScheduleErrorCode.TOO_MANY_PARTICIPANTS);
+        verify(participantPolicy, never()).validate(any(), any());
+        assertThat(ScheduleErrorCode.TOO_MANY_PARTICIPANTS.getStatus()).isEqualTo(400);
+        assertThat(ScheduleErrorCode.TOO_MANY_PARTICIPANTS.getMessage())
+            .isEqualTo("참여자는 50명까지 넣을 수 있어요.");
+    }
+
+    @Test
+    void create_exactly50Participants_allowed_ignoringMeAndDuplicates() {
+        List<Long> fifty = ids(2L, 50);
+        List<Long> requested = new java.util.ArrayList<>(fifty);
+        requested.add(1L);
+        requested.add(2L);
+        given(participantPolicy.validate(1L, fifty)).willReturn(List.of());
+
+        createAsOwner(timed("회의", START, START.plusHours(1), null, requested));
+
+        verify(participantPolicy).validate(1L, fifty);
+    }
+
+    @Test
+    void update_over50Participants_rejected() {
+        existing(10L, START, RepeatFrequency.NONE, List.of(friend));
+
+        assertCode(() -> service.update(1L, 10L, timed("회의", START, START.plusHours(1),
+            List.of(30), ids(2L, 51))), ScheduleErrorCode.TOO_MANY_PARTICIPANTS);
+        verify(participantPolicy, never()).validate(any(), any());
+    }
+
     @Test
     void create_withoutParticipants_publishesNothing() {
         createAsOwner(timed(START));

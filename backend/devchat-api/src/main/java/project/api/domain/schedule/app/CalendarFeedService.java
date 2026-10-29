@@ -93,7 +93,8 @@ public class CalendarFeedService {
         String key = RATE_KEY + hash;
         try {
             Long count = redisTemplate.opsForValue().increment(key);
-            if (count != null && count == 1L) {
+            // 첫 요청이거나, expire가 빠져 TTL 없는 키가 남았으면 다시 건다 (안 그러면 영영 429)
+            if (count != null && (count == 1L || Long.valueOf(-1L).equals(redisTemplate.getExpire(key)))) {
                 redisTemplate.expire(key, WINDOW);
             }
             return count == null || count <= MAX_PER_HOUR;

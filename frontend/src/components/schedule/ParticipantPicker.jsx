@@ -6,6 +6,7 @@ import { useUser } from '../../context/UserContext';
 import { useAlarm } from '../../context/AlarmContext';
 import Avatar from './Avatar';
 import s from './Schedule.module.css';
+import { MAX_PARTICIPANTS, PARTICIPANT_LIMIT_MESSAGE, addParticipant } from '../../utils/scheduleForm';
 
 const FRIEND_PAGE_SIZE = 100;
 
@@ -71,8 +72,11 @@ const ParticipantPicker = ({ value, onChange, disabled }) => {
     .filter((p) => !q || (p.nickname || '').toLowerCase().includes(q) || (p.username || '').toLowerCase().includes(q))
     .slice(0, 30);
 
+  // 50명이 차면 더 못 넣는다
+  const full = value.length >= MAX_PARTICIPANTS;
   const add = (p) => {
-    onChange([...value, { id: p.id, nickname: p.nickname, profileImg: p.profileImg }]);
+    if (full) return;
+    onChange(addParticipant(value, { id: p.id, nickname: p.nickname, profileImg: p.profileImg }));
     setQuery('');
   };
   const remove = (id) => onChange(value.filter((p) => p.id !== id));
@@ -107,7 +111,8 @@ const ParticipantPicker = ({ value, onChange, disabled }) => {
       {(friendsFailed || roomFailed) && candidates.length > 0 && (
         <p className={s.pickerError} role="alert">목록을 불러오지 못했어요. 일부 사람만 보일 수 있어요.</p>
       )}
-      {open && (
+      {full && <p className={s.pickerError} role="status">{PARTICIPANT_LIMIT_MESSAGE}</p>}
+      {open && !full && (
         <ul className={s.pickerList} role="listbox">
           {options.length === 0 ? (
             <li className={s.pickerEmpty}>

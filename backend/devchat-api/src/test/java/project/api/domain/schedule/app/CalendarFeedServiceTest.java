@@ -7,7 +7,10 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -127,5 +130,47 @@ class CalendarFeedServiceTest {
         assertThat(r.webcalUrl())
             .isEqualTo(r.httpsUrl().replaceFirst("^https://", "webcal://"))
             .startsWith("webcal://devchat.example.com/api/calendar/feed/");
+    }
+
+    @Test
+    void rateLimit_firstRequest_setsExpiry() {
+        String token = tokenOf(service.getOrCreateUrl(1L));
+        String key = "calendar:feed:rate:" + CalendarFeedService.hash(token);
+        given(redisTemplate.opsForValue()).willReturn(valueOps);
+        given(valueOps.increment(key)).willReturn(1L);
+        given(scheduleRepository.findAllVisible(1L)).willReturn(List.of());
+
+        service.feed(token);
+
+        verify(redisTemplate).expire(key, Duration.ofHours(1));
+    }
+
+    @Test
+    void rateLimit_keyWithoutTtl_setsExpiryAgain() {
+        // 첫 요청 뒤 expire가 빠져 TTL 없는 키가 남은 경우
+        String token = tokenOf(service.getOrCreateUrl(1L));
+        String key = "calendar:feed:rate:" + CalendarFeedService.hash(token);
+        given(redisTemplate.opsForValue()).willReturn(valueOps);
+        given(valueOps.increment(key)).willReturn(5L);
+        given(redisTemplate.getExpire(key)).willReturn(-1L);
+        given(scheduleRepository.findAllVisible(1L)).willReturn(List.of());
+
+        service.feed(token);
+
+        verify(redisTemplate).expire(key, Duration.ofHours(1));
+    }
+
+    @Test
+    void rateLimit_keyWithTtl_doesNotResetExpiry() {
+        String token = tokenOf(service.getOrCreateUrl(1L));
+        String key = "calendar:feed:rate:" + CalendarFeedService.hash(token);
+        given(redisTemplate.opsForValue()).willReturn(valueOps);
+        given(valueOps.increment(key)).willReturn(5L);
+        given(redisTemplate.getExpire(key)).willReturn(1800L);
+        given(scheduleRepository.findAllVisible(1L)).willReturn(List.of());
+
+        service.feed(token);
+
+        verify(redisTemplate, never()).expire(anyString(), any(Duration.class));
     }
 }

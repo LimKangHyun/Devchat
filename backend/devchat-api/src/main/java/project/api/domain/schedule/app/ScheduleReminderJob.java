@@ -105,8 +105,19 @@ public class ScheduleReminderJob {
 
     private void send(Due d, LocalDateTime now) {
         try {
-            newTx.executeWithoutResult(status -> dispatchRepository.saveAndFlush(
-                new ScheduleReminderDispatch(d.scheduleId(), d.occurrence().start(), d.minutesBefore(), now)));
+            // 이미 보낸 건 넣어 보지도 않는다 (매분 중복 키 오류 로그가 쌓인다)
+            Boolean inserted = newTx.execute(status -> {
+                if (dispatchRepository.existsByScheduleIdAndOccurrenceStartAndMinutesBefore(
+                    d.scheduleId(), d.occurrence().start(), d.minutesBefore())) {
+                    return false;
+                }
+                dispatchRepository.saveAndFlush(
+                    new ScheduleReminderDispatch(d.scheduleId(), d.occurrence().start(), d.minutesBefore(), now));
+                return true;
+            });
+            if (!Boolean.TRUE.equals(inserted)) {
+                return;
+            }
         } catch (DataIntegrityViolationException dup) {
             // 다른 서버가 이미 보냈다
             log.debug("[일정 리마인더] 이미 보냄 scheduleId={} start={} m={}",

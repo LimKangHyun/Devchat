@@ -1,4 +1,4 @@
-import { emptyForm, formFromSchedule, changeForm, validateForm, buildRequest } from './scheduleForm';
+import { emptyForm, formFromSchedule, changeForm, validateForm, buildRequest, addParticipant, MAX_PARTICIPANTS, PARTICIPANT_LIMIT_MESSAGE } from './scheduleForm';
 import { kstDate } from './calendarGrid';
 
 describe('emptyForm', () => {
@@ -78,5 +78,23 @@ describe('validateForm / buildRequest', () => {
       reminderMinutes: [10, 30], participants: [{ id: 2, nickname: '지수', profileImg: null }],
     });
     expect(f).toMatchObject({ startTime: '15:00', endTime: '16:30', repeatEnd: 'until', reminders: [10, 30], participants: [{ id: 2 }] });
+  });
+});
+
+describe('참여자 50명 제한', () => {
+  const people = (n) => Array.from({ length: n }, (_, i) => ({ id: i + 1, nickname: `p${i + 1}` }));
+
+  it('50명 미만이면 붙이고, 50명이면 더 넣지 않는다', () => {
+    expect(MAX_PARTICIPANTS).toBe(50);
+    expect(addParticipant(people(49), { id: 100, nickname: 'x' })).toHaveLength(50);
+    const full = people(50);
+    expect(addParticipant(full, { id: 100, nickname: 'x' })).toBe(full);
+  });
+
+  it('50명을 넘으면 저장 전에 안내한다', () => {
+    const f = { ...emptyForm(), title: 'a', participants: people(51) };
+    expect(PARTICIPANT_LIMIT_MESSAGE).toBe('참여자는 50명까지 넣을 수 있어요.');
+    expect(validateForm(f)).toBe(PARTICIPANT_LIMIT_MESSAGE);
+    expect(validateForm({ ...f, participants: people(50) })).toBeNull();
   });
 });

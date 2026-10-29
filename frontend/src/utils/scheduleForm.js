@@ -6,6 +6,11 @@ export const MAX_LOCATION = 200;
 export const MAX_MEMO = 5000;
 export const MAX_REMINDERS = 5;
 export const MAX_REPEAT_COUNT = 365;
+export const MAX_PARTICIPANTS = 50;
+export const PARTICIPANT_LIMIT_MESSAGE = `참여자는 ${MAX_PARTICIPANTS}명까지 넣을 수 있어요.`;
+
+// 참여자 한 명 붙이기. 꽉 찼으면 그대로 돌려준다
+export const addParticipant = (list, p) => (list.length >= MAX_PARTICIPANTS ? list : [...list, p]);
 
 export const defaultReminders = (allDay) => (allDay ? [900] : [30]);
 
@@ -129,6 +134,7 @@ export const validateForm = (f) => {
     }
   }
   if (f.reminders.length > MAX_REMINDERS) return `알림은 ${MAX_REMINDERS}개까지예요.`;
+  if (f.participants.length > MAX_PARTICIPANTS) return PARTICIPANT_LIMIT_MESSAGE;
   return null;
 };
 

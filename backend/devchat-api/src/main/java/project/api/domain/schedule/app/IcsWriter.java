@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import project.api.domain.schedule.entity.RepeatFrequency;
 import project.api.domain.schedule.entity.Schedule;
@@ -167,9 +168,13 @@ public final class IcsWriter {
         return UTC.format(kst.atZone(KST).withZoneSameInstant(ZoneOffset.UTC));
     }
 
-    /** TEXT 값 이스케이프: \ ; , 줄바꿈 */
+    // 탭·줄바꿈을 뺀 제어 문자 (캘린더 앱이 피드를 못 읽는다)
+    private static final Pattern CONTROL_CHARS = Pattern.compile("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]");
+
+    /** TEXT 값 이스케이프: 제어 문자 제거, \ ; , 줄바꿈 */
     static String escape(String text) {
-        return text.replace("\\", "\\\\")
+        return CONTROL_CHARS.matcher(text).replaceAll("")
+            .replace("\\", "\\\\")
             .replace(";", "\\;")
             .replace(",", "\\,")
             .replace("\r\n", "\\n")

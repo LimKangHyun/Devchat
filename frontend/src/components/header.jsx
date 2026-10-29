@@ -12,8 +12,7 @@ import AppMenuItems from "./pwa/AppMenuItems"
 import IOSInstallGuide from "./pwa/IOSInstallGuide"
 import FeedbackModal from "./modals/FeedbackModal"
 import LoginDevicesModal from "./modals/LoginDevicesModal"
-import { safeRefreshToken } from "./api/refreshManager"
-import { loginUrlFor } from "../utils/postLoginRedirect"
+import { checkSessionStillValid } from "./api/sessionCheck"
 import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
 import { showAppNotification, closeSeenNotifications } from "../utils/showNotification"
 import { clearAppBadge } from "../utils/appBadge"
@@ -196,17 +195,8 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
     }
   }, [currentUser?.username])
 
-  // 다른 기기에서 로그아웃시키면 refresh가 실패한다. 이 기기가 끊긴 거라면 로그인 화면으로 보낸다
-  const handleSessionRevoked = useCallback(async () => {
-    try {
-      await safeRefreshToken()
-    } catch (e) {
-      // 네트워크 오류나 5xx면 그대로 둔다. 인증 거절일 때만 로그인 화면으로 보낸다
-      if ([400, 401, 403].includes(e?.response?.status)) {
-        window.location.replace(loginUrlFor(window.location.pathname + window.location.search))
-      }
-    }
-  }, [])
+  // 다른 기기에서 로그아웃시켰다. 이 기기가 끊긴 거면 인증 GET이 401 → 인터셉터가 로그인 화면으로 보낸다
+  const handleSessionRevoked = useCallback(() => checkSessionStillValid(axiosInstance), [])
 
   useWebSocketNotifications({
     username: currentUser?.username,

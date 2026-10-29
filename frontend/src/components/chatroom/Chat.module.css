@@ -1979,6 +1979,10 @@
   margin-top: 4px;
   padding: 6px 10px;
   white-space: nowrap;
+  /* 좁은 화면에서도 화면 밖으로 나가지 않게 (위치는 열 때 JS가 안쪽으로 민다) */
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 13px;
   color: var(--text);
   background: var(--bg);

@@ -46,6 +46,7 @@ public class ScheduleService {
     private static final int LOCATION_MAX = 200;
     private static final int MEMO_MAX = 5000;
     private static final int REMINDER_MAX_COUNT = 5;
+    static final int PARTICIPANT_MAX = 50;
     private static final int REMINDER_MIN = -1439;
     private static final int REMINDER_MAX = 10080;
     private static final int REPEAT_COUNT_MAX = 365;
@@ -80,9 +81,10 @@ public class ScheduleService {
     @Transactional
     public ScheduleResponse create(Long me, ScheduleRequest r) {
         ScheduleDraft draft = toDraft(r);
+        List<Long> requested = requestedIds(me, r);
         Member owner = memberRepository.findById(me)
             .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
-        List<Member> participants = participantPolicy.validate(me, requestedIds(me, r));
+        List<Member> participants = participantPolicy.validate(me, requested);
 
         Schedule s = Schedule.create(owner, draft, now());
         List<Long> added = s.replaceParticipants(participants);
@@ -242,7 +244,7 @@ public class ScheduleService {
         return s;
     }
 
-    // 요청한 참여자 id. 나 자신·중복·null은 뺀다
+    // 요청한 참여자 id. 나 자신·중복·null은 뺀다. 최대 PARTICIPANT_MAX명
     private static List<Long> requestedIds(Long me, ScheduleRequest r) {
         if (r.participantIds() == null) {
             return List.of();
@@ -252,6 +254,9 @@ public class ScheduleService {
             if (id != null && !id.equals(me)) {
                 ids.add(id);
             }
+        }
+        if (ids.size() > PARTICIPANT_MAX) {
+            throw new ScheduleException(ScheduleErrorCode.TOO_MANY_PARTICIPANTS);
         }
         return List.copyOf(ids);
     }
