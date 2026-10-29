@@ -7,10 +7,13 @@ import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.support.TransactionTemplate;
 import project.api.domain.member.dao.MemberRepository;
 import project.api.domain.member.entity.Member;
 import project.api.domain.notification.UserNotificationSender;
@@ -28,7 +31,6 @@ import project.api.domain.schedule.entity.Schedule;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ScheduleNotifier {
 
     private static final DateTimeFormatter TIMED = DateTimeFormatter.ofPattern("M월 d일 (E) a h:mm", Locale.KOREAN);
@@ -38,6 +40,21 @@ public class ScheduleNotifier {
     private final UserNotificationSender notificationSender;
     private final MemberRepository memberRepository;
     private final ScheduleRepository scheduleRepository;
+    // 받는 사람마다 따로 저장하기 위한 새 트랜잭션
+    private final TransactionTemplate saveTx;
+
+    public ScheduleNotifier(NotificationService notificationService,
+                            UserNotificationSender notificationSender,
+                            MemberRepository memberRepository,
+                            ScheduleRepository scheduleRepository,
+                            PlatformTransactionManager txManager) {
+        this.notificationService = notificationService;
+        this.notificationSender = notificationSender;
+        this.memberRepository = memberRepository;
+        this.scheduleRepository = scheduleRepository;
+        this.saveTx = new TransactionTemplate(txManager);
+        this.saveTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -50,7 +67,7 @@ public class ScheduleNotifier {
             notifyAll(memberRepository.findAllById(e.memberIds()), actor,
                 NotificationType.SCHEDULE_ADDED, s.getId(), text);
         } catch (Exception ex) {
-            log.warn("[일정 알림] 추가 알림 실패 scheduleId={}: {}", e.scheduleId(), ex.getMessage());
+            log.warn("[일정 알림] 추가 알림 실패 scheduleId={}: {}", e.scheduleId(), ex.getMessage(), ex);
         }
     }
 
@@ -61,11 +78,13 @@ public class ScheduleNotifier {
             Member actor = memberRepository.findById(e.actorId()).orElse(null);
             Schedule s = scheduleRepository.findById(e.scheduleId()).orElse(null);
             if (actor == null || s == null) return;
-            List<Member> receivers = s.getParticipants().stream().map(p -> p.getMember()).toList();
+            // 알릴 사람은 이벤트가 정한다 (이번에 새로 추가된 사람은 제외)
+            List<Member> receivers = e.memberIds() == null ? List.<Member>of()
+                : memberRepository.findAllById(e.memberIds());
             notifyAll(receivers, actor, NotificationType.SCHEDULE_CHANGED, s.getId(),
                 "'" + s.getTitle() + "' 일정이 바뀌었어요");
         } catch (Exception ex) {
-            log.warn("[일정 알림] 변경 알림 실패 scheduleId={}: {}", e.scheduleId(), ex.getMessage());
+            log.warn("[일정 알림] 변경 알림 실패 scheduleId={}: {}", e.scheduleId(), ex.getMessage(), ex);
         }
     }
 
@@ -81,7 +100,7 @@ public class ScheduleNotifier {
                 NotificationType.SCHEDULE_CANCELED, e.scheduleId(),
                 "'" + e.title() + "' 일정이 취소됐어요");
         } catch (Exception ex) {
-            log.warn("[일정 알림] 취소 알림 실패 scheduleId={}: {}", e.scheduleId(), ex.getMessage());
+            log.warn("[일정 알림] 취소 알림 실패 scheduleId={}: {}", e.scheduleId(), ex.getMessage(), ex);
         }
     }
 
@@ -99,18 +118,22 @@ public class ScheduleNotifier {
         notifyAll(receivers, s.getOwner(), NotificationType.SCHEDULE_REMINDER, s.getId(), text, false);
     }
 
-    private void notifyAll(Iterable<Member> receivers, Member actor, NotificationType type,
-                           Long scheduleId, String text) {
-        notifyAll(receivers, actor, type, scheduleId, text, true);
-    }
-
+private void notifyAll(Iterable<Member> receivers, Member actor, NotificationType type,                           Long scheduleId, String text) {        notifyAll(receivers, actor, type, scheduleId, text, true);    }
     private void notifyAll(Iterable<Member> receivers, Member actor, NotificationType type,
                            Long scheduleId, String text, boolean skipActor) {
         for (Member receiver : receivers) {
             if (skipActor && receiver.getId().equals(actor.getId())) continue;
-            Notification saved = notificationService.saveNotification(
-                Notification.ofSchedule(receiver, actor, type, scheduleId, text));
-            notificationSender.send(receiver.getUsername(), NotificationDto.ofNotification(saved));
+            try {
+                // 한 명 저장이 실패해도 다른 사람에게는 보내도록 따로 커밋한다
+                NotificationDto dto = saveTx.execute(status -> NotificationDto.ofNotification(
+                    notificationService.saveNotification(
+                        Notification.ofSchedule(receiver, actor, type, scheduleId, text))));
+                // 저장이 커밋된 뒤에만 보낸다
+                notificationSender.send(receiver.getUsername(), dto);
+            } catch (Exception ex) {
+                log.warn("[일정 알림] 전달 실패 type={} scheduleId={} receiver={}",
+                    type, scheduleId, receiver.getId(), ex);
+            }
         }
     }
 }

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
 import project.api.domain.member.dao.MemberRepository;
 import project.api.domain.member.entity.Member;
 import project.api.domain.notification.UserNotificationSender;
@@ -38,7 +39,8 @@ class ScheduleNotifierTest {
     private final MemberRepository memberRepository = mock(MemberRepository.class);
     private final ScheduleRepository scheduleRepository = mock(ScheduleRepository.class);
     private final ScheduleNotifier notifier =
-        new ScheduleNotifier(notificationService, sender, memberRepository, scheduleRepository);
+        new ScheduleNotifier(notificationService, sender, memberRepository, scheduleRepository,
+            mock(PlatformTransactionManager.class));
 
     private final Member minsu = member(1L, "minsu", "민수");
     private final Member jiwon = member(2L, "jiwon", "지원");
@@ -86,10 +88,38 @@ class ScheduleNotifierTest {
     }
 
     @Test
+    void added_skipsActor() {
+        Schedule s = schedule("회의", false, NOW.plusDays(1), jiwon);
+        given(scheduleRepository.findById(7L)).willReturn(Optional.of(s));
+        given(memberRepository.findById(1L)).willReturn(Optional.of(minsu));
+        given(memberRepository.findAllById(List.of(1L, 2L))).willReturn(List.of(minsu, jiwon));
+
+        notifier.onParticipantsAdded(new ParticipantsAddedEvent(7L, 1L, List.of(1L, 2L)));
+
+        verify(sender, never()).send(eq("minsu"), any());
+        sentTo("jiwon", 1);
+    }
+
+    @Test
+    void failureOfOneRecipient_doesNotStopOthers() {
+        given(memberRepository.findById(1L)).willReturn(Optional.of(minsu));
+        given(memberRepository.findAllById(List.of(2L, 3L))).willReturn(List.of(jiwon, taeho));
+        given(notificationService.saveNotification(any(Notification.class)))
+            .willThrow(new RuntimeException("db"))
+            .willAnswer(inv -> inv.getArgument(0));
+
+        notifier.onCanceled(new ScheduleCanceledEvent(7L, 1L, "회의", List.of(2L, 3L)));
+
+        verify(sender, never()).send(eq("jiwon"), any());
+        sentTo("taeho", 1);
+    }
+
+    @Test
     void changed_skipsActor() {
         Schedule s = schedule("회의", false, NOW.plusDays(1), jiwon, taeho);
         given(scheduleRepository.findById(7L)).willReturn(Optional.of(s));
         given(memberRepository.findById(1L)).willReturn(Optional.of(minsu));
+        given(memberRepository.findAllById(List.of(2L, 3L))).willReturn(List.of(jiwon, taeho));
 
         notifier.onChanged(new ScheduleChangedEvent(7L, 1L, List.of(2L, 3L)));
 
@@ -99,11 +129,26 @@ class ScheduleNotifierTest {
     }
 
     @Test
+    void changed_newlyAddedParticipantNotNotified() {
+        // 일정에는 지원·태호가 있지만 이번에 새로 들어온 태호는 이벤트 대상이 아니다
+        Schedule s = schedule("회의", false, NOW.plusDays(1), jiwon, taeho);
+        given(scheduleRepository.findById(7L)).willReturn(Optional.of(s));
+        given(memberRepository.findById(1L)).willReturn(Optional.of(minsu));
+        given(memberRepository.findAllById(List.of(2L))).willReturn(List.of(jiwon));
+
+        notifier.onChanged(new ScheduleChangedEvent(7L, 1L, List.of(2L)));
+
+        sentTo("jiwon", 1);
+        verify(sender, never()).send(eq("taeho"), any());
+    }
+
+    @Test
     void changed_actorIsParticipantNotNotified() {
         // 만든 사람이 아닌 사람이 actor여도 본인은 뺀다
         Schedule s = schedule("회의", false, NOW.plusDays(1), jiwon);
         given(scheduleRepository.findById(7L)).willReturn(Optional.of(s));
         given(memberRepository.findById(2L)).willReturn(Optional.of(jiwon));
+        given(memberRepository.findAllById(List.of(2L))).willReturn(List.of(jiwon));
 
         notifier.onChanged(new ScheduleChangedEvent(7L, 2L, List.of(2L)));
 
