@@ -57,6 +57,7 @@
   --backdrop: rgba(28, 36, 48, 0.42);
 
   --tabbar-h: 58px;
+  --topbar-h: 48px;
   --side-w: 272px;
 
   --font: 'IBM Plex Sans KR', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
@@ -160,6 +161,7 @@ code, pre, kbd, .hljs, pre * {
     border-left: none;
   }
   .dc-shell.has-tabbar .dc-workspace {
+    padding-top: calc(var(--topbar-h) + env(safe-area-inset-top));
     padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   }
 }
