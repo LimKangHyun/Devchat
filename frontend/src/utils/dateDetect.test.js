@@ -108,6 +108,12 @@ describe('findDates', () => {
     expect(findDates('내일 3시 반', base)[0].start.getTime()).toBe(at('2026-10-29T15:30:00'));
   });
 
+  it('3시 반 뒤에 조사가 붙어도 30분', () => {
+    expect(findDates('내일 3시 반에 보자', base)[0].start.getTime()).toBe(at('2026-10-29T15:30:00'));
+    expect(findDates('내일 3시 반쯤', base)[0].start.getTime()).toBe(at('2026-10-29T15:30:00'));
+    expect(findDates('내일 3시 반드시 와', base)[0].start.getTime()).toBe(at('2026-10-29T15:00:00'));
+  });
+
   it('1~6시 오후 규칙은 H시에만, HH:MM은 24시간', () => {
     expect(findDates('내일 03:00', base)[0].start.getTime()).toBe(at('2026-10-29T03:00:00'));
     expect(findDates('내일 1:30', base)[0].start.getTime()).toBe(at('2026-10-29T01:30:00'));
