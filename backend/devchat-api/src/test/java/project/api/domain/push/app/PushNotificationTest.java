@@ -157,6 +157,17 @@ class PushNotificationTest {
             assertThat(dispatcher.toPushMessage(notification(NotificationType.FRIEND_REQUESTED, 5L)).url())
                 .isEqualTo("/");
         }
+
+        @Test
+        @DisplayName("일정 알림을 누르면 그 일정으로 간다")
+        void pushUrl_schedule() {
+            for (NotificationType t : List.of(NotificationType.SCHEDULE_ADDED, NotificationType.SCHEDULE_CHANGED,
+                NotificationType.SCHEDULE_CANCELED, NotificationType.SCHEDULE_REMINDER)) {
+                PushMessage msg = dispatcher.toPushMessage(notification(t, 7L));
+                assertThat(msg.url()).isEqualTo("/calendar?schedule=7");
+                assertThat(msg.title()).isEqualTo("일정");
+            }
+        }
     }
 
     @Nested

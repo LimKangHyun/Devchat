@@ -69,6 +69,8 @@ public class NotificationPushDispatcher {
             case CODE_REVIEW -> "/code-review/" + id;
             case STUDY_APPLY -> "/community/" + id + "/applicants";
             case STUDY_APPROVED, STUDY_REJECTED -> "/community/" + id;
+            case SCHEDULE_ADDED, SCHEDULE_CHANGED, SCHEDULE_CANCELED, SCHEDULE_REMINDER ->
+                "/calendar?schedule=" + id;
             default -> "/";
         };
     }
