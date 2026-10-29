@@ -97,6 +97,60 @@ describe('findDates', () => {
     expect(res[1].start.getTime()).toBe(at('2026-10-30T00:00:00'));
   });
 
+  it('시간(duration)이나 반드시는 시각이 아니다', () => {
+    const res = findDates('내일 3시간', base);
+    expect(res).toHaveLength(1);
+    expect(res[0].allDay).toBe(true);
+    expect(res[0].length).toBe(2);
+    const r = findDates('내일 3시 반드시 와', base);
+    expect(r[0].start.getTime()).toBe(at('2026-10-29T15:00:00'));
+    expect(r[0].length).toBe('내일 3시'.length);
+    expect(findDates('내일 3시 반', base)[0].start.getTime()).toBe(at('2026-10-29T15:30:00'));
+  });
+
+  it('1~6시 오후 규칙은 H시에만, HH:MM은 24시간', () => {
+    expect(findDates('내일 03:00', base)[0].start.getTime()).toBe(at('2026-10-29T03:00:00'));
+    expect(findDates('내일 1:30', base)[0].start.getTime()).toBe(at('2026-10-29T01:30:00'));
+    expect(findDates('내일 3시', base)[0].start.getTime()).toBe(at('2026-10-29T15:00:00'));
+  });
+
+  it('12:345는 시각이 아니다', () => {
+    const [r] = findDates('내일 12:345', base);
+    expect(r.allDay).toBe(true);
+  });
+
+  it('지난 요일은 잡지 않는다', () => {
+    expect(findDates('지난 월요일', base)).toEqual([]);
+    expect(findDates('지난주 월요일', base)).toEqual([]);
+    expect(findDates('저번 주 월요일', base)).toEqual([]);
+    expect(findDates('저번주 월요일', base)).toEqual([]);
+  });
+
+  it('연도는 1900~2100만', () => {
+    expect(findDates('1234-5-6', base)).toEqual([]);
+    expect(findDates('12026-11-02', base)).toEqual([]);
+  });
+
+  it('없는 날짜는 잡지 않는다', () => {
+    expect(findDates('2/30', base)).toEqual([]);
+    expect(findDates('2월 30일', base)).toEqual([]);
+    expect(findDates('2/29', base)).toEqual([]); // 2026년은 평년
+  });
+
+  it('겹치면 긴 것 하나만', () => {
+    const res = findDates('5/6월 7일', base);
+    expect(res).toHaveLength(1);
+    expect(res[0].index).toBe(2);
+    expect(res[0].start.getTime()).toBe(at('2027-06-07T00:00:00'));
+  });
+
+  it('정규식 lookbehind를 쓰지 않는다 (구형 Safari)', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const src = fs.readFileSync(path.join(__dirname, 'dateDetect.js'), 'utf8');
+    expect(src).not.toContain('(?<');
+  });
+
   it('base는 KST 날짜로 본다', () => {
     // UTC로는 10/27이지만 KST로는 10/28 00:30
     const early = new Date('2026-10-28T00:30:00+09:00');
