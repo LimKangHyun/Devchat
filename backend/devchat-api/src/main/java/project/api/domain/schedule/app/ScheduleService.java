@@ -99,19 +99,24 @@ public class ScheduleService {
         Schedule s = findOwned(me, id);
         ScheduleDraft draft = toDraft(r);
         List<Member> participants = mergeParticipants(me, s, requestedIds(me, r));
+        // 빠진 사람에게는 그들이 알던 제목으로 알린다
+        String titleBefore = s.getTitle();
+        Set<Long> before = s.participantIds();
 
         boolean timeChanged = s.applyChanges(draft, now());
         List<Long> added = s.replaceParticipants(participants);
         List<Long> removed = List.copyOf(s.lastRemovedParticipantIds());
+        // 바뀜 알림은 원래 있었고 남은 사람에게만 (새로 온 사람은 추가 알림, 빠진 사람은 취소 알림)
+        List<Long> kept = before.stream().filter(pid -> !removed.contains(pid)).toList();
 
         if (!added.isEmpty()) {
             events.publishEvent(new ParticipantsAddedEvent(s.getId(), me, added));
         }
-        if (timeChanged) {
-            events.publishEvent(new ScheduleChangedEvent(s.getId(), me));
+        if (timeChanged && !kept.isEmpty()) {
+            events.publishEvent(new ScheduleChangedEvent(s.getId(), me, kept));
         }
         if (!removed.isEmpty()) {
-            events.publishEvent(new ScheduleCanceledEvent(s.getId(), me, s.getTitle(), removed));
+            events.publishEvent(new ScheduleCanceledEvent(s.getId(), me, titleBefore, removed));
         }
         return ScheduleResponse.of(s, me);
     }
@@ -144,7 +149,10 @@ public class ScheduleService {
             throw new ScheduleException(ScheduleErrorCode.INVALID_SCHEDULE);
         }
         s.exclude(date);
-        events.publishEvent(new ScheduleChangedEvent(s.getId(), me));
+        List<Long> members = List.copyOf(s.participantIds());
+        if (!members.isEmpty()) {
+            events.publishEvent(new ScheduleChangedEvent(s.getId(), me, members));
+        }
     }
 
     @Transactional
@@ -170,8 +178,9 @@ public class ScheduleService {
         List<OccurrenceResponse> result = new ArrayList<>();
         for (Schedule s : scheduleRepository.findVisibleOverlapping(me, dayFrom, to)) {
             for (Occurrence o : RecurrenceExpander.between(s, dayFrom, to)) {
-                // 시간이 있는 회차는 요청 범위로 다시 거른다. 하루 종일은 그날 전체라 그대로 둔다
-                if (s.isAllDay() || !o.end().isBefore(from)) {
+                // 시간이 있는 회차는 요청 범위로 다시 거른다 (끝 > from, 반열린 구간).
+                // 하루 종일은 그날 전체라 그대로 둔다
+                if (s.isAllDay() || o.end().isAfter(from)) {
                     result.add(OccurrenceResponse.of(s, o, me));
                 }
             }
@@ -183,16 +192,25 @@ public class ScheduleService {
     public List<OccurrenceResponse> upcoming(Long me, int limit) {
         int n = Math.max(1, Math.min(limit, UPCOMING_MAX));
         LocalDateTime now = now();
+        LocalDateTime today = now.toLocalDate().atStartOfDay();
         List<OccurrenceResponse> result = new ArrayList<>();
         for (Schedule s : scheduleRepository.findAllVisible(me)) {
-            LocalDateTime after = now;
-            for (int i = 0; i < n; i++) {
+            // 아직 안 끝난 회차: 시간 있음은 끝 > 지금(진행 중 포함), 하루 종일은 마지막 날 >= 오늘
+            Duration length = Duration.between(s.getStartAt(), s.getEndAt());
+            LocalDateTime after = (s.isAllDay() ? today : now).minus(length);
+            int found = 0;
+            while (found < n) {
                 Optional<Occurrence> next = RecurrenceExpander.next(s, after);
                 if (next.isEmpty()) {
                     break;
                 }
-                result.add(OccurrenceResponse.of(s, next.get(), me));
-                after = next.get().start().plusNanos(1);
+                Occurrence o = next.get();
+                boolean notOver = s.isAllDay() ? !o.end().isBefore(today) : o.end().isAfter(now);
+                if (notOver) {
+                    result.add(OccurrenceResponse.of(s, o, me));
+                    found++;
+                }
+                after = o.start().plusNanos(1);
             }
         }
         result.sort(OCCURRENCE_ORDER);

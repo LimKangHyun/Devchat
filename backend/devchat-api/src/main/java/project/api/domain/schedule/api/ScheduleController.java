@@ -66,7 +66,11 @@ public class ScheduleController {
         return scheduleService.create(me.getId(), request);
     }
 
-    @Operation(summary = "일정 고치기 (반복 일정은 전체에 적용)")
+    /**
+     * PUT은 전체 교체: participantIds·reminderMinutes를 빼면 비움/기본값으로 바뀐다
+     */
+    @Operation(summary = "일정 고치기 (반복 일정은 전체에 적용)",
+        description = "PUT은 전체 교체: participantIds·reminderMinutes를 빼면 비움/기본값으로 바뀐다")
     @PutMapping("/{id}")
     public ScheduleResponse update(@AuthenticationPrincipal MemberDetails me, @PathVariable Long id,
                                    @RequestBody ScheduleRequest request) {

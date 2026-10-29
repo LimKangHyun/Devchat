@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -19,7 +18,9 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 import project.api.domain.member.dao.MemberRepository;
@@ -34,15 +35,20 @@ import project.api.domain.schedule.entity.ScheduleDraft;
 import project.api.global.exception.errorcode.ScheduleErrorCode;
 import project.api.global.exception.ex.ScheduleException;
 
+@ExtendWith(MockitoExtension.class)
 class ScheduleServiceTest {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 29, 9, 0);
     private static final LocalDateTime START = LocalDateTime.of(2026, 11, 3, 15, 0);
 
+    @Mock
     private ScheduleRepository scheduleRepository;
+    @Mock
     private MemberRepository memberRepository;
+    @Mock
     private ParticipantPolicy participantPolicy;
+    @Mock
     private ApplicationEventPublisher events;
     private ScheduleService service;
 
@@ -56,10 +62,6 @@ class ScheduleServiceTest {
 
     @BeforeEach
     void setUp() {
-        scheduleRepository = mock(ScheduleRepository.class);
-        memberRepository = mock(MemberRepository.class);
-        participantPolicy = mock(ParticipantPolicy.class);
-        events = mock(ApplicationEventPublisher.class);
         Clock clock = Clock.fixed(NOW.atZone(KST).toInstant(), KST);
         service = new ScheduleService(scheduleRepository, memberRepository, participantPolicy,
             events, clock);
@@ -78,8 +80,9 @@ class ScheduleServiceTest {
         return timed("회의", start, start.plusHours(1), null, List.of());
     }
 
-    // 저장 시 id를 붙여 돌려준다
-    private void givenSaveAssignsId(long id) {
+    // 만든 사람을 찾고, 저장 시 id를 붙여 돌려준다
+    private void givenOwnerAndSave(long id) {
+        given(memberRepository.findById(1L)).willReturn(Optional.of(owner));
         given(scheduleRepository.save(any(Schedule.class))).willAnswer(inv -> {
             Schedule s = inv.getArgument(0);
             ReflectionTestUtils.setField(s, "id", id);
@@ -88,8 +91,7 @@ class ScheduleServiceTest {
     }
 
     private ScheduleResponse createAsOwner(ScheduleRequest r) {
-        given(memberRepository.findById(1L)).willReturn(Optional.of(owner));
-        givenSaveAssignsId(10L);
+        givenOwnerAndSave(10L);
         return service.create(1L, r);
     }
 
@@ -134,7 +136,6 @@ class ScheduleServiceTest {
 
     @Test
     void create_rejectsBadReminders() {
-        given(memberRepository.findById(1L)).willReturn(Optional.of(owner));
         assertCode(() -> service.create(1L, timed("회의", START, START.plusHours(1),
             Arrays.asList(30, null), List.of())), ScheduleErrorCode.INVALID_SCHEDULE);
         assertCode(() -> service.create(1L, timed("회의", START, START.plusHours(1),
@@ -147,27 +148,25 @@ class ScheduleServiceTest {
 
     @Test
     void create_rejectsBlankOrLongTitle_trimsTitle() {
-        given(memberRepository.findById(1L)).willReturn(Optional.of(owner));
         assertCode(() -> service.create(1L, timed("   ", START, START.plusHours(1), null,
             List.of())), ScheduleErrorCode.INVALID_SCHEDULE);
         assertCode(() -> service.create(1L, timed("가".repeat(101), START, START.plusHours(1),
             null, List.of())), ScheduleErrorCode.INVALID_SCHEDULE);
 
-        givenSaveAssignsId(10L);
+        givenOwnerAndSave(10L);
         assertThat(service.create(1L, timed("  회의  ", START, START.plusHours(1), null,
             List.of())).title()).isEqualTo("회의");
     }
 
     @Test
     void create_rejectsEndBeforeStart() {
-        given(memberRepository.findById(1L)).willReturn(Optional.of(owner));
         assertCode(() -> service.create(1L, timed("회의", START, START.minusMinutes(1), null,
             List.of())), ScheduleErrorCode.INVALID_SCHEDULE);
         assertCode(() -> service.create(1L, timed("회의", START, START, null, List.of())),
             ScheduleErrorCode.INVALID_SCHEDULE);
 
         // 하루 종일이면 같은 날도 된다
-        givenSaveAssignsId(10L);
+        givenOwnerAndSave(10L);
         ScheduleRequest sameDay = new ScheduleRequest("워크숍", null, null, START, START, true,
             null, null, null, null, null, null);
         assertThat(service.create(1L, sameDay).endAt()).isEqualTo(START.toLocalDate().atStartOfDay());
@@ -175,7 +174,6 @@ class ScheduleServiceTest {
 
     @Test
     void create_rejectsUntilAndCountTogether() {
-        given(memberRepository.findById(1L)).willReturn(Optional.of(owner));
         ScheduleRequest both = new ScheduleRequest("회의", null, null, START, START.plusHours(1),
             false, RepeatFrequency.DAILY, null, LocalDate.of(2026, 12, 1), 5, null, null);
         assertCode(() -> service.create(1L, both), ScheduleErrorCode.INVALID_SCHEDULE);
@@ -259,7 +257,7 @@ class ScheduleServiceTest {
 
         service.update(1L, 10L, timed("새 제목", START.plusHours(1), START.plusHours(2),
             List.of(30), List.of(2L)));
-        verify(events).publishEvent(new ScheduleChangedEvent(10L, 1L));
+        verify(events).publishEvent(new ScheduleChangedEvent(10L, 1L, List.of(2L)));
     }
 
     @Test
@@ -337,7 +335,7 @@ class ScheduleServiceTest {
         service.excludeOccurrence(1L, 10L, date);
 
         assertThat(s.getExclusions()).extracting("occurrenceDate").containsExactly(date);
-        verify(events).publishEvent(new ScheduleChangedEvent(10L, 1L));
+        verify(events).publishEvent(new ScheduleChangedEvent(10L, 1L, List.of(2L)));
     }
 
     @Test
@@ -434,5 +432,106 @@ class ScheduleServiceTest {
 
         // 최대 30개
         assertThat(service.upcoming(1L, 100)).hasSize(30);
+    }
+
+    private Schedule sched(long id, String title, LocalDateTime start, LocalDateTime end,
+                           boolean allDay) {
+        Schedule s = Schedule.create(owner, new ScheduleDraft(title, null, null, start, end,
+            allDay, RepeatFrequency.NONE, java.util.Set.of(), null, null, List.of()), NOW);
+        ReflectionTestUtils.setField(s, "id", id);
+        return s;
+    }
+
+    @Test
+    void upcoming_includesTodaysAllDay() {
+        // NOW = 10/29 09:00. 오늘 하루 종일, 어제~오늘 이틀짜리도 아직 안 끝났다
+        Schedule today = sched(30L, "오늘", LocalDateTime.of(2026, 10, 29, 0, 0),
+            LocalDateTime.of(2026, 10, 29, 0, 0), true);
+        Schedule twoDays = sched(31L, "이틀", LocalDateTime.of(2026, 10, 28, 0, 0),
+            LocalDateTime.of(2026, 10, 29, 0, 0), true);
+        Schedule yesterday = sched(32L, "어제", LocalDateTime.of(2026, 10, 28, 0, 0),
+            LocalDateTime.of(2026, 10, 28, 0, 0), true);
+        given(scheduleRepository.findAllVisible(1L)).willReturn(List.of(today, twoDays, yesterday));
+
+        assertThat(service.upcoming(1L, 10)).extracting(OccurrenceResponse::scheduleId)
+            .containsExactly(31L, 30L);
+    }
+
+    @Test
+    void upcoming_includesInProgressMeeting() {
+        Schedule inProgress = sched(40L, "회의 중", LocalDateTime.of(2026, 10, 29, 8, 30),
+            LocalDateTime.of(2026, 10, 29, 9, 30), false);
+        Schedule later = sched(41L, "나중", LocalDateTime.of(2026, 10, 29, 13, 0),
+            LocalDateTime.of(2026, 10, 29, 14, 0), false);
+        given(scheduleRepository.findAllVisible(1L)).willReturn(List.of(later, inProgress));
+
+        assertThat(service.upcoming(1L, 10)).extracting(OccurrenceResponse::scheduleId)
+            .containsExactly(40L, 41L);
+    }
+
+    @Test
+    void upcoming_excludesFinished() {
+        // 지금 막 끝난 회의(끝 == 지금)와 반복 일정의 지난 회차는 빠진다
+        Schedule justEnded = sched(50L, "끝남", LocalDateTime.of(2026, 10, 29, 8, 0),
+            LocalDateTime.of(2026, 10, 29, 9, 0), false);
+        Schedule daily = Schedule.create(owner, new ScheduleDraft("스탠드업", null, null,
+            LocalDateTime.of(2026, 10, 27, 8, 0), LocalDateTime.of(2026, 10, 27, 8, 15), false,
+            RepeatFrequency.DAILY, java.util.Set.of(), null, 3, List.of()), NOW);
+        ReflectionTestUtils.setField(daily, "id", 51L);
+        given(scheduleRepository.findAllVisible(1L)).willReturn(List.of(justEnded, daily));
+
+        assertThat(service.upcoming(1L, 10)).isEmpty();
+    }
+
+    @Test
+    void changed_onlyToKeptParticipants_skippedWhenNone() {
+        // 시간을 바꾸면서 3을 빼고 4를 넣으면, 바뀜 알림은 남은 2에게만
+        Member newcomer = member(4L);
+        existing(10L, START, RepeatFrequency.NONE, List.of(friend, other));
+        given(participantPolicy.validate(1L, List.of(4L))).willReturn(List.of(newcomer));
+
+        service.update(1L, 10L, timed("회의", START.plusHours(1), START.plusHours(2), List.of(30),
+            List.of(2L, 4L)));
+
+        verify(events).publishEvent(new ScheduleChangedEvent(10L, 1L, List.of(2L)));
+        verify(events).publishEvent(new ParticipantsAddedEvent(10L, 1L, List.of(4L)));
+        verify(events).publishEvent(new ScheduleCanceledEvent(10L, 1L, "회의", List.of(3L)));
+    }
+
+    @Test
+    void changed_notPublishedWithoutParticipants() {
+        existing(10L, START, RepeatFrequency.DAILY, List.of());
+        existing(11L, START, RepeatFrequency.NONE, List.of());
+
+        service.excludeOccurrence(1L, 10L, LocalDate.of(2026, 11, 5));
+        service.update(1L, 11L, timed("회의", START.plusHours(1), START.plusHours(2), List.of(30),
+            List.of()));
+
+        verify(events, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void update_removedParticipant_getsTitleBeforeChange() {
+        existing(10L, START, RepeatFrequency.NONE, List.of(friend, other));
+
+        service.update(1L, 10L, timed("새 제목", START, START.plusHours(1), List.of(30),
+            List.of(2L)));
+
+        verify(events).publishEvent(new ScheduleCanceledEvent(10L, 1L, "회의", List.of(3L)));
+    }
+
+    @Test
+    void occurrences_timedEndingAtFrom_excluded() {
+        // 09:00~10:00 회의는 10:00부터 보는 화면에 없다
+        LocalDateTime from = LocalDateTime.of(2026, 11, 4, 10, 0);
+        LocalDateTime to = LocalDateTime.of(2026, 11, 5, 0, 0);
+        Schedule ended = sched(60L, "아침", LocalDateTime.of(2026, 11, 4, 9, 0), from, false);
+        Schedule overlapping = sched(61L, "걸침", LocalDateTime.of(2026, 11, 4, 9, 30),
+            LocalDateTime.of(2026, 11, 4, 10, 30), false);
+        given(scheduleRepository.findVisibleOverlapping(1L, LocalDateTime.of(2026, 11, 4, 0, 0), to))
+            .willReturn(List.of(ended, overlapping));
+
+        assertThat(service.occurrences(1L, from, to)).extracting(OccurrenceResponse::scheduleId)
+            .containsExactly(61L);
     }
 }

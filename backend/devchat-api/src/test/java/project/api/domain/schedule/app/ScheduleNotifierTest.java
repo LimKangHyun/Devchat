@@ -91,7 +91,7 @@ class ScheduleNotifierTest {
         given(scheduleRepository.findById(7L)).willReturn(Optional.of(s));
         given(memberRepository.findById(1L)).willReturn(Optional.of(minsu));
 
-        notifier.onChanged(new ScheduleChangedEvent(7L, 1L));
+        notifier.onChanged(new ScheduleChangedEvent(7L, 1L, List.of(2L, 3L)));
 
         assertThat(sentTo("jiwon", 1).get(0).content()).isEqualTo("'회의' 일정이 바뀌었어요");
         assertThat(sentTo("taeho", 1).get(0).type()).isEqualTo(NotificationType.SCHEDULE_CHANGED);
@@ -105,7 +105,7 @@ class ScheduleNotifierTest {
         given(scheduleRepository.findById(7L)).willReturn(Optional.of(s));
         given(memberRepository.findById(2L)).willReturn(Optional.of(jiwon));
 
-        notifier.onChanged(new ScheduleChangedEvent(7L, 2L));
+        notifier.onChanged(new ScheduleChangedEvent(7L, 2L, List.of(2L)));
 
         verify(sender, never()).send(eq("jiwon"), any());
     }
