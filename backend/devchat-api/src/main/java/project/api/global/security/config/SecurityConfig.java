@@ -64,7 +64,7 @@ public class SecurityConfig {
 						.hasRole("INTERNAL_SERVICE")
 						.requestMatchers("/token/**", "/logout", "/images/**",
 								"/actuator/health", "/actuator/prometheus", "/ws",
-								"/github/webhook/**")
+								"/github/webhook/**", "/calendar/feed/**")
 						.permitAll()
 						.anyRequest()
 						.authenticated())

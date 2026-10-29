@@ -81,6 +81,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	private boolean isWhitelisted(String requestURI) {
 		return requestURI.matches("/github/webhook/\\d+")
 				|| requestURI.startsWith("/internal/")
+				// 애플 캘린더 구독(.ics)은 쿠키 없이 토큰 주소로 들어온다
+				|| requestURI.startsWith("/calendar/feed/")
 				|| WHITE_LIST.contains(requestURI);
 	}
 
