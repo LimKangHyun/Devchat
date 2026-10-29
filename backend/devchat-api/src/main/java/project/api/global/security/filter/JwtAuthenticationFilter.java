@@ -14,6 +14,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import project.api.global.util.CookieUtils;
+import project.api.auth.app.RevokedSessionStore;
+import project.api.auth.dto.MemberDetails;
 import project.api.auth.jwt.JwtProvider;
 import project.api.auth.jwt.TokenStatus;
 
@@ -23,6 +25,7 @@ import project.api.auth.jwt.TokenStatus;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtProvider jwtProvider;
+	private final RevokedSessionStore revokedSessionStore;
 
 	private static final List<String> WHITE_LIST = List.of(
 			"/signup",
@@ -57,6 +60,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 		if (tokenStatus == TokenStatus.VALID) {
 			Authentication authentication = jwtProvider.getAuthentication(accessToken);
+			// 토큰이 살아 있어도 끊긴 기기면 막는다
+			if (authentication.getPrincipal() instanceof MemberDetails member
+					&& revokedSessionStore.isRevoked(member.getSessionId())) {
+				SecurityContextHolder.clearContext();
+				sendUnauthorized(response, "로그아웃된 기기입니다.");
+				return;
+			}
 			SecurityContextHolder.getContext().setAuthentication(authentication);
 		} else {
 			log.warn("[JWT] 유효하지 않은 토큰 - status: {}", tokenStatus);

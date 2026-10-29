@@ -9,7 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import project.api.auth.app.AuthTokenService;
+import project.api.auth.app.LoginSessionService;
 import project.api.global.util.CookieUtils;
 import project.api.auth.dto.MemberDetails;
 
@@ -20,15 +20,16 @@ import project.api.auth.dto.MemberDetails;
 @RequiredArgsConstructor
 public class LogoutController {
 
-	private final AuthTokenService authTokenService;
+	private final LoginSessionService loginSessionService;
 
+	// 지금 기기 세션만 끊는다. 이 기기는 쿠키를 지우므로 웹소켓 알림은 보내지 않는다
 	@Operation(summary = "로그아웃")
 	@PostMapping
 	public void logout(@AuthenticationPrincipal MemberDetails memberDetails,
 					   HttpServletResponse response) {
 
 		if (memberDetails != null) {
-			authTokenService.logout(memberDetails.getId());
+			loginSessionService.revokeCurrent(memberDetails.getSessionId());
 			log.info("[로그아웃] {}", memberDetails.getNickname());
 		}
 

@@ -198,11 +198,6 @@ public class AuthTokenService {
         CookieUtils.saveRefreshTokenCookie(response, token.refreshToken());
     }
 
-    @Transactional
-    public void logout(Long memberId) {
-        authTokenRepository.deleteById(memberId);
-    }
-
     public String getGithubAccessToken(Long memberId) {
         AuthToken authToken = authTokenRepository.findById(memberId)
                 .orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));

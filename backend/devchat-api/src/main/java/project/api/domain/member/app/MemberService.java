@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import project.api.auth.app.AuthTokenService;
+import project.api.auth.app.LoginSessionService;
 import project.api.domain.imagefile.ImageFileService;
 import project.api.domain.member.dao.MemberRepository;
 import project.api.domain.member.dto.*;
@@ -39,6 +40,7 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
     private final ProfileImageCache profileImageCache;
+    private final LoginSessionService loginSessionService;
 
     @Value("${file.images.profile.default}")
     private String defaultProfileImg;
@@ -115,6 +117,8 @@ public class MemberService {
         }
 
         targetMember.updatePassword(request.getNewPassword(), passwordEncoder);
+        // 비밀번호가 바뀌면 지금 기기 말고 모두 로그아웃한다
+        loginSessionService.revokeOthers(memberDetails.getId(), memberDetails.getSessionId());
     }
 
 
