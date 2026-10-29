@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus, CalendarPlus, Repeat, Loader2 } from 'lucide-react';
@@ -44,19 +44,28 @@ const CalendarPage = () => {
   const fromIso = toLocalIso(from);
   const toIso = toLocalIso(to);
 
+  // 마지막 요청만 반영한다 (달을 빨리 넘기면 앞 요청이 늦게 올 수 있다)
+  const requestSeq = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
-      setOccurrences(await fetchOccurrences(fromIso, toIso));
+      const data = await fetchOccurrences(fromIso, toIso);
+      if (seq !== requestSeq.current) return;
+      setOccurrences(data);
       setFailed(false);
     } catch (e) {
-      setFailed(true);
+      if (seq === requestSeq.current) setFailed(true);
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [fromIso, toIso]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    // 화면을 떠나면 늦게 온 응답은 버린다
+    return () => { requestSeq.current += 1; };
+  }, [load]);
   useEffect(() => {
     window.addEventListener('schedules:changed', load);
     return () => window.removeEventListener('schedules:changed', load);
@@ -75,7 +84,12 @@ const CalendarPage = () => {
     }, { replace: true });
   }, [scheduleParam, openDetail, setSearchParams]);
 
-  const byDay = useMemo(() => occurrencesByDay(occurrences), [occurrences]);
+  const fromTime = from.getTime();
+  const toTime = to.getTime();
+  const byDay = useMemo(
+    () => occurrencesByDay(occurrences, { from: new Date(fromTime), to: new Date(toTime) }),
+    [occurrences, fromTime, toTime],
+  );
   const todayKey = dayKey(new Date());
 
   const move = (step) => {
@@ -93,6 +107,14 @@ const CalendarPage = () => {
   };
 
   const createOn = (day) => openCreate({ start: day, end: day, allDay: true });
+  // role=button 칸: Enter와 Space로 연다
+  const onCellKey = (e, day) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      createOn(day);
+    }
+  };
   const showDetail = (e, o) => {
     e.stopPropagation();
     openDetail(o.scheduleId, occurrenceRef(o));
@@ -136,7 +158,7 @@ const CalendarPage = () => {
               tabIndex={0}
               className={`${styles.cell} ${t.m !== m ? styles.cellOut : ''} ${key === todayKey ? styles.cellToday : ''}`}
               onClick={() => createOn(day)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) createOn(day); }}
+              onKeyDown={(e) => onCellKey(e, day)}
               aria-label={`${dateLabel(day)} 일정 만들기`}
             >
               <span className={`${styles.dayNum} ${i % 7 === 0 ? styles.sun : ''} ${i % 7 === 6 ? styles.sat : ''}`}>{t.d}</span>
@@ -174,7 +196,7 @@ const CalendarPage = () => {
             tabIndex={0}
             className={`${styles.weekCol} ${key === todayKey ? styles.weekColToday : ''}`}
             onClick={() => createOn(day)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) createOn(day); }}
+            onKeyDown={(e) => onCellKey(e, day)}
             aria-label={`${dateLabel(day)} 일정 만들기`}
           >
             <div className={styles.weekHead}>

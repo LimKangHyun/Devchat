@@ -66,6 +66,18 @@ describe('occurrencesByDay', () => {
     expect(map.has('2026-11-01')).toBe(false);
   });
 
+  it('보이는 범위보다 훨씬 전에 시작한 긴 일정도 범위의 모든 날에 넣는다', () => {
+    const range = { from: kstDate(2026, 11, 1), to: kstDate(2026, 12, 1) };
+    const map = occurrencesByDay([
+      { scheduleId: 9, title: '긴 일정', start: '2026-08-01T00:00:00', end: '2026-12-31T00:00:00', allDay: true },
+    ], range);
+    for (let d = 1; d <= 30; d++) {
+      expect(map.get(`2026-11-${String(d).padStart(2, '0')}`)?.map((o) => o.scheduleId)).toEqual([9]);
+    }
+    expect(map.has('2026-10-31')).toBe(false);
+    expect(map.has('2026-12-01')).toBe(false);
+  });
+
   it('같은 날은 하루 종일 먼저, 그다음 시작 순', () => {
     const map = occurrencesByDay([
       { scheduleId: 3, title: 'b', start: '2026-10-29T15:00:00', end: '2026-10-29T16:00:00', allDay: false },

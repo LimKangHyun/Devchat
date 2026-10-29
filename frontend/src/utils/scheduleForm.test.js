@@ -39,6 +39,13 @@ describe('changeForm', () => {
   it('매주를 고르면 시작 요일을 켠다', () => {
     expect(changeForm(base, 'repeatFrequency', 'WEEKLY').repeatDays).toEqual(['THURSDAY']);
   });
+
+  it('매주 월·수를 고른 채 시작을 수요일로 옮겨도 월·수 그대로', () => {
+    const f = { ...emptyForm({ start: kstDate(2026, 11, 2, 10, 0) }), repeatFrequency: 'WEEKLY', repeatDays: ['MONDAY', 'WEDNESDAY'] };
+    expect(changeForm(f, 'startDate', '2026-11-04').repeatDays).toEqual(['MONDAY', 'WEDNESDAY']);
+    // 새 시작 요일은 더한다
+    expect(changeForm(f, 'startDate', '2026-11-06').repeatDays).toEqual(['MONDAY', 'WEDNESDAY', 'FRIDAY']);
+  });
 });
 
 describe('validateForm / buildRequest', () => {

@@ -23,10 +23,10 @@ const Layout = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
-  // 달력 주소로 바로 들어오면(알림·푸시) 왼쪽도 일정 탭으로, 채팅방으로 가면 채팅방 탭으로 돌린다
+  // 일정 탭은 달력 화면에서만 쓴다. 달력으로 오면(알림·푸시 포함) 일정 탭, 떠나면 채팅방 탭으로 돌린다
   useEffect(() => {
     if (pathname.startsWith('/calendar')) setActivePanel('calendar');
-    else if (pathname.startsWith('/chat/')) setActivePanel((p) => (p === 'calendar' ? 'chat' : p));
+    else setActivePanel((p) => (p === 'calendar' ? 'chat' : p));
   }, [pathname]);
 
   if (isLoading || !currentUser) return null;

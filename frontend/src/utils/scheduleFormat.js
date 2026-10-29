@@ -3,6 +3,8 @@ import { parseServerTime } from './relativeTime';
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// 범위가 없을 때 한 일정이 차지할 수 있는 최대 날 수
+const MAX_WALK_DAYS = 400;
 const pad = (n) => String(n).padStart(2, '0');
 
 export const DOW_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -90,22 +92,29 @@ export const compareOccurrence = (a, b) => {
 };
 
 // 회차를 날짜 칸('YYYY-MM-DD')별로 나눈다. 여러 날에 걸치면 모든 날에 넣는다
-export const occurrencesByDay = (list) => {
+export const occurrencesByDay = (list, range) => {
   const map = new Map();
   [...(list || [])].sort(compareOccurrence).forEach((o) => {
+    // range: { from, to } (to는 그날을 포함하지 않는다). 없으면 일정 전체 기간
     const s = toDate(o.start);
     let e = toDate(o.end);
     // 시간 일정이 0시에 끝나면 그 날은 넣지 않는다
     if (!o.allDay && e > s && dayKey(e) !== dayKey(s) && toTimeInput(e) === '00:00') {
       e = new Date(e.getTime() - 1);
     }
-    const last = dayKey(e);
-    let cur = parseDayKey(dayKey(s));
-    for (let i = 0; i < 62; i++) {
+    // 보이는 범위 안의 날만 돈다 (범위보다 훨씬 전에 시작한 긴 일정도 빠지지 않게)
+    let first = dayKey(s);
+    let last = dayKey(e);
+    if (range?.from && dayKey(range.from) > first) first = dayKey(range.from);
+    if (range?.to) {
+      const end = dayKey(new Date(range.to.getTime() - 1));
+      if (end < last) last = end;
+    }
+    let cur = parseDayKey(first);
+    for (let i = 0; i < MAX_WALK_DAYS && dayKey(cur) <= last; i++) {
       const key = dayKey(cur);
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(o);
-      if (key >= last) break;
       cur = new Date(cur.getTime() + DAY_MS);
     }
   });

@@ -21,6 +21,8 @@ const ParticipantPicker = ({ value, onChange, disabled }) => {
   const [roomMembers, setRoomMembers] = useState([]);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [friendsFailed, setFriendsFailed] = useState(false);
+  const [roomFailed, setRoomFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -33,11 +35,12 @@ const ParticipantPicker = ({ value, onChange, disabled }) => {
           .filter((f) => f.id != null);
         setFriends(list);
       })
-      .catch(() => {});
+      .catch(() => { if (alive) setFriendsFailed(true); });
     return () => { alive = false; };
   }, []);
 
   useEffect(() => {
+    setRoomFailed(false);
     if (!roomId) { setRoomMembers([]); return undefined; }
     let alive = true;
     axiosInstance.get(`/chat-rooms/${roomId}/participants`)
@@ -45,7 +48,7 @@ const ParticipantPicker = ({ value, onChange, disabled }) => {
         if (!alive) return;
         setRoomMembers((res.data || []).map((p) => ({ id: p.memberId, nickname: p.nickname, profileImg: p.profileImageUrl })));
       })
-      .catch(() => {});
+      .catch(() => { if (alive) setRoomFailed(true); });
     return () => { alive = false; };
   }, [roomId]);
 
@@ -101,11 +104,15 @@ const ParticipantPicker = ({ value, onChange, disabled }) => {
           aria-label="참여자 찾기"
         />
       </div>
+      {(friendsFailed || roomFailed) && candidates.length > 0 && (
+        <p className={s.pickerError} role="alert">목록을 불러오지 못했어요. 일부 사람만 보일 수 있어요.</p>
+      )}
       {open && (
         <ul className={s.pickerList} role="listbox">
           {options.length === 0 ? (
             <li className={s.pickerEmpty}>
-              {candidates.length === 0 ? '고를 수 있는 사람이 없어요' : '찾는 사람이 없어요'}
+              {candidates.length > 0 ? '찾는 사람이 없어요'
+                : friendsFailed || roomFailed ? '목록을 불러오지 못했어요' : '고를 수 있는 사람이 없어요'}
             </li>
           ) : options.map((p) => (
             <li key={p.id}>

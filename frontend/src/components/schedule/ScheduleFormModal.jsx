@@ -9,6 +9,7 @@ import { REMINDER_CHOICES, reminderLabel } from '../../utils/reminderOptions';
 import { DOW_LABELS, DOW_ENUM } from '../../utils/scheduleFormat';
 import { kstParts, kstDate } from '../../utils/calendarGrid';
 import ParticipantPicker from './ParticipantPicker';
+import useEscapeKey from './useEscapeKey';
 import ms from '../modals/Modals.module.css';
 import s from './Schedule.module.css';
 
@@ -37,6 +38,7 @@ const ScheduleFormModal = ({ schedule, prefill, onClose, onSaved }) => {
   const editing = !!schedule;
   const [form, setForm] = useState(() => (editing ? formFromSchedule(schedule) : emptyForm(prefill)));
   const [saving, setSaving] = useState(false);
+  useEscapeKey(onClose, saving);
   const [error, setError] = useState(null);
 
   const set = (field) => (e) => {

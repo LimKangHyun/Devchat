@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Loader2, CalendarPlus, Copy, RefreshCw, Check, AlertTriangle } from 'lucide-react';
 import { fetchFeedUrl, regenerateFeedUrl, errorMessage } from '../../api/scheduleApi';
+import useEscapeKey from './useEscapeKey';
 import ms from '../modals/Modals.module.css';
 import s from './Schedule.module.css';
 
@@ -10,6 +11,7 @@ const CalendarConnectModal = ({ onClose }) => {
   const [error, setError] = useState(null);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
+  useEscapeKey(onClose, busy);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef(null);
 

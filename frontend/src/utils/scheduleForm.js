@@ -97,11 +97,9 @@ export const changeForm = (form, field, value) => {
       if (diff >= 0) next.endDate = new Date(Date.parse(value) + diff).toISOString().slice(0, 10);
     }
     if (!next.endDate || next.endDate < value) next.endDate = value;
-    // 매주 반복이면 시작 요일을 켜 둔다 (서버도 넣는다)
-    if (next.repeatFrequency === 'WEEKLY') {
-      const old = form.startDate ? dowOf(form.startDate) : null;
-      const days = next.repeatDays.filter((d) => d !== old);
-      next.repeatDays = days.includes(dowOf(value)) ? days : [...days, dowOf(value)];
+    // 매주 반복이면 새 시작 요일만 더한다. 고른 요일은 빼지 않는다 (서버도 시작 요일을 넣는다)
+    if (next.repeatFrequency === 'WEEKLY' && !next.repeatDays.includes(dowOf(value))) {
+      next.repeatDays = [...next.repeatDays, dowOf(value)];
     }
   }
   if (field === 'startTime' && value && !next.allDay && next.startDate === next.endDate && next.endTime <= value) {

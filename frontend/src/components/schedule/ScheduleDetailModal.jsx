@@ -6,6 +6,7 @@ import {
 import { rangeLabel, repeatLabel, dateLabel, parseDayKey } from '../../utils/scheduleFormat';
 import { reminderLabel } from '../../utils/reminderOptions';
 import Avatar from './Avatar';
+import useEscapeKey from './useEscapeKey';
 import ms from '../modals/Modals.module.css';
 import s from './Schedule.module.css';
 
@@ -16,6 +17,7 @@ const ScheduleDetailModal = ({ scheduleId, occurrence, onClose, onEdit, onDone }
   const [loadError, setLoadError] = useState(null);
   const [step, setStep] = useState('view'); // view | delete | leave
   const [busy, setBusy] = useState(false);
+  useEscapeKey(onClose, busy);
   const [error, setError] = useState(null);
 
   useEffect(() => {

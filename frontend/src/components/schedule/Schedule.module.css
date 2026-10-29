@@ -361,3 +361,9 @@
   .timeInputs { flex-wrap: wrap; }
   .dayToggles { justify-content: space-between; }
 }
+
+.pickerError {
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger);
+}
