@@ -1,0 +1,369 @@
+/* 달력 화면 (월·주 보기, 휴대폰은 작은 달력 + 그날 목록) */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 16px 20px 24px;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+.toolbarRight {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.spin {
+  color: var(--text-3);
+  animation: calSpin 1s linear infinite;
+}
+@keyframes calSpin { to { transform: rotate(360deg); } }
+
+.segment {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--bg-muted);
+}
+.segmentItem {
+  min-width: 44px;
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.segmentItemOn {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(28, 36, 48, 0.12);
+}
+
+.error {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.sun { color: var(--danger); }
+.sat { color: var(--link); }
+
+/* ── 월 보기 ── */
+.month {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.dowRow {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.dow {
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-2);
+}
+.month .dowRow {
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+}
+.monthGrid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(104px, 1fr);
+}
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px;
+  border-right: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+  outline: none;
+}
+.cell:nth-child(7n) { border-right: none; }
+.cell:nth-last-child(-n + 7) { border-bottom: none; }
+.cell:hover { background: var(--bg-soft); }
+.cell:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-ring); }
+.cellOut { opacity: 0.45; }
+.dayNum {
+  align-self: flex-start;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 22px;
+  text-align: center;
+  box-sizing: border-box;
+}
+.cellToday .dayNum {
+  background: var(--primary);
+  color: #fff;
+}
+.chips {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  height: 20px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 4px;
+  background: var(--marker-soft);
+  color: var(--side-active-text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.chip:hover { filter: brightness(0.96); }
+.chipAllDay {
+  background: var(--primary);
+  color: #fff;
+}
+.chipShared {
+  background: var(--bg-muted);
+  color: var(--text);
+}
+.chipAllDay.chipShared {
+  background: var(--text-2);
+  color: #fff;
+}
+.chipTime {
+  flex-shrink: 0;
+  font-size: 11px;
+  opacity: 0.8;
+}
+.chipTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chipIcon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.more {
+  align-self: flex-start;
+  padding: 0 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.more:hover { background: var(--bg-muted); color: var(--text); }
+
+/* ── 주 보기 ── */
+.week {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.weekCol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 420px;
+  border-right: 1px solid var(--border-soft);
+  cursor: pointer;
+  outline: none;
+}
+.weekCol:last-child { border-right: none; }
+.weekCol:hover { background: var(--bg-soft); }
+.weekCol:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-ring); }
+.weekHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-soft);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.weekHead strong {
+  font-size: 16px;
+  color: var(--text);
+}
+.weekColToday .weekHead strong { color: var(--primary); }
+.weekAllDay {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 28px;
+  padding: 4px;
+  border-bottom: 1px dashed var(--border);
+}
+.weekTimed {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 4px;
+}
+.weekTimed .chip {
+  height: auto;
+  min-height: 22px;
+  padding: 3px 6px;
+  flex-wrap: wrap;
+}
+
+/* ── 휴대폰 ── */
+.miniMonth {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.miniGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  row-gap: 2px;
+}
+.miniCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  height: 44px;
+  padding: 4px 0 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+.miniToday > span:first-child {
+  color: var(--primary);
+  font-weight: 700;
+}
+.miniSelected {
+  background: var(--marker-soft);
+}
+.dots {
+  display: flex;
+  gap: 2px;
+  height: 5px;
+}
+.dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.dayList {
+  padding-top: 12px;
+}
+.dayList ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dayListHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.dayListHead h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.dayEmpty {
+  margin: 16px 0;
+  font-size: 14px;
+  color: var(--text-3);
+  text-align: center;
+}
+.dayItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 4px;
+  border: none;
+  border-bottom: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+.dayItemBar {
+  align-self: stretch;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+.dayItemBar.chipShared { background: var(--text-3); }
+.dayItemTime {
+  flex-shrink: 0;
+  min-width: 70px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.dayItemTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .page { padding: 12px 16px 20px; }
+  .toolbar { gap: 8px; margin-bottom: 8px; }
+  .title { font-size: 18px; }
+}

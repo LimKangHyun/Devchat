@@ -7,6 +7,7 @@ import JoinRoomModal from "./modals/JoinRoomModal"
 import RoomInfoModal from "./modals/RoomInfoModal"
 import Toast from "./common/Toast"
 import FriendsSidebar from "./FriendsSidebar"
+import ScheduleSidebar from "./schedule/ScheduleSidebar"
 import axiosInstance from "./api/axiosInstance"
 import { useAlarm } from '../context/AlarmContext'
 import { useUser } from "../context/UserContext"
@@ -328,7 +329,7 @@ const Sidebar = ({ onStartChat, activeTab = "chat", hidden = false }) => {
       <aside ref={sidebarRef} className={`${styles.sidebar} ${hidden ? styles.sidebarHidden : ""}`}>
         <div className={styles.sidebarHeader}>
           <h3 className={styles.sidebarTitle}>
-            {activeTab === "chat" ? "채팅방" : "친구"}
+            {activeTab === "chat" ? "채팅방" : activeTab === "calendar" ? "일정" : "친구"}
           </h3>
           {activeTab === "chat" && (
             <button
@@ -342,7 +343,9 @@ const Sidebar = ({ onStartChat, activeTab = "chat", hidden = false }) => {
             </button>
           )}
         </div>
-        {activeTab === "friends" ? <FriendsSidebar onStartChat={onStartChat} /> : renderRooms()}
+        {activeTab === "friends" ? <FriendsSidebar onStartChat={onStartChat} />
+          : activeTab === "calendar" ? <ScheduleSidebar />
+          : renderRooms()}
       </aside>
 
       {showMembersModal && selectedRoom && (
