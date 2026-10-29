@@ -18,6 +18,7 @@ import project.api.auth.cache.TokenRefreshCachePort;
 import project.api.auth.dao.AuthTokenRepository;
 import project.api.auth.dao.LoginSessionRepository;
 import project.api.auth.dto.MemberDetails;
+import project.api.auth.entity.AuthToken;
 import project.api.auth.entity.LoginSession;
 import project.api.auth.jwt.JwtProvider;
 import project.api.domain.imagefile.ImageFileService;
@@ -78,13 +79,29 @@ class SessionRevocationWiringTest {
 
     @Test
     void logout_revokesOnlyCurrentSession() {
-        LogoutController controller = new LogoutController(loginSessionService);
+        LogoutController controller = new LogoutController(loginSessionService, authTokenService);
         MemberDetails details = new MemberDetails(1L, "user1", "옛닉", "img.png", "s-1");
 
         controller.logout(details, response);
 
         verify(loginSessionService).revokeCurrent("s-1");
         verify(loginSessionService, never()).revokeOthers(any(), any());
+        verify(authTokenRepository, never()).findById(any());
+        assertThat(response.getStatus()).isEqualTo(204);
+    }
+
+    @Test
+    void logout_legacyToken_clearsStoredRefreshToken() {
+        LogoutController controller = new LogoutController(loginSessionService, authTokenService);
+        MemberDetails details = new MemberDetails(1L, "user1", "옛닉", "img.png", null);
+        AuthToken authToken = AuthToken.of(1L, "enc-refresh", "enc-github");
+        given(authTokenRepository.findById(1L)).willReturn(Optional.of(authToken));
+
+        controller.logout(details, response);
+
+        assertThat(authToken.getRefreshToken()).isNull();
+        assertThat(authToken.getGithubAccessToken()).isEqualTo("enc-github");
+        verify(loginSessionService, never()).revokeCurrent(any());
         assertThat(response.getStatus()).isEqualTo(204);
     }
 

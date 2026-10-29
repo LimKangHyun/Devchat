@@ -198,6 +198,12 @@ public class AuthTokenService {
         CookieUtils.saveRefreshTokenCookie(response, token.refreshToken());
     }
 
+    // 옛 토큰(sid 없음)으로 로그아웃할 때 저장된 리프레시 토큰만 지운다
+    @Transactional
+    public void clearLegacyRefreshToken(Long memberId) {
+        authTokenRepository.findById(memberId).ifPresent(AuthToken::clearRefreshToken);
+    }
+
     public String getGithubAccessToken(Long memberId) {
         AuthToken authToken = authTokenRepository.findById(memberId)
                 .orElseThrow(() -> new CustomJwtException(TokenErrorCode.NOT_FOUND_TOKEN));
