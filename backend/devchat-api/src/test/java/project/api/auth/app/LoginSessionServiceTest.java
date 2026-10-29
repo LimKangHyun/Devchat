@@ -8,8 +8,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
+import project.api.auth.dao.AuthTokenRepository;
 import project.api.auth.dao.LoginSessionRepository;
 import project.api.auth.dto.LoginSessionResponse;
+import project.api.auth.entity.AuthToken;
 import project.api.auth.entity.LoginSession;
 import project.api.domain.member.dao.MemberRepository;
 import project.api.domain.member.entity.Member;
@@ -35,12 +37,14 @@ class LoginSessionServiceTest {
     @Mock MemberRepository memberRepository;
     @Mock RevokedSessionStore revokedSessionStore;
     @Mock ApplicationEventPublisher eventPublisher;
+    @Mock AuthTokenRepository authTokenRepository;
 
     LoginSessionService service;
 
     @BeforeEach
     void setUp() {
-        service = new LoginSessionService(repository, memberRepository, revokedSessionStore, eventPublisher);
+        service = new LoginSessionService(repository, memberRepository, revokedSessionStore, eventPublisher,
+                authTokenRepository);
     }
 
     private LoginSession session(String id, Long memberId, LocalDateTime lastUsedAt) {
@@ -123,5 +127,29 @@ class LoginSessionServiceTest {
         verify(revokedSessionStore).markRevoked("s-2");
         verify(revokedSessionStore).markRevoked("s-3");
         verify(revokedSessionStore, never()).markRevoked("s-1");
+    }
+
+    @Test
+    void revokeOthers_withSid_clearsLegacyToken() {
+        AuthToken authToken = AuthToken.of(1L, "enc-legacy-refresh", "enc-github");
+        given(repository.findByMemberIdAndRevokedAtIsNullAndExpiresAtAfterOrderByLastUsedAtDesc(
+                any(), any())).willReturn(List.of());
+        given(authTokenRepository.findById(1L)).willReturn(Optional.of(authToken));
+
+        service.revokeOthers(1L, "s-1");
+
+        assertThat(authToken.getRefreshToken()).isNull();
+        assertThat(authToken.getGithubAccessToken()).isEqualTo("enc-github");
+    }
+
+    @Test
+    void revokeOthers_withoutSid_keepsLegacyToken() {
+        given(repository.findByMemberIdAndRevokedAtIsNullAndExpiresAtAfterOrderByLastUsedAtDesc(
+                any(), any())).willReturn(List.of());
+
+        service.revokeOthers(1L, null);
+
+        // 지금 기기가 옛 토큰을 쓰는 기기이므로 남긴다
+        verify(authTokenRepository, never()).findById(any());
     }
 }

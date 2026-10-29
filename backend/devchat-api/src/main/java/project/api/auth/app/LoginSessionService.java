@@ -4,7 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.api.auth.dao.AuthTokenRepository;
 import project.api.auth.dao.LoginSessionRepository;
+import project.api.auth.entity.AuthToken;
 import project.api.auth.dto.LoginSessionResponse;
 import project.api.auth.entity.LoginSession;
 import project.api.domain.member.dao.MemberRepository;
@@ -23,6 +25,7 @@ public class LoginSessionService {
     private final MemberRepository memberRepository;
     private final RevokedSessionStore revokedSessionStore;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuthTokenRepository authTokenRepository;
 
     // 지금 세션을 맨 위로, 나머지는 마지막 사용 순
     @Transactional(readOnly = true)
@@ -60,6 +63,11 @@ public class LoginSessionService {
             s.revoke(now);
             revokedSessionStore.markRevoked(s.getId());
             revoked.add(s.getId());
+        }
+        // 세션으로 아직 안 옮긴 다른 기기의 옛 리프레시 토큰도 끊는다.
+        // sid가 없으면 지금 기기가 그 옛 토큰을 쓰는 중이라 남긴다
+        if (currentSessionId != null) {
+            authTokenRepository.findById(memberId).ifPresent(AuthToken::clearRefreshToken);
         }
         if (!revoked.isEmpty()) publish(memberId, revoked);
         return revoked.size();

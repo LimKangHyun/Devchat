@@ -29,6 +29,7 @@ import project.api.domain.member.dto.MemberInfoUpdateRequest;
 import project.api.domain.member.dto.PasswordChangeRequest;
 import project.api.domain.member.entity.Member;
 import project.api.domain.member.entity.ProviderType;
+import project.api.global.exception.ex.MemberException;
 import project.api.global.util.CryptUtils;
 
 import java.time.LocalDateTime;
@@ -40,6 +41,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** 로그아웃, 비밀번호 변경, 닉네임 변경이 세션을 맞게 다루는지 확인한다 */
 @ExtendWith(MockitoExtension.class)
@@ -121,6 +124,38 @@ class SessionRevocationWiringTest {
         memberService.updatePassword(auth("s-1"), request);
 
         verify(loginSessionService).revokeOthers(1L, "s-1");
+    }
+
+    @Test
+    void passwordChange_wrongCurrentPassword_revokesNothing() {
+        Member member = Member.builder().id(1L).username("user1").nickname("옛닉")
+                .password("stored").provider(ProviderType.LOCAL).profileImage("img.png").build();
+        PasswordChangeRequest request = new PasswordChangeRequest();
+        ReflectionTestUtils.setField(request, "currentPassword", "wrong-pw");
+        ReflectionTestUtils.setField(request, "newPassword", "new-pw");
+        ReflectionTestUtils.setField(request, "confirmPassword", "new-pw");
+        given(memberRepository.findById(1L)).willReturn(Optional.of(member));
+        given(passwordEncoder.matches("wrong-pw", "stored")).willReturn(false);
+
+        assertThatThrownBy(() -> memberService.updatePassword(auth("s-1"), request))
+                .isInstanceOf(MemberException.class);
+
+        verify(loginSessionService, never()).revokeOthers(any(), any());
+    }
+
+    @Test
+    void nicknameChange_legacyToken_noCookiesNoSessionTouched() {
+        Member member = Member.builder().id(1L).username("user1").nickname("옛닉")
+                .profileImage("img.png").build();
+        MemberInfoUpdateRequest request = new MemberInfoUpdateRequest();
+        ReflectionTestUtils.setField(request, "nickname", "새닉");
+        given(memberRepository.findById(1L)).willReturn(Optional.of(member));
+
+        memberService.updateMemberInfo(auth(null), request, null, response);
+
+        assertThat(member.getNickname()).isEqualTo("새닉");
+        assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).isEmpty();
+        verifyNoInteractions(loginSessionRepository);
     }
 
     @Test
