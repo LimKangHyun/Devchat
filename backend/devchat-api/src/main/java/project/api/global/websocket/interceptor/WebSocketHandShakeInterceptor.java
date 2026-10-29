@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 import project.api.global.util.CookieUtils;
+import project.api.auth.app.RevokedSessionStore;
+import project.api.auth.dto.MemberDetails;
 import project.api.auth.jwt.JwtProvider;
 import project.api.auth.jwt.TokenStatus;
 import project.api.global.exception.errorcode.TokenErrorCode;
@@ -25,6 +27,7 @@ import project.api.global.exception.ex.CustomJwtException;
 public class WebSocketHandShakeInterceptor implements HandshakeInterceptor {
 
 	private final JwtProvider jwtProvider;
+	private final RevokedSessionStore revokedSessionStore;
 
 	@Override
 	public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
@@ -44,6 +47,11 @@ public class WebSocketHandShakeInterceptor implements HandshakeInterceptor {
 			if (tokenStatus == TokenStatus.VALID) {
 				log.info("[JWT] 유효한 토큰");
 				Authentication authentication = jwtProvider.getAuthentication(accessToken);
+				// 끊긴 기기는 연결을 받지 않는다
+				if (authentication.getPrincipal() instanceof MemberDetails member
+						&& revokedSessionStore.isRevoked(member.getSessionId())) {
+					return false;
+				}
 				// 이후 ChannelInterceptor에서 꺼내쓰기 위해 attributes에 저장
 				attributes.put("auth", authentication);
 

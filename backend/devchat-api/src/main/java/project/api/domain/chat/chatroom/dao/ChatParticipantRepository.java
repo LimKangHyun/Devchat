@@ -46,6 +46,19 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
 
     boolean existsByParticipantIdAndChatRoomIdAndIsActiveTrue(Long participantId, Long chatRoomId);
 
+    /** 두 사람이 같은 방에 둘 다 활성 참여 중인지 (일정 참여자 검사) */
+    @Query("""
+        SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END
+        FROM ChatParticipant a, ChatParticipant b
+        WHERE a.chatRoom.id = b.chatRoom.id
+          AND a.participant.id = :a
+          AND b.participant.id = :b
+          AND a.isActive = true
+          AND b.isActive = true
+    """)
+    boolean existsSharedActiveRoom(@org.springframework.data.repository.query.Param("a") Long a,
+                                   @org.springframework.data.repository.query.Param("b") Long b);
+
     void deleteByChatRoom_Id(Long chatRoomId);
 
     int countByParticipantIdAndIsActiveTrue(Long participantId);

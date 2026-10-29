@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { flushSync, createPortal } from "react-dom"
-import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound, MessageSquareHeart } from "lucide-react"
+import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound, MessageSquareHeart, MonitorSmartphone, CalendarDays } from "lucide-react"
 import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link, useLocation, useNavigate } from "react-router-dom"
@@ -11,6 +11,8 @@ import { useAlarm, clearRoomsCache } from '../context/AlarmContext'
 import AppMenuItems from "./pwa/AppMenuItems"
 import IOSInstallGuide from "./pwa/IOSInstallGuide"
 import FeedbackModal from "./modals/FeedbackModal"
+import LoginDevicesModal from "./modals/LoginDevicesModal"
+import { checkSessionStillValid } from "./api/sessionCheck"
 import { disablePush, syncPushSubscription } from "../utils/pushNotifications"
 import { showAppNotification, closeSeenNotifications } from "../utils/showNotification"
 import { clearAppBadge } from "../utils/appBadge"
@@ -18,6 +20,10 @@ import useWebSocketNotifications from "./common/useWebSocket"
 import { useWebSocketContext } from "./common/WebSocketContext"
 
 
+
+// 눌러서 그 화면으로 가는 알림
+const SCHEDULE_TYPES = ["SCHEDULE_ADDED", "SCHEDULE_CHANGED", "SCHEDULE_CANCELED", "SCHEDULE_REMINDER"]
+const NAVIGABLE_TYPES = ["CODE_REVIEW", "MESSAGE", "MENTION", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED", ...SCHEDULE_TYPES]
 
 export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, hidden = false }) {
   const { currentUser, isLoading } = useUser()
@@ -161,6 +167,13 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       setHasUnreadNotifications(true)
       return
     }
+    if (SCHEDULE_TYPES.includes(notification.type)) {
+      // 누가 나를 넣거나 바꿨으면 달력·일정 탭을 다시 불러온다
+      window.dispatchEvent(new Event("schedules:changed"))
+      showImmediateNotification({ ...notification, url: `/calendar?schedule=${notification.referenceId}` })
+      setHasUnreadNotifications(true)
+      return
+    }
     showImmediateNotification(notification)
     setHasUnreadNotifications(true)
   }, [])
@@ -182,9 +195,13 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
     }
   }, [currentUser?.username])
 
+  // 다른 기기에서 로그아웃시켰다. 이 기기가 끊긴 거면 인증 GET이 401 → 인터셉터가 로그인 화면으로 보낸다
+  const handleSessionRevoked = useCallback(() => checkSessionStillValid(axiosInstance), [])
+
   useWebSocketNotifications({
     username: currentUser?.username,
     onNotificationReceived: handleNotificationReceived,
+    onSessionRevoked: handleSessionRevoked,
   })
 
   useEffect(() => {
@@ -225,6 +242,10 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
         case "STUDY_APPLY": return "📬 새로운 스터디 신청이 도착했습니다!"
         case "STUDY_APPROVED": return "🎉 스터디 신청이 승인되었습니다!"
         case "STUDY_REJECTED": return "😢 스터디 신청이 거절되었습니다."
+        case "SCHEDULE_ADDED":
+        case "SCHEDULE_CHANGED":
+        case "SCHEDULE_CANCELED":
+        case "SCHEDULE_REMINDER": return "📅 일정"
         default: return "🔔 DevChat 알림"
       }
     }
@@ -262,6 +283,10 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       case "STUDY_APPLY": return { label: "스터디 신청", icon: <User size={12} />, ...neutral }
       case "STUDY_APPROVED": return { label: "스터디 승인", icon: <Check size={12} />, ...neutral }
       case "STUDY_REJECTED": return { label: "스터디 거절", icon: <X size={12} />, ...neutral }
+      case "SCHEDULE_ADDED": return { label: "일정 추가", icon: <CalendarDays size={12} />, ...neutral }
+      case "SCHEDULE_CHANGED": return { label: "일정 변경", icon: <CalendarDays size={12} />, ...neutral }
+      case "SCHEDULE_CANCELED": return { label: "일정 취소", icon: <CalendarDays size={12} />, ...neutral }
+      case "SCHEDULE_REMINDER": return { label: "일정 알림", icon: <CalendarDays size={12} />, ...neutral }
       default: return { label: "알림", icon: <Bell size={12} />, ...neutral }
     }
   }
@@ -394,6 +419,13 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       case "STUDY_APPLY": window.location.href = `/community/${entityId}/applicants`; break
       case "STUDY_APPROVED":
       case "STUDY_REJECTED": window.location.href = `/community/${entityId}`; break
+      case "SCHEDULE_ADDED":
+      case "SCHEDULE_CHANGED":
+      case "SCHEDULE_CANCELED":
+      case "SCHEDULE_REMINDER":
+        onPanelChange?.("calendar")
+        navigate(`/calendar?schedule=${entityId}`)
+        break
       case "MENTION": {
         const url = await resolveRoomUrl(entityId)
         if (url) navigate(url)
@@ -443,7 +475,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
     const isFriendRequest = notification.type === "FRIEND_REQUESTED"
     const typeInfo = getNotificationTypeInfo(notification.type)
     const showActionButtonsForFriendRequest = isFriendRequest && !notification.isRead
-    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", "CODE_REVIEW", "MESSAGE", "MENTION", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"]
+    const typesWithoutMarkAsReadButton = ["FRIEND_REQUESTED", ...NAVIGABLE_TYPES]
     const canMarkAsRead = !typesWithoutMarkAsReadButton.includes(notification.type) && !notification.isRead
 
     let actionElement = null
@@ -465,7 +497,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
           {markingAsReadId === notification.id ? <div className={styles.buttonSpinner}></div> : <Check size={16} />}
         </button>
       )
-    } else if (["CODE_REVIEW", "MESSAGE", "MENTION", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED"].includes(notification.type)) {
+    } else if (NAVIGABLE_TYPES.includes(notification.type)) {
       actionElement = (
         <button className={styles.navigationButton} onClick={() => handleNotificationNavigation(notification)} aria-label={`Navigate to ${typeInfo.label}`}>
           <ArrowRight size={16} />
@@ -576,6 +608,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
 
   const [showIOSGuide, setShowIOSGuide] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
+  const [showDevices, setShowDevices] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -607,6 +640,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
 
   const isCommunity = location.pathname.startsWith("/community")
   const isProfilePage = location.pathname.startsWith("/myprofile")
+  const isCalendar = location.pathname.startsWith("/calendar")
   const chatUnread = (alarmRooms || []).reduce((sum, room) => {
     if (currentRoomId && Number(room.uniqueId) === Number(currentRoomId)) return sum
     return sum + (room.unreadCount ?? 0)
@@ -614,7 +648,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
 
   const goPanel = (panel) => {
     onPanelChange?.(panel)
-    if (isCommunity || isProfilePage) navigate("/")
+    if (isCommunity || isProfilePage || isCalendar) navigate("/")
   }
 
   const railItemClass = (active) => `${styles.railItem} ${active ? styles.railItemActive : ""}`
@@ -624,8 +658,8 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
 
   const profileSrc = `${process.env.REACT_APP_PROFILE_IMAGE_URL}/${currentUser?.profileImg}`
   const onProfileError = (e) => { e.currentTarget.src = "/images/not-found-profile.webp" }
-  const isChatTab = activePanel === "chat" && !isCommunity && !isProfilePage
-  const isFriendsTab = activePanel === "friends" && !isCommunity && !isProfilePage
+  const isChatTab = activePanel === "chat" && !isCommunity && !isProfilePage && !isCalendar
+  const isFriendsTab = activePanel === "friends" && !isCommunity && !isProfilePage && !isCalendar
 
   return (
     <nav className={`${styles.rail} ${hidden ? styles.railHidden : ""}`}>
@@ -754,6 +788,10 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
                     onShowIOSGuide={() => setShowIOSGuide(true)}
                     onClose={() => setIsProfileOpen(false)}
                   />
+                  <button type="button" className={styles.profileDropdownItem} onClick={() => { setIsProfileOpen(false); setShowDevices(true) }}>
+                    <MonitorSmartphone size={16} />
+                    로그인 기기
+                  </button>
                   <button type="button" className={styles.profileDropdownItem} onClick={() => { setIsProfileOpen(false); setShowFeedback(true) }}>
                     <MessageSquareHeart size={16} />
                     피드백 보내기
@@ -783,6 +821,11 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
           <span className={styles.railLabel}>친구</span>
         </button>
 
+        <button type="button" aria-current={isCalendar ? "page" : undefined} className={railItemClass(isCalendar)} onClick={() => { onPanelChange?.("calendar"); if (!isCalendar) navigate("/calendar") }}>
+          <span className={styles.railIcon}><CalendarDays size={18} /></span>
+          <span className={styles.railLabel}>일정</span>
+        </button>
+
         <Link to="/community" aria-current={isCommunity ? "page" : undefined} className={railItemClass(isCommunity)}>
           <span className={styles.railIcon}><Newspaper size={18} /></span>
           <span className={styles.railLabel}>커뮤니티</span>
@@ -795,6 +838,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       {/* 헤더가 숨겨지는 화면도 있어 body에 그린다 */}
       {showIOSGuide && createPortal(<IOSInstallGuide onClose={() => setShowIOSGuide(false)} />, document.body)}
       {showFeedback && createPortal(<FeedbackModal onClose={() => setShowFeedback(false)} />, document.body)}
+      {showDevices && createPortal(<LoginDevicesModal onClose={() => setShowDevices(false)} />, document.body)}
     </nav>
   )
 }

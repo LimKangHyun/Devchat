@@ -6,6 +6,7 @@ import { consumeRedirect } from './utils/postLoginRedirect';
 import { ChatManager } from './components/chat/chat-manager';
 import { useUser } from './context/UserContext';
 import useIsMobile from './hooks/useIsMobile';
+import { ScheduleModalProvider } from './components/schedule/ScheduleModalContext';
 
 const Layout = () => {
   const { currentUser, isLoading } = useUser();
@@ -22,6 +23,12 @@ const Layout = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
+  // 일정 탭은 달력 화면에서만 쓴다. 달력으로 오면(알림·푸시 포함) 일정 탭, 떠나면 채팅방 탭으로 돌린다
+  useEffect(() => {
+    if (pathname.startsWith('/calendar')) setActivePanel('calendar');
+    else setActivePanel((p) => (p === 'calendar' ? 'chat' : p));
+  }, [pathname]);
+
   if (isLoading || !currentUser) return null;
 
   // 모바일: 목록 화면(/, /blank) ↔ 채팅방 화면(/chat/...) 을 전환해서 보여준다.
@@ -34,7 +41,7 @@ const Layout = () => {
     <div className={`dc-shell ${showTabbar ? 'has-tabbar' : ''}`}>
       <ChatManager currentUser={currentUser}>
         {({ openChatModal }) => (
-          <>
+          <ScheduleModalProvider>
             <Header
               activePanel={activePanel}
               onPanelChange={setActivePanel}
@@ -52,7 +59,7 @@ const Layout = () => {
                 </main>
               )}
             </div>
-          </>
+          </ScheduleModalProvider>
         )}
       </ChatManager>
     </div>

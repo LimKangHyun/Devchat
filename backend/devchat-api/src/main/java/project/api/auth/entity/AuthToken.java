@@ -17,7 +17,7 @@ public class AuthToken {
     @Id
     private Long memberId;
 
-    @Column(nullable = false, length = 512)
+    @Column(length = 512)
     private String refreshToken;
 
     @Column(length = 512)
@@ -38,6 +38,11 @@ public class AuthToken {
 
     public void updateRefreshToken(String encryptedRefreshToken) {
         this.refreshToken = encryptedRefreshToken;
+    }
+
+    // 옛 토큰을 세션으로 옮긴 뒤 비운다
+    public void clearRefreshToken() {
+        this.refreshToken = null;
     }
 
     public void updateGithubAccessToken(String encryptedGithubAccessToken) {

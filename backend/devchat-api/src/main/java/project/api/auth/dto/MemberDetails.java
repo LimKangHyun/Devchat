@@ -21,6 +21,8 @@ public class MemberDetails implements UserDetails {
     private final String nickname;
     private final ProviderType provider;
     private final String profileImg;
+    // 로그인 세션 id (토큰의 sid). 옛 토큰이면 null
+    private final String sessionId;
 
     public MemberDetails(Member member) {
         this.id = member.getId();
@@ -30,13 +32,20 @@ public class MemberDetails implements UserDetails {
         this.nickname = member.getNickname();
         this.provider = member.getProvider();
         this.profileImg = member.getProfileImage();
+        this.sessionId = null;
     }
-	
+
     public MemberDetails(Long id, String username, String nickname, String profileImg) {
+        this(id, username, nickname, profileImg, null);
+    }
+
+    public MemberDetails(Long id, String username, String nickname, String profileImg,
+                         String sessionId) {
         this.id = id;
         this.username = username;
         this.nickname = nickname;
         this.profileImg = profileImg;
+        this.sessionId = sessionId;
         this.email = null;
         this.password = null;
         this.provider = null;

@@ -15,6 +15,7 @@ import Signup from './pages/signup';
 import MyPage from './pages/profile';
 import EditProfilePage from './pages/editprofile';
 import ErrorPage from './pages/ErrorPage';
+import CalendarPage from './pages/CalendarPage';
 import { WebSocketProvider } from './components/common/WebSocketContext'
 import { ChatSubscriptionProvider } from './context/ChatSubscriptionProvider'
 import Layout from './Layout';
@@ -43,6 +44,7 @@ function App() {
             <Route path="/community/:postId" element={<CommunityDetail />} />
             <Route path="/community/:postId/edit" element={<CommunityEdit />} />
             <Route path="/community/:postId/applicants" element={<CommunityApplicants />} />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/myprofile" element={<MyPage />} />
             <Route path="/myprofile/edit" element={<EditProfilePage />} />
             <Route path="/" element={<Home />} />

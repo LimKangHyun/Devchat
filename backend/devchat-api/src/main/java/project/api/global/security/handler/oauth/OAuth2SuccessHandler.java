@@ -14,12 +14,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 import project.api.auth.app.AuthTokenService;
-import project.api.global.util.CookieUtils;
 import project.api.auth.app.OAuthSignUpService;
 import project.api.auth.dto.MemberDetails;
 import project.api.auth.dto.OAuthMemberDto;
-import project.api.auth.jwt.JwtProvider;
-import project.api.auth.jwt.Token;
 import project.api.domain.member.app.ProfileImageCache;
 import project.api.domain.member.entity.Member;
 
@@ -31,7 +28,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Value("${jwt.redirection.base}")
     private String baseUrl;
 
-    private final JwtProvider jwtProvider;
     private final OAuthSignUpService oAuthSignUpService;
     private final AuthTokenService authTokenService;
     private final ProfileImageCache profileImageCache;
@@ -54,15 +50,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 member.getId(), member.getUsername(),
                 member.getNickname(), member.getProfileImage());
 
-        Token token = jwtProvider.generateTokenPair(memberDetails);
-
         String githubAccessToken = (String) oAuth2User.getAttributes().get("githubAccess");
 
-        authTokenService.saveToken(member.getId(), token.refreshToken(), githubAccessToken);
-
-        CookieUtils.saveAccessTokenCookie(response, token.accessToken());
-
-        CookieUtils.saveRefreshTokenCookie(response, token.refreshToken());
+        authTokenService.login(memberDetails, request.getHeader("User-Agent"), githubAccessToken, response);
 
         profileImageCache.setProfileImage(member.getId(), member.getProfileImage());
 

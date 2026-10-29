@@ -1,5 +1,6 @@
 package project.api.domain.notification.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -41,6 +42,10 @@ public class Notification {
 
     //알림이 온 도메인 id (채팅방 알림이면 해당 채팅방으로 이동해야함)
     private Long referenceId;
+
+    // 문구를 직접 저장하는 알림(일정)용. 없으면 타입별 기본 문구를 쓴다
+    @Column(length = 200)
+    private String message;
 
     private boolean isRead = false;
 
@@ -100,6 +105,19 @@ public class Notification {
             .sender(sender)
             .type(NotificationType.MENTION)
             .referenceId(roomId)
+            .createdAt(LocalDateTime.now())
+            .build();
+    }
+
+    /** 일정 알림. referenceId는 일정 id, 문구는 message에 저장 */
+    public static Notification ofSchedule(Member receiver, Member sender, NotificationType type,
+        Long scheduleId, String message) {
+        return Notification.builder()
+            .receiver(receiver)
+            .sender(sender)
+            .type(type)
+            .referenceId(scheduleId)
+            .message(message)
             .createdAt(LocalDateTime.now())
             .build();
     }

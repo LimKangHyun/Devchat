@@ -19,6 +19,7 @@ import org.springframework.web.socket.handler.WebSocketHandlerDecorator;
 import project.api.global.websocket.handler.JwtHandshakeHandler;
 import project.api.global.websocket.handler.StompHandler;
 import project.api.global.websocket.interceptor.RateLimitChannelInterceptor;
+import project.api.global.websocket.interceptor.RevokedSessionChannelInterceptor;
 import project.api.global.websocket.interceptor.WebSocketHandShakeInterceptor;
 
 @Configuration
@@ -31,6 +32,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final JwtHandshakeHandler jwtHandshakeHandler;
     private final StompHandler stompHandler;
     private final RateLimitChannelInterceptor rateLimitChannelInterceptor;
+    private final RevokedSessionChannelInterceptor revokedSessionChannelInterceptor;
 
     @Value("${url.domain-url}")
     private String domainUrl;
@@ -49,7 +51,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureClientInboundChannel(
         ChannelRegistration registration) {
 
-        registration.interceptors(stompHandler, rateLimitChannelInterceptor);
+        // 끊긴 세션을 가장 먼저 걸러낸다
+        registration.interceptors(revokedSessionChannelInterceptor, stompHandler,
+            rateLimitChannelInterceptor);
     }
 
     @Override

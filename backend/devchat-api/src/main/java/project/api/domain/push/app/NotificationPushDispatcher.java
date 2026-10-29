@@ -51,6 +51,7 @@ public class NotificationPushDispatcher {
             case FRIEND_REQUESTED, FRIEND_ACCEPTED, FRIEND_REJECTED, WE_ARE_FRIEND_NOW -> "친구";
             case STUDY_APPLY, STUDY_APPROVED, STUDY_REJECTED -> "스터디";
             case CODE_REVIEW -> "코드 리뷰";
+            case SCHEDULE_ADDED, SCHEDULE_CHANGED, SCHEDULE_CANCELED, SCHEDULE_REMINDER -> "일정";
         };
         String tag = n.type().name() + "-" + (n.referenceId() != null ? n.referenceId() : "");
         return new PushMessage(title, n.content(), urlFor(n), tag);
@@ -68,6 +69,8 @@ public class NotificationPushDispatcher {
             case CODE_REVIEW -> "/code-review/" + id;
             case STUDY_APPLY -> "/community/" + id + "/applicants";
             case STUDY_APPROVED, STUDY_REJECTED -> "/community/" + id;
+            case SCHEDULE_ADDED, SCHEDULE_CHANGED, SCHEDULE_CANCELED, SCHEDULE_REMINDER ->
+                "/calendar?schedule=" + id;
             default -> "/";
         };
     }

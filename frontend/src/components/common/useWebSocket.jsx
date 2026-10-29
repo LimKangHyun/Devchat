@@ -11,6 +11,7 @@ const useWebSocket = ({
   dmRoomId,
   onDmMessageReceived,
   onError,
+  onSessionRevoked,
 }) => {
   const { stompClientRef, connected } = useWebSocketContext()
 
@@ -20,6 +21,7 @@ const useWebSocket = ({
   const onRoomDeletedRef = useRef(onRoomDeleted)
   const onDmMessageReceivedRef = useRef(onDmMessageReceived)
   const onErrorRef = useRef(onError)
+  const onSessionRevokedRef = useRef(onSessionRevoked)
 
   useEffect(() => { onMessageReceivedRef.current = onMessageReceived }, [onMessageReceived])
   useEffect(() => { onNotificationReceivedRef.current = onNotificationReceived }, [onNotificationReceived])
@@ -27,6 +29,7 @@ const useWebSocket = ({
   useEffect(() => { onRoomDeletedRef.current = onRoomDeleted }, [onRoomDeleted])
   useEffect(() => { onDmMessageReceivedRef.current = onDmMessageReceived }, [onDmMessageReceived])
   useEffect(() => { onErrorRef.current = onError }, [onError])
+  useEffect(() => { onSessionRevokedRef.current = onSessionRevoked }, [onSessionRevoked])
 
   const safeUnsubscribe = useCallback((subs) => {
     const client = stompClientRef.current
@@ -99,6 +102,24 @@ const useWebSocket = ({
 
     return () => safeUnsubscribe([sub])
   }, [connected, username, safeUnsubscribe])
+
+  // 로그인 기기 해제 알림 - onSessionRevoked 있을 때만
+  const listenSession = !!onSessionRevoked
+  useEffect(() => {
+    const client = stompClientRef.current
+    if (!connected || !client?.connected || !username || !listenSession) return
+
+    const sub = client.subscribe("/user/queue/session", (message) => {
+      try {
+        const event = JSON.parse(message.body)
+        if (event.type === "SESSION_REVOKED") onSessionRevokedRef.current?.(event)
+      } catch (e) {
+        console.error("📛 Failed to parse session message", e)
+      }
+    })
+
+    return () => safeUnsubscribe([sub])
+  }, [connected, username, listenSession, safeUnsubscribe])
 
   // DM 구독
   useEffect(() => {

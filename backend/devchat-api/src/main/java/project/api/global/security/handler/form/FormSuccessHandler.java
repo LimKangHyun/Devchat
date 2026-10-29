@@ -8,10 +8,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import project.api.auth.app.AuthTokenService;
-import project.api.global.util.CookieUtils;
 import project.api.auth.dto.MemberDetails;
-import project.api.auth.jwt.JwtProvider;
-import project.api.auth.jwt.Token;
 import project.api.domain.member.app.ProfileImageCache;
 
 import java.io.IOException;
@@ -21,7 +18,6 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class FormSuccessHandler implements AuthenticationSuccessHandler {
 
-	private final JwtProvider jwtProvider;
 	private final AuthTokenService authTokenService;
 	private final ProfileImageCache profileImageCache;
 
@@ -32,13 +28,7 @@ public class FormSuccessHandler implements AuthenticationSuccessHandler {
 
 		MemberDetails memberDetails = (MemberDetails) authentication.getPrincipal();
 
-		Token token = jwtProvider.generateTokenPair(memberDetails);
-
-		CookieUtils.saveAccessTokenCookie(response, token.accessToken());
-
-		CookieUtils.saveRefreshTokenCookie(response, token.refreshToken());
-
-		authTokenService.saveToken(memberDetails.getId(), token.refreshToken(), null);
+		authTokenService.login(memberDetails, request.getHeader("User-Agent"), null, response);
 
 		profileImageCache.setProfileImage(memberDetails.getId(), memberDetails.getProfileImg());
 

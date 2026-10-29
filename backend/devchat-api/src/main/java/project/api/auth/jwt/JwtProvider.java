@@ -9,6 +9,7 @@ import com.auth0.jwt.exceptions.SignatureVerificationException;
 import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,12 +34,15 @@ public class JwtProvider {
         return Algorithm.HMAC256(SECRET_KEY);
     }
 
-    public Token generateTokenPair(MemberDetails memberDetails) {
-        Map<String, String> payload = Map.of(
-                "username", memberDetails.getUsername(),
-                "id", String.valueOf(memberDetails.getId()),
-                "nickname", memberDetails.getNickname()
-        );
+    // sessionId가 null이면 sid 없이 만든다 (부하 테스트용 토큰)
+    public Token generateTokenPair(MemberDetails memberDetails, String sessionId) {
+        Map<String, String> payload = new HashMap<>();
+        payload.put("username", memberDetails.getUsername());
+        payload.put("id", String.valueOf(memberDetails.getId()));
+        payload.put("nickname", memberDetails.getNickname());
+        if (sessionId != null) {
+            payload.put("sid", sessionId);
+        }
         return new Token(generateAccessToken(payload), generateRefreshToken(payload));
     }
 
@@ -48,16 +52,6 @@ public class JwtProvider {
 
     private String generateRefreshToken(Map<String, String> payload) {
         return doGenerateToken(REFRESH_TOKEN_VALIDATION_SECOND, payload);
-    }
-
-    public String regenerateAccessToken(String refreshToken) {
-        DecodedJWT decodedJWT = verifyRefreshToken(refreshToken);
-        Map<String, String> payload = buildPayload(
-                decodedJWT.getClaim("username").asString(),
-                decodedJWT.getClaim("id").asString(),
-                decodedJWT.getClaim("nickname").asString()
-        );
-        return generateAccessToken(payload);
     }
 
     public DecodedJWT verifyRefreshToken(String token) {
@@ -105,8 +99,9 @@ public class JwtProvider {
         String username = decodedJWT.getClaim("username").asString();
         String nickname = decodedJWT.getClaim("nickname").asString();
         String profileImg = decodedJWT.getClaim("profileImg").asString();
+        String sessionId = decodedJWT.getClaim("sid").asString();
 
-        MemberDetails memberDetails = new MemberDetails(id, username, nickname, profileImg);
+        MemberDetails memberDetails = new MemberDetails(id, username, nickname, profileImg, sessionId);
         return new UsernamePasswordAuthenticationToken(memberDetails, token,
                 memberDetails.getAuthorities());
     }
@@ -118,9 +113,5 @@ public class JwtProvider {
                 .withExpiresAt(new Date(now + expiration * 1000))
                 .withPayload(payload)
                 .sign(getSignatureAlgorithm());
-    }
-
-    private Map<String, String> buildPayload(String username, String id, String nickname) {
-        return Map.of("username", username, "id", id, "nickname", nickname);
     }
 }
