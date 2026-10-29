@@ -28,7 +28,9 @@ public record NotificationDto(
             notification.getSender().getUsername(),
             notification.getSender().getNickname(),
             notification.getSender().getProfileImage(),
-            getContentByType(notification.getSender().getNickname(), notification.getType()),
+            notification.getMessage() != null
+                ? notification.getMessage()
+                : getContentByType(notification.getSender().getNickname(), notification.getType()),
             notification.getReferenceId(),
             notification.getCreatedAt()
         );
