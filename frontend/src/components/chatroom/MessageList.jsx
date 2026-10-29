@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Highlight from 'react-highlight';
-import { UserPlus, Pencil, Trash2, GitPullRequest, Bot, ExternalLink, Maximize2, Reply } from 'lucide-react';
+import { UserPlus, Pencil, Trash2, GitPullRequest, Bot, ExternalLink, Maximize2, Reply, CalendarPlus } from 'lucide-react';
 import s from './Chat.module.css';
 import { splitMentions } from '../../utils/mention';
+import { findDates } from '../../utils/dateDetect';
+import { parseServerTime } from '../../utils/relativeTime';
+import { chatSchedulePrefill } from '../../utils/chatSchedule';
+import { useScheduleModal } from '../schedule/ScheduleModalContext';
 
 /* ── 유틸리티 함수 ── */
 const formatDate = (dateString) => {
@@ -40,9 +44,64 @@ const isSameGroup = (a, b) => {
   return Math.abs(db - da) < GROUP_GAP_MS;
 };
 
-// 링크와 @멘션을 표시한다. split에 캡처 그룹을 쓰면 홀수 번째 조각이 URL이다
-const renderWithLink = (text) => {
+/* ── 글 속 날짜: 누르면 "캘린더에 추가" 팝오버 ── */
+const DateChip = ({ text, found, onDate }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // 바깥을 누르거나 Esc를 누르면 닫는다. 다른 칩을 누르면 이것도 닫힌다
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <span className={s.dateChipWrap} ref={ref}>
+      <button type="button" className={s.dateChip} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        {text}
+      </button>
+      {open && (
+        <button
+          type="button"
+          className={s.dateChipPopover}
+          autoFocus
+          onClick={() => { setOpen(false); onDate(found); }}
+        >
+          📅 캘린더에 추가
+        </button>
+      )}
+    </span>
+  );
+};
+
+// 날짜 표현을 칩으로 바꾼다. 못 찾으면 글자 그대로
+const renderDates = (text, base, onDate) => {
+  if (!onDate) return text;
+  const found = findDates(text, base);
+  if (!found.length) return text;
+  const out = [];
+  let pos = 0;
+  found.forEach((f, i) => {
+    if (f.index > pos) out.push(<React.Fragment key={`t${i}`}>{text.slice(pos, f.index)}</React.Fragment>);
+    out.push(<DateChip key={`d${i}`} text={text.slice(f.index, f.index + f.length)} found={f} onDate={onDate} />);
+    pos = f.index + f.length;
+  });
+  if (pos < text.length) out.push(<React.Fragment key="tail">{text.slice(pos)}</React.Fragment>);
+  return out;
+};
+
+// 링크와 @멘션을 표시한다. split에 캡처 그룹을 쓰면 홀수 번째 조각이 URL이다.
+// onDate가 있으면 URL·멘션이 아닌 글에서 날짜를 찾아 칩으로 보여준다
+const renderWithLink = (text, createdAt, onDate) => {
   const urlRegex = /(https?:\/\/[^\s]+)/;
+  const base = createdAt ? parseServerTime(createdAt) : new Date();
   return text.split(urlRegex).map((part, i) =>
     i % 2 === 1 ? (
       <a key={i} href={part} target="_blank" rel="noopener noreferrer" className={s.link}>
@@ -51,7 +110,9 @@ const renderWithLink = (text) => {
     ) : (
       <React.Fragment key={i}>
         {splitMentions(part).map((p, j) =>
-          p.mention ? <span key={j} className={s.mention}>{p.text}</span> : p.text
+          p.mention
+            ? <span key={j} className={s.mention}>{p.text}</span>
+            : <React.Fragment key={j}>{renderDates(p.text, base, onDate)}</React.Fragment>
         )}
       </React.Fragment>
     )
@@ -256,6 +317,7 @@ export const MessageItem = ({
   subMessages, onReply, onJumpTo,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const { openCreate } = useScheduleModal();
 
   if (msg.type === 'EVENT') return <EventMessage msg={msg} />;
 
@@ -326,13 +388,19 @@ export const MessageItem = ({
 
     return (
       <div className={s.text}>
-        {renderWithLink(msg.content)}
+        {renderWithLink(msg.content, msg.createdAt, (found) => openCreate(chatSchedulePrefill(msg.content, found)))}
         {msg.status === 'EDITED' && <span className={s.edited}>(편집됨)</span>}
       </div>
     );
   };
 
-  const showToolbar = (canReply || canEdit || canDelete) && !isEditing && (isHovered || isMenuOpen);
+  const canSchedule = msg.type === 'TEXT' && !isDeleted && !!msg.content;
+  const makeSchedule = () => {
+    const base = msg.createdAt ? parseServerTime(msg.createdAt) : new Date();
+    openCreate(chatSchedulePrefill(msg.content, findDates(msg.content, base)[0]));
+  };
+
+  const showToolbar = (canReply || canSchedule || canEdit || canDelete) && !isEditing && (isHovered || isMenuOpen);
 
   return (
     <div
@@ -376,6 +444,13 @@ export const MessageItem = ({
               label="답장"
               icon={<Reply size={15} />}
               onClick={() => { onReply(msg); setIsHovered(false); setContextMenuId(null); }}
+            />
+          )}
+          {canSchedule && (
+            <ActionBtn
+              label="일정 만들기"
+              icon={<CalendarPlus size={15} />}
+              onClick={() => { makeSchedule(); setIsHovered(false); setContextMenuId(null); }}
             />
           )}
           {canEdit && (
