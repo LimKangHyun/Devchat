@@ -14,6 +14,11 @@
   display: none !important;
 }
 
+/* 모바일에서만 보이는 상단 바 */
+.mobileTopbar {
+  display: none;
+}
+
 .railItem {
   display: flex;
   align-items: center;
@@ -682,20 +687,73 @@
     display: none;
   }
 
-  /* 순서: 채팅방 · 친구 · 커뮤니티 · 알림 · 나 */
-  .notificationContainer {
-    order: 4;
-  }
-
+  /* 하단 탭 순서: 채팅방 · 친구 · 일정 · 커뮤니티 · 나 */
   .profileDropdownWrapper {
     order: 5;
-  }
-
-  .notificationContainer,
-  .profileDropdownWrapper {
     flex: 1;
     display: flex;
     position: static;
+  }
+
+  /* 상단 바: 왼쪽 로고, 오른쪽 알림 벨 */
+  .mobileTopbar {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--topbar-h) + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 56px 0 16px;
+    box-sizing: border-box;
+    background: var(--bg);
+    border-bottom: 1px solid var(--side-line);
+  }
+
+  .mobileTopbarLogo {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+
+  .mobileTopbarLogo svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .notificationContainer {
+    position: fixed;
+    top: env(safe-area-inset-top);
+    right: 4px;
+    width: 48px;
+    height: var(--topbar-h);
+    display: flex;
+  }
+
+  .notificationContainer .railUtilItem,
+  .notificationContainer .railUtilItem:hover,
+  .notificationContainer .railUtilItem.railItemActive {
+    color: var(--text-2);
+    font-weight: 500;
+  }
+
+  .notificationContainer .railUtilItem.railItemActive {
+    color: var(--primary);
+  }
+
+  .notificationContainer .railItemActive::before,
+  .notificationContainer .railLabelMobileOnly {
+    display: none;
+  }
+
+  .notificationContainer .railBadge,
+  .notificationContainer .railDot {
+    box-shadow: 0 0 0 2px var(--bg);
   }
 
   .railItem,

@@ -663,6 +663,17 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
 
   return (
     <nav className={`${styles.rail} ${hidden ? styles.railHidden : ""}`}>
+      {/* 모바일 전용 상단 바. 알림 벨은 CSS로 이 바의 오른쪽에 올린다 */}
+      <div className={styles.mobileTopbar}>
+        <Link to="/" className={styles.mobileTopbarLogo} aria-label="DevChat 홈" onClick={() => onPanelChange?.("chat")}>
+          <svg viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M8 4h24a5 5 0 0 1 5 5v17a5 5 0 0 1-5 5H15l-7 6v-6a5 5 0 0 1-5-5V9a5 5 0 0 1 5-5z" fill="var(--primary)" />
+            <path d="M15 12.5l-5 5 5 5M25 12.5l5 5-5 5M22 11l-4 13" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>DevChat</span>
+        </Link>
+      </div>
+
       <div className={styles.railTop}>
         <Link to="/" className={styles.railLogo} aria-label="DevChat 홈" title="DevChat" onClick={() => onPanelChange?.("chat")}>
           {/* 로고의 말풍선 + </> 마크를 흰색으로 */}
