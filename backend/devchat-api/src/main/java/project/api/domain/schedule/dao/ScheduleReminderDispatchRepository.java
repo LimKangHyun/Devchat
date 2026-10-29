@@ -10,10 +10,17 @@ import project.api.domain.schedule.entity.ScheduleReminderDispatch;
 public interface ScheduleReminderDispatchRepository
     extends JpaRepository<ScheduleReminderDispatch, Long> {
 
-    // 이 회차·이 알림을 이미 보냈는지
-    boolean existsByScheduleIdAndOccurrenceStartAndMinutesBefore(Long scheduleId,
-                                                                LocalDateTime occurrenceStart,
-                                                                int minutesBefore);
+    // 이 회차·이 알림을 이미 보냈는지.
+    // 메서드 이름으로 만들면 끝의 "Before"를 비교 조건으로 읽어 앱이 뜨지 않으므로 쿼리를 직접 쓴다
+    @Query("""
+        select count(d) > 0 from ScheduleReminderDispatch d
+        where d.scheduleId = :scheduleId
+          and d.occurrenceStart = :occurrenceStart
+          and d.minutesBefore = :minutesBefore
+        """)
+    boolean alreadySent(@Param("scheduleId") Long scheduleId,
+                        @Param("occurrenceStart") LocalDateTime occurrenceStart,
+                        @Param("minutesBefore") int minutesBefore);
 
     // before보다 먼저 보낸 기록을 지운다
     @Modifying

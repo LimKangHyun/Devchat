@@ -135,7 +135,7 @@ class ScheduleReminderJobTest {
     @Test
     void alreadySent_skipsInsertAndNotify() {
         candidates(timed15(List.of(30)));
-        given(dispatchRepository.existsByScheduleIdAndOccurrenceStartAndMinutesBefore(
+        given(dispatchRepository.alreadySent(
             7L, LocalDateTime.of(2026, 11, 3, 15, 0), 30)).willReturn(true);
 
         job.run(LocalDateTime.of(2026, 11, 3, 14, 35));

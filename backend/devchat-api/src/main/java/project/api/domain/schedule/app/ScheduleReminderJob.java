@@ -107,7 +107,7 @@ public class ScheduleReminderJob {
         try {
             // 이미 보낸 건 넣어 보지도 않는다 (매분 중복 키 오류 로그가 쌓인다)
             Boolean inserted = newTx.execute(status -> {
-                if (dispatchRepository.existsByScheduleIdAndOccurrenceStartAndMinutesBefore(
+                if (dispatchRepository.alreadySent(
                     d.scheduleId(), d.occurrence().start(), d.minutesBefore())) {
                     return false;
                 }
