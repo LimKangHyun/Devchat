@@ -173,6 +173,7 @@ public class Schedule {
         return added;
     }
 
+    /** replaceParticipants 직후, 같은 인스턴스에서만 유효하다 (저장되지 않는 값) */
     public List<Long> lastRemovedParticipantIds() {
         return Collections.unmodifiableList(lastRemovedParticipantIds);
     }

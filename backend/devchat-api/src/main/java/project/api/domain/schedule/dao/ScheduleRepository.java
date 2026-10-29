@@ -38,7 +38,7 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
           and ((s.repeatFrequency = project.api.domain.schedule.entity.RepeatFrequency.NONE
                 and s.startAt >= :windowStart - 1 day and s.startAt <= :horizon)
             or (s.repeatFrequency <> project.api.domain.schedule.entity.RepeatFrequency.NONE
-                and (s.repeatUntil is null or s.repeatUntil >= cast(:windowStart as date))))
+                and (s.repeatUntil is null or s.repeatUntil >= cast(:windowStart - 1 day as date))))
         """)
     List<Schedule> findReminderCandidates(@Param("windowStart") LocalDateTime windowStart,
                                           @Param("horizon") LocalDateTime horizon);
