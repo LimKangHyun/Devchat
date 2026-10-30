@@ -61,7 +61,9 @@ export async function showAppNotification({ title, body, icon, tag, url }) {
     if (url) {
       n.onclick = () => {
         try { window.focus() } catch {}
-        window.location.href = url
+        // 앱 밖 주소(예: 피드백 GitHub 이슈)는 새 창으로 연다
+        if (new URL(url, window.location.origin).origin !== window.location.origin) window.open(url, "_blank", "noopener,noreferrer")
+        else window.location.href = url
         n.close()
       }
     }

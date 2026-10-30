@@ -24,7 +24,9 @@ import useBackClose from "../hooks/useBackClose"
 
 // 눌러서 그 화면으로 가는 알림
 const SCHEDULE_TYPES = ["SCHEDULE_ADDED", "SCHEDULE_CHANGED", "SCHEDULE_CANCELED", "SCHEDULE_REMINDER"]
-const NAVIGABLE_TYPES = ["CODE_REVIEW", "MESSAGE", "MENTION", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED", ...SCHEDULE_TYPES]
+// 보낸 피드백(GitHub 이슈) 소식. 누르면 이슈(link)를 새 창으로 연다
+const FEEDBACK_TYPES = ["FEEDBACK_REPLIED", "FEEDBACK_RESOLVED"]
+const NAVIGABLE_TYPES = ["CODE_REVIEW", "MESSAGE", "MENTION", "STUDY_APPLY", "STUDY_APPROVED", "STUDY_REJECTED", ...SCHEDULE_TYPES, ...FEEDBACK_TYPES]
 
 export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, hidden = false }) {
   const { currentUser, isLoading } = useUser()
@@ -175,6 +177,11 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       setHasUnreadNotifications(true)
       return
     }
+    if (FEEDBACK_TYPES.includes(notification.type)) {
+      showImmediateNotification({ ...notification, url: notification.link })
+      setHasUnreadNotifications(true)
+      return
+    }
     showImmediateNotification(notification)
     setHasUnreadNotifications(true)
   }, [])
@@ -247,6 +254,8 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
         case "SCHEDULE_CHANGED":
         case "SCHEDULE_CANCELED":
         case "SCHEDULE_REMINDER": return "📅 일정"
+        case "FEEDBACK_REPLIED": return "💬 피드백 답장"
+        case "FEEDBACK_RESOLVED": return "✅ 피드백 처리"
         default: return "🔔 DevChat 알림"
       }
     }
@@ -288,6 +297,8 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       case "SCHEDULE_CHANGED": return { label: "일정 변경", icon: <CalendarDays size={12} />, ...neutral }
       case "SCHEDULE_CANCELED": return { label: "일정 취소", icon: <CalendarDays size={12} />, ...neutral }
       case "SCHEDULE_REMINDER": return { label: "일정 알림", icon: <CalendarDays size={12} />, ...neutral }
+      case "FEEDBACK_REPLIED": return { label: "피드백 답장", icon: <MessageSquareHeart size={12} />, ...neutral }
+      case "FEEDBACK_RESOLVED": return { label: "피드백 처리", icon: <Check size={12} />, ...neutral }
       default: return { label: "알림", icon: <Bell size={12} />, ...neutral }
     }
   }
@@ -330,6 +341,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
         sender: notification.senderNickname || notification.senderUsername,
         senderImg: notification.senderImg,
         referenceId: notification.referenceId,
+        link: notification.link,
         content: notification.content,
         timestamp: notification.createdAt || new Date().toISOString(),
         isNew: !notification.isRead,
@@ -426,6 +438,10 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
       case "SCHEDULE_REMINDER":
         onPanelChange?.("calendar")
         navigate(`/calendar?schedule=${entityId}`)
+        break
+      case "FEEDBACK_REPLIED":
+      case "FEEDBACK_RESOLVED":
+        if (notification.link) window.open(notification.link, "_blank", "noopener,noreferrer")
         break
       case "MENTION": {
         const url = await resolveRoomUrl(entityId)

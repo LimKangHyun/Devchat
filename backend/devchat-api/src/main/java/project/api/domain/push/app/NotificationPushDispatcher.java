@@ -52,6 +52,7 @@ public class NotificationPushDispatcher {
             case STUDY_APPLY, STUDY_APPROVED, STUDY_REJECTED -> "스터디";
             case CODE_REVIEW -> "코드 리뷰";
             case SCHEDULE_ADDED, SCHEDULE_CHANGED, SCHEDULE_CANCELED, SCHEDULE_REMINDER -> "일정";
+            case FEEDBACK_REPLIED, FEEDBACK_RESOLVED -> "피드백";
         };
         String tag = n.type().name() + "-" + (n.referenceId() != null ? n.referenceId() : "");
         return new PushMessage(title, n.content(), urlFor(n), tag);
@@ -59,6 +60,7 @@ public class NotificationPushDispatcher {
 
     // 알림을 누르면 열 화면. 프론트 헤더의 알림 클릭 이동과 같은 규칙
     private String urlFor(NotificationDto n) {
+        if (n.link() != null) return n.link();
         Long id = n.referenceId();
         if (id == null) return "/";
         return switch (n.type()) {

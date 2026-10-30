@@ -3,6 +3,10 @@ package project.api.domain.feedback.app;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import project.api.domain.feedback.client.GitHubIssueClient;
+import project.api.domain.feedback.dao.FeedbackIssueRepository;
+import project.api.domain.feedback.entity.FeedbackIssue;
+import project.api.domain.member.dao.MemberRepository;
+import project.api.domain.member.entity.Member;
 import project.api.domain.feedback.dto.FeedbackRequest;
 import project.api.domain.feedback.dto.FeedbackResponse;
 import project.api.domain.feedback.dto.FeedbackType;
@@ -11,6 +15,7 @@ import project.api.global.exception.ex.FeedbackException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -18,7 +23,10 @@ class FeedbackServiceTest {
 
     private final GitHubIssueClient issueClient = mock(GitHubIssueClient.class);
     private final FeedbackRateLimiter rateLimiter = mock(FeedbackRateLimiter.class);
-    private final FeedbackService service = new FeedbackService(issueClient, rateLimiter);
+    private final FeedbackIssueRepository feedbackIssueRepository = mock(FeedbackIssueRepository.class);
+    private final MemberRepository memberRepository = mock(MemberRepository.class);
+    private final FeedbackService service =
+            new FeedbackService(issueClient, rateLimiter, feedbackIssueRepository, memberRepository);
 
     private FeedbackRequest request(String title, String content) {
         return new FeedbackRequest(FeedbackType.BUG, title, content, "/chat/abc", IPHONE_SAFARI);
@@ -65,6 +73,37 @@ class FeedbackServiceTest {
                 .doesNotContain("15E148");
         assertThat(res.issueNumber()).isEqualTo(12);
         assertThat(res.issueUrl()).isEqualTo("https://github.com/o/r/issues/12");
+    }
+
+    @Test
+    void 답장이_오면_알리도록_이슈와_보낸_사람을_기록한다() {
+        when(issueClient.isConfigured()).thenReturn(true);
+        when(rateLimiter.tryAcquire(7L)).thenReturn(true);
+        when(issueClient.createIssue(anyString(), anyString()))
+                .thenReturn(new GitHubIssueClient.CreatedIssue(98, "u"));
+        Member member = mock(Member.class);
+        when(memberRepository.getReferenceById(7L)).thenReturn(member);
+
+        service.submit(7L, request("글자가 남아요", "내용"));
+
+        ArgumentCaptor<FeedbackIssue> saved = ArgumentCaptor.forClass(FeedbackIssue.class);
+        verify(feedbackIssueRepository).save(saved.capture());
+        assertThat(saved.getValue().getIssueNumber()).isEqualTo(98);
+        assertThat(saved.getValue().getMember()).isSameAs(member);
+        assertThat(saved.getValue().getTitle()).isEqualTo("[버그] 글자가 남아요");
+    }
+
+    @Test
+    void 기록에_실패해도_피드백은_성공한다() {
+        when(issueClient.isConfigured()).thenReturn(true);
+        when(rateLimiter.tryAcquire(7L)).thenReturn(true);
+        when(issueClient.createIssue(anyString(), anyString()))
+                .thenReturn(new GitHubIssueClient.CreatedIssue(98, "u"));
+        when(feedbackIssueRepository.save(any())).thenThrow(new RuntimeException("db down"));
+
+        FeedbackResponse res = service.submit(7L, request("제목", "내용"));
+
+        assertThat(res.issueNumber()).isEqualTo(98);
     }
 
     @Test

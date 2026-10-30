@@ -15,7 +15,9 @@ public record NotificationDto(
     String senderImg,
     String content,
     Long referenceId,
-    LocalDateTime createdAt
+    LocalDateTime createdAt,
+    // 누르면 열 주소(앱 밖). 없으면 알림 종류별 화면
+    String link
 ) {
 
     // Notification 객체로부터 생성
@@ -32,14 +34,15 @@ public record NotificationDto(
                 ? notification.getMessage()
                 : getContentByType(notification.getSender().getNickname(), notification.getType()),
             notification.getReferenceId(),
-            notification.getCreatedAt()
+            notification.getCreatedAt(),
+            notification.getLink()
         );
     }
 
     /** 실시간 전송용으로 본문만 바꾼다 (예: 멘션 알림에 방 이름과 메시지 미리보기를 붙임). 저장된 알림 목록은 기본 문구를 쓴다 */
     public NotificationDto withContent(String newContent) {
         return new NotificationDto(notificationId, isRead, type, receiverUsername, senderUsername,
-            senderNickname, senderImg, newContent, referenceId, createdAt);
+            senderNickname, senderImg, newContent, referenceId, createdAt, link);
     }
 
     public static NotificationDto ofDmMessage(DmMessage dmMessage, String receiverUsername) {
@@ -53,7 +56,8 @@ public record NotificationDto(
             dmMessage.getSender().getProfileImage(),
             dmMessage.getContent(),
             dmMessage.getSender().getId(),
-            dmMessage.getSentAt()
+            dmMessage.getSentAt(),
+            null
         );
     }
 

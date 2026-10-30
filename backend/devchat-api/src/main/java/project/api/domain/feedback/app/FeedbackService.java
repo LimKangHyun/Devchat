@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import project.api.domain.feedback.client.GitHubIssueClient;
+import project.api.domain.feedback.dao.FeedbackIssueRepository;
+import project.api.domain.feedback.entity.FeedbackIssue;
+import project.api.domain.member.dao.MemberRepository;
 import project.api.domain.feedback.dto.FeedbackRequest;
 import project.api.domain.feedback.dto.FeedbackResponse;
 import project.api.global.exception.errorcode.FeedbackErrorCode;
@@ -26,6 +29,8 @@ public class FeedbackService {
 
     private final GitHubIssueClient issueClient;
     private final FeedbackRateLimiter rateLimiter;
+    private final FeedbackIssueRepository feedbackIssueRepository;
+    private final MemberRepository memberRepository;
 
     public FeedbackResponse submit(Long memberId, FeedbackRequest req) {
         if (!issueClient.isConfigured()) {
@@ -40,10 +45,21 @@ public class FeedbackService {
         try {
             GitHubIssueClient.CreatedIssue issue = issueClient.createIssue(title, body);
             log.info("피드백 이슈 생성 - memberId={}, issue=#{}", memberId, issue.number());
+            remember(issue.number(), memberId, title);
             return new FeedbackResponse(issue.number(), issue.url());
         } catch (Exception e) {
             log.warn("피드백 이슈 생성 실패 - memberId={}, error={}", memberId, e.getMessage());
             throw new FeedbackException(FeedbackErrorCode.FEEDBACK_SEND_FAILED, e);
+        }
+    }
+
+    // 이슈에 답장이 오면 보낸 사람에게 알리려고 기록한다. 실패해도 이슈는 이미 만들어졌으니 피드백은 성공으로 둔다
+    private void remember(int issueNumber, Long memberId, String title) {
+        try {
+            feedbackIssueRepository.save(
+                    new FeedbackIssue(issueNumber, memberRepository.getReferenceById(memberId), title));
+        } catch (Exception e) {
+            log.warn("피드백 이슈 기록 실패 - memberId={}, issue=#{}, error={}", memberId, issueNumber, e.getMessage());
         }
     }
 

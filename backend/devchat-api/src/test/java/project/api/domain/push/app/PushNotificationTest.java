@@ -37,7 +37,7 @@ class PushNotificationTest {
         new PushNotificationService(repo, sender, memberRepository, new ObjectMapper(), mock(project.api.domain.notification.app.SeenRoomTracker.class), mock(BadgeCountService.class));
 
     private static NotificationDto notification(NotificationType type, Long referenceId) {
-        return new NotificationDto(1L, false, type, "bob", "alice", "앨리스", null, "내용", referenceId, LocalDateTime.now());
+        return new NotificationDto(1L, false, type, "bob", "alice", "앨리스", null, "내용", referenceId, LocalDateTime.now(), null);
     }
 
     @Nested

@@ -47,6 +47,10 @@ public class Notification {
     @Column(length = 200)
     private String message;
 
+    // 누르면 열 주소(앱 밖, 예: GitHub 이슈). 없으면 알림 종류별 화면으로 간다
+    @Column(length = 300)
+    private String link;
+
     private boolean isRead = false;
 
     @Builder.Default
@@ -118,6 +122,20 @@ public class Notification {
             .type(type)
             .referenceId(scheduleId)
             .message(message)
+            .createdAt(LocalDateTime.now())
+            .build();
+    }
+
+    /** 보낸 피드백(GitHub 이슈) 소식. referenceId는 이슈 번호, 누르면 이슈(link)를 연다 */
+    public static Notification ofFeedback(Member receiver, Member sender, NotificationType type,
+        int issueNumber, String message, String link) {
+        return Notification.builder()
+            .receiver(receiver)
+            .sender(sender)
+            .type(type)
+            .referenceId((long) issueNumber)
+            .message(message)
+            .link(link)
             .createdAt(LocalDateTime.now())
             .build();
     }

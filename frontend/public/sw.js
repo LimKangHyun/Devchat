@@ -60,6 +60,11 @@ self.addEventListener('notificationclick', (event) => {
   const target = new URL(event.notification.data?.url || '/', self.location.origin).href
 
   event.waitUntil((async () => {
+    // 앱 밖 주소(예: 피드백 GitHub 이슈)는 새 창으로 연다. 열려 있는 앱 화면을 그 주소로 바꾸지 않는다
+    if (new URL(target).origin !== self.location.origin) {
+      await self.clients.openWindow(target)
+      return
+    }
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     for (const client of windows) {
       if (new URL(client.url).origin !== self.location.origin) continue
