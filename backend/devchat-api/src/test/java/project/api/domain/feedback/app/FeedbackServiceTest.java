@@ -21,8 +21,12 @@ class FeedbackServiceTest {
     private final FeedbackService service = new FeedbackService(issueClient, rateLimiter);
 
     private FeedbackRequest request(String title, String content) {
-        return new FeedbackRequest(FeedbackType.BUG, title, content, "/chat/abc", "Mozilla/5.0 (iPhone)");
+        return new FeedbackRequest(FeedbackType.BUG, title, content, "/chat/abc", IPHONE_SAFARI);
     }
+
+    private static final String IPHONE_SAFARI =
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_6_1 like Mac OS X) AppleWebKit/605.1.15 "
+                    + "(KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1";
 
     @Test
     void 피드백을_종류가_붙은_이슈로_만든다() {
@@ -39,9 +43,26 @@ class FeedbackServiceTest {
         assertThat(title.getValue()).isEqualTo("[버그] 전송이 안 돼요");
         assertThat(body.getValue())
                 .contains("버튼을 눌러도\n안 가요")
-                .contains("사용자 번호: 7")
                 .contains("/chat/abc")
-                .contains("Mozilla/5.0 (iPhone)");
+                .contains("기기: iPhone · iOS 17.6 · Safari 17");
+        assertThat(res.issueNumber()).isEqualTo(12);
+    }
+
+    @Test
+    void 공개_이슈에는_사용자_번호와_브라우저_원문을_적지_않는다() {
+        when(issueClient.isConfigured()).thenReturn(true);
+        when(rateLimiter.tryAcquire(7L)).thenReturn(true);
+        when(issueClient.createIssue(anyString(), anyString()))
+                .thenReturn(new GitHubIssueClient.CreatedIssue(12, "https://github.com/o/r/issues/12"));
+
+        FeedbackResponse res = service.submit(7L, request("제목", "내용"));
+
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(issueClient).createIssue(anyString(), body.capture());
+        assertThat(body.getValue())
+                .doesNotContain("사용자 번호")
+                .doesNotContain("Mozilla")
+                .doesNotContain("15E148");
         assertThat(res.issueNumber()).isEqualTo(12);
         assertThat(res.issueUrl()).isEqualTo("https://github.com/o/r/issues/12");
     }
