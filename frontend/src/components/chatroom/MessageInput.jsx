@@ -113,6 +113,19 @@ const MessageInput = ({
     attachImage(image);
   };
 
+  // 전송 버튼. 아이폰은 마지막 글자를 조합하는 중에 누르면, 입력창을 비운 뒤 키보드가 그 글자를 다시 넣어
+  // 다음 메시지가 "요저는"처럼 시작한다(#98). 입력창을 한 번 놓았다 잡아 조합을 끝낸 뒤 보낸다.
+  // (같은 탭 안에서 다시 잡으므로 키보드는 내려가지 않는다)
+  const sendFromButton = () => {
+    const el = textareaRef.current;
+    if (isComposingRef.current && el) {
+      el.blur();
+      el.focus();
+      isComposingRef.current = false;
+    }
+    handleUnifiedSend();
+  };
+
   const clearImage = () => {
     setImageFile(null);
     setImagePreviewUrl(null);
@@ -316,7 +329,7 @@ const MessageInput = ({
           // 탭이 버튼에 닿지 않는다. 포커스를 유지해 키보드도 그대로 두고 바로 보낸다
           onPointerDown={(e) => e.preventDefault()}
           onMouseDown={(e) => e.preventDefault()}
-          onClick={handleUnifiedSend}
+          onClick={sendFromButton}
           disabled={!canSend}
           title="전송"
           aria-label="전송"
