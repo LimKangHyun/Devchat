@@ -6,6 +6,7 @@ import { findDates } from '../../utils/dateDetect';
 import { parseServerTime } from '../../utils/relativeTime';
 import { chatSchedulePrefill, firstDateInMessage, messageSegments } from '../../utils/chatSchedule';
 import { useScheduleModal } from '../schedule/ScheduleModalContext';
+import { chatImageSrc } from '../../utils/chatImageUrl';
 
 /* ── 유틸리티 함수 ── */
 const formatDate = (dateString) => {
@@ -386,7 +387,7 @@ export const MessageItem = ({
       return (
         <div className={s.imageWrap}>
           <img
-            src={`${process.env.REACT_APP_CHAT_IMAGE_URL}/${msg.chatImageUrl}`}
+            src={chatImageSrc(msg.chatImageUrl)}
             alt="첨부 이미지"
             className={s.image}
           />

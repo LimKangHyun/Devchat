@@ -4,9 +4,11 @@ import { fetchFeedUrl, regenerateFeedUrl, errorMessage } from '../../api/schedul
 import useEscapeKey from './useEscapeKey';
 import ms from '../modals/Modals.module.css';
 import s from './Schedule.module.css';
+import useBackClose from '../../hooks/useBackClose';
 
 // 애플 캘린더 구독 주소를 보여 주고 복사·새로 만들기를 한다
 const CalendarConnectModal = ({ onClose }) => {
+  useBackClose(true, onClose);
   const [urls, setUrls] = useState(null); // { httpsUrl, webcalUrl }
   const [error, setError] = useState(null);
   const [confirm, setConfirm] = useState(false);

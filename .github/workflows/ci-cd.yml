@@ -56,6 +56,8 @@ jobs:
           REACT_APP_BASE_API_URL: ${{ secrets.REACT_APP_BASE_API_URL }}
           REACT_APP_WEB_SOCKET_URL: ${{ secrets.REACT_APP_WEB_SOCKET_URL }}
           REACT_APP_PROFILE_IMAGE_URL: ${{ secrets.REACT_APP_PROFILE_IMAGE_URL }}
+          # 비어 있으면 프로필 주소의 images/profile → images/chat 으로 만든다 (utils/chatImageUrl.js)
+          REACT_APP_CHAT_IMAGE_URL: ${{ secrets.REACT_APP_CHAT_IMAGE_URL }}
           CI: false
         run: |
           npm ci

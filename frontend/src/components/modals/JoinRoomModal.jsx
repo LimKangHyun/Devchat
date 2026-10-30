@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import axiosInstance from "../api/axiosInstance"
 import { X, Link, AlertTriangle, Loader2 } from 'lucide-react';
 import s from './Modals.module.css';
+import useBackClose from '../../hooks/useBackClose';
 
 const JoinRoomModal = ({ onClose, onSubmit }) => {
+  useBackClose(true, onClose);
   const [inviteCode, setInviteCode] = useState('');
   const [roomInfo, setRoomInfo] = useState(null);
   const [loading, setLoading] = useState(false);

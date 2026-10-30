@@ -1,9 +1,11 @@
 import { useEffect } from "react"
 import { Share, SquarePlus, X } from "lucide-react"
 import styles from "./IOSInstallGuide.module.css"
+import useBackClose from "../../hooks/useBackClose"
 
 /** 아이폰은 설치 버튼을 띄울 수 없어서 사파리 "홈 화면에 추가" 방법을 안내한다 */
 export default function IOSInstallGuide({ onClose }) {
+  useBackClose(true, onClose)
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose() }
     window.addEventListener("keydown", onKey)

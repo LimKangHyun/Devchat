@@ -13,6 +13,7 @@ import { useAlarm } from '../context/AlarmContext'
 import { useUser } from "../context/UserContext"
 import { useWebSocketContext } from "./common/WebSocketContext"
 import styles from './Sidebar.module.css'
+import { leaveTo } from '../utils/backLayers'
 
 const CACHE_KEY = 'sidebar_rooms_cache'
 
@@ -114,11 +115,8 @@ const Sidebar = ({ onStartChat, activeTab = "chat", hidden = false }) => {
     const handleRoomDeleted = (e) => {
       const deletedRoomId = e.detail.roomId;
       const remaining = alarmRoomsRef.current.filter(r => Number(r.uniqueId) !== Number(deletedRoomId));
-      if (remaining.length > 0) {
-        navigate(`/chat/${remaining[0].inviteCode}`);
-      } else {
-        navigate('/');
-      }
+      // 지운 방 기록을 바꿔서, 뒤로가기로 지운 방에 다시 들어오지 않게 한다
+      leaveTo(navigate, remaining.length > 0 ? `/chat/${remaining[0].inviteCode}` : '/');
       fetchAllRooms();
     };
 

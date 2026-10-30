@@ -4,9 +4,11 @@ import ReactMarkdown from 'react-markdown';
 import axiosInstance from '../api/axiosInstance';
 import { getFileHash } from './aiReviewUtils';
 import DiffViewer from './DiffViewer';
+import useBackClose from '../../hooks/useBackClose';
 import './ReviewModals.css';
 
 const AiReviewModal = ({ message, roomId, onClose, repositoryUrl, currentUser }) => {
+  useBackClose(true, onClose);
   const [reviewData, setReviewData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);

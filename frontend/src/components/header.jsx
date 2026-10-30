@@ -18,6 +18,7 @@ import { showAppNotification, closeSeenNotifications } from "../utils/showNotifi
 import { clearAppBadge } from "../utils/appBadge"
 import useWebSocketNotifications from "./common/useWebSocket"
 import { useWebSocketContext } from "./common/WebSocketContext"
+import useBackClose from "../hooks/useBackClose"
 
 
 
@@ -609,6 +610,10 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
   const [showIOSGuide, setShowIOSGuide] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const [showDevices, setShowDevices] = useState(false)
+
+  // 휴대폰 뒤로가기는 알림 창·내 계정 시트부터 닫는다
+  useBackClose(isNotificationOpen, () => setIsNotificationOpen(false))
+  useBackClose(isProfileOpen, () => setIsProfileOpen(false))
 
   useEffect(() => {
     const handleClickOutside = (event) => {

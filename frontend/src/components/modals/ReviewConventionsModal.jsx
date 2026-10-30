@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { X, AlertTriangle, Loader2, Check, Lock } from 'lucide-react';
 import s from './Modals.module.css';
+import useBackClose from '../../hooks/useBackClose';
 
 const MAX_LENGTH = 2000;
 
@@ -15,6 +16,7 @@ const PLACEHOLDER = `예)
  * 방장만 수정할 수 있고, 다른 참여자는 읽기만 한다.
  */
 const ReviewConventionsModal = ({ roomId, isOwner, onClose }) => {
+  useBackClose(true, onClose);
   const [conventions, setConventions] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

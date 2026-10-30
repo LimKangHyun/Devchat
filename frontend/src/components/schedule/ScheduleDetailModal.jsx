@@ -9,9 +9,11 @@ import Avatar from './Avatar';
 import useEscapeKey from './useEscapeKey';
 import ms from '../modals/Modals.module.css';
 import s from './Schedule.module.css';
+import useBackClose from '../../hooks/useBackClose';
 
 // 일정 자세히. occurrence: 달력에서 누른 회차 { date: 'YYYY-MM-DD', start, end } (없을 수 있다)
 const ScheduleDetailModal = ({ scheduleId, occurrence, onClose, onEdit, onDone }) => {
+  useBackClose(true, onClose);
   const occurrenceDate = occurrence?.date || null;
   const [schedule, setSchedule] = useState(null);
   const [loadError, setLoadError] = useState(null);
