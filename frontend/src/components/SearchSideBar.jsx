@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import 'highlight.js/styles/github.css';
 import s from './chatroom/Chat.module.css';
+import useBackClose from '../hooks/useBackClose';
 
 const SearchSidebar = ({
   searchKeyword,
@@ -14,6 +15,7 @@ const SearchSidebar = ({
   onSearch,
   onMessageClick
 }) => {
+  useBackClose(true, onClose);
   // 커서 스택: 각 페이지의 마지막 메시지 ID를 저장
   const [cursorStack, setCursorStack] = useState([null]); // [null, cursor1, cursor2, ...]
   const [currentPageIndex, setCurrentPageIndex] = useState(0);

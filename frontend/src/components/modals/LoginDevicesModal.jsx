@@ -4,9 +4,11 @@ import axiosInstance from '../api/axiosInstance';
 import Toast from '../common/Toast';
 import s from './Modals.module.css';
 import { relativeTime, formatKstDate } from '../../utils/relativeTime';
+import useBackClose from '../../hooks/useBackClose';
 
 // 로그인된 기기 목록을 보고, 다른 기기를 로그아웃한다
 const LoginDevicesModal = ({ onClose }) => {
+  useBackClose(true, onClose);
   const [sessions, setSessions] = useState(null);
   const [error, setError] = useState(null);
   const [confirm, setConfirm] = useState(null); // { id, name } 또는 { all: true }

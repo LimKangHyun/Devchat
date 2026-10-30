@@ -13,6 +13,7 @@ import { useAlarm } from '../context/AlarmContext';
 import { useUser } from '../context/UserContext';
 import Toast from '../components/common/Toast';
 import AiReviewModal from '../components/modals/AiReviewModal';
+import { leaveTo } from '../utils/backLayers';
 import ConnectRepoModal from '../components/modals/ConnectRepoModal';
 import IndexingBar from '../components/chatroom/IndexingBar';
 import s from '../components/chatroom/Chat.module.css';
@@ -685,7 +686,8 @@ const ChatRoom = () => {
   const handleLeaveRoom = async () => {
     try {
       await axiosInstance.delete(`/chat-rooms/${roomId}/leave`);
-      navigate('/');
+      // 뒤로가기로 나간 방에 다시 들어오지 않게 방 기록을 목록으로 바꾼다
+      await leaveTo(navigate, '/');
       return { success: true };
     } catch (err) {
       return { success: false, error: err.response?.data?.message || '나가기 실패' };

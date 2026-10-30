@@ -92,6 +92,15 @@ html, body, #root {
   height: 100%;
 }
 
+/* 앱처럼: 두 번 탭 확대, 당겨서 새로고침, 끝에서 튕기기, 옆으로 쓸어 뒤로가기(크롬)를 막는다.
+   두 손가락 확대는 utils/appGestures.js와 index.html의 viewport에서 막는다 */
+html, body {
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background: var(--bg);

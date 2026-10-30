@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { X, Mail, AlertTriangle, Loader2, Check } from 'lucide-react';
 import s from './Modals.module.css';
+import useBackClose from '../../hooks/useBackClose';
 
 const MAX_EMAILS = 10;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -10,6 +11,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const splitEmails = (text) => text.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean);
 
 const InviteEmailModal = ({ roomId, roomName, onClose }) => {
+  useBackClose(true, onClose);
   const [emails, setEmails] = useState([]);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState(null);

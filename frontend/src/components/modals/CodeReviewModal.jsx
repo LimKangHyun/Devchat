@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { FaTimes, FaCopy, FaExpand, FaCompress, FaPlus, FaCheck, FaTrash } from 'react-icons/fa';
 import axiosInstance from '../api/axiosInstance';
 import Highlight from 'react-highlight';
+import useBackClose from '../../hooks/useBackClose';
 import './ReviewModals.css';
 
 const CodeReviewModal = ({ message, onClose }) => {
+  useBackClose(true, onClose);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 

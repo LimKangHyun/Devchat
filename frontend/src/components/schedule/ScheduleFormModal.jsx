@@ -12,6 +12,7 @@ import ParticipantPicker from './ParticipantPicker';
 import useEscapeKey from './useEscapeKey';
 import ms from '../modals/Modals.module.css';
 import s from './Schedule.module.css';
+import useBackClose from '../../hooks/useBackClose';
 
 const REPEAT_OPTIONS = [
   ['NONE', '안 함'],
@@ -35,6 +36,7 @@ const dowOfKey = (key) => {
 
 // 일정 만들기 / 고치기. schedule이 있으면 고치기
 const ScheduleFormModal = ({ schedule, prefill, onClose, onSaved }) => {
+  useBackClose(true, onClose);
   const editing = !!schedule;
   const [form, setForm] = useState(() => (editing ? formFromSchedule(schedule) : emptyForm(prefill)));
   const [saving, setSaving] = useState(false);

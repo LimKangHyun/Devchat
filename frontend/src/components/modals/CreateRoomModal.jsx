@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { X, Info, Github, Loader2 } from 'lucide-react';
 import s from './Modals.module.css';
+import useBackClose from '../../hooks/useBackClose';
 
 const CreateRoomModal = ({ onClose, onSubmit }) => {
+  useBackClose(true, onClose);
   const [roomName, setRoomName] = useState('');
   const [repoUrl, setRepoUrl] = useState('');
   const [showConfirmation, setShowConfirmation] = useState(false);

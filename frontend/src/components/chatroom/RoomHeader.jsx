@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, BellOff, Search, MoreVertical, Copy, LogOut, Trash2, GitBranch, X, Loader2, ChevronLeft, Bot, FileText, Check, Mail, Link2, ScrollText, RefreshCw } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import useIsMobile from '../../hooks/useIsMobile';
+import useBackClose from '../../hooks/useBackClose';
+import { backToList } from '../../utils/backLayers';
 import s from './Chat.module.css';
 import InviteEmailModal from '../modals/InviteEmailModal';
 import ReviewConventionsModal from '../modals/ReviewConventionsModal';
@@ -13,26 +15,29 @@ const getRepoLabel = (url) => {
   return match ? match[1].replace(/\.git$/, '') : url;
 };
 
-const ConfirmDialog = ({ title, desc, confirmLabel, onCancel, onConfirm, loading }) => (
-  <div className="dc-modal-backdrop" onClick={loading ? undefined : onCancel}>
-    <div className="dc-modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
-      <div className="dc-modal-header">
-        <h2 className="dc-modal-title">{title}</h2>
-        <button type="button" className="dc-icon-btn" onClick={onCancel} disabled={loading} aria-label="닫기">
-          <X size={20} />
-        </button>
-      </div>
-      <div className="dc-modal-body" style={{ color: 'var(--text-2)' }}>{desc}</div>
-      <div className="dc-modal-footer">
-        <button type="button" className="dc-btn" onClick={onCancel} disabled={loading}>취소</button>
-        <button type="button" className="dc-btn dc-btn-danger" onClick={onConfirm} disabled={loading}>
-          {loading && <Loader2 size={14} style={{ animation: 'dc-spin 1s linear infinite' }} />}
-          {loading ? '처리 중...' : confirmLabel}
-        </button>
+const ConfirmDialog = ({ title, desc, confirmLabel, onCancel, onConfirm, loading }) => {
+  useBackClose(true, () => { if (!loading) onCancel(); });
+  return (
+    <div className="dc-modal-backdrop" onClick={loading ? undefined : onCancel}>
+      <div className="dc-modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+        <div className="dc-modal-header">
+          <h2 className="dc-modal-title">{title}</h2>
+          <button type="button" className="dc-icon-btn" onClick={onCancel} disabled={loading} aria-label="닫기">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="dc-modal-body" style={{ color: 'var(--text-2)' }}>{desc}</div>
+        <div className="dc-modal-footer">
+          <button type="button" className="dc-btn" onClick={onCancel} disabled={loading}>취소</button>
+          <button type="button" className="dc-btn dc-btn-danger" onClick={onConfirm} disabled={loading}>
+            {loading && <Loader2 size={14} style={{ animation: 'dc-spin 1s linear infinite' }} />}
+            {loading ? '처리 중...' : confirmLabel}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const Toggle = ({ on }) => (
   <span className={`${s.miniToggle} ${on ? s.miniToggleOn : ''}`}><span /></span>
@@ -80,7 +85,8 @@ const RoomHeader = ({
     if (result.success) {
       setShowLeaveConfirm(false);
       setShowLeaveSuccess(true);
-      setTimeout(() => { setShowLeaveSuccess(false); navigate('/'); }, 500);
+      // 목록으로 이동은 onLeaveRoom(ChatRoom)이 한다
+      setTimeout(() => setShowLeaveSuccess(false), 500);
     } else {
       alert(result.error);
     }
@@ -133,6 +139,10 @@ const RoomHeader = ({
 
   const closeSearch = () => { setSearchOpen(false); setSearchValue(''); };
 
+  // 휴대폰 뒤로가기는 메뉴 시트·검색창부터 닫는다
+  useBackClose(menuOpen, () => setMenuOpen(false));
+  useBackClose(searchOpen && isMobile, closeSearch);
+
   const AiToggle = ({ icon, label, enabled, onToggle }) => (
     <button
       type="button"
@@ -184,7 +194,7 @@ const RoomHeader = ({
         <>
           <div className={s.roomHeaderLeft}>
             {isMobile && (
-              <button type="button" className={`dc-icon-btn ${s.backBtn}`} onClick={() => navigate('/')} aria-label="채팅방 목록으로">
+              <button type="button" className={`dc-icon-btn ${s.backBtn}`} onClick={() => backToList(navigate)} aria-label="채팅방 목록으로">
                 <ChevronLeft size={24} />
               </button>
             )}

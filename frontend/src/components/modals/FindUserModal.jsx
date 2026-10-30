@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, memo, useCallback, useMemo } from "react"
 import { FaSearch, FaTimes, FaUserPlus, FaUser, FaSpinner } from "react-icons/fa"
 import axioxInstance from "../api/axiosInstance"
+import useBackClose from "../../hooks/useBackClose"
 import "./FindUserModal.css"
 
 // Memoized Header Component - never re-renders
@@ -240,6 +241,7 @@ const SearchResults = memo(
 )
 
 const FindUserModal = ({ onClose, onSendFriendRequest }) => {
+    useBackClose(true, onClose)
     const [currentInputValue, setCurrentInputValue] = useState("")
     const [lastSearchQuery, setLastSearchQuery] = useState("")
     const [searchResults, setSearchResults] = useState([])

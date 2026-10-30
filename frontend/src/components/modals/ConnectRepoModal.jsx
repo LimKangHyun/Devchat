@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { X, Info, Github, Loader2 } from 'lucide-react';
 import s from './Modals.module.css';
+import useBackClose from '../../hooks/useBackClose';
 
 // 레포 없이 만든 방에 GitHub 레포를 나중에 연결하는 모달 (방장 전용)
 const ConnectRepoModal = ({ roomName, onClose, onSubmit }) => {
+  useBackClose(true, onClose);
   const [repoUrl, setRepoUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

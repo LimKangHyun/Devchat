@@ -3,8 +3,10 @@
 import { useState } from "react"
 import { Loader2, X } from "lucide-react"
 import styles from "../PasswordChangeModal.module.css"
+import useBackClose from "../../hooks/useBackClose"
 
 export default function PasswordChangeModal({ isOpen, onClose, axiosInstance }) {
+  useBackClose(isOpen, onClose)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     currentPassword: "",

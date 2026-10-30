@@ -3,9 +3,11 @@ import { X, AlertTriangle, Loader2, CheckCircle2, ExternalLink, Globe } from 'lu
 import axiosInstance from '../api/axiosInstance';
 import s from './Modals.module.css';
 import { FEEDBACK_TYPES, MAX_TITLE, MAX_CONTENT, validateFeedback } from '../../utils/feedbackForm';
+import useBackClose from '../../hooks/useBackClose';
 
 // 피드백을 DevChat GitHub 레포의 이슈로 남긴다
 const FeedbackModal = ({ onClose }) => {
+  useBackClose(true, onClose);
   const [type, setType] = useState('BUG');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import axiosInstance from "../api/axiosInstance"
 import s from './Modals.module.css';
+import useBackClose from '../../hooks/useBackClose';
 
 const GitHubRepoDisplay = ({ repositoryUrl }) => {
   const [expanded, setExpanded] = useState(false);
@@ -87,6 +88,7 @@ const IndexingStatusBadge = ({ status }) => {
 };
 
 const RoomInfoModal = ({ room, sidebarRef, onClose, showToast, indexingStatus }) => {
+  useBackClose(true, onClose);
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(false);
 
