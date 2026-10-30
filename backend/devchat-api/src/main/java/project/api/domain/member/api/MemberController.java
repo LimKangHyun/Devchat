@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import project.api.domain.member.app.AdminMembers;
 import project.api.domain.member.app.MemberService;
 import project.api.domain.member.dto.*;
 
@@ -22,11 +23,15 @@ import project.api.domain.member.dto.*;
 public class MemberController {
 
     private final MemberService memberService;
+    private final AdminMembers adminMembers;
 
     @Operation(summary = "내 정보 조회")
     @GetMapping("/details")
     public MemberResponse getMemberDetails(Authentication authentication) {
-        return memberService.getMemberDetails(authentication);
+        MemberResponse response = memberService.getMemberDetails(authentication);
+        // 관리자에게만 앱 메뉴의 Grafana 바로가기를 보여 준다
+        response.setAdmin(adminMembers.isAdmin(response.getId()));
+        return response;
     }
 
     @Operation(summary = "회원 정보 수정")

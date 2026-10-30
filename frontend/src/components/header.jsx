@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { flushSync, createPortal } from "react-dom"
-import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound, MessageSquareHeart, MonitorSmartphone, CalendarDays } from "lucide-react"
+import { Bell, Check, X, ArrowRight, User, Users, Code, MessageSquare, Newspaper, LogOut, UserRound, MessageSquareHeart, MonitorSmartphone, CalendarDays, Activity } from "lucide-react"
 import styles from "./header.module.css"
 import axiosInstance from "./api/axiosInstance"
 import { Link, useLocation, useNavigate } from "react-router-dom"
@@ -798,6 +798,19 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
                     <UserRound size={16} />
                     내 프로필
                   </Link>
+                  {/* 관리자(서버 .env의 ADMIN_MEMBER_IDS)에게만 보인다. Grafana는 따로 로그인한다 */}
+                  {currentUser?.admin && (
+                    <a
+                      href="/grafana/d/devchat-ai-rag"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.profileDropdownItem}
+                      onClick={() => setIsProfileOpen(false)}
+                    >
+                      <Activity size={16} />
+                      관리자 대시보드
+                    </a>
+                  )}
                   <AppMenuItems
                     itemClassName={styles.profileDropdownItem}
                     noteClassName={styles.profileDropdownNote}
