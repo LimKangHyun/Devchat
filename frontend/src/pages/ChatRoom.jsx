@@ -773,7 +773,9 @@ const ChatRoom = () => {
     outbox.enqueue({ roomId, payload: msg });
     typing.stopTyping();
     setReplyTarget(null);
-    setContent(''); setInputMode('TEXT');
+    // 이미지를 보낼 때는 쓰던 글을 지우지 않는다 (글을 쓰다 이미지를 붙여 넣은 경우 글이 남게)
+    if (msg.type !== 'IMAGE') setContent('');
+    setInputMode('TEXT');
     isAtBottomRef.current = true;
     setTimeout(() => virtuosoRef.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER }), 30);
   };

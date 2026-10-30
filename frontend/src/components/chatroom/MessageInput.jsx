@@ -6,6 +6,7 @@ import { getMentionQuery } from '../../utils/mention';
 import { compressImage, CHAT_IMAGE_OPTIONS, MAX_UPLOAD_BYTES, formatBytes } from '../../utils/imageCompress';
 import { MAX_MESSAGE_LENGTH, SHOW_COUNT_FROM, TOO_LONG_MESSAGE, isTooLong } from '../../utils/messageLimits';
 import { replyPreviewOf } from '../../utils/replyPreview';
+import { imageFromClipboard } from '../../utils/clipboardImage';
 
 const MAX_MENTION_CANDIDATES = 6;
 
@@ -87,6 +88,29 @@ const MessageInput = ({
     if (next === 'IMAGE' && fileInputRef.current) {
       fileInputRef.current.click();
     }
+  };
+
+  // 파일 선택과 붙여넣기가 같이 쓴다: 줄이고 압축한 뒤 미리보기를 띄운다
+  const attachImage = async (picked) => {
+    const file = await compressImage(picked, CHAT_IMAGE_OPTIONS);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      alert(`이미지 용량이 너무 큽니다 (${formatBytes(file.size)}). ${formatBytes(MAX_UPLOAD_BYTES)} 이하로 올려주세요.`);
+      return;
+    }
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreviewUrl(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  // 스크린샷 등 이미지만 붙여 넣으면 이미지 보내기로 바꾼다. 글자가 같이 있으면 평소처럼 글자로 붙여 넣는다
+  const handlePaste = (e) => {
+    const image = imageFromClipboard(e.clipboardData);
+    if (!image) return;
+    e.preventDefault();
+    setMention(null);
+    setInputMode('IMAGE');
+    attachImage(image);
   };
 
   const clearImage = () => {
@@ -171,6 +195,7 @@ const MessageInput = ({
           onTyping?.(e.target.value);
         }}
         onSelect={(e) => updateMention(e.target.value, e.target.selectionStart)}
+        onPaste={handlePaste}
         onFocus={() => setIsFocused(true)}
         onBlur={() => { setIsFocused(false); setMention(null); }}
         onCompositionStart={() => (isComposingRef.current = true)}
@@ -236,7 +261,7 @@ const MessageInput = ({
           type="button"
           className={`${s.composerTool} ${inputMode === 'IMAGE' ? s.composerToolActive : ''}`}
           onClick={() => handleModeToggle('IMAGE')}
-          title="이미지 첨부"
+          title="이미지 첨부 (입력창에 붙여 넣어도 돼요)"
           aria-label="이미지 첨부"
         >
           <ImagePlus size={17} />
@@ -305,19 +330,10 @@ const MessageInput = ({
         type="file"
         accept="image/*"
         ref={fileInputRef}
-        onChange={async (e) => {
+        onChange={(e) => {
           const picked = e.target.files?.[0];
           e.target.value = '';
-          if (!picked) return;
-          const file = await compressImage(picked, CHAT_IMAGE_OPTIONS);
-          if (file.size > MAX_UPLOAD_BYTES) {
-            alert(`이미지 용량이 너무 큽니다 (${formatBytes(file.size)}). ${formatBytes(MAX_UPLOAD_BYTES)} 이하로 올려주세요.`);
-            return;
-          }
-          setImageFile(file);
-          const reader = new FileReader();
-          reader.onloadend = () => setImagePreviewUrl(reader.result);
-          reader.readAsDataURL(file);
+          if (picked) attachImage(picked);
         }}
         style={{ display: 'none' }}
       />
