@@ -801,7 +801,7 @@ export function HeaderWithNotifications({ activePanel = "chat", onPanelChange, h
                   {/* 관리자(서버 .env의 ADMIN_MEMBER_IDS)에게만 보인다. Grafana는 따로 로그인한다 */}
                   {currentUser?.admin && (
                     <a
-                      href="/grafana/"
+                      href="/grafana/d/devchat-ai-rag"
                       target="_blank"
                       rel="noopener noreferrer"
                       className={styles.profileDropdownItem}
