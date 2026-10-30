@@ -151,7 +151,8 @@ services:
       - dev-chat-network
 
   grafana:
-    image: grafana/grafana:latest
+    # latest로 두면 배포 때 메이저 버전이 저절로 바뀐다. 올릴 때는 버전을 직접 바꾼다
+    image: grafana/grafana:13.0.2
     container_name: grafana
     restart: unless-stopped
     mem_limit: 300m
