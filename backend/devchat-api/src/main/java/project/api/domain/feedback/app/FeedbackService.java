@@ -36,7 +36,7 @@ public class FeedbackService {
         }
 
         String title = "[" + req.type().getLabel() + "] " + noMention(oneLine(req.title()));
-        String body = buildBody(memberId, req);
+        String body = buildBody(req);
         try {
             GitHubIssueClient.CreatedIssue issue = issueClient.createIssue(title, body);
             log.info("피드백 이슈 생성 - memberId={}, issue=#{}", memberId, issue.number());
@@ -47,13 +47,15 @@ public class FeedbackService {
         }
     }
 
-    private String buildBody(Long memberId, FeedbackRequest req) {
+    // 공개 저장소의 이슈라 누가 보냈는지(사용자 번호)는 적지 않는다. 보낸 사람은 서버 로그의 memberId·이슈 번호로 찾는다.
+    // 브라우저 정보도 원문 대신 기기·OS·브라우저만 줄여 적는다
+    private String buildBody(FeedbackRequest req) {
         StringBuilder sb = new StringBuilder();
         sb.append(noMention(req.content().strip())).append("\n\n---\n");
         sb.append("- 종류: ").append(req.type().getLabel()).append('\n');
-        sb.append("- 사용자 번호: ").append(memberId).append('\n');
         if (hasText(req.pagePath())) sb.append("- 화면: `").append(codeSafe(req.pagePath())).append("`\n");
-        if (hasText(req.userAgent())) sb.append("- 브라우저: `").append(codeSafe(req.userAgent())).append("`\n");
+        String device = UserAgentSummary.of(req.userAgent());
+        if (device != null) sb.append("- 기기: ").append(device).append('\n');
         sb.append("- 보낸 시각: ").append(ZonedDateTime.now(ZoneId.of("Asia/Seoul")).format(TIME)).append(" (KST)\n");
         sb.append("\n_DevChat 앱의 피드백 보내기로 등록된 이슈입니다._");
         return sb.toString();
