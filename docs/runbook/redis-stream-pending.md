@@ -6,7 +6,14 @@ AI 서버(devchat-ai)는 시작할 때 스트림마다 ACK 안 된 메시지(PEL
 ACK 안 된 스트림 메시지가 남아 있음(자동 재처리 안 함) - stream=stream:repo-index:request, group=ai-repo-index-group, pending=2, oldestId=1784970427916-0
 ```
 
-오래된 인덱싱 요청은 이미 지워진 채팅방 것일 수 있어서 **자동으로 다시 처리하지 않는다.** 아래 순서로 직접 보고 정리한다.
+**자동으로 다시 처리하지 않는다.** 이유는 셋이다.
+1. AI 리뷰를 뺀 컨슈머(인덱싱·파일 재인덱싱·인덱스 삭제·Git 요약)는 ACK를 하지 않는다. PEL에는 잃어버린 메시지와
+   이미 처리한 메시지가 섞여 있어서 구분할 수 없다. 다시 돌리면 처리한 요청까지 모두 다시 처리한다.
+2. 인덱싱(`RepoIndexingService.indexRepository`)은 채팅방이 아직 있는지, 인덱싱 상태가 RUNNING인지 보지 않는다.
+   지워졌거나 취소된 채팅방의 오래된 요청을 다시 돌리면 그 방을 인덱싱하고 임베딩 비용을 쓴다.
+3. Git 요약은 다시 돌리면 같은 요약 결과를 한 번 더 발행한다.
+
+아래 순서로 직접 보고 정리한다.
 (AI 리뷰 스트림 `stream:ai-review:request`는 `AiReviewPelReclaimScheduler`가 알아서 재처리·데드레터 처리하므로 손대지 않는다.)
 
 ## 스트림과 그룹
@@ -72,7 +79,31 @@ docker exec redis-stream redis-cli XRANGE $S "(<last-delivered-id>" +
 docker exec redis-stream redis-cli XGROUP SETID $S $G '$'
 ```
 
-## 4. 구독이 끊겼는지 보기
+## 4. 시간 초과로 잃어버린 요청 되살리기
+
+2026-11 전까지 운영의 Redis 명령 시간 제한(`spring.data.redis.timeout`)이 500ms였고, 스트림 폴링은 2초 동안 기다렸다
+(`XREADGROUP ... BLOCK 2000`). 그래서 기다리는 사이 들어온 메시지는 Redis가 컨슈머에게 넘기고 PEL에 올렸지만,
+클라이언트는 이미 시간 초과로 응답을 버렸다. 이런 메시지는 **전달 횟수 1, 한 번도 처리되지 않은 채** PEL에 남는다.
+지금은 시간 제한을 5초로 올렸고, 설정이 다시 어긋나면 `StreamPollTimeout`이 폴링 대기를 줄이고 ERROR를 남긴다.
+
+PEL에 남은 메시지는 같은 그룹이 다시 읽어 주지 않는다(구독은 새 메시지 `>`만 읽는다). 되살리는 방법은 두 가지다.
+
+```bash
+# 1) 내용 확인: roomId가 아직 있는 채팅방이고, 인덱싱이 끝나지 않은 방인지 본다
+docker exec redis-stream redis-cli XRANGE $S <id> <id>
+
+# 2-a) (권장) 화면에서 그 방의 인덱싱을 다시 요청한다. 새 메시지로 들어가 정상 처리된다. 그 뒤 옛 메시지를 ACK한다
+docker exec redis-stream redis-cli XACK $S $G <id>
+
+# 2-b) 같은 내용을 새 메시지로 다시 넣고 옛 메시지를 ACK한다 (화면에서 다시 요청할 수 없을 때)
+#      XRANGE로 본 필드 이름(보통 payload)과 값을 그대로 쓴다
+docker exec redis-stream redis-cli XADD $S '*' <field> '<value>'
+docker exec redis-stream redis-cli XACK $S $G <id>
+```
+
+이미 지워졌거나 취소된 채팅방의 요청이면 다시 넣지 말고 XACK만 한다.
+
+## 5. 구독이 끊겼는지 보기
 
 ```bash
 # 스트림별 구독 상태. 하나라도 inactive면 DOWN

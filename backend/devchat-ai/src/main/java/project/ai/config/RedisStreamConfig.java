@@ -13,6 +13,7 @@ import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
 import project.ai.stream.StreamConsumerGroups;
+import project.ai.stream.StreamPollTimeout;
 import project.ai.stream.StreamSubscriptions;
 import project.ai.stream.aireview.AiReviewRequestConsumer;
 import project.ai.stream.git.GitSummaryRequestConsumer;
@@ -47,6 +48,9 @@ public class RedisStreamConfig {
     private static final String GIT_SUMMARY_GROUP = "ai-git-summary-group";
     private static final String GIT_SUMMARY_CONSUMER = "ai-git-summary-1";
 
+    /** 스트림 폴링 대기. Redis 명령 시간 제한보다 길면 StreamPollTimeout이 줄인다. */
+    static final Duration POLL_TIMEOUT = Duration.ofSeconds(2);
+
     private final RedisConnectionFactory redisConnectionFactory;
     private final StringRedisTemplate stringRedisTemplate;
 
@@ -70,7 +74,7 @@ public class RedisStreamConfig {
     @Bean
     public StreamMessageListenerContainer<String, ObjectRecord<String, String>> streamListenerContainer() {
         var options = StreamMessageListenerContainer.StreamMessageListenerContainerOptions.builder()
-                .pollTimeout(Duration.ofSeconds(2))
+                .pollTimeout(StreamPollTimeout.safe(POLL_TIMEOUT, StreamPollTimeout.commandTimeoutOf(redisConnectionFactory)))
                 .targetType(String.class)
                 .build();
 
