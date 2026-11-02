@@ -12,6 +12,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
+import project.ai.stream.StreamConsumerGroups;
 import project.ai.stream.StreamSubscriptions;
 import project.ai.stream.aireview.AiReviewRequestConsumer;
 import project.ai.stream.git.GitSummaryRequestConsumer;
@@ -59,17 +60,11 @@ public class RedisStreamConfig {
     }
 
     private void createGroupIfNotExists(String streamKey, String groupName) {
-        try {
-            stringRedisTemplate.opsForStream()
-                    .createGroup(streamKey, ReadOffset.from("0"), groupName);
-            log.info("Consumer group created: {} on stream {}", groupName, streamKey);
-        } catch (Exception e) {
-            if (e.getMessage() != null && e.getMessage().contains("BUSYGROUP")) {
-                log.info("Consumer group already exists: {}", groupName);
-            } else {
-                log.error("Consumer group 생성 실패: streamKey={}, group={}", streamKey, groupName, e);
-            }
-        }
+        consumerGroups().createIfNotExists(streamKey, groupName);
+    }
+
+    private StreamConsumerGroups consumerGroups() {
+        return new StreamConsumerGroups(stringRedisTemplate);
     }
 
     @Bean
@@ -95,7 +90,7 @@ public class RedisStreamConfig {
             DeleteIndexConsumer deleteIndexConsumer,
             GitSummaryRequestConsumer gitSummaryRequestConsumer) {
 
-        var subscriptions = new StreamSubscriptions(streamListenerContainer, meterRegistry);
+        var subscriptions = new StreamSubscriptions(streamListenerContainer, meterRegistry, consumerGroups());
         subscriptions.register(AI_REVIEW_STREAM, AI_REVIEW_GROUP, AI_REVIEW_CONSUMER, aiReviewConsumer);
         subscriptions.register(REPO_INDEX_STREAM, REPO_INDEX_GROUP, REPO_INDEX_CONSUMER, repoIndexingConsumer);
         subscriptions.register(FILE_REINDEX_STREAM, FILE_REINDEX_GROUP, FILE_REINDEX_CONSUMER, fileReindexConsumer);

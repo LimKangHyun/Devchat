@@ -1,8 +1,11 @@
 package project.ai.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.micrometer.prometheusmetrics.PrometheusConfig;
@@ -10,14 +13,20 @@ import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.Status;
 import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.connection.stream.ReadOffset;
+import org.springframework.data.redis.connection.stream.RecordId;
+import org.springframework.data.redis.connection.stream.StreamRecords;
+import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer.ConsumerStreamReadRequest;
 import org.springframework.data.redis.stream.Subscription;
@@ -45,7 +54,7 @@ class StreamSubscriptionsTest {
         when(repoIndexSub.isActive()).thenReturn(true);
         when(aiReviewSub.isActive()).thenReturn(true);
 
-        subscriptions = new StreamSubscriptions(container, registry);
+        subscriptions = new StreamSubscriptions(container, registry, mock(StreamConsumerGroups.class));
         subscriptions.register(REPO_INDEX, "ai-repo-index-group", "ai-repo-index-1", record -> { });
         subscriptions.register(AI_REVIEW, "ai-review-group", "ai-review-1", record -> { });
     }
@@ -53,7 +62,7 @@ class StreamSubscriptionsTest {
     @Test
     void 읽기_요청은_오류가_나도_구독을_끊지_않고_ACK는_직접_한다() {
         ConsumerStreamReadRequest<String> request = StreamSubscriptions.readRequest(
-            REPO_INDEX, "ai-repo-index-group", "ai-repo-index-1", new RateLimitedStreamErrorHandler(REPO_INDEX));
+            REPO_INDEX, "ai-repo-index-group", "ai-repo-index-1", new RateLimitedStreamErrorHandler(REPO_INDEX, () -> { }));
 
         // container.receive()의 기본값(cancelOnError=true)이면 Redis 오류 한 번에 구독이 영구히 취소된다
         assertThat(request.getCancelSubscriptionOnError().test(new RedisConnectionFailureException("down"))).isFalse();
@@ -103,7 +112,7 @@ class StreamSubscriptionsTest {
 
     @Test
     void 등록된_구독이_없으면_DOWN이다() {
-        StreamSubscriptions empty = new StreamSubscriptions(container, registry);
+        StreamSubscriptions empty = new StreamSubscriptions(container, registry, mock(StreamConsumerGroups.class));
 
         assertThat(new RedisStreamSubscriptionsHealthIndicator(empty).health().getStatus()).isEqualTo(Status.DOWN);
     }
@@ -112,7 +121,7 @@ class StreamSubscriptionsTest {
     void 같은_오류가_반복되면_정해진_간격에_한_번만_로그를_남긴다() {
         AtomicLong now = new AtomicLong(0);
         List<Duration> sleeps = new ArrayList<>();
-        var handler = new RateLimitedStreamErrorHandler(REPO_INDEX, now::get, sleeps::add);
+        var handler = new RateLimitedStreamErrorHandler(REPO_INDEX, () -> { }, now::get, sleeps::add);
         RedisConnectionFailureException down = new RedisConnectionFailureException("redis-stream down");
 
         handler.handleError(down); // 첫 오류는 바로 남긴다
@@ -131,12 +140,58 @@ class StreamSubscriptionsTest {
     }
 
     @Test
-    void 리스너_오류는_쉬지_않는다() {
+    void 리스너_오류는_쉬지_않고_읽기_오류의_로그_제한에_묻히지_않는다() {
         List<Duration> sleeps = new ArrayList<>();
-        var handler = new RateLimitedStreamErrorHandler(REPO_INDEX, System::nanoTime, sleeps::add);
+        var handler = new RateLimitedStreamErrorHandler(REPO_INDEX, () -> { }, System::nanoTime, sleeps::add);
+        handler.handleError(new RedisConnectionFailureException("down")); // 읽기 오류가 로그 자리를 먼저 차지해도
 
+        handler.handleError(new StreamListenerException(RecordId.of("1-0"), new IllegalArgumentException("bad payload")));
         handler.handleError(new IllegalArgumentException("bad payload"));
 
-        assertThat(sleeps).isEmpty();
+        // 리스너 오류는 생략 건수에 들어가지 않고(매번 로그), 쉬지도 않는다
+        assertThat(handler.suppressedCount()).isZero();
+        assertThat(sleeps).hasSize(1);
+    }
+
+    @Test
+    void 리스너_예외에_메시지_id를_붙인다() {
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<StreamListener<String, ObjectRecord<String, String>>> captor =
+            ArgumentCaptor.forClass(StreamListener.class);
+        StreamSubscriptions subs = new StreamSubscriptions(container, registry, mock(StreamConsumerGroups.class));
+        subs.register("stream:x", "g", "c", record -> {
+            throw new IllegalStateException("boom");
+        });
+        verify(container, times(3)).register(any(), captor.capture());
+
+        ObjectRecord<String, String> record = StreamRecords.newRecord().in("stream:x")
+            .withId(RecordId.of("1700000000000-0")).ofObject("payload");
+
+        assertThatThrownBy(() -> captor.getValue().onMessage(record))
+            .isInstanceOf(StreamListenerException.class)
+            .satisfies(e -> assertThat(((StreamListenerException) e).getRecordId()).isEqualTo(RecordId.of("1700000000000-0")))
+            .hasCauseInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void 그룹이_없다는_오류면_대기_시간마다_한_번만_그룹을_다시_만든다() {
+        AtomicLong now = new AtomicLong(0);
+        AtomicInteger recreated = new AtomicInteger();
+        var handler = new RateLimitedStreamErrorHandler(REPO_INDEX, recreated::incrementAndGet, now::get, d -> { });
+        var noGroup = new RedisSystemException("Error in execution",
+            new RuntimeException("NOGROUP No such key 'stream:repo-index:request' or consumer group"));
+
+        handler.handleError(noGroup);
+        handler.handleError(noGroup); // 같은 대기 시간 안이면 다시 만들지 않는다
+        assertThat(recreated).hasValue(1);
+
+        now.addAndGet(RateLimitedStreamErrorHandler.READ_ERROR_BACKOFF.toNanos());
+        handler.handleError(noGroup);
+        assertThat(recreated).hasValue(2);
+
+        handler.handleError(new RedisConnectionFailureException("down")); // 다른 읽기 오류로는 만들지 않는다
+        now.addAndGet(RateLimitedStreamErrorHandler.READ_ERROR_BACKOFF.toNanos());
+        handler.handleError(new RedisConnectionFailureException("down"));
+        assertThat(recreated).hasValue(2);
     }
 }

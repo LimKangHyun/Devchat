@@ -86,8 +86,8 @@ class StreamSubscriptionsRedisTest {
     void Redis가_잠깐_멈춰도_구독이_유지되고_다시_읽는다() {
         List<String> received = new CopyOnWriteArrayList<>();
         AtomicInteger errors = new AtomicInteger();
-        var subscriptions = new StreamSubscriptions(container, new SimpleMeterRegistry(), stream -> {
-            var real = new RateLimitedStreamErrorHandler(stream);
+        var subscriptions = new StreamSubscriptions(container, new SimpleMeterRegistry(), (stream, group) -> {
+            var real = new RateLimitedStreamErrorHandler(stream, () -> { });
             return t -> {
                 errors.incrementAndGet();
                 real.handleError(t);
@@ -111,6 +111,26 @@ class StreamSubscriptionsRedisTest {
         await().atMost(Duration.ofSeconds(15)).until(() -> received.contains("after"));
         assertThat(subscriptions.isActive(STREAM)).isTrue();
         assertThat(new RedisStreamSubscriptionsHealthIndicator(subscriptions).health().getStatus()).isEqualTo(Status.UP);
+    }
+
+    @Test
+    void Redis가_데이터_없이_다시_떠서_그룹이_사라져도_그룹을_다시_만들고_이어서_읽는다() {
+        List<String> received = new CopyOnWriteArrayList<>();
+        var subscriptions = new StreamSubscriptions(container, new SimpleMeterRegistry(), new StreamConsumerGroups(redis));
+        subscriptions.register(STREAM, GROUP, "c1", record -> received.add(record.getValue()));
+        container.start();
+
+        publish("before");
+        await().atMost(Duration.ofSeconds(10)).until(() -> received.contains("before"));
+
+        // 데이터 없이 다시 뜬 redis-stream: 스트림도 그룹도 없다. 이대로면 XREADGROUP이 NOGROUP으로 계속 실패한다
+        redis.delete(STREAM);
+        await().atMost(Duration.ofSeconds(10)).ignoreExceptions() // 키가 없으면 XINFO가 오류를 낸다
+            .until(() -> !redis.opsForStream().groups(STREAM).isEmpty());
+
+        publish("after");
+        await().atMost(Duration.ofSeconds(15)).until(() -> received.contains("after"));
+        assertThat(subscriptions.isActive(STREAM)).isTrue();
     }
 
     @Test

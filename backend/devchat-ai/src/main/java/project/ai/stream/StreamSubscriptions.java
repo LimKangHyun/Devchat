@@ -5,7 +5,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.connection.stream.ReadOffset;
@@ -35,17 +35,19 @@ public class StreamSubscriptions {
 
     private final StreamMessageListenerContainer<String, ObjectRecord<String, String>> container;
     private final MeterRegistry meterRegistry;
-    private final Function<String, ErrorHandler> errorHandlerFactory;
+    /** (stream, group) → 에러 처리기 */
+    private final BiFunction<String, String, ErrorHandler> errorHandlerFactory;
     // 등록은 시작할 때 한 스레드에서만 하고, 그 뒤로는 읽기만 한다
     private final Map<String, Subscription> subscriptions = Collections.synchronizedMap(new LinkedHashMap<>());
 
     public StreamSubscriptions(StreamMessageListenerContainer<String, ObjectRecord<String, String>> container,
-                               MeterRegistry meterRegistry) {
-        this(container, meterRegistry, RateLimitedStreamErrorHandler::new);
+                               MeterRegistry meterRegistry, StreamConsumerGroups consumerGroups) {
+        this(container, meterRegistry, (stream, group) ->
+            new RateLimitedStreamErrorHandler(stream, () -> consumerGroups.createIfNotExists(stream, group)));
     }
 
     StreamSubscriptions(StreamMessageListenerContainer<String, ObjectRecord<String, String>> container,
-                        MeterRegistry meterRegistry, Function<String, ErrorHandler> errorHandlerFactory) {
+                        MeterRegistry meterRegistry, BiFunction<String, String, ErrorHandler> errorHandlerFactory) {
         this.container = container;
         this.meterRegistry = meterRegistry;
         this.errorHandlerFactory = errorHandlerFactory;
@@ -54,13 +56,26 @@ public class StreamSubscriptions {
     public void register(String streamKey, String group, String consumerName,
                          StreamListener<String, ObjectRecord<String, String>> listener) {
         Subscription subscription = container.register(
-            readRequest(streamKey, group, consumerName, errorHandlerFactory.apply(streamKey)), listener);
+            readRequest(streamKey, group, consumerName, errorHandlerFactory.apply(streamKey, group)),
+            withRecordId(listener));
         subscriptions.put(streamKey, subscription);
 
         Gauge.builder(ACTIVE_GAUGE, this, self -> self.isActive(streamKey) ? 1 : 0)
             .description("Redis Stream 구독이 살아 있으면 1, 끊겼으면 0")
             .tag("stream", streamKey)
             .register(meterRegistry);
+    }
+
+    /** 리스너 예외에 메시지 id를 붙여, 에러 로그에서 어떤 메시지였는지 보이게 한다. */
+    private static StreamListener<String, ObjectRecord<String, String>> withRecordId(
+            StreamListener<String, ObjectRecord<String, String>> listener) {
+        return record -> {
+            try {
+                listener.onMessage(record);
+            } catch (RuntimeException e) {
+                throw new StreamListenerException(record.getId(), e);
+            }
+        };
     }
 
     static ConsumerStreamReadRequest<String> readRequest(String streamKey, String group, String consumerName,
