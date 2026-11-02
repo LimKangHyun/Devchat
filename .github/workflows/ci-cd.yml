@@ -187,6 +187,11 @@ jobs:
 
       - run: chmod +x ./gradlew
 
+      # AI 서버만 바뀐 배포에서도 테스트를 돌린다(전에는 -x test로 건너뛰었다). 실패하면 이미지를 올리지 않고 배포도 멈춘다.
+      # 스트림 구독 테스트는 Testcontainers로 Redis를 띄우는데, ubuntu-latest runner에는 Docker가 있다.
+      - name: Test
+        run: ./gradlew :devchat-ai:test
+
       - name: Build
         run: ./gradlew :devchat-ai:build -x test
 
