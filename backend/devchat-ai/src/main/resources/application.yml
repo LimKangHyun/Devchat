@@ -39,6 +39,15 @@ management:
     web:
       exposure:
         include: health,prometheus
+  # /actuator/health/streams: Redis Stream 구독이 스트림별로 살아 있는지 본다 (RedisStreamSubscriptionsHealthIndicator).
+  # Spring Boot는 모든 헬스 지표를 /actuator/health에도 합치므로 거기에도 들어간다.
+  # Redis가 잠깐 끊겨도 구독은 유지돼 UP 그대로라, Redis 장애 때문에 이 지표가 DOWN이 되지는 않는다.
+  endpoint:
+    health:
+      group:
+        streams:
+          include: redisStreamSubscriptions
+          show-details: always
   metrics:
     tags:
       application: devchat-ai
