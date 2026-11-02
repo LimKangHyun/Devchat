@@ -1,3 +1,5 @@
 mysql-data/
 .env
 nginx.conf
+grafana-data/
+prometheus-data/

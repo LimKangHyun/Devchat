@@ -1,14 +1,19 @@
 package project.ai.config;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
+import project.ai.stream.StreamConsumerGroups;
+import project.ai.stream.StreamSubscriptions;
 import project.ai.stream.aireview.AiReviewRequestConsumer;
 import project.ai.stream.git.GitSummaryRequestConsumer;
 import project.ai.stream.index.DeleteIndexConsumer;
@@ -55,65 +60,72 @@ public class RedisStreamConfig {
     }
 
     private void createGroupIfNotExists(String streamKey, String groupName) {
-        try {
-            stringRedisTemplate.opsForStream()
-                    .createGroup(streamKey, ReadOffset.from("0"), groupName);
-            log.info("Consumer group created: {} on stream {}", groupName, streamKey);
-        } catch (Exception e) {
-            if (e.getMessage() != null && e.getMessage().contains("BUSYGROUP")) {
-                log.info("Consumer group already exists: {}", groupName);
-            } else {
-                log.error("Consumer group 생성 실패: streamKey={}, group={}", streamKey, groupName, e);
-            }
-        }
+        consumerGroups().createIfNotExists(streamKey, groupName);
+    }
+
+    private StreamConsumerGroups consumerGroups() {
+        return new StreamConsumerGroups(stringRedisTemplate);
     }
 
     @Bean
-    public StreamMessageListenerContainer<String, ObjectRecord<String, String>> streamListenerContainer(
+    public StreamMessageListenerContainer<String, ObjectRecord<String, String>> streamListenerContainer() {
+        var options = StreamMessageListenerContainer.StreamMessageListenerContainerOptions.builder()
+                .pollTimeout(Duration.ofSeconds(2))
+                .targetType(String.class)
+                .build();
+
+        return StreamMessageListenerContainer.create(redisConnectionFactory, options);
+    }
+
+    /**
+     * 구독을 등록하고 컨테이너를 시작한다. 오류가 나도 구독을 끊지 않는 이유는 StreamSubscriptions에 있다.
+     */
+    @Bean
+    public StreamSubscriptions streamSubscriptions(
+            StreamMessageListenerContainer<String, ObjectRecord<String, String>> streamListenerContainer,
+            MeterRegistry meterRegistry,
             AiReviewRequestConsumer aiReviewConsumer,
             RepoIndexConsumer repoIndexingConsumer,
             FileReindexConsumer fileReindexConsumer,
             DeleteIndexConsumer deleteIndexConsumer,
             GitSummaryRequestConsumer gitSummaryRequestConsumer) {
 
-        var options = StreamMessageListenerContainer.StreamMessageListenerContainerOptions.builder()
-                .pollTimeout(Duration.ofSeconds(2))
-                .targetType(String.class)
-                .build();
+        var subscriptions = new StreamSubscriptions(streamListenerContainer, meterRegistry, consumerGroups());
+        subscriptions.register(AI_REVIEW_STREAM, AI_REVIEW_GROUP, AI_REVIEW_CONSUMER, aiReviewConsumer);
+        subscriptions.register(REPO_INDEX_STREAM, REPO_INDEX_GROUP, REPO_INDEX_CONSUMER, repoIndexingConsumer);
+        subscriptions.register(FILE_REINDEX_STREAM, FILE_REINDEX_GROUP, FILE_REINDEX_CONSUMER, fileReindexConsumer);
+        subscriptions.register(DELETE_INDEX_STREAM, DELETE_INDEX_GROUP, DELETE_INDEX_CONSUMER, deleteIndexConsumer);
+        subscriptions.register(GIT_SUMMARY_STREAM, GIT_SUMMARY_GROUP, GIT_SUMMARY_CONSUMER, gitSummaryRequestConsumer);
 
-        var container = StreamMessageListenerContainer.create(redisConnectionFactory, options);
+        streamListenerContainer.start();
+        return subscriptions;
+    }
 
-        container.receive(
-                Consumer.from(AI_REVIEW_GROUP, AI_REVIEW_CONSUMER),
-                StreamOffset.create(AI_REVIEW_STREAM, ReadOffset.lastConsumed()),
-                aiReviewConsumer
-        );
+    /**
+     * 시작할 때 처리 확인(ACK)이 안 된 메시지(PEL)가 남아 있으면 스트림마다 WARN으로 알린다.
+     *
+     * 오래된 인덱싱 요청은 이미 지워진 채팅방 것일 수 있어서 자동으로 다시 처리하지 않는다.
+     * 확인하고 정리하는 방법은 docs/runbook/redis-stream-pending.md에 있다.
+     * (AI 리뷰 스트림은 AiReviewPelReclaimScheduler가 따로 재처리한다.)
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void warnPendingMessages() {
+        warnPending(AI_REVIEW_STREAM, AI_REVIEW_GROUP);
+        warnPending(REPO_INDEX_STREAM, REPO_INDEX_GROUP);
+        warnPending(FILE_REINDEX_STREAM, FILE_REINDEX_GROUP);
+        warnPending(DELETE_INDEX_STREAM, DELETE_INDEX_GROUP);
+        warnPending(GIT_SUMMARY_STREAM, GIT_SUMMARY_GROUP);
+    }
 
-        container.receive(
-                Consumer.from(REPO_INDEX_GROUP, REPO_INDEX_CONSUMER),
-                StreamOffset.create(REPO_INDEX_STREAM, ReadOffset.lastConsumed()),
-                repoIndexingConsumer
-        );
-
-        container.receive(
-            Consumer.from(FILE_REINDEX_GROUP, FILE_REINDEX_CONSUMER),
-            StreamOffset.create(FILE_REINDEX_STREAM, ReadOffset.lastConsumed()),
-            fileReindexConsumer
-        );
-
-        container.receive(
-            Consumer.from(DELETE_INDEX_GROUP, DELETE_INDEX_CONSUMER),
-            StreamOffset.create(DELETE_INDEX_STREAM, ReadOffset.lastConsumed()),
-            deleteIndexConsumer
-        );
-
-        container.receive(
-            Consumer.from(GIT_SUMMARY_GROUP, GIT_SUMMARY_CONSUMER),
-            StreamOffset.create(GIT_SUMMARY_STREAM, ReadOffset.lastConsumed()),
-            gitSummaryRequestConsumer
-        );
-
-        container.start();
-        return container;
+    private void warnPending(String streamKey, String groupName) {
+        try {
+            PendingMessagesSummary summary = stringRedisTemplate.opsForStream().pending(streamKey, groupName);
+            if (summary == null || summary.getTotalPendingMessages() == 0) return;
+            log.warn("ACK 안 된 스트림 메시지가 남아 있음(자동 재처리 안 함) - stream={}, group={}, pending={}, oldestId={}",
+                    streamKey, groupName, summary.getTotalPendingMessages(), summary.minMessageId());
+        } catch (Exception e) {
+            // 시작할 때 한 번 확인하는 것뿐이라, 실패해도 기동은 그대로 한다
+            log.warn("PEL 확인 실패 - stream={}, group={}: {}", streamKey, groupName, e.getMessage());
+        }
     }
 }

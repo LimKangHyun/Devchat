@@ -14,6 +14,16 @@ set -a
 source /home/ubuntu/Devchat/.env
 set +a
 
+# Grafana(472)·Prometheus(65534)는 서버 폴더를 바인드 마운트해 쓰므로, 폴더 주인이 바뀌면 자기 데이터를 못 연다.
+# 예전에는 backend를 배포할 때만 되돌려서, backend 변경이 없는 배포 뒤에는 Grafana가 멈춰 있었다(2026-10 장애).
+# 배포마다 맞추고, 폴더가 없으면(이름 있는 볼륨으로 옮긴 뒤 등) 건너뛴다.
+if [ -d "$PROJECT_DIR/prometheus-data" ]; then
+  sudo chown -R 65534:65534 "$PROJECT_DIR/prometheus-data"
+fi
+if [ -d "$PROJECT_DIR/grafana-data" ]; then
+  sudo chown -R 472:472 "$PROJECT_DIR/grafana-data"
+fi
+
 if [ "$DEPLOY_BACKEND" == "true" ]; then
   echo "=== backend 배포 시작 ($NEW_COLOR) ==="
 
@@ -49,8 +59,6 @@ if [ "$DEPLOY_BACKEND" == "true" ]; then
   rm -rf "$DEPLOY_DIR/nginx_proxy/nginx.conf"
   export ACTIVE_COLOR=$NEW_COLOR
   envsubst '${ACTIVE_COLOR}' < "$DEPLOY_DIR/nginx_proxy/nginx.conf.template" > "$DEPLOY_DIR/nginx_proxy/nginx.conf"
-  sudo chown -R 65534:65534 $PROJECT_DIR/prometheus-data
-  sudo chown -R 472:472 $PROJECT_DIR/grafana-data
 
   # nginx 재시작
   docker rm -f nginx_proxy || true

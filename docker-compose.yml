@@ -146,7 +146,8 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
+      # 서버의 기존 컨테이너가 쓰던 폴더를 그대로 쓴다. 소유자(65534)는 deploy.sh가 배포마다 맞춘다
+      - ./prometheus-data:/prometheus
     networks:
       - dev-chat-network
 
@@ -159,7 +160,9 @@ services:
     ports:
       - "3002:3000"
     volumes:
-      - grafana-data:/var/lib/grafana
+      # 서버의 기존 컨테이너가 쓰던 폴더(grafana.db 포함)를 그대로 쓴다. 소유자(472)는 deploy.sh가 배포마다 맞춘다.
+      # 예전에 적어 둔 이름 있는 볼륨은 실제로 쓰인 적이 없다(6월에 만든 컨테이너가 이 폴더를 바인드 마운트해 왔다)
+      - ./grafana-data:/var/lib/grafana
       - ./deployment/grafana/provisioning:/etc/grafana/provisioning
     environment:
       - GF_SERVER_ROOT_URL=https://thedevchat.duckdns.org/grafana/
@@ -181,6 +184,4 @@ networks:
 
 volumes:
   mysql-data:
-  grafana-data:
-  prometheus-data:
   redis-stream-data:
