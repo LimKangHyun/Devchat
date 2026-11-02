@@ -235,8 +235,13 @@ jobs:
           script: |
             cd /home/ubuntu/Devchat
 
-            # 권한 문제 해결
-            sudo chown -R ubuntu:ubuntu .
+            # 권한 문제 해결: git이 다루는 것(.git, 추적 중인 파일과 그 폴더)만 ubuntu 소유로 맞춘다.
+            # 예전처럼 "chown -R ."를 하면 grafana-data(472)·prometheus-data(65534) 같은 실행 데이터까지 ubuntu 소유가 돼
+            # Grafana가 자기 DB를 못 열고 Prometheus 압축이 실패했다(2026-10 장애). 이 폴더들은 건드리지 않는다.
+            sudo chown ubuntu:ubuntu .
+            sudo chown -R ubuntu:ubuntu .git
+            git ls-files -z | xargs -0 -r sudo chown -h ubuntu:ubuntu --
+            git ls-tree -r -d -z --name-only HEAD | xargs -0 -r sudo chown ubuntu:ubuntu --
             # 로컬 변경 무시하고 강제 최신화
             git fetch origin
             git reset --hard origin/prod
