@@ -101,7 +101,10 @@ services:
       - /home/ubuntu/Devchat/.env
     environment:
       - INTERNAL_JWT_SECRET=${INTERNAL_JWT_SECRET}
-      - INTERNAL_API_URL=${INTERNAL_API_URL}
+      # API 서버로 가는 내부 호출 주소. nginx의 내부 전용 포트(8088)를 거쳐 항상 활성 색으로 간다.
+      # 호스트 이름에 '_'가 있으면(nginx_proxy) Java URI가 호스트를 못 읽어 "Host is not specified"로 실패하므로
+      # 네트워크 별칭 nginx-proxy를 쓴다. .env에 값을 두면 그 값이 우선한다
+      - INTERNAL_API_URL=${INTERNAL_API_URL:-http://nginx-proxy:8088/internal-api}
       - GEMINI_REVIEW_KEY_1=${GEMINI_REVIEW_KEY_1}
       - GEMINI_REVIEW_KEY_2=${GEMINI_REVIEW_KEY_2}
       - GEMINI_EMBEDDING_KEY_1=${GEMINI_EMBEDDING_KEY_1}
@@ -134,8 +137,12 @@ services:
       - dev-chat-frontend
       - dev-chat-backend-blue
       - dev-chat-backend-green
+    # 8088(내부 API 진입점)은 ports에 올리지 않는다. Docker 네트워크 안에서만 쓴다
     networks:
-      - dev-chat-network
+      dev-chat-network:
+        # 컨테이너 이름 nginx_proxy는 '_' 때문에 URL 호스트로 쓸 수 없어 별칭을 둔다(deploy.sh는 기존 이름을 그대로 쓴다)
+        aliases:
+          - nginx-proxy
 
   prometheus:
     image: prom/prometheus:latest

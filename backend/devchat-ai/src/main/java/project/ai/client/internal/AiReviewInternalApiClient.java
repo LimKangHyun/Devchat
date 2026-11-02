@@ -3,9 +3,9 @@ package project.ai.client.internal;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import project.common.message.aireview.FileClaimResult;
 
 /** AI 리뷰 처리에 필요한 API 서버 내부 호출(처리 권한 요청, 데드레터 보고). */
@@ -15,10 +15,10 @@ import project.common.message.aireview.FileClaimResult;
 public class AiReviewInternalApiClient {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(5);
+    private static final String CLAIM_PATH = "/internal/ai-review-files/claim";
+    private static final String DEAD_LETTER_PATH = "/internal/dead-letters";
 
-    @Value("${internal.api.url}")
-    private String apiUrl;
-
+    private final InternalApiProperties internalApi;
     private final WebClient.Builder webClientBuilder;
     private final InternalJwtProvider internalJwtProvider;
 
@@ -32,11 +32,12 @@ public class AiReviewInternalApiClient {
     public FileClaimResult claim(Long aiReviewId, String filePath, String commitSha, boolean reclaim) {
         ClaimResponse response = webClientBuilder.build()
             .post()
-            .uri(apiUrl + "/internal/ai-review-files/claim")
+            .uri(internalApi.url() + CLAIM_PATH)
             .header("Authorization", "Bearer " + internalJwtProvider.issue(null))
             .bodyValue(new ClaimRequest(aiReviewId, filePath, commitSha, reclaim))
             .retrieve()
             .bodyToMono(ClaimResponse.class)
+            .doOnError(WebClientRequestException.class, e -> logConnectFailure(CLAIM_PATH, e))
             .block(TIMEOUT);
         if (response == null || response.result() == null) {
             throw new IllegalStateException("claim 응답이 비어 있음 - aiReviewId=" + aiReviewId + ", filePath=" + filePath);
@@ -49,15 +50,21 @@ public class AiReviewInternalApiClient {
         try {
             webClientBuilder.build()
                 .post()
-                .uri(apiUrl + "/internal/dead-letters")
+                .uri(internalApi.url() + DEAD_LETTER_PATH)
                 .header("Authorization", "Bearer " + internalJwtProvider.issue(null))
                 .bodyValue(new DeadLetterRequest(streamKey, recordId, payload))
                 .retrieve()
                 .toBodilessEntity()
+                .doOnError(WebClientRequestException.class, e -> logConnectFailure(DEAD_LETTER_PATH, e))
                 .block(TIMEOUT);
         } catch (Exception e) {
             log.error("데드레터 기록 실패 - recordId={}, payload={}", recordId, payload, e);
         }
+    }
+
+    /** 연결 자체가 안 될 때(주소·DNS·포트 문제) 어디로 보냈는지 바로 보이게 한다. */
+    private void logConnectFailure(String path, WebClientRequestException e) {
+        log.error("내부 API 연결 실패 - host={}, path={}, cause={}", internalApi.host(), path, e.getMostSpecificCause().getMessage());
     }
 
     private record ClaimRequest(Long aiReviewId, String filePath, String commitSha, boolean reclaim) {}
