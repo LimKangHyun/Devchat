@@ -1,0 +1,40 @@
+# Redis Stream 구독 알림 규칙 (지표: devchat-ai StreamSubscriptions).
+# 구독이 끊기면 AI 서버는 살아 있고 로그도 조용한데 인덱싱·리뷰 요청을 아무도 읽지 않는다(2026-07~10 장애).
+# 그래서 서버 생존(devchat-ai-down)과 따로, 스트림별 구독 상태를 본다.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: devchat-ai-stream
+    folder: DevChat
+    interval: 1m
+    rules:
+      - uid: stream-subscription-inactive
+        title: Redis Stream 구독 끊김
+        condition: C
+        for: 5m
+        # 지표가 아예 없으면(AI 서버 다운) devchat-ai-down 규칙이 알린다
+        noDataState: OK
+        execErrState: Error
+        labels:
+          service: devchat-ai
+          severity: critical
+        annotations:
+          summary: '{{ $$labels.stream }} 구독이 5분 넘게 끊겨 있습니다.'
+          description: 이 스트림의 요청(인덱싱·리뷰 등)이 처리되지 않고 쌓입니다. devchat-ai 로그와 /actuator/health/streams를 확인하고, 복구되지 않으면 docker restart dev-chat-ai로 다시 띄우세요. 쌓인 메시지는 docs/runbook/redis-stream-pending.md를 보세요.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus-devchat
+            model:
+              refId: A
+              instant: true
+              expr: min by (stream) (devchat_stream_subscription_active{job="devchat-ai"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
