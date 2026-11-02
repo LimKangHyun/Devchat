@@ -79,11 +79,9 @@ class PendingMessageReclaimerRedisTest {
         redis.getConnectionFactory().getConnection().serverCommands().flushAll();
         redis.opsForStream().createGroup(STREAM, ReadOffset.from("0"), GROUP);
 
-        var options = StreamMessageListenerContainer.StreamMessageListenerContainerOptions.builder()
-            .pollTimeout(Duration.ofMillis(100))
-            .targetType(String.class)
-            .build();
-        container = StreamMessageListenerContainer.create(connectionFactory, options);
+        // 운영과 같은 설정(한 번에 한 메시지)
+        container = StreamMessageListenerContainer.create(connectionFactory,
+            StreamSubscriptions.containerOptions(Duration.ofMillis(100)));
         meterRegistry = new SimpleMeterRegistry();
         metrics = new StreamReclaimMetrics(meterRegistry);
     }
@@ -177,9 +175,70 @@ class PendingMessageReclaimerRedisTest {
         assertThat(processed).isEmpty();
         assertThat(pendingCount()).isEqualTo(1); // 새 메시지는 평소 재처리로 넘긴다
 
-        // 시작할 때마다 돌려도 더 지울 것이 없다
-        assertThat(reclaimer.cleanUpLegacy(Duration.ofHours(1), now)).isZero();
+        // 한 번 정리한 뒤 시작할 때는 건너뛴다. 기준보다 오래 재시도 중인 메시지도 버리지 않는다
+        assertThat(reclaimer.cleanUpLegacy(Duration.ofHours(1), now + 7_200_000)).isEqualTo(PendingMessageReclaimer.LEGACY_ALREADY_DONE);
         assertThat(reclaimer.refreshPendingCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 데드레터_기록이_실패하면_ACK하지_않고_다음_주기에_다시_기록한다() {
+        AtomicInteger recordAttempts = new AtomicInteger();
+        StreamListener<String, ObjectRecord<String, String>> listener = ackOnSuccess(record -> {
+            throw new IllegalStateException("계속 실패");
+        });
+        PendingMessageReclaimer reclaimer = new PendingMessageReclaimer(redis, metrics, STREAM, GROUP, GROUP + "-reclaimer",
+            listener, IDLE, 1, (stream, id, payload) -> {
+                if (recordAttempts.incrementAndGet() == 1) throw new IllegalStateException("API 서버 장애");
+                deadLetters.add(id);
+            });
+        RecordId id = publish("x".repeat(1_000));
+        readWithoutAck(1);
+
+        waitIdle();
+        reclaimer.reclaimOnce();
+        assertThat(recordAttempts.get()).isEqualTo(1);
+        assertThat(pendingCount()).isEqualTo(1);
+        assertThat(meterRegistry.counter(StreamReclaimMetrics.DEAD_LETTER, "stream", STREAM).count()).isZero();
+
+        waitIdle();
+        reclaimer.reclaimOnce();
+        assertThat(deadLetters).containsExactly(id.getValue());
+        assertThat(pendingCount()).isZero();
+        assertThat(meterRegistry.counter(StreamReclaimMetrics.DEAD_LETTER, "stream", STREAM).count()).isEqualTo(1);
+    }
+
+    @Test
+    void 오래_걸리는_메시지가_줄지어_있어도_기다리는_메시지는_PEL에_올라가지_않아_재처리되지_않는다() throws Exception {
+        // 메시지 하나는 idle 기준보다 짧지만(0.6초), 다섯 개를 합치면 훨씬 길다(3초).
+        // 한꺼번에 읽으면 뒤쪽 메시지가 기다리는 동안 idle 기준을 넘겨 재처리 스케줄러가 한 번 더 처리한다
+        List<String> processed = new CopyOnWriteArrayList<>();
+        StreamListener<String, ObjectRecord<String, String>> listener = ackOnSuccess(record -> {
+            try {
+                Thread.sleep(600);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            processed.add(record.getValue());
+        });
+        PendingMessageReclaimer reclaimer = reclaimer(listener);
+        for (int i = 0; i < 5; i++) publish("slow-" + i);
+        subscribe(listener);
+
+        // 처리하는 동안 재처리 스케줄러를 계속 돌린다
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (processed.size() < 5 && System.currentTimeMillis() < deadline) {
+            reclaimer.reclaimOnce();
+            Thread.sleep(100);
+            assertThat(pendingCount()).isLessThanOrEqualTo(1);
+        }
+
+        assertThat(processed).containsExactly("slow-0", "slow-1", "slow-2", "slow-3", "slow-4");
+        assertThat(meterRegistry.counter(StreamReclaimMetrics.RECLAIMED, "stream", STREAM).count()).isZero();
+        assertThat(deadLetters).isEmpty();
+    }
+
+    private void waitIdle() {
+        await().pollDelay(IDLE.plusMillis(100)).atMost(Duration.ofSeconds(5)).until(() -> true);
     }
 
     @Test

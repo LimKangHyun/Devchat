@@ -2,6 +2,7 @@ package project.ai.stream;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -52,6 +53,21 @@ public class StreamSubscriptions {
         this.container = container;
         this.meterRegistry = meterRegistry;
         this.errorHandlerFactory = errorHandlerFactory;
+    }
+
+    /**
+     * 컨테이너 설정. 한 번에 한 메시지만 읽는다(batchSize=1).
+     * 여러 개를 한꺼번에 읽으면 기다리는 메시지까지 모두 PEL에 올라가 "마지막 전달 뒤 지난 시간"이 처리 시작이 아니라
+     * 읽은 시각부터 흐른다. 앞 메시지들이 오래 걸리면(큰 push의 파일 재인덱싱 등) 아직 시작도 안 한 메시지가
+     * 재처리 기준 시간을 넘겨, 재처리 스케줄러가 같은 메시지를 동시에 한 번 더 처리하거나 데드레터로 잘못 보낸다.
+     */
+    public static StreamMessageListenerContainer.StreamMessageListenerContainerOptions<String, ObjectRecord<String, String>>
+            containerOptions(Duration pollTimeout) {
+        return StreamMessageListenerContainer.StreamMessageListenerContainerOptions.builder()
+            .pollTimeout(pollTimeout)
+            .batchSize(1)
+            .targetType(String.class)
+            .build();
     }
 
     public void register(String streamKey, String group, String consumerName,

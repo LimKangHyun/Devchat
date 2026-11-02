@@ -35,8 +35,15 @@ import org.springframework.data.redis.stream.StreamListener;
 public class PendingMessageReclaimer {
 
     static final int BATCH_SIZE = 100;
+    /** 한 주기에 다시 처리(또는 데드레터 처리)하는 최대 수. 오래 걸리는 메시지가 쌓여도 한 주기가 끝없이 늘지 않게 한다 */
+    static final int MAX_HANDLED_PER_CYCLE = 10;
     /** 시작할 때 정리하는 PEL 상한(배치 × 횟수). 이보다 많으면 다음 시작 때 이어서 정리한다 */
     private static final int MAX_LEGACY_BATCHES = 100;
+    /** 예전 PEL 정리를 마친 스트림 표시. 한 번 정리한 뒤로는 다시 하지 않는다 */
+    static final String LEGACY_DONE_KEY_PREFIX = "devchat:stream:legacy-pel-cleaned:";
+    private static final int LOG_PAYLOAD_PREFIX = 200;
+    /** cleanUpLegacy가 이미 정리한 스트림이라 건너뛰었을 때 돌려주는 값 */
+    public static final int LEGACY_ALREADY_DONE = -1;
 
     private final StringRedisTemplate redis;
     private final StreamReclaimMetrics metrics;
@@ -79,22 +86,39 @@ public class PendingMessageReclaimer {
      * 예전 컨슈머는 ACK를 하지 않아, PEL에 이미 처리한 메시지와 잃어버린 메시지가 섞여 있다. 오래된 것은 구분할 수
      * 없고 다시 돌리면 처리한 요청까지 다시 처리하므로 버린다. cutoff보다 새것은 평소 재처리로 넘긴다.
      * 나이는 마지막 전달 시각이 아니라 메시지 ID의 생성 시각으로 본다(XCLAIM 때마다 전달 시각이 바뀐다).
-     * 새 컨슈머는 ACK하고 멈춘 메시지는 몇 분 안에 재처리·데드레터로 빠지므로, 시작할 때마다 돌려도 지울 것이 없다.
+     *
+     * 한 번 다 정리하면 Redis에 표시(LEGACY_DONE_KEY_PREFIX + 스트림)를 남기고, 그 뒤 시작할 때는 건너뛴다
+     * (LEGACY_ALREADY_DONE을 돌려준다). 새 코드에서 cutoff보다 오래 PEL에 머무는 메시지는 재시도 중인 메시지라,
+     * 매번 정리하면 재처리·데드레터 없이 조용히 버리게 된다. redis-stream이 데이터 없이 다시 뜨면 표시도 사라지지만
+     * 그때는 PEL도 비어 있다.
      */
     public int cleanUpLegacy(Duration cutoff, long nowMillis) {
+        String doneKey = LEGACY_DONE_KEY_PREFIX + streamKey;
+        if (Boolean.TRUE.equals(redis.hasKey(doneKey))) return LEGACY_ALREADY_DONE;
+
         long cutoffMillis = nowMillis - cutoff.toMillis();
         int acked = 0;
+        boolean complete = false;
         for (int i = 0; i < MAX_LEGACY_BATCHES; i++) {
             PendingMessages pending = redis.opsForStream().pending(streamKey, group, Range.unbounded(), BATCH_SIZE);
             List<RecordId> old = new ArrayList<>();
             for (PendingMessage p : pending) {
                 if (p.getId().getTimestamp() < cutoffMillis) old.add(p.getId());
             }
-            if (old.isEmpty()) break;
+            if (old.isEmpty()) {
+                complete = true;
+                break;
+            }
             Long count = redis.opsForStream().acknowledge(streamKey, group, old.toArray(new RecordId[0]));
             acked += count == null ? 0 : count.intValue();
             // PEL은 ID 순이라, 배치 안에 새 메시지가 섞여 있으면 그 뒤로는 모두 새것이다
-            if (old.size() < pending.size()) break;
+            if (old.size() < pending.size()) {
+                complete = true;
+                break;
+            }
+        }
+        if (complete) {
+            redis.opsForValue().set(doneKey, String.valueOf(nowMillis));
         }
         return acked;
     }
@@ -103,8 +127,10 @@ public class PendingMessageReclaimer {
     public void reclaimOnce() {
         try {
             PendingMessages pending = redis.opsForStream().pending(streamKey, group, Range.unbounded(), BATCH_SIZE);
+            int handled = 0;
             for (PendingMessage p : pending) {
                 if (p.getElapsedTimeSinceLastDelivery().compareTo(idleThreshold) < 0) continue;
+                if (handled++ >= MAX_HANDLED_PER_CYCLE) break; // 나머지는 다음 주기에
                 if (p.getTotalDeliveryCount() >= maxDeliveries) {
                     deadLetter(p);
                 } else {
@@ -144,16 +170,23 @@ public class PendingMessageReclaimer {
         if (record == null) return;
 
         String payload = record.getValue();
-        log.error("최대 전달 횟수({}) 초과, 데드레터로 보냄 - stream={}, recordId={}, payload={}",
-            maxDeliveries, streamKey, p.getId(), payload);
+        // 내용 전체는 데드레터 기록(API 서버 stream_dead_letter)과 스트림에 남는다. 로그에는 앞부분만 남긴다
+        log.error("최대 전달 횟수({}) 초과, 데드레터로 보냄 - stream={}, recordId={}, payloadSize={}, payloadPrefix={}",
+            maxDeliveries, streamKey, p.getId(), payload.length(), prefix(payload));
         try {
             deadLetterHandler.handle(streamKey, p.getIdAsString(), payload);
         } catch (Exception e) {
-            log.error("데드레터 처리 실패, 다음 주기에 다시 시도 - stream={}, recordId={}", streamKey, p.getId(), e);
+            // ACK하지 않는다. PEL에 남아 idleThreshold 뒤 다시 데드레터 기록을 시도한다
+            log.error("데드레터 기록 실패, 나중에 다시 시도 - stream={}, recordId={}, 원인={}",
+                streamKey, p.getId(), e.toString(), e);
             return;
         }
         redis.opsForStream().acknowledge(streamKey, group, p.getId());
         metrics.deadLettered(streamKey);
+    }
+
+    private static String prefix(String payload) {
+        return payload.length() <= LOG_PAYLOAD_PREFIX ? payload : payload.substring(0, LOG_PAYLOAD_PREFIX) + "…";
     }
 
     private ObjectRecord<String, String> claim(RecordId id) {

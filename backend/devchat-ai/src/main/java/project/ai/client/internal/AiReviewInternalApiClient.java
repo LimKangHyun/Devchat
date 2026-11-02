@@ -45,21 +45,29 @@ public class AiReviewInternalApiClient {
         return response.result();
     }
 
-    /** 최대 재시도를 넘긴 메시지를 기록한다. 기록에 실패해도 로그에 원문이 남으므로 예외는 삼킨다. */
+    /**
+     * 최대 재시도를 넘긴 AI 리뷰 메시지를 기록한다. 기록에 실패해도 로그에 원문이 남으므로 예외는 삼킨다.
+     * (AI 리뷰 재처리 스케줄러는 기록 결과와 상관없이 ACK한다. 다른 스트림은 recordDeadLetter를 쓴다.)
+     */
     public void reportDeadLetter(String streamKey, String recordId, String payload) {
         try {
-            webClientBuilder.build()
-                .post()
-                .uri(internalApi.url() + DEAD_LETTER_PATH)
-                .header("Authorization", "Bearer " + internalJwtProvider.issue(null))
-                .bodyValue(new DeadLetterRequest(streamKey, recordId, payload))
-                .retrieve()
-                .toBodilessEntity()
-                .doOnError(WebClientRequestException.class, e -> logConnectFailure(DEAD_LETTER_PATH, e))
-                .block(TIMEOUT);
+            recordDeadLetter(streamKey, recordId, payload);
         } catch (Exception e) {
             log.error("데드레터 기록 실패 - recordId={}, payload={}", recordId, payload, e);
         }
+    }
+
+    /** 데드레터를 API 서버에 기록한다. 실패하면 예외를 던진다(호출한 쪽이 ACK를 미루고 다시 시도할 수 있게). */
+    public void recordDeadLetter(String streamKey, String recordId, String payload) {
+        webClientBuilder.build()
+            .post()
+            .uri(internalApi.url() + DEAD_LETTER_PATH)
+            .header("Authorization", "Bearer " + internalJwtProvider.issue(null))
+            .bodyValue(new DeadLetterRequest(streamKey, recordId, payload))
+            .retrieve()
+            .toBodilessEntity()
+            .doOnError(WebClientRequestException.class, e -> logConnectFailure(DEAD_LETTER_PATH, e))
+            .block(TIMEOUT);
     }
 
     /** 연결 자체가 안 될 때(주소·DNS·포트 문제) 어디로 보냈는지 바로 보이게 한다. */

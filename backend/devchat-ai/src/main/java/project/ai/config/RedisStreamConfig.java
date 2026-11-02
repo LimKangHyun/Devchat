@@ -71,8 +71,11 @@ public class RedisStreamConfig {
     private long reclaimMaxDeliveries;
     @Value("${devchat.stream.reclaim.interval:30s}")
     private Duration reclaimInterval;
-    /** 시작할 때 이보다 오래된 PEL 메시지는 다시 처리하지 않고 ACK만 한다(ACK하지 않던 시절의 메시지) */
-    @Value("${devchat.stream.reclaim.legacy-cutoff:1h}")
+    /**
+     * 이 PR을 처음 배포할 때 한 번, 이보다 오래된 PEL 메시지는 다시 처리하지 않고 ACK만 한다(ACK하지 않던 시절의 메시지).
+     * 예전 PEL은 대부분 이미 처리한 메시지라, 길게 잡을수록 처리한 요약·재인덱싱을 다시 돌린다.
+     */
+    @Value("${devchat.stream.reclaim.legacy-cutoff:10m}")
     private Duration reclaimLegacyCutoff;
 
     @PostConstruct
@@ -94,10 +97,9 @@ public class RedisStreamConfig {
 
     @Bean
     public StreamMessageListenerContainer<String, ObjectRecord<String, String>> streamListenerContainer() {
-        var options = StreamMessageListenerContainer.StreamMessageListenerContainerOptions.builder()
-                .pollTimeout(StreamPollTimeout.safe(POLL_TIMEOUT, StreamPollTimeout.commandTimeoutOf(redisConnectionFactory)))
-                .targetType(String.class)
-                .build();
+        // 한 번에 한 메시지만 읽는다. 이유는 StreamSubscriptions.containerOptions에 있다
+        var options = StreamSubscriptions.containerOptions(
+                StreamPollTimeout.safe(POLL_TIMEOUT, StreamPollTimeout.commandTimeoutOf(redisConnectionFactory)));
 
         return StreamMessageListenerContainer.create(redisConnectionFactory, options);
     }
@@ -151,8 +153,9 @@ public class RedisStreamConfig {
             DeleteIndexConsumer deleteIndexConsumer,
             GitSummaryRequestConsumer gitSummaryRequestConsumer) {
 
-        // API 서버의 stream_dead_letter 테이블에 스트림 구분 없이 남긴다. 기록이 실패해도 ERROR 로그는 남는다
-        DeadLetterHandler deadLetter = internalApiClient::reportDeadLetter;
+        // API 서버의 stream_dead_letter 테이블에 스트림 구분 없이 남긴다. 기록이 실패하면 예외가 나가 ACK하지 않고
+        // 다음에 다시 기록을 시도한다(PendingMessageReclaimer)
+        DeadLetterHandler deadLetter = internalApiClient::recordDeadLetter;
 
         List<PendingMessageReclaimer> reclaimers = List.of(
             // 재처리는 onReclaimed로 넘겨, 이미 끝났거나 만료된 요청을 다시 인덱싱하지 않게 한다
