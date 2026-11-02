@@ -56,6 +56,8 @@ public class RedisStreamClient {
     public void publishRepoIndexing(Long roomId, String repositoryUrl, Long memberId) {
         try {
             String json = objectMapper.writeValueAsString(new RepoIndexRequestMessage(roomId, repositoryUrl, memberId));
+            // 예전 취소 플래그를 지운다. AI 서버는 요청을 받았을 때 취소 플래그가 있으면 "요청 뒤에 취소됐다"고 보고 건너뛴다.
+            streamStringRedisTemplate.delete(IndexingKeys.cancelKey(roomId));
             // AI 서버가 요청을 받아 락을 잡기 전까지 "진행 중"으로 보이게 표시한다. AI 서버가 오래 내려가 있으면 만료된다.
             streamStringRedisTemplate.opsForValue()
                 .set(IndexingKeys.requestedKey(roomId), "1", Duration.ofMinutes(10));

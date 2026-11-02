@@ -51,7 +51,8 @@ class AiReviewPelReclaimSchedulerTest {
         heartbeat = mock(AiReviewHeartbeat.class);
         producer = mock(AiReviewResultProducer.class);
         apiClient = mock(AiReviewInternalApiClient.class);
-        scheduler = new AiReviewPelReclaimScheduler(redis, consumer, heartbeat, producer, apiClient, objectMapper);
+        scheduler = new AiReviewPelReclaimScheduler(redis, consumer, heartbeat, producer, apiClient, objectMapper,
+            new project.ai.stream.reclaim.StreamReclaimMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
     }
 
     private void pending(Duration idle, long deliveryCount) {

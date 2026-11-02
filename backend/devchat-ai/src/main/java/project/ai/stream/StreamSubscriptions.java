@@ -27,7 +27,8 @@ import org.springframework.util.ErrorHandler;
  * 2. 등록한 Subscription을 들고 있다가 헬스 체크(RedisStreamSubscriptionsHealthIndicator)와
  *    지표(devchat_stream_subscription_active)로 끊긴 구독을 드러낸다.
  *
- * ACK는 지금처럼 각 Consumer가 직접 한다(autoAcknowledge=false).
+ * ACK는 컨테이너가 하지 않는다(autoAcknowledge=false). AI 리뷰는 Consumer가 직접, 나머지는 AckOnSuccessListener가
+ * 처리에 성공했을 때 한다. 실패해 PEL에 남은 메시지는 PendingMessageReclaimer가 다시 처리한다.
  */
 public class StreamSubscriptions {
 

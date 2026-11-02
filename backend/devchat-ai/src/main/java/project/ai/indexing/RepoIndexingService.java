@@ -252,13 +252,17 @@ public class RepoIndexingService {
             log.info("파일 재인덱싱 완료. roomId={}, filePath={}, previousFilePath={}, chunkCount={}, 삭제된 옛 청크={}",
                 roomId, filePath, message.previousFilePath(), metas.size(), staleIds.size());
         } catch (IndexingException e) {
+            // 던져서 요청 메시지를 ACK하지 않는다. PEL에 남아 나중에 다시 처리되고(키가 다시 차면 성공),
+            // 계속 실패하면 데드레터로 간다(PendingMessageReclaimer)
             if (e.getErrorCode() == IndexingErrorCode.EMBEDDING_EXHAUSTED) {
                 log.error("임베딩 키 소진 - 파일 재인덱싱 중단. roomId={}, filePath={}", roomId, filePath);
             } else {
                 log.error("파일 재인덱싱 실패. roomId={}, filePath={}", roomId, filePath, e);
             }
+            throw e;
         } catch (Exception e) {
             log.error("파일 재인덱싱 실패. roomId={}, filePath={}", roomId, filePath, e);
+            throw new IllegalStateException("파일 재인덱싱 실패: roomId=" + roomId + ", filePath=" + filePath, e);
         }
     }
 
