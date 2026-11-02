@@ -45,3 +45,12 @@ jobs:
             복구될 때까지 30분마다 다시 알립니다. 지난번에는 `docker restart grafana`로 복구됐습니다.
           color: '0xff0000'
           username: "DevChat Bot"
+
+      # 알림만 보내고 job이 초록으로 끝나면 Actions 화면에서 장애가 보이지 않는다(2026-10에 3일 동안 몰랐다). 실패로 끝낸다.
+      - name: Fail when Grafana is unhealthy
+        if: steps.health.outputs.ok == 'false'
+        env:
+          DETAIL: ${{ steps.health.outputs.detail }}
+        run: |
+          echo "::error::Grafana health check failed: $DETAIL"
+          exit 1
