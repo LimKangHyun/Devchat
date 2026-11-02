@@ -114,6 +114,8 @@ services:
       - GEMINI_EMBEDDING_KEY_5=${GEMINI_EMBEDDING_KEY_5}
       - QDRANT_URL=${QDRANT_URL}
       - QDRANT_API_KEY=${QDRANT_API_KEY}
+      # 예전 컬렉션 devchat은 이름 없는 단일 벡터(예전 스키마)라 dense/bm25 하이브리드로 저장할 수 없다(400). 새 이름을 기본값으로 둔다. .env에 값을 두면 그 값이 우선한다
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-devchat_hybrid}
       - JAVA_OPTS=-Xmx1000m -Xms500m
     networks:
       - dev-chat-network
