@@ -16,6 +16,37 @@ http {
     }
   }
 
+  # AI 서버(dev-chat-ai)가 API 서버를 부르는 내부 전용 진입점. 항상 지금 활성화된 색(blue/green)으로 보낸다.
+  # - 80은 https로 301을 돌려주고, 443은 인증서가 thedevchat.duckdns.org용이라 내부 이름으로는 검증이 실패한다.
+  #   그래서 내부 호출만 받는 평문 포트를 따로 둔다.
+  # - 8088은 docker-compose의 ports에 올리지 않는다. Docker 네트워크 안에서만 닿는다.
+  # - dev-chat-network는 서브넷을 고정하지 않아 Docker가 고른 대역(예: 172.19.0.0/16)이 서버마다 다를 수 있다.
+  #   대역 하나만 적으면 네트워크가 다시 만들어질 때 조용히 막히므로 사설 대역 전체를 허용한다.
+  #   실제 보호는 포트 미공개와 API 서버의 내부 JWT 검증(InternalJwtAuthenticationFilter)이 맡는다.
+  server {
+    listen 8088;
+
+    allow 10.0.0.0/8;
+    allow 172.16.0.0/12;
+    allow 192.168.0.0/16;
+    deny all;
+
+    location /internal-api/ {
+      set $backend "dev-chat-backend-${ACTIVE_COLOR}:8080";
+      rewrite ^/internal-api/(.*) /$1 break;
+      proxy_pass http://$backend;
+      proxy_http_version 1.1;
+      proxy_set_header Host thedevchat.duckdns.org;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+      return 404;
+    }
+  }
+
   server {
     listen 443 ssl;
     server_name thedevchat.duckdns.org;
