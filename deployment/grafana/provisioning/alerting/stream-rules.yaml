@@ -38,3 +38,34 @@ groups:
               expression: A
               conditions:
                 - evaluator: { type: lt, params: [1] }
+
+      # 최대 전달 횟수(기본 3번)를 넘겨 데드레터로 간 요청 (지표: devchat-ai StreamReclaimMetrics, AiReviewPelReclaimScheduler).
+      # 데드레터는 다시 처리하지 않으므로, 그 인덱싱·요약·리뷰는 사람이 보고 다시 요청해야 한다.
+      - uid: stream-dead-letter
+        title: Redis Stream 데드레터 발생
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          service: devchat-ai
+          severity: warning
+        annotations:
+          summary: '{{ $$labels.stream }}에서 15분 안에 데드레터가 생겼습니다.'
+          description: 여러 번 다시 처리해도 실패한 요청입니다. devchat-ai 로그에서 "데드레터로 보냄"을 찾고, API 서버의 stream_dead_letter 테이블에 남은 내용을 보세요. 절차는 docs/runbook/redis-stream-pending.md에 있습니다.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus-devchat
+            model:
+              refId: A
+              instant: true
+              expr: sum by (stream) (increase(devchat_stream_dead_letter_total{job="devchat-ai"}[15m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }

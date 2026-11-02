@@ -20,6 +20,7 @@ import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import project.ai.client.internal.AiReviewInternalApiClient;
+import project.ai.stream.reclaim.StreamReclaimMetrics;
 import project.common.message.aireview.AiReviewRequestMessage;
 
 /**
@@ -49,6 +50,7 @@ public class AiReviewPelReclaimScheduler {
     private final AiReviewResultProducer aiReviewResultProducer;
     private final AiReviewInternalApiClient aiReviewInternalApiClient;
     private final ObjectMapper objectMapper;
+    private final StreamReclaimMetrics metrics;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "ai-review-pel-reclaim");
@@ -94,6 +96,7 @@ public class AiReviewPelReclaimScheduler {
         if (claimed.isEmpty()) return; // 그사이 다른 쪽이 가져갔거나 ACK됨
 
         log.warn("멈춘 AI 리뷰 메시지 재처리 - recordId={}", id);
+        metrics.reclaimed(AiReviewRequestConsumer.STREAM_KEY);
         aiReviewRequestConsumer.handle(toObjectRecord(claimed.get(0)), true);
     }
 
@@ -106,6 +109,7 @@ public class AiReviewPelReclaimScheduler {
         aiReviewInternalApiClient.reportDeadLetter(AiReviewRequestConsumer.STREAM_KEY, id.getValue(), payload);
         publishGiveUp(payload);
         stringRedisTemplate.opsForStream().acknowledge(AiReviewRequestConsumer.STREAM_KEY, AiReviewRequestConsumer.GROUP_NAME, id);
+        metrics.deadLettered(AiReviewRequestConsumer.STREAM_KEY);
     }
 
     /** 포기한 파일도 "실패"로 끝내야, 그 PR의 리뷰 전체가 대기 상태에 머물지 않고 완료(또는 실패)로 끝난다. */

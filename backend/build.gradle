@@ -13,6 +13,10 @@ subprojects {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'
 
+    // Spring Boot 3.4.1이 고르는 Testcontainers 1.20.x는 Docker Engine 29(Docker Desktop 최신, GitHub runner)와
+    // API 버전이 맞지 않아 Docker를 찾지 못한다. 1.21.4부터 고쳐졌다. 모든 모듈이 같은 버전을 쓰게 여기서 정한다.
+    ext['testcontainers.version'] = '1.21.4'
+
     java {
         toolchain {
             languageVersion = JavaLanguageVersion.of(21)

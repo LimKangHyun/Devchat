@@ -28,7 +28,8 @@ public class GitSummaryResultProducer {
             stringRedisTemplate.opsForStream().add(record);
             log.info("Git 요약 결과 발행: roomId={}", roomId);
         } catch (Exception e) {
-            log.error("Git 요약 결과 발행 실패: roomId={}", roomId, e);
+            // 던져서 요청 메시지를 ACK하지 않는다. PEL에 남아 나중에 다시 처리된다
+            throw new IllegalStateException("Git 요약 결과 발행 실패: roomId=" + roomId, e);
         }
     }
 }
