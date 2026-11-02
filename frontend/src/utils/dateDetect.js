@@ -113,6 +113,7 @@ export const findDates = (text, base) => {
     let m;
     while ((m = rule.re.exec(text)) !== null) {
       if (rule.guard && !rule.guard(text, m)) continue;
+      if (text[m.index - 1] === '@') continue; // @닉네임 안의 글자는 날짜가 아니다
       const ymd = rule.resolve(m, base);
       if (!ymd) continue;
       let length = m[0].length;

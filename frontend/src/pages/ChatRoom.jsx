@@ -634,6 +634,7 @@ const ChatRoom = () => {
   useEffect(() => {
     if (!roomId || !initState.isRoomValidated) return;
     let cancelled = false;
+    setParticipants([]); // 방을 바꾸면 이전 방 참여자는 비운다
     axiosInstance.get(`/chat-rooms/${roomId}/participants`)
       .then((res) => { if (!cancelled) setParticipants(res.data || []); })
       .catch(() => { if (!cancelled) setParticipants([]); });
@@ -907,67 +908,67 @@ const ChatRoom = () => {
 
             {displayMessages.length > 0 && (
               <MentionParticipantsContext.Provider value={mentionHighlightable}>
-              <Virtuoso
-                key={roomId}
-                ref={virtuosoRef}
-                className="dc-scroll"
-                style={{ height: '100%' }}
-                firstItemIndex={firstItemIndex}
-                initialTopMostItemIndex={999999}
-                data={displayMessages}
-                followOutput={false}
-                atBottomStateChange={(isAtBottom) => {
-                  isAtBottomRef.current = isAtBottom;
-                  if (isAtBottom) {
-                    setShowScrollButton(false);
-                    setNewMessageCount(0);
-                  } else {
-                    setShowScrollButton(true);
-                  }
-                }}
-                startReached={handleStartReached}
-                overscan={300}
-                components={{
-                  Header: () =>
-                    isLoadingMessages && hasMoreMessages ? (
-                      <div className={s.listHeaderLoading}>메시지 불러오는 중...</div>
-                    ) : !hasMoreMessages && displayMessages.length > 0 ? (
-                      <div className={s.channelIntro}>
-                        <div className={s.channelIntroTitle}><span>{roomName}</span></div>
-                        <div className={s.channelIntroDesc}>
-                          이 방의 첫 메시지예요.
-                          {roomData?.repositoryUrl ? ' 연결된 레포의 PR 소식과 AI 리뷰도 여기에 올라와요.' : ''}
+                <Virtuoso
+                  key={roomId}
+                  ref={virtuosoRef}
+                  className="dc-scroll"
+                  style={{ height: '100%' }}
+                  firstItemIndex={firstItemIndex}
+                  initialTopMostItemIndex={999999}
+                  data={displayMessages}
+                  followOutput={false}
+                  atBottomStateChange={(isAtBottom) => {
+                    isAtBottomRef.current = isAtBottom;
+                    if (isAtBottom) {
+                      setShowScrollButton(false);
+                      setNewMessageCount(0);
+                    } else {
+                      setShowScrollButton(true);
+                    }
+                  }}
+                  startReached={handleStartReached}
+                  overscan={300}
+                  components={{
+                    Header: () =>
+                      isLoadingMessages && hasMoreMessages ? (
+                        <div className={s.listHeaderLoading}>메시지 불러오는 중...</div>
+                      ) : !hasMoreMessages && displayMessages.length > 0 ? (
+                        <div className={s.channelIntro}>
+                          <div className={s.channelIntroTitle}><span>{roomName}</span></div>
+                          <div className={s.channelIntroDesc}>
+                            이 방의 첫 메시지예요.
+                            {roomData?.repositoryUrl ? ' 연결된 레포의 PR 소식과 AI 리뷰도 여기에 올라와요.' : ''}
+                          </div>
                         </div>
-                      </div>
-                    ) : null,
-                  Footer: () => (
-                    <>
-                      <PendingMessages items={pendingHere} onRetry={outbox.retry} onDiscard={outbox.discard} />
-                      <div style={{ height: 12 }} />
-                    </>
-                  ),
-                }}
-                itemContent={(index, msg) => {
-                  const arrayIndex = index - firstItemIndex;
-                  const prevMsg = arrayIndex > 0 ? displayMessages[arrayIndex - 1] : null;
-                  const nextMsg = displayMessages[arrayIndex + 1] || null;
-                  const subMessages = subMessagesMap.get(msg.messageId) || [];
-                  return (
-                    <VirtuosoMessageItem
-                      msg={msg} prevMsg={prevMsg} nextMsg={nextMsg} currentUser={currentUser}
-                      contextMenuId={contextMenuId} setContextMenuId={setContextMenuId}
-                      setEditMessageId={setEditMessageId} setEditContent={setEditContent}
-                      handleDeleteMessage={handleDeleteMessage} editMessageId={editMessageId}
-                      editContent={editContent} handleEditMessage={handleEditMessage}
-                      onCodeClick={handleCodeClick}
-                      onRetryClick={handleRetryAiReview}
-                      subMessages={subMessages}
-                      onReply={handleReply}
-                      onJumpTo={handleJumpTo}
-                    />
-                  );
-                }}
-              />
+                      ) : null,
+                    Footer: () => (
+                      <>
+                        <PendingMessages items={pendingHere} onRetry={outbox.retry} onDiscard={outbox.discard} />
+                        <div style={{ height: 12 }} />
+                      </>
+                    ),
+                  }}
+                  itemContent={(index, msg) => {
+                    const arrayIndex = index - firstItemIndex;
+                    const prevMsg = arrayIndex > 0 ? displayMessages[arrayIndex - 1] : null;
+                    const nextMsg = displayMessages[arrayIndex + 1] || null;
+                    const subMessages = subMessagesMap.get(msg.messageId) || [];
+                    return (
+                      <VirtuosoMessageItem
+                        msg={msg} prevMsg={prevMsg} nextMsg={nextMsg} currentUser={currentUser}
+                        contextMenuId={contextMenuId} setContextMenuId={setContextMenuId}
+                        setEditMessageId={setEditMessageId} setEditContent={setEditContent}
+                        handleDeleteMessage={handleDeleteMessage} editMessageId={editMessageId}
+                        editContent={editContent} handleEditMessage={handleEditMessage}
+                        onCodeClick={handleCodeClick}
+                        onRetryClick={handleRetryAiReview}
+                        subMessages={subMessages}
+                        onReply={handleReply}
+                        onJumpTo={handleJumpTo}
+                      />
+                    );
+                  }}
+                />
               </MentionParticipantsContext.Provider>
             )}
           </div>
