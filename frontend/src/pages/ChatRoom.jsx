@@ -4,7 +4,7 @@ import { Virtuoso } from 'react-virtuoso';
 import SearchSidebar from '../components/SearchSideBar';
 import axiosInstance from '../components/api/axiosInstance';
 import MessageInput from '../components/chatroom/MessageInput';
-import { MessageItem, DateDivider } from '../components/chatroom/MessageList';
+import { MessageItem, DateDivider, MentionParticipantsContext } from '../components/chatroom/MessageList';
 import useWebSocket from '../components/common/useWebSocket';
 import RoomHeader from '../components/chatroom/RoomHeader';
 import RoomDeletedModal from '../components/modals/RoomDeletedModal';
@@ -644,6 +644,12 @@ const ChatRoom = () => {
     [participants, currentUser?.id]
   );
 
+  // 강조 대상: 봇만 뺀 참여자 (내가 받은 @내닉네임도 파랗게 보이도록 나도 포함)
+  const mentionHighlightable = useMemo(
+    () => participants.filter((p) => !BOT_NICKNAMES.has(p.nickname)),
+    [participants]
+  );
+
   const handleStartReached = useCallback(() => {
     if (!isLoadingRef.current && hasMoreMessages && cursor) fetchMessages(cursor, true);
   }, [fetchMessages, hasMoreMessages, cursor]);
@@ -900,6 +906,7 @@ const ChatRoom = () => {
             )}
 
             {displayMessages.length > 0 && (
+              <MentionParticipantsContext.Provider value={mentionHighlightable}>
               <Virtuoso
                 key={roomId}
                 ref={virtuosoRef}
@@ -961,6 +968,7 @@ const ChatRoom = () => {
                   );
                 }}
               />
+              </MentionParticipantsContext.Provider>
             )}
           </div>
 

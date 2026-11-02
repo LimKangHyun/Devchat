@@ -28,7 +28,7 @@ describe('messageSegments / firstDateInMessage', () => {
   const createdAt = '2026-10-28T12:00:00';
 
   it('URL·멘션·글로 나눈다', () => {
-    expect(messageSegments('@지수 https://a.b/c 내일 봐')).toEqual([
+    expect(messageSegments('@지수 https://a.b/c 내일 봐', [{ memberId: 1, nickname: '지수' }])).toEqual([
       { type: 'mention', text: '@지수' },
       { type: 'text', text: ' ' },
       { type: 'url', text: 'https://a.b/c' },
@@ -43,7 +43,7 @@ describe('messageSegments / firstDateInMessage', () => {
   });
 
   it('멘션 안의 날짜도 무시하고, 없으면 undefined', () => {
-    expect(firstDateInMessage('@내일 안녕', createdAt)).toBeUndefined();
+    expect(firstDateInMessage('@내일 안녕', createdAt, [{ memberId: 1, nickname: '내일' }])).toBeUndefined();
     expect(firstDateInMessage('', createdAt)).toBeUndefined();
   });
 });

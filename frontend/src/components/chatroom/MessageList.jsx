@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Highlight from 'react-highlight';
 import { UserPlus, Pencil, Trash2, GitPullRequest, Bot, ExternalLink, Maximize2, Reply, CalendarPlus } from 'lucide-react';
 import s from './Chat.module.css';
@@ -7,6 +7,9 @@ import { parseServerTime } from '../../utils/relativeTime';
 import { chatSchedulePrefill, firstDateInMessage, messageSegments } from '../../utils/chatSchedule';
 import { useScheduleModal } from '../schedule/ScheduleModalContext';
 import { chatImageSrc } from '../../utils/chatImageUrl';
+
+// 방에서 @멘션할 수 있는 참여자. 이 닉네임과 맞는 @만 파랗게 강조한다
+export const MentionParticipantsContext = createContext([]);
 
 /* ── 유틸리티 함수 ── */
 const formatDate = (dateString) => {
@@ -113,9 +116,9 @@ const renderDates = (text, base, onDate) => {
 
 // 링크와 @멘션을 표시한다.
 // onDate가 있으면 URL·멘션이 아닌 글에서 날짜를 찾아 칩으로 보여준다 (툴바 "일정 만들기"와 같은 기준)
-const renderWithLink = (text, createdAt, onDate) => {
+const renderWithLink = (text, createdAt, onDate, participants) => {
   const base = createdAt ? parseServerTime(createdAt) : new Date();
-  return messageSegments(text).map((seg, i) => {
+  return messageSegments(text, participants).map((seg, i) => {
     if (seg.type === 'url') {
       return (
         <a key={i} href={seg.text} target="_blank" rel="noopener noreferrer" className={s.link}>
@@ -164,6 +167,7 @@ const PrBadge = ({ number }) => (
 
 /* ── GIT 메시지 본문 ── */
 const GitMessageContent = ({ msg, subMessages }) => {
+  const participants = useContext(MentionParticipantsContext);
   const [expanded, setExpanded] = useState(false);
 
   const prNumber = msg.prNumber
@@ -206,7 +210,7 @@ const GitMessageContent = ({ msg, subMessages }) => {
         {bodyLines.length > 0 && (
           <div className={s.attachmentBody}>
             {bodyLines.map((line, i) => (
-              <div key={i}>{renderWithLink(line)}</div>
+              <div key={i}>{renderWithLink(line, undefined, undefined, participants)}</div>
             ))}
           </div>
         )}
@@ -327,6 +331,7 @@ export const MessageItem = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const { openCreate } = useScheduleModal();
+  const participants = useContext(MentionParticipantsContext);
 
   if (msg.type === 'EVENT') return <EventMessage msg={msg} />;
 
@@ -397,7 +402,7 @@ export const MessageItem = ({
 
     return (
       <div className={s.text}>
-        {renderWithLink(msg.content, msg.createdAt, (found) => openCreate(chatSchedulePrefill(msg.content, found)))}
+        {renderWithLink(msg.content, msg.createdAt, (found) => openCreate(chatSchedulePrefill(msg.content, found)), participants)}
         {msg.status === 'EDITED' && <span className={s.edited}>(편집됨)</span>}
       </div>
     );
@@ -405,7 +410,7 @@ export const MessageItem = ({
 
   const canSchedule = msg.type === 'TEXT' && !isDeleted && !!msg.content;
   const makeSchedule = () => {
-    openCreate(chatSchedulePrefill(msg.content, firstDateInMessage(msg.content, msg.createdAt)));
+    openCreate(chatSchedulePrefill(msg.content, firstDateInMessage(msg.content, msg.createdAt, participants)));
   };
 
   const showToolbar = (canReply || canSchedule || canEdit || canDelete) && !isEditing && (isHovered || isMenuOpen);
