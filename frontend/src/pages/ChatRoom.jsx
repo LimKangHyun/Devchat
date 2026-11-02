@@ -4,7 +4,7 @@ import { Virtuoso } from 'react-virtuoso';
 import SearchSidebar from '../components/SearchSideBar';
 import axiosInstance from '../components/api/axiosInstance';
 import MessageInput from '../components/chatroom/MessageInput';
-import { MessageItem, DateDivider } from '../components/chatroom/MessageList';
+import { MessageItem, DateDivider, MentionParticipantsContext } from '../components/chatroom/MessageList';
 import useWebSocket from '../components/common/useWebSocket';
 import RoomHeader from '../components/chatroom/RoomHeader';
 import RoomDeletedModal from '../components/modals/RoomDeletedModal';
@@ -634,6 +634,7 @@ const ChatRoom = () => {
   useEffect(() => {
     if (!roomId || !initState.isRoomValidated) return;
     let cancelled = false;
+    setParticipants([]); // 방을 바꾸면 이전 방 참여자는 비운다
     axiosInstance.get(`/chat-rooms/${roomId}/participants`)
       .then((res) => { if (!cancelled) setParticipants(res.data || []); })
       .catch(() => { if (!cancelled) setParticipants([]); });
@@ -642,6 +643,12 @@ const ChatRoom = () => {
   const mentionCandidates = useMemo(
     () => participants.filter((p) => p.memberId !== currentUser?.id && !BOT_NICKNAMES.has(p.nickname)),
     [participants, currentUser?.id]
+  );
+
+  // 강조 대상: 봇만 뺀 참여자 (내가 받은 @내닉네임도 파랗게 보이도록 나도 포함)
+  const mentionHighlightable = useMemo(
+    () => participants.filter((p) => !BOT_NICKNAMES.has(p.nickname)),
+    [participants]
   );
 
   const handleStartReached = useCallback(() => {
@@ -900,67 +907,69 @@ const ChatRoom = () => {
             )}
 
             {displayMessages.length > 0 && (
-              <Virtuoso
-                key={roomId}
-                ref={virtuosoRef}
-                className="dc-scroll"
-                style={{ height: '100%' }}
-                firstItemIndex={firstItemIndex}
-                initialTopMostItemIndex={999999}
-                data={displayMessages}
-                followOutput={false}
-                atBottomStateChange={(isAtBottom) => {
-                  isAtBottomRef.current = isAtBottom;
-                  if (isAtBottom) {
-                    setShowScrollButton(false);
-                    setNewMessageCount(0);
-                  } else {
-                    setShowScrollButton(true);
-                  }
-                }}
-                startReached={handleStartReached}
-                overscan={300}
-                components={{
-                  Header: () =>
-                    isLoadingMessages && hasMoreMessages ? (
-                      <div className={s.listHeaderLoading}>메시지 불러오는 중...</div>
-                    ) : !hasMoreMessages && displayMessages.length > 0 ? (
-                      <div className={s.channelIntro}>
-                        <div className={s.channelIntroTitle}><span>{roomName}</span></div>
-                        <div className={s.channelIntroDesc}>
-                          이 방의 첫 메시지예요.
-                          {roomData?.repositoryUrl ? ' 연결된 레포의 PR 소식과 AI 리뷰도 여기에 올라와요.' : ''}
+              <MentionParticipantsContext.Provider value={mentionHighlightable}>
+                <Virtuoso
+                  key={roomId}
+                  ref={virtuosoRef}
+                  className="dc-scroll"
+                  style={{ height: '100%' }}
+                  firstItemIndex={firstItemIndex}
+                  initialTopMostItemIndex={999999}
+                  data={displayMessages}
+                  followOutput={false}
+                  atBottomStateChange={(isAtBottom) => {
+                    isAtBottomRef.current = isAtBottom;
+                    if (isAtBottom) {
+                      setShowScrollButton(false);
+                      setNewMessageCount(0);
+                    } else {
+                      setShowScrollButton(true);
+                    }
+                  }}
+                  startReached={handleStartReached}
+                  overscan={300}
+                  components={{
+                    Header: () =>
+                      isLoadingMessages && hasMoreMessages ? (
+                        <div className={s.listHeaderLoading}>메시지 불러오는 중...</div>
+                      ) : !hasMoreMessages && displayMessages.length > 0 ? (
+                        <div className={s.channelIntro}>
+                          <div className={s.channelIntroTitle}><span>{roomName}</span></div>
+                          <div className={s.channelIntroDesc}>
+                            이 방의 첫 메시지예요.
+                            {roomData?.repositoryUrl ? ' 연결된 레포의 PR 소식과 AI 리뷰도 여기에 올라와요.' : ''}
+                          </div>
                         </div>
-                      </div>
-                    ) : null,
-                  Footer: () => (
-                    <>
-                      <PendingMessages items={pendingHere} onRetry={outbox.retry} onDiscard={outbox.discard} />
-                      <div style={{ height: 12 }} />
-                    </>
-                  ),
-                }}
-                itemContent={(index, msg) => {
-                  const arrayIndex = index - firstItemIndex;
-                  const prevMsg = arrayIndex > 0 ? displayMessages[arrayIndex - 1] : null;
-                  const nextMsg = displayMessages[arrayIndex + 1] || null;
-                  const subMessages = subMessagesMap.get(msg.messageId) || [];
-                  return (
-                    <VirtuosoMessageItem
-                      msg={msg} prevMsg={prevMsg} nextMsg={nextMsg} currentUser={currentUser}
-                      contextMenuId={contextMenuId} setContextMenuId={setContextMenuId}
-                      setEditMessageId={setEditMessageId} setEditContent={setEditContent}
-                      handleDeleteMessage={handleDeleteMessage} editMessageId={editMessageId}
-                      editContent={editContent} handleEditMessage={handleEditMessage}
-                      onCodeClick={handleCodeClick}
-                      onRetryClick={handleRetryAiReview}
-                      subMessages={subMessages}
-                      onReply={handleReply}
-                      onJumpTo={handleJumpTo}
-                    />
-                  );
-                }}
-              />
+                      ) : null,
+                    Footer: () => (
+                      <>
+                        <PendingMessages items={pendingHere} onRetry={outbox.retry} onDiscard={outbox.discard} />
+                        <div style={{ height: 12 }} />
+                      </>
+                    ),
+                  }}
+                  itemContent={(index, msg) => {
+                    const arrayIndex = index - firstItemIndex;
+                    const prevMsg = arrayIndex > 0 ? displayMessages[arrayIndex - 1] : null;
+                    const nextMsg = displayMessages[arrayIndex + 1] || null;
+                    const subMessages = subMessagesMap.get(msg.messageId) || [];
+                    return (
+                      <VirtuosoMessageItem
+                        msg={msg} prevMsg={prevMsg} nextMsg={nextMsg} currentUser={currentUser}
+                        contextMenuId={contextMenuId} setContextMenuId={setContextMenuId}
+                        setEditMessageId={setEditMessageId} setEditContent={setEditContent}
+                        handleDeleteMessage={handleDeleteMessage} editMessageId={editMessageId}
+                        editContent={editContent} handleEditMessage={handleEditMessage}
+                        onCodeClick={handleCodeClick}
+                        onRetryClick={handleRetryAiReview}
+                        subMessages={subMessages}
+                        onReply={handleReply}
+                        onJumpTo={handleJumpTo}
+                      />
+                    );
+                  }}
+                />
+              </MentionParticipantsContext.Provider>
             )}
           </div>
 

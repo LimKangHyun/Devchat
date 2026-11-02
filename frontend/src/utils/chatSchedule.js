@@ -21,22 +21,22 @@ export const chatSchedulePrefill = (content, found, now = new Date()) => {
 };
 
 // 메시지를 URL·멘션·글 조각으로 나눈다. [{ type: 'url' | 'mention' | 'text', text }]
-export const messageSegments = (content) => {
+export const messageSegments = (content, participants) => {
   const out = [];
-  String(content || '').split(URL_SPLIT).forEach((part, i) => {
+  String(content || '').split(URL_SPLIT).forEach((part, i, arr) => {
     if (i % 2 === 1) {
       out.push({ type: 'url', text: part });
       return;
     }
-    splitMentions(part).forEach((p) => out.push({ type: p.mention ? 'mention' : 'text', text: p.text }));
+    splitMentions(part, participants, i + 1 < arr.length).forEach((p) => out.push({ type: p.mention ? 'mention' : 'text', text: p.text }));
   });
   return out.filter((seg) => seg.text);
 };
 
 // URL·멘션이 아닌 글에서 처음 나오는 날짜 (날짜 칩과 같은 기준). 없으면 undefined
-export const firstDateInMessage = (content, createdAt) => {
+export const firstDateInMessage = (content, createdAt, participants) => {
   const base = createdAt ? parseServerTime(createdAt) : new Date();
-  for (const seg of messageSegments(content)) {
+  for (const seg of messageSegments(content, participants)) {
     if (seg.type !== 'text') continue;
     const [found] = findDates(seg.text, base);
     if (found) return found;
