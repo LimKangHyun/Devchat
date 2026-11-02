@@ -5,8 +5,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 import project.ai.indexing.SparseEncoder.SparseVector;
 import project.ai.rag.SearchHit;
 
@@ -15,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -42,6 +47,31 @@ public class QdrantClient {
 
     private static final int SCROLL_PAGE_SIZE = 256;
 
+    /** 로그에 남기는 Qdrant 응답 본문 최대 길이. */
+    private static final int MAX_LOGGED_BODY = 1024;
+
+    private static final String LEGACY_SCHEMA_HINT = "Qdrant 컬렉션이 예전 스키마(이름 없는 벡터)라 저장할 수 없습니다. "
+            + "QDRANT_COLLECTION을 새 이름(예: devchat_hybrid)으로 바꿔 AI 서버를 다시 띄우고 전체 재인덱싱하세요. collection={}";
+
+    /** 컬렉션 스키마 상태. */
+    public enum SchemaStatus { HYBRID, LEGACY, MISSING, UNKNOWN }
+
+    /** Qdrant가 4xx/5xx로 거절한 요청. 본문은 Qdrant가 밝힌 거절 이유다. */
+    public static class QdrantApiException extends RuntimeException {
+        private final int status;
+        private final String body;
+
+        QdrantApiException(String operation, String collection, int status, String body) {
+            super("Qdrant " + operation + " 실패. status=" + status + ", collection=" + collection + ", body=" + body);
+            this.status = status;
+            this.body = body;
+        }
+
+        public int getStatus() { return status; }
+
+        public String getBody() { return body; }
+    }
+
     private final WebClient.Builder webClientBuilder;
     private WebClient webClient;
 
@@ -51,7 +81,7 @@ public class QdrantClient {
     @Value("${qdrant.api-key}")
     private String apiKey;
 
-    @Value("${qdrant.collection:devchat}")
+    @Value("${qdrant.collection:devchat_hybrid}")
     private String collection;
 
     /**
@@ -124,12 +154,21 @@ public class QdrantClient {
                 .map(p -> Map.<String, Object>of("id", p.id(), "vector", vectors(p), "payload", p.payload()))
                 .toList();
 
-        withLimit(() -> webClient.put()
-                .uri("/collections/{c}/points?wait=true", collection)
-                .bodyValue(Map.of("points", body))
-                .retrieve()
-                .toBodilessEntity()
-                .block(writeTimeout));
+        try {
+            withLimit(() -> webClient.put()
+                    .uri("/collections/{c}/points?wait=true", collection)
+                    .bodyValue(Map.of("points", body))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, failure("upsert"))
+                    .toBodilessEntity()
+                    .block(writeTimeout));
+        } catch (QdrantApiException e) {
+            // 이름 있는 벡터(dense/bm25)를 이름 없는 단일 벡터 컬렉션에 넣으면 400 "Not existing vector name"이 난다.
+            if (e.getStatus() == 400 && e.getBody().toLowerCase().contains("vector name")) {
+                log.error(LEGACY_SCHEMA_HINT, collection);
+            }
+            throw e;
+        }
         log.debug("Qdrant upsert. count={}", points.size());
     }
 
@@ -190,6 +229,7 @@ public class QdrantClient {
                 .uri("/collections/{c}/points/query", collection)
                 .bodyValue(body)
                 .retrieve()
+                .onStatus(HttpStatusCode::isError, failure("query"))
                 .bodyToMono(QueryResponse.class)
                 .block(searchTimeout));
 
@@ -222,6 +262,7 @@ public class QdrantClient {
                     .uri("/collections/{c}/points/scroll", collection)
                     .bodyValue(body)
                     .retrieve()
+                    .onStatus(HttpStatusCode::isError, failure("scroll"))
                     .bodyToMono(ScrollResponse.class)
                     .block(writeTimeout));
 
@@ -255,6 +296,7 @@ public class QdrantClient {
                 .uri("/collections/{c}/points/delete?wait=true", collection)
                 .bodyValue(body)
                 .retrieve()
+                .onStatus(HttpStatusCode::isError, failure("delete"))
                 .toBodilessEntity()
                 .block(writeTimeout));
     }
@@ -265,6 +307,7 @@ public class QdrantClient {
         ExistsResponse exists = webClient.get()
                 .uri("/collections/{c}/exists", collection)
                 .retrieve()
+                .onStatus(HttpStatusCode::isError, failure("exists"))
                 .bodyToMono(ExistsResponse.class)
                 .block(writeTimeout);
 
@@ -276,6 +319,7 @@ public class QdrantClient {
                             "vectors", Map.of(DENSE_VECTOR, Map.of("size", VECTOR_SIZE, "distance", "Cosine")),
                             "sparse_vectors", Map.of(SPARSE_VECTOR, Map.of("modifier", "idf"))))
                     .retrieve()
+                    .onStatus(HttpStatusCode::isError, failure("createCollection"))
                     .toBodilessEntity()
                     .block(writeTimeout);
             log.info("Qdrant 컬렉션 생성. collection={}, size={}", collection, VECTOR_SIZE);
@@ -299,17 +343,50 @@ public class QdrantClient {
      * 컬렉션을 자동으로 지우면 데이터가 날아가므로, 새 컬렉션 이름으로 전체 재인덱싱하라고 알리기만 한다.
      */
     private void warnIfLegacySchema() {
-        CollectionInfoResponse info = webClient.get()
-                .uri("/collections/{c}", collection)
-                .retrieve()
-                .bodyToMono(CollectionInfoResponse.class)
-                .block(writeTimeout);
-        Object vectors = info == null || info.result() == null ? null
-                : info.result().config().params().vectors();
-        if (!(vectors instanceof Map<?, ?> named) || !named.containsKey(DENSE_VECTOR)) {
-            log.error("Qdrant 컬렉션이 예전 스키마(이름 없는 벡터)입니다. dense/bm25 하이브리드 스키마로 "
-                    + "새 컬렉션을 만들어 전체 재인덱싱해야 합니다. collection={}", collection);
+        if (inspectSchema() == SchemaStatus.LEGACY) {
+            log.error(LEGACY_SCHEMA_HINT, collection);
         }
+    }
+
+    /** 컬렉션의 현재 스키마를 Qdrant에 물어본다. 연결 실패 등은 예외 없이 UNKNOWN. */
+    public SchemaStatus inspectSchema() {
+        try {
+            CollectionInfoResponse info = webClient.get()
+                    .uri("/collections/{c}", collection)
+                    .retrieve()
+                    .bodyToMono(CollectionInfoResponse.class)
+                    .block(searchTimeout);
+            if (info == null || info.result() == null || info.result().config() == null
+                    || info.result().config().params() == null) {
+                return SchemaStatus.UNKNOWN;
+            }
+            Object vectors = info.result().config().params().vectors();
+            return vectors instanceof Map<?, ?> named && named.containsKey(DENSE_VECTOR)
+                    ? SchemaStatus.HYBRID : SchemaStatus.LEGACY;
+        } catch (WebClientResponseException.NotFound e) {
+            return SchemaStatus.MISSING;
+        } catch (Exception e) {
+            log.warn("Qdrant 컬렉션 스키마 확인 실패. collection={}, reason={}", collection, e.toString());
+            return SchemaStatus.UNKNOWN;
+        }
+    }
+
+    public String collectionName() {
+        return collection;
+    }
+
+    /**
+     * Qdrant의 4xx/5xx 응답을 거절 이유(본문)와 함께 ERROR로 남기고 예외로 바꾼다.
+     * 벡터·payload는 요청 쪽에만 있어 로그에 나오지 않는다.
+     */
+    private Function<ClientResponse, Mono<? extends Throwable>> failure(String operation) {
+        return response -> response.bodyToMono(String.class).defaultIfEmpty("").map(raw -> {
+            String body = raw.length() > MAX_LOGGED_BODY ? raw.substring(0, MAX_LOGGED_BODY) + "...(생략)" : raw;
+            int status = response.statusCode().value();
+            log.error("Qdrant 요청 거절. operation={}, collection={}, status={}, body={}",
+                    operation, collection, status, body);
+            return new QdrantApiException(operation, collection, status, body);
+        });
     }
 
     private void createIndex(String field, Object schema) {
@@ -317,6 +394,7 @@ public class QdrantClient {
                 .uri("/collections/{c}/index?wait=true", collection)
                 .bodyValue(Map.of("field_name", field, "field_schema", schema))
                 .retrieve()
+                .onStatus(HttpStatusCode::isError, failure("createIndex"))
                 .toBodilessEntity()
                 .block(writeTimeout);
     }

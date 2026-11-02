@@ -1,0 +1,39 @@
+# Qdrant 컬렉션 스키마 알림 규칙 (지표: devchat-ai QdrantHealthIndicator).
+# 이름 없는 벡터로 만든 예전 컬렉션은 서버가 떠 있고 로그도 시작할 때 한 줄뿐이라, 인덱싱 요청이 오기 전까지 드러나지 않는다(2026-11 장애).
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: devchat-ai-qdrant
+    folder: DevChat
+    interval: 1m
+    rules:
+      - uid: qdrant-schema-legacy
+        title: Qdrant 컬렉션이 예전 스키마
+        condition: C
+        for: 5m
+        # 지표가 아예 없으면(AI 서버 다운) devchat-ai-down 규칙이 알린다
+        noDataState: OK
+        execErrState: Error
+        labels:
+          service: devchat-ai
+          severity: critical
+        annotations:
+          summary: Qdrant 컬렉션이 dense/bm25 하이브리드 스키마가 아닙니다.
+          description: 인덱싱이 마지막 저장 단계에서 400으로 실패합니다. QDRANT_COLLECTION을 새 이름으로 바꾸고 전체 재인덱싱하세요. docs/runbook/qdrant-collection-schema.md를 보세요.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus-devchat
+            model:
+              refId: A
+              instant: true
+              expr: min(devchat_qdrant_schema_ok{job="devchat-ai"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }

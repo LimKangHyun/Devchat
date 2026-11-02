@@ -15,6 +15,8 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.micrometer:micrometer-registry-prometheus'
+    // Qdrant REST 응답(스키마 조회, 400 거절)을 흉내 내는 서버
+    testImplementation 'org.wiremock:wiremock-standalone:3.9.2'
     // Redis가 잠깐 멈췄다 돌아와도 스트림 구독이 이어지는지 실제 Redis로 확인한다 (Docker가 없으면 건너뜀)
     testImplementation 'org.testcontainers:testcontainers'
     testImplementation 'org.testcontainers:junit-jupiter'

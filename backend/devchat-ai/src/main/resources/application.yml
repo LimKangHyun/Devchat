@@ -21,7 +21,7 @@ gemini:
 qdrant:
   url: ${QDRANT_URL}
   api-key: ${QDRANT_API_KEY}
-  collection: devchat
+  collection: devchat_hybrid
 
 cohere:
   api-key: ${COHERE_API_KEY}
@@ -47,6 +47,11 @@ management:
       group:
         streams:
           include: redisStreamSubscriptions
+          show-details: always
+        # /actuator/health/qdrant: 컬렉션 스키마(hybrid|legacy|missing|unknown). 예전 스키마면 DOWN(503)이고 지표 devchat_qdrant_schema_ok가 0이 된다.
+        # 루트 /actuator/health에도 합쳐지는데, deploy.sh의 헬스체크는 devchat-backend 컨테이너만 보고 AI 서버는 보지 않아 배포를 막지 않는다.
+        qdrant:
+          include: qdrant
           show-details: always
   metrics:
     tags:

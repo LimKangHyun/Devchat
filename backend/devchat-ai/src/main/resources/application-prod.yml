@@ -34,7 +34,7 @@ gemini:
 qdrant:
   url: ${QDRANT_URL}
   api-key: ${QDRANT_API_KEY}
-  collection: devchat
+  collection: devchat_hybrid
 
 cohere:
   api-key: ${COHERE_API_KEY}
