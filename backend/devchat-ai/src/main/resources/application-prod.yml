@@ -6,7 +6,8 @@ spring:
     redis:
       host: redis-stream
       port: 6379
-      timeout: 500ms
+      # 스트림 폴링(XREADGROUP BLOCK 2초)보다 확실히 길어야 한다. 짧으면 폴링마다 시간 초과가 나고 메시지를 잃는다(StreamPollTimeout)
+      timeout: 5s
       connect-timeout: 500ms
       lettuce:
         shutdown-timeout: 500ms
